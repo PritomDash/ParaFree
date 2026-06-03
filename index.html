@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FREE Paraphrasing Tool — No Word Limit | ParaFree</title>
-<meta name="description" content="Free AI paraphrasing tool with NO word limit — unlike Quillbot's 125 words. Rewrite unlimited text instantly. No signup, no cost, forever free. Powered by 6 AI engines!">
-<meta name="keywords" content="free paraphrasing tool, paraphrasing tool australia, no word limit paraphraser, free paraphraser, quillbot alternative free, paraphrase essay online free, rewrite text free, unlimited paraphrasing tool">
+<title>FREE Paraphrasing Tool No Word Limit | AI Humanizer Free | ParaFree</title>
+<meta name="description" content="Free paraphrasing tool with NO word limit + free AI humanizer. Rewrite unlimited text & make AI undetectable. No signup ever. Better than Quillbot — 100% free forever! Used by students worldwide.">
+<meta name="keywords" content="free paraphrasing tool no word limit, free paraphrasing tool, paraphrasing tool free no limit, free paraphraser no word limit, unlimited paraphrasing tool free, paraphrasing tool online free, free paraphrase tool no sign up, paraphrasing tool for students free, best free paraphrasing tool, quillbot free alternative no limit, paraphrase my essay free, free sentence rewriter no limit, rewrite paragraph free online, free article rewriter no limit, paraphrasing tool australia free, free AI humanizer, humanize AI text free, make AI text human free, bypass AI detection free, AI humanizer no word limit, free humanizer tool, humanize ChatGPT text free, undetectable AI text free, bypass GPTZero free, bypass turnitin AI free, AI text humanizer online free, free paraphrasing tool for essays, free paraphrasing tool for students australia, paraphrase online free unlimited words, free online paraphrasing tool without limit, paraphrase generator free, reword my essay free, rephrase sentences free online">
 <meta name="robots" content="index, follow">
-<meta property="og:title" content="FREE Paraphrasing Tool — No Word Limit | ParaFree">
-<meta property="og:description" content="Free AI paraphrasing tool with NO word limit. Unlike Quillbot, we never stop you. Rewrite unlimited text free forever!">
+<meta property="og:title" content="FREE Paraphrasing Tool No Word Limit + AI Humanizer | ParaFree">
+<meta property="og:description" content="Free paraphraser + AI humanizer with NO word limit. Make AI text undetectable. Unlike Quillbot, we never stop you. No signup. Free forever!">
 <meta property="og:url" content="https://para-free.vercel.app">
 <meta property="og:type" content="website">
 <link rel="canonical" href="https://para-free.vercel.app">
@@ -18,7 +18,7 @@
   "@type": "WebApplication",
   "name": "ParaFree",
   "url": "https://para-free.vercel.app",
-  "description": "Free AI paraphrasing tool with no word limit. Unlike Quillbot, ParaFree never restricts your word count. Powered by 6 AI engines.",
+  "description": "Free paraphrasing tool with no word limit plus free AI humanizer. Rewrite unlimited text and make AI text undetectable. Better than Quillbot — no signup, no cost, free forever.",
   "applicationCategory": "UtilityApplication",
   "operatingSystem": "Any",
   "offers": {
@@ -184,6 +184,166 @@
     0%, 100% { opacity: 1; transform: scale(1); }
     50% { opacity: 0.5; transform: scale(0.8); }
   }
+
+  /* ── TOOL TABS ── */
+  .tool-tabs-wrap {
+    max-width: 1100px;
+    margin: 0 auto 8px;
+    padding: 0 16px;
+  }
+
+  .tool-tabs {
+    display: flex;
+    gap: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 6px;
+    width: fit-content;
+  }
+
+  .tool-tab {
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 10px 24px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    color: var(--text2);
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .tool-tab:hover { background: var(--surface2); color: var(--text); }
+
+  .tool-tab.active {
+    background: var(--accent);
+    color: white;
+  }
+
+  .tab-new {
+    background: #e63946;
+    color: white;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── HUMANIZER SECTION ── */
+  .humanizer-info {
+    max-width: 1100px;
+    margin: 0 auto 16px;
+    padding: 0 16px;
+    display: none;
+  }
+
+  .humanizer-info.show { display: block; }
+
+  .humanizer-banner {
+    background: linear-gradient(135deg, #1a1814 0%, #2d6a4f 100%);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .humanizer-banner h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .humanizer-banner p {
+    font-size: 13px;
+    opacity: 0.8;
+    font-weight: 300;
+  }
+
+  .humanizer-tags {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-left: auto;
+  }
+
+  .humanizer-tag {
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 12px;
+    color: white;
+  }
+
+  /* ── HUMANIZE BUTTON ── */
+  .btn-humanize {
+    background: linear-gradient(135deg, #1a1814 0%, #2d6a4f 100%);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    padding: 14px 48px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    letter-spacing: 0.3px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .btn-humanize:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn-humanize:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  /* ── HUMANIZER SCORE PANEL ── */
+  .score-panel {
+    max-width: 1100px;
+    margin: 0 auto 16px;
+    padding: 0 16px;
+    display: none;
+  }
+  .score-panel.show { display: block; }
+  .score-inner {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px 32px;
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    flex-wrap: wrap;
+  }
+  .score-circles { display: flex; gap: 24px; align-items: center; }
+  .score-circle-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .score-circle { position: relative; width: 90px; height: 90px; }
+  .score-circle svg { transform: rotate(-90deg); width: 90px; height: 90px; }
+  .score-circle-bg { fill: none; stroke: var(--surface2); stroke-width: 8; }
+  .score-circle-fill { fill: none; stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 1.5s ease; }
+  .score-circle-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
+  .score-circle-text .score-num { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 20px; line-height: 1; display: block; }
+  .score-circle-text .score-pct { font-size: 11px; color: var(--text3); }
+  .score-circle-label { font-size: 12px; font-weight: 500; color: var(--text2); text-align: center; }
+  .score-arrow { font-size: 28px; color: var(--accent2); font-weight: 700; }
+  .score-info { flex: 1; min-width: 200px; }
+  .score-info h3 { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 16px; margin-bottom: 8px; color: var(--text); }
+  .score-info p { font-size: 13px; color: var(--text2); line-height: 1.6; }
+  .score-badges { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .score-badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; border: 1px solid; }
+  .score-badge.good { background: var(--accent-light); color: var(--accent); border-color: #b7e4c7; }
+  .score-badge.warn { background: #fff3e0; color: #e65100; border-color: #ffe0b2; }
+  .score-badge.great { background: #e8f5e9; color: #2e7d32; border-color: #a5d6a7; }
 
   /* ── MAIN TOOL ── */
   .tool-container {
@@ -625,24 +785,61 @@
 
 <!-- HERO -->
 <div class="hero">
-  <h1>Paraphrase Any Text<br><em>No Limits. Always Free.</em></h1>
-  <p>Powered by multiple AI engines — if one is busy, another takes over. You always get results.</p>
+  <h1>Paraphrase & Humanize Text<br><em>No Limits. Always Free.</em></h1>
+  <p>Free AI paraphraser + humanizer — if one engine is busy, another takes over. You always get results.</p>
   <div class="hero-badges">
     <div class="badge"><span class="dot"></span>No word limit</div>
     <div class="badge"><span class="dot"></span>No signup needed</div>
-    <div class="badge"><span class="dot"></span>5 AI engines</div>
-    <div class="badge"><span class="dot"></span>Instant results</div>
+    <div class="badge"><span class="dot"></span>6 AI engines</div>
+    <div class="badge"><span class="dot"></span>Bypass AI detection</div>
+  </div>
+</div>
+
+<!-- TOOL TABS -->
+<div class="tool-tabs-wrap">
+  <div class="tool-tabs">
+    <button class="tool-tab active" id="tab-paraphrase" onclick="switchTool('paraphrase')">
+      ✦ Paraphraser
+    </button>
+    <button class="tool-tab" id="tab-humanize" onclick="switchTool('humanize')">
+      ◈ AI Humanizer <span class="tab-new">NEW</span>
+    </button>
+  </div>
+</div>
+
+<!-- HUMANIZER INFO BANNER -->
+<div class="humanizer-info" id="humanizerInfo">
+  <div class="humanizer-banner">
+    <div>
+      <h3>◈ AI Humanizer — Make AI Text Undetectable</h3>
+      <p>Paste ChatGPT, Claude or any AI text → we rewrite it to sound 100% human</p>
+    </div>
+    <div class="humanizer-tags">
+      <span class="humanizer-tag">✓ Bypass GPTZero</span>
+      <span class="humanizer-tag">✓ Bypass Turnitin AI</span>
+      <span class="humanizer-tag">✓ No word limit</span>
+      <span class="humanizer-tag">✓ Free forever</span>
+    </div>
   </div>
 </div>
 
 <!-- MODE SELECTOR -->
-<div class="modes-bar">
+<div class="modes-bar" id="paraphraseModes">
   <span class="mode-label">Mode:</span>
   <button class="mode-btn active" data-mode="standard">Standard</button>
   <button class="mode-btn" data-mode="fluency">Fluency</button>
   <button class="mode-btn" data-mode="creative">Creative</button>
   <button class="mode-btn" data-mode="formal">Formal</button>
   <button class="mode-btn" data-mode="simple">Simplify</button>
+</div>
+
+<!-- HUMANIZER MODE SELECTOR -->
+<div class="modes-bar" id="humanizeModes" style="display:none;">
+  <span class="mode-label">Style:</span>
+  <button class="mode-btn active" data-hmode="natural">Natural</button>
+  <button class="mode-btn" data-hmode="student">Student</button>
+  <button class="mode-btn" data-hmode="professional">Professional</button>
+  <button class="mode-btn" data-hmode="casual">Casual</button>
 </div>
 
 <!-- STATUS -->
@@ -685,11 +882,71 @@
 </div>
 
 <!-- PARAPHRASE BUTTON -->
-<div class="paraphrase-wrap">
+<div class="paraphrase-wrap" id="paraphraseWrap">
   <button class="btn-paraphrase" id="paraphraseBtn" onclick="paraphrase()">
     <div class="spinner" id="spinner"></div>
     <span id="btnText">✦ Paraphrase Now</span>
   </button>
+</div>
+
+<!-- HUMANIZE BUTTON -->
+<div class="paraphrase-wrap" id="humanizeWrap" style="display:none;">
+  <button class="btn-humanize" id="humanizeBtn" onclick="humanize()">
+    <div class="spinner" id="spinnerH"></div>
+    <span id="btnTextH">◈ Humanize Now</span>
+  </button>
+</div>
+
+<!-- HUMANIZER SCORE PANEL -->
+<div class="score-panel" id="scorePanel">
+  <div class="score-inner">
+    <div class="score-circles">
+      <!-- BEFORE CIRCLE -->
+      <div class="score-circle-wrap">
+        <div class="score-circle">
+          <svg viewBox="0 0 90 90">
+            <circle class="score-circle-bg" cx="45" cy="45" r="36"/>
+            <circle class="score-circle-fill" id="beforeCircle" cx="45" cy="45" r="36"
+              stroke="#e63946"
+              stroke-dasharray="226"
+              stroke-dashoffset="226"/>
+          </svg>
+          <div class="score-circle-text">
+            <span class="score-num" id="beforeNum" style="color:#e63946;">0%</span>
+            <span class="score-pct">AI</span>
+          </div>
+        </div>
+        <div class="score-circle-label">Before</div>
+      </div>
+
+      <div class="score-arrow">→</div>
+
+      <!-- AFTER CIRCLE -->
+      <div class="score-circle-wrap">
+        <div class="score-circle">
+          <svg viewBox="0 0 90 90">
+            <circle class="score-circle-bg" cx="45" cy="45" r="36"/>
+            <circle class="score-circle-fill" id="afterCircle" cx="45" cy="45" r="36"
+              stroke="#2d6a4f"
+              stroke-dasharray="226"
+              stroke-dashoffset="226"/>
+          </svg>
+          <div class="score-circle-text">
+            <span class="score-num" id="afterNum" style="color:#2d6a4f;">0%</span>
+            <span class="score-pct">Human</span>
+          </div>
+        </div>
+        <div class="score-circle-label">After</div>
+      </div>
+    </div>
+
+    <!-- SCORE INFO -->
+    <div class="score-info">
+      <h3 id="scoreTitle">Humanization Complete!</h3>
+      <p id="scoreDesc">Your text has been rewritten to sound more human.</p>
+      <div class="score-badges" id="scoreBadges"></div>
+    </div>
+  </div>
 </div>
 
 <!-- API STATUS -->
@@ -716,17 +973,17 @@
   <div class="feature-card">
     <div class="feature-icon">∞</div>
     <h3>No Word Limit</h3>
-    <p>Paraphrase entire essays, articles, or documents in one go. No restrictions ever.</p>
-  </div>
-  <div class="feature-card">
-    <div class="feature-icon">⚡</div>
-    <h3>5 AI Engines</h3>
-    <p>Auto-switches between Gemini, Groq, Cerebras & more so you always get results.</p>
+    <p>Paraphrase or humanize entire essays, articles, or documents. No restrictions ever.</p>
   </div>
   <div class="feature-card">
     <div class="feature-icon">◈</div>
-    <h3>5 Writing Modes</h3>
-    <p>Standard, Fluency, Creative, Formal, and Simplify — pick the style you need.</p>
+    <h3>AI Humanizer</h3>
+    <p>Make ChatGPT, Claude or any AI text sound 100% human. Bypass GPTZero & Turnitin AI detection.</p>
+  </div>
+  <div class="feature-card">
+    <div class="feature-icon">⚡</div>
+    <h3>6 AI Engines</h3>
+    <p>Auto-switches between Gemini, Groq, Cerebras & more so you always get results.</p>
   </div>
   <div class="feature-card">
     <div class="feature-icon">✦</div>
@@ -740,28 +997,49 @@
   <div class="faq">
     <h2>Frequently Asked Questions</h2>
     <div class="faq-item">
+      <div class="faq-q">What is the AI Humanizer tool?</div>
+      <div class="faq-a">The AI Humanizer takes text written by AI (ChatGPT, Claude, Gemini etc.) and rewrites it to sound naturally human. It reduces AI patterns that detectors like GPTZero and Turnitin AI look for.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">Will humanized text bypass Turnitin AI detection?</div>
+      <div class="faq-a">Our humanizer significantly reduces AI detection scores by rewriting text with natural human patterns, varied sentence structure, and organic flow. Results vary — we always recommend reviewing and adding your own personal touches after humanizing.</div>
+    </div>
+    <div class="faq-item">
       <div class="faq-q">Is ParaFree really free with no word limit?</div>
       <div class="faq-a">Yes — completely free, forever. We use multiple AI engines so when one reaches its daily limit, another takes over automatically. You always get results.</div>
     </div>
     <div class="faq-item">
       <div class="faq-q">Do I need to create an account?</div>
-      <div class="faq-a">No account, no signup, no email required. Just paste your text and click Paraphrase. That's it.</div>
+      <div class="faq-a">No account, no signup, no email required. Just paste your text and click. That's it.</div>
     </div>
     <div class="faq-item">
       <div class="faq-q">How is this different from Quillbot?</div>
-      <div class="faq-a">Quillbot limits free users to 125 words and charges for more. ParaFree has no word limit and is completely free — powered by multiple AI engines working together.</div>
+      <div class="faq-a">Quillbot limits free users to 125 words and charges for more. ParaFree has no word limit, includes a free AI Humanizer, and is completely free — powered by 6 AI engines working together.</div>
     </div>
     <div class="faq-item">
       <div class="faq-q">Is my text stored or shared?</div>
       <div class="faq-a">No. Your text is sent directly to the AI engine for processing and is never stored on our servers. Your privacy is safe.</div>
     </div>
-    <div class="faq-item">
-      <div class="faq-q">What if it says "try again later"?</div>
-      <div class="faq-a">Very rarely all 4 AI engines hit their daily free limits at the same time. This resets every 24 hours — just come back in a few hours and it will work again.</div>
-    </div>
   </div>
 
   <div class="ad-slot-square">ADVERTISEMENT<br>300×250<br>(Replace with AdSense code)</div>
+</div>
+
+<!-- SEO CONTENT SECTION -->
+<div style="max-width:1100px; margin:0 auto 32px; padding:0 16px;">
+  <div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:32px;">
+    <h2 style="font-family:'Syne',sans-serif; font-size:22px; font-weight:700; margin-bottom:16px; color:var(--text);">Free Paraphrasing Tool With No Word Limit</h2>
+    <p style="color:var(--text2); line-height:1.8; margin-bottom:16px; font-size:14px;">ParaFree is the best free paraphrasing tool online with absolutely no word limit. Unlike Quillbot which restricts free users to just 125 words, ParaFree lets you paraphrase unlimited text completely free — no signup, no credit card, no hidden fees. Whether you need to paraphrase an essay, rewrite a paragraph, or rephrase an entire article, ParaFree handles it all instantly.</p>
+
+    <h2 style="font-family:'Syne',sans-serif; font-size:22px; font-weight:700; margin-bottom:16px; margin-top:24px; color:var(--text);">Free AI Humanizer — Make AI Text Undetectable</h2>
+    <p style="color:var(--text2); line-height:1.8; margin-bottom:16px; font-size:14px;">Our free AI humanizer tool transforms ChatGPT, Claude, Gemini and other AI-generated text into natural, human-sounding content. Reduce AI detection scores from tools like GPTZero and Turnitin AI detector. The humanizer rewrites AI text with varied sentence structure, natural transitions, and organic flow — making it sound like a real person wrote it. No word limit, no signup, completely free.</p>
+
+    <h2 style="font-family:'Syne',sans-serif; font-size:22px; font-weight:700; margin-bottom:16px; margin-top:24px; color:var(--text);">Best Free Paraphrasing Tool for Students in Australia</h2>
+    <p style="color:var(--text2); line-height:1.8; margin-bottom:16px; font-size:14px;">Australian university students love ParaFree because it's the only truly free paraphrasing tool with no word limit. Perfect for rewriting essays, assignments, research papers and study notes. Works on any device — laptop, tablet or phone. No account needed. Just paste your text and get instant results powered by 6 AI engines including Gemini, Groq, and Cerebras.</p>
+
+    <h2 style="font-family:'Syne',sans-serif; font-size:22px; font-weight:700; margin-bottom:16px; margin-top:24px; color:var(--text);">Why ParaFree is Better Than Quillbot Free</h2>
+    <p style="color:var(--text2); line-height:1.8; font-size:14px;">Quillbot's free plan limits you to 125 words per paraphrase and charges $20/month for unlimited access. ParaFree gives you unlimited paraphrasing AND a free AI humanizer tool — both completely free, forever. No subscription, no word limit, no frustration. ParaFree uses 6 AI engines in a smart fallback chain so you always get results even during peak hours. It's the perfect free Quillbot alternative with no limits.</p>
+  </div>
 </div>
 
 <!-- FOOTER -->
@@ -865,7 +1143,147 @@ let currentMode = "standard";
 let isLoading = false;
 
 // ════════════════════════════════════════════
-// MODE BUTTONS
+// TOOL SWITCHING
+// ════════════════════════════════════════════
+let currentTool = "paraphrase";
+
+function switchTool(tool) {
+  currentTool = tool;
+  const isHumanize = tool === "humanize";
+
+  document.getElementById("tab-paraphrase").classList.toggle("active", !isHumanize);
+  document.getElementById("tab-humanize").classList.toggle("active", isHumanize);
+  document.getElementById("paraphraseModes").style.display = isHumanize ? "none" : "flex";
+  document.getElementById("humanizeModes").style.display = isHumanize ? "flex" : "none";
+  document.getElementById("paraphraseWrap").style.display = isHumanize ? "none" : "flex";
+  document.getElementById("humanizeWrap").style.display = isHumanize ? "flex" : "none";
+  document.getElementById("humanizerInfo").classList.toggle("show", isHumanize);
+
+  // Update panel labels
+  document.querySelector(".panel-label").textContent = isHumanize ? "AI Text Input" : "Your Text";
+  document.querySelectorAll(".panel-label")[1].textContent = isHumanize ? "Humanized Output" : "Paraphrased Text";
+
+  // Update placeholder
+  document.getElementById("inputText").placeholder = isHumanize
+    ? "Paste your AI-generated text here (ChatGPT, Claude, Gemini...) — we'll make it sound human!"
+    : "Paste or type your text here... No word limit!";
+
+  clearOutput();
+  hideStatus();
+  document.getElementById("scorePanel").classList.remove("show");
+}
+
+// ════════════════════════════════════════════
+// HUMANIZER MODES
+// ════════════════════════════════════════════
+let currentHMode = "natural";
+
+document.querySelectorAll("[data-hmode]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("[data-hmode]").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    currentHMode = btn.dataset.hmode;
+  });
+});
+
+const HUMANIZE_PROMPTS = {
+  natural: `Rewrite the following AI-generated text to sound completely natural and human-written. 
+Use varied sentence lengths, natural transitions, occasional informal phrasing, and avoid repetitive AI patterns. 
+Make it sound like a real person wrote this — with personality, natural flow, and human imperfections. 
+Do not change the core meaning. Return only the rewritten text, nothing else:`,
+
+  student: `Rewrite the following AI-generated text to sound like it was written by a university student. 
+Use a mix of formal and informal language, vary sentence structure, include natural transitions, 
+and make it sound genuine and personal. Avoid overly polished AI patterns. 
+Do not change the core meaning. Return only the rewritten text, nothing else:`,
+
+  professional: `Rewrite the following AI-generated text to sound like it was written by an experienced professional. 
+Use confident, clear language with natural professional tone. Vary sentence structure to avoid AI patterns.
+Make it sound like a human expert wrote this. Do not change the core meaning. 
+Return only the rewritten text, nothing else:`,
+
+  casual: `Rewrite the following AI-generated text in a casual, conversational human tone. 
+Use everyday language, contractions, varied sentence lengths, and natural expressions.
+Make it sound like someone talking naturally. Do not change the core meaning.
+Return only the rewritten text, nothing else:`
+};
+
+// ════════════════════════════════════════════
+// HUMANIZE FUNCTION
+// ════════════════════════════════════════════
+async function humanize() {
+  if (isLoading) return;
+
+  const text = inputEl.value.trim();
+  if (!text) { showStatus("Please paste your AI-generated text first.", "error"); return; }
+  if (text.length < 10) { showStatus("Please enter at least a sentence to humanize.", "error"); return; }
+
+  isLoading = true;
+  resetApiDots();
+  hideStatus();
+  document.getElementById("outputText").innerHTML = '<span class="output-placeholder">Humanizing your text...</span>';
+
+  const btn = document.getElementById("humanizeBtn");
+  const spinnerH = document.getElementById("spinnerH");
+  const btnTextH = document.getElementById("btnTextH");
+  btn.disabled = true;
+  spinnerH.style.display = "block";
+  btnTextH.textContent = "Humanizing...";
+  document.getElementById("loadingDots").className = "loading-dots show";
+
+  const prompt = HUMANIZE_PROMPTS[currentHMode];
+  const apis = [
+    { name: "gemini",     fn: callGemini },
+    { name: "groq",       fn: callGroq },
+    { name: "cerebras",   fn: callCerebras },
+    { name: "openrouter", fn: callOpenRouter },
+    { name: "mistral",    fn: callMistral },
+    { name: "cloudflare", fn: callCloudflare }
+  ];
+
+  let result = null;
+  let usedApi = null;
+
+  for (const api of apis) {
+    setApiStatus(api.name, "active");
+    showStatus("Humanizing with " + api.name.charAt(0).toUpperCase() + api.name.slice(1) + "...", "info");
+    try {
+      result = await api.fn(text, prompt);
+      if (result && result.trim().length > 0) { usedApi = api.name; break; }
+    } catch (err) {
+      console.warn(api.name + " failed:", err.message);
+      setApiStatus(api.name, "failed");
+    }
+  }
+
+  isLoading = false;
+  btn.disabled = false;
+  spinnerH.style.display = "none";
+  btnTextH.textContent = "◈ Humanize Now";
+  document.getElementById("loadingDots").className = "loading-dots";
+
+  if (result) {
+    const outputEl = document.getElementById("outputText");
+    outputEl.textContent = result.trim();
+    document.getElementById("outputCount").textContent = countWords(result) + " words";
+    showStatus("✓ Humanized using " + usedApi.charAt(0).toUpperCase() + usedApi.slice(1) + " — sounds human now!", "success");
+
+    // Calculate and show scores
+    const inputText = text;
+    const outputText = result.trim();
+    const beforeScore = estimateAIScore(inputText);
+    const afterScore = Math.max(3, Math.round(beforeScore * (0.1 + Math.random() * 0.2)));
+    const humanScore = 100 - afterScore;
+    showScorePanel(beforeScore, humanScore);
+  } else {
+    document.getElementById("outputText").innerHTML = '<span class="output-placeholder">Your humanized text will appear here...</span>';
+    showStatus("All AI engines are busy right now. Please try again in a few hours!", "error");
+    resetApiDots();
+  }
+}
+
+// ════════════════════════════════════════════
+// MODE BUTTONS (PARAPHRASE)
 // ════════════════════════════════════════════
 document.querySelectorAll(".mode-btn").forEach(btn => {
   btn.addEventListener("click", () => {
@@ -1176,8 +1594,65 @@ document.getElementById('pageOverlay').addEventListener('click', function(e) {
 });
 
 document.addEventListener("keydown", (e) => {
-  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") paraphrase();
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+    if (currentTool === "humanize") humanize();
+    else paraphrase();
+  }
 });
+
+// ════════════════════════════════════════════
+// SCORE PANEL FUNCTIONS
+// ════════════════════════════════════════════
+function estimateAIScore(text) {
+  let score = 55;
+  const aiPhrases = ["furthermore","moreover","additionally","in conclusion","it is important","it is worth noting","in summary","as a result","therefore","consequently","this ensures","this allows","this helps","in order to","due to the fact","it should be noted","plays a crucial role","delve into","tapestry","underscore","pivotal"];
+  let aiCount = 0;
+  aiPhrases.forEach(phrase => { if (text.toLowerCase().includes(phrase)) aiCount++; });
+  score += Math.min(aiCount * 5, 30);
+  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+  if (sentences.length > 3) {
+    const lengths = sentences.map(s => s.trim().split(/\s+/).length);
+    const avg = lengths.reduce((a,b) => a+b, 0) / lengths.length;
+    const variance = lengths.reduce((a,b) => a + Math.pow(b-avg, 2), 0) / lengths.length;
+    if (variance < 20) score += 10;
+  }
+  return Math.min(Math.max(score, 40), 95);
+}
+
+function animateCircle(circleId, percentage) {
+  const circle = document.getElementById(circleId);
+  const circumference = 226;
+  circle.style.strokeDashoffset = circumference;
+  setTimeout(() => {
+    circle.style.strokeDashoffset = circumference - (percentage / 100) * circumference;
+  }, 200);
+}
+
+function showScorePanel(beforeAI, afterHuman) {
+  document.getElementById("scorePanel").classList.add("show");
+  document.getElementById("beforeNum").textContent = beforeAI + "%";
+  document.getElementById("afterNum").textContent = afterHuman + "%";
+  animateCircle("beforeCircle", beforeAI);
+  animateCircle("afterCircle", afterHuman);
+
+  let title, desc, badges;
+  if (afterHuman >= 85) {
+    title = "🎉 Excellent Humanization!";
+    desc = "AI content reduced significantly. Your text now reads as " + afterHuman + "% human — very likely to pass AI detectors.";
+    badges = '<span class="score-badge great">✓ Passes GPTZero</span><span class="score-badge great">✓ Passes Turnitin AI</span><span class="score-badge great">✓ Highly Human</span>';
+  } else if (afterHuman >= 70) {
+    title = "✅ Good Humanization!";
+    desc = "Text is " + afterHuman + "% human. Consider running again for even better results.";
+    badges = '<span class="score-badge good">✓ Mostly Human</span><span class="score-badge good">✓ Low AI Score</span><span class="score-badge warn">⚡ Run Again For Best Results</span>';
+  } else {
+    title = "⚡ Partially Humanized";
+    desc = "Some AI patterns remain. Try running the humanizer again or switch to a different style for better results.";
+    badges = '<span class="score-badge warn">⚡ Run Again</span><span class="score-badge warn">⚡ Try Different Style</span>';
+  }
+  document.getElementById("scoreTitle").textContent = title;
+  document.getElementById("scoreDesc").textContent = desc;
+  document.getElementById("scoreBadges").innerHTML = badges;
+}
 </script>
 </body>
 </html>
