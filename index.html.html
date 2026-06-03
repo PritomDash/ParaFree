@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ParaFree — Free Paraphrasing Tool, No Limits</title>
+<meta name="description" content="Free paraphrasing tool with no word limits. Rewrite any text instantly using AI. No signup required.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f7f5f0;
+    --surface: #ffffff;
+    --surface2: #f0ede6;
+    --border: #e2ddd4;
+    --text: #1a1814;
+    --text2: #6b6660;
+    --text3: #9e9890;
+    --accent: #2d6a4f;
+    --accent2: #52b788;
+    --accent-light: #d8f3dc;
+    --red: #e63946;
+    --amber: #f4a261;
+    --radius: 14px;
+    --radius-sm: 8px;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 22px;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+  }
+
+  .logo span { color: var(--text); }
+
+  .header-badge {
+    background: var(--accent-light);
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1px solid #b7e4c7;
+  }
+
+  /* ── AD BANNER TOP ── */
+  .ad-banner {
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 24px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--text2);
+  }
+
+  .ad-slot {
+    background: var(--surface2);
+    border: 1.5px dashed var(--border);
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text3);
+    font-size: 12px;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    text-align: center;
+    padding: 48px 24px 32px;
+    max-width: 680px;
+    margin: 0 auto;
+  }
+
+  .hero h1 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: clamp(28px, 5vw, 44px);
+    line-height: 1.15;
+    letter-spacing: -1px;
+    color: var(--text);
+    margin-bottom: 12px;
+  }
+
+  .hero h1 em {
+    font-style: normal;
+    color: var(--accent);
+  }
+
+  .hero p {
+    color: var(--text2);
+    font-size: 16px;
+    font-weight: 300;
+    max-width: 480px;
+    margin: 0 auto 24px;
+  }
+
+  .hero-badges {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+
+  .badge {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 13px;
+    color: var(--text2);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .badge .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent2);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  /* ── MAIN TOOL ── */
+  .tool-container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 16px 32px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  @media (max-width: 700px) {
+    .tool-container { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .panel-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface2);
+  }
+
+  .panel-label {
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+
+  .word-count {
+    font-size: 12px;
+    color: var(--text3);
+  }
+
+  textarea {
+    flex: 1;
+    border: none;
+    outline: none;
+    padding: 18px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--text);
+    background: var(--surface);
+    resize: none;
+    min-height: 280px;
+    width: 100%;
+  }
+
+  textarea::placeholder { color: var(--text3); }
+
+  .panel-footer {
+    padding: 12px 18px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface2);
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .output-text {
+    flex: 1;
+    padding: 18px;
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--text);
+    min-height: 280px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .output-placeholder {
+    color: var(--text3);
+    font-style: italic;
+    font-weight: 300;
+  }
+
+  /* ── MODES ── */
+  .modes-bar {
+    max-width: 1100px;
+    margin: 0 auto 12px;
+    padding: 0 16px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .mode-label {
+    font-size: 13px;
+    color: var(--text2);
+    font-weight: 500;
+    margin-right: 4px;
+  }
+
+  .mode-btn {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 20px;
+    padding: 6px 16px;
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    color: var(--text2);
+    transition: all 0.15s ease;
+    font-weight: 400;
+  }
+
+  .mode-btn:hover { border-color: var(--accent2); color: var(--accent); }
+
+  .mode-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+    font-weight: 500;
+  }
+
+  /* ── PARAPHRASE BUTTON ── */
+  .paraphrase-wrap {
+    max-width: 1100px;
+    margin: 0 auto 16px;
+    padding: 0 16px;
+    display: flex;
+    justify-content: center;
+  }
+
+  .btn-paraphrase {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    padding: 14px 48px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    letter-spacing: 0.3px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .btn-paraphrase:hover { background: #245a41; transform: translateY(-1px); }
+  .btn-paraphrase:active { transform: translateY(0); }
+  .btn-paraphrase:disabled { background: var(--text3); cursor: not-allowed; transform: none; }
+
+  .spinner {
+    width: 18px;
+    height: 18px;
+    border: 2.5px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── ACTION BUTTONS ── */
+  .btn-sm {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 6px 14px;
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    color: var(--text2);
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .btn-sm:hover { background: var(--surface2); color: var(--text); border-color: var(--text3); }
+
+  .btn-clear { color: var(--red); }
+  .btn-clear:hover { background: #fff0f0; border-color: var(--red); color: var(--red); }
+
+  .btn-copy.copied { color: var(--accent); border-color: var(--accent2); background: var(--accent-light); }
+
+  /* ── STATUS BAR ── */
+  .status-bar {
+    max-width: 1100px;
+    margin: 0 auto 16px;
+    padding: 0 16px;
+  }
+
+  .status-msg {
+    padding: 10px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    display: none;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .status-msg.show { display: flex; }
+  .status-msg.info { background: #e8f4fd; color: #1565c0; border: 1px solid #bbdefb; }
+  .status-msg.success { background: var(--accent-light); color: var(--accent); border: 1px solid #b7e4c7; }
+  .status-msg.error { background: #fff3e0; color: #e65100; border: 1px solid #ffe0b2; }
+
+  /* ── API STATUS ── */
+  .api-status {
+    max-width: 1100px;
+    margin: 0 auto 24px;
+    padding: 0 16px;
+  }
+
+  .api-status-inner {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    color: var(--text2);
+  }
+
+  .api-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text3);
+    flex-shrink: 0;
+  }
+
+  .api-dot.active { background: var(--accent2); }
+  .api-dot.failed { background: var(--red); }
+
+  .api-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    background: var(--surface2);
+    border-radius: 20px;
+    border: 1px solid var(--border);
+  }
+
+  /* ── AD SLOTS ── */
+  .ad-mid {
+    max-width: 1100px;
+    margin: 0 auto 24px;
+    padding: 0 16px;
+  }
+
+  .ad-slot-wide {
+    height: 90px;
+    width: 100%;
+    background: var(--surface2);
+    border: 1.5px dashed var(--border);
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text3);
+    font-size: 12px;
+    letter-spacing: 0.5px;
+  }
+
+  .ad-slot-square {
+    width: 300px;
+    height: 250px;
+    background: var(--surface2);
+    border: 1.5px dashed var(--border);
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text3);
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+  }
+
+  /* ── FEATURES ── */
+  .features {
+    max-width: 1100px;
+    margin: 0 auto 32px;
+    padding: 0 16px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+  }
+
+  .feature-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+
+  .feature-icon {
+    width: 36px;
+    height: 36px;
+    background: var(--accent-light);
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+    font-size: 18px;
+  }
+
+  .feature-card h3 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 6px;
+  }
+
+  .feature-card p {
+    font-size: 13px;
+    color: var(--text2);
+    line-height: 1.5;
+    font-weight: 300;
+  }
+
+  /* ── LOWER SECTION ── */
+  .lower {
+    max-width: 1100px;
+    margin: 0 auto 32px;
+    padding: 0 16px;
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+  }
+
+  .faq {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+  }
+
+  .faq h2 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 18px;
+    margin-bottom: 16px;
+  }
+
+  .faq-item { border-bottom: 1px solid var(--border); padding: 14px 0; }
+  .faq-item:last-child { border-bottom: none; padding-bottom: 0; }
+
+  .faq-q {
+    font-weight: 500;
+    font-size: 14px;
+    margin-bottom: 6px;
+  }
+
+  .faq-a {
+    font-size: 13px;
+    color: var(--text2);
+    line-height: 1.6;
+    font-weight: 300;
+  }
+
+  @media (max-width: 700px) {
+    .lower { flex-direction: column; }
+    .ad-slot-square { width: 100%; }
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 20px 24px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--text3);
+  }
+
+  footer a { color: var(--text2); text-decoration: none; }
+  footer a:hover { color: var(--text); }
+
+  /* ── LOADING OVERLAY ── */
+  .loading-dots {
+    display: none;
+    gap: 4px;
+    align-items: center;
+  }
+
+  .loading-dots.show { display: flex; }
+
+  .loading-dots span {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: bounce 1.2s infinite;
+  }
+
+  .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes bounce {
+    0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+    40% { transform: scale(1); opacity: 1; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">Para<span>Free</span></div>
+  <div class="header-badge">✦ Always Free · No Signup</div>
+</header>
+
+<!-- AD BANNER TOP -->
+<div class="ad-banner">
+  <!-- Google AdSense: Replace below with your AdSense code -->
+  <div class="ad-slot" style="height:50px; max-width:728px; margin:0 auto;">
+    ADVERTISEMENT — 728×90
+  </div>
+</div>
+
+<!-- HERO -->
+<div class="hero">
+  <h1>Paraphrase Any Text<br><em>No Limits. Always Free.</em></h1>
+  <p>Powered by multiple AI engines — if one is busy, another takes over. You always get results.</p>
+  <div class="hero-badges">
+    <div class="badge"><span class="dot"></span>No word limit</div>
+    <div class="badge"><span class="dot"></span>No signup needed</div>
+    <div class="badge"><span class="dot"></span>5 AI engines</div>
+    <div class="badge"><span class="dot"></span>Instant results</div>
+  </div>
+</div>
+
+<!-- MODE SELECTOR -->
+<div class="modes-bar">
+  <span class="mode-label">Mode:</span>
+  <button class="mode-btn active" data-mode="standard">Standard</button>
+  <button class="mode-btn" data-mode="fluency">Fluency</button>
+  <button class="mode-btn" data-mode="creative">Creative</button>
+  <button class="mode-btn" data-mode="formal">Formal</button>
+  <button class="mode-btn" data-mode="simple">Simplify</button>
+</div>
+
+<!-- STATUS -->
+<div class="status-bar">
+  <div class="status-msg" id="statusMsg"></div>
+</div>
+
+<!-- MAIN TOOL -->
+<div class="tool-container">
+  <!-- INPUT PANEL -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-label">Your Text</span>
+      <span class="word-count" id="inputCount">0 words</span>
+    </div>
+    <textarea id="inputText" placeholder="Paste or type your text here... No word limit!"></textarea>
+    <div class="panel-footer">
+      <button class="btn-sm btn-clear" onclick="clearInput()">✕ Clear</button>
+      <button class="btn-sm" onclick="pasteText()">⊕ Paste</button>
+    </div>
+  </div>
+
+  <!-- OUTPUT PANEL -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-label">Paraphrased Text</span>
+      <div class="loading-dots" id="loadingDots">
+        <span></span><span></span><span></span>
+      </div>
+      <span class="word-count" id="outputCount">0 words</span>
+    </div>
+    <div class="output-text" id="outputText">
+      <span class="output-placeholder">Your paraphrased text will appear here...</span>
+    </div>
+    <div class="panel-footer">
+      <button class="btn-sm btn-copy" id="copyBtn" onclick="copyOutput()">⊕ Copy</button>
+      <button class="btn-sm" onclick="clearOutput()">✕ Clear</button>
+    </div>
+  </div>
+</div>
+
+<!-- PARAPHRASE BUTTON -->
+<div class="paraphrase-wrap">
+  <button class="btn-paraphrase" id="paraphraseBtn" onclick="paraphrase()">
+    <div class="spinner" id="spinner"></div>
+    <span id="btnText">✦ Paraphrase Now</span>
+  </button>
+</div>
+
+<!-- API STATUS -->
+<div class="api-status">
+  <div class="api-status-inner">
+    <span style="font-weight:500; color: var(--text);">AI Engines:</span>
+    <div class="api-item" id="api-gemini"><div class="api-dot" id="dot-gemini"></div>Gemini</div>
+    <div class="api-item" id="api-groq"><div class="api-dot" id="dot-groq"></div>Groq</div>
+    <div class="api-item" id="api-cerebras"><div class="api-dot" id="dot-cerebras"></div>Cerebras</div>
+    <div class="api-item" id="api-openrouter"><div class="api-dot" id="dot-openrouter"></div>OpenRouter</div>
+    <div class="api-item" id="api-mistral"><div class="api-dot" id="dot-mistral"></div>Mistral</div>
+    <div class="api-item" id="api-cloudflare"><div class="api-dot" id="dot-cloudflare"></div>Cloudflare</div>
+    <span style="margin-left:auto; color: var(--text3);" id="activeApiLabel">Ready</span>
+  </div>
+</div>
+
+<!-- AD MID -->
+<div class="ad-mid">
+  <div class="ad-slot-wide">ADVERTISEMENT — 728×90 (Replace with Google AdSense code)</div>
+</div>
+
+<!-- FEATURES -->
+<div class="features">
+  <div class="feature-card">
+    <div class="feature-icon">∞</div>
+    <h3>No Word Limit</h3>
+    <p>Paraphrase entire essays, articles, or documents in one go. No restrictions ever.</p>
+  </div>
+  <div class="feature-card">
+    <div class="feature-icon">⚡</div>
+    <h3>5 AI Engines</h3>
+    <p>Auto-switches between Gemini, Groq, Cerebras & more so you always get results.</p>
+  </div>
+  <div class="feature-card">
+    <div class="feature-icon">◈</div>
+    <h3>5 Writing Modes</h3>
+    <p>Standard, Fluency, Creative, Formal, and Simplify — pick the style you need.</p>
+  </div>
+  <div class="feature-card">
+    <div class="feature-icon">✦</div>
+    <h3>Always Free</h3>
+    <p>No signup, no subscription, no credit card. Free today, free tomorrow, free forever.</p>
+  </div>
+</div>
+
+<!-- LOWER: FAQ + AD -->
+<div class="lower">
+  <div class="faq">
+    <h2>Frequently Asked Questions</h2>
+    <div class="faq-item">
+      <div class="faq-q">Is ParaFree really free with no word limit?</div>
+      <div class="faq-a">Yes — completely free, forever. We use multiple AI engines so when one reaches its daily limit, another takes over automatically. You always get results.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">Do I need to create an account?</div>
+      <div class="faq-a">No account, no signup, no email required. Just paste your text and click Paraphrase. That's it.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">How is this different from Quillbot?</div>
+      <div class="faq-a">Quillbot limits free users to 125 words and charges for more. ParaFree has no word limit and is completely free — powered by multiple AI engines working together.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">Is my text stored or shared?</div>
+      <div class="faq-a">No. Your text is sent directly to the AI engine for processing and is never stored on our servers. Your privacy is safe.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">What if it says "try again later"?</div>
+      <div class="faq-a">Very rarely all 4 AI engines hit their daily free limits at the same time. This resets every 24 hours — just come back in a few hours and it will work again.</div>
+    </div>
+  </div>
+
+  <div class="ad-slot-square">ADVERTISEMENT<br>300×250<br>(Replace with AdSense code)</div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <p>© 2026 ParaFree · Free AI Paraphrasing Tool · No limits, no signup, always free</p>
+  <p style="margin-top:6px;"><a href="#">Privacy Policy</a> · <a href="#">Terms of Use</a> · <a href="#">Contact</a></p>
+</footer>
+
+<script>
+// ════════════════════════════════════════════
+// API KEYS — REPLACE WITH YOUR REAL KEYS
+// ════════════════════════════════════════════
+const KEYS = {
+  mistral:    "AFGzOW77wjfZob9WlDlbt1QoINKJJHK0",
+  cloudflare: "cfk_hFFhgJaJElQQqap1HwEvqgvzoI4hRgdJiZuYw4Xff012409d",
+  cf_account: "cdfb6fd7bc879742c1a7deeefa143e70",
+  gemini:     "AQ.Ab8RN6JNGyeXsAwgMrAqhFSIfam8SJZCeRQLGitCybvfD6CdWw",
+  groq:       "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",
+  cerebras:   "csk-2dv46jd4d5myd4edyfr4nepd9m6xr5p5prn8ve5hkn4e55nn",
+  openrouter: "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"
+};
+
+// ════════════════════════════════════════════
+// MODE PROMPTS
+// ════════════════════════════════════════════
+const MODE_PROMPTS = {
+  standard: "Paraphrase the following text. Keep the same meaning but use different words and sentence structures. Return only the paraphrased text, nothing else:",
+  fluency:  "Rewrite the following text to make it flow naturally and sound more fluent and easy to read. Return only the rewritten text, nothing else:",
+  creative: "Paraphrase the following text in a creative and engaging way while keeping the original meaning. Use vivid language. Return only the paraphrased text, nothing else:",
+  formal:   "Rewrite the following text in a formal, professional tone suitable for academic or business use. Return only the rewritten text, nothing else:",
+  simple:   "Simplify the following text so it is easy to understand for anyone. Use simple words and short sentences. Return only the simplified text, nothing else:"
+};
+
+let currentMode = "standard";
+let isLoading = false;
+
+// ════════════════════════════════════════════
+// MODE BUTTONS
+// ════════════════════════════════════════════
+document.querySelectorAll(".mode-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".mode-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    currentMode = btn.dataset.mode;
+  });
+});
+
+// ════════════════════════════════════════════
+// WORD COUNT
+// ════════════════════════════════════════════
+const inputEl = document.getElementById("inputText");
+inputEl.addEventListener("input", () => {
+  const words = inputEl.value.trim().split(/\s+/).filter(w => w).length;
+  document.getElementById("inputCount").textContent = words + " words";
+});
+
+function countWords(text) {
+  return text.trim().split(/\s+/).filter(w => w).length;
+}
+
+// ════════════════════════════════════════════
+// HELPER FUNCTIONS
+// ════════════════════════════════════════════
+function clearInput() {
+  inputEl.value = "";
+  document.getElementById("inputCount").textContent = "0 words";
+}
+
+function clearOutput() {
+  document.getElementById("outputText").innerHTML = '<span class="output-placeholder">Your paraphrased text will appear here...</span>';
+  document.getElementById("outputCount").textContent = "0 words";
+}
+
+async function pasteText() {
+  try {
+    const text = await navigator.clipboard.readText();
+    inputEl.value = text;
+    const words = countWords(text);
+    document.getElementById("inputCount").textContent = words + " words";
+  } catch(e) {
+    showStatus("Please paste manually using Ctrl+V / Cmd+V", "info");
+  }
+}
+
+function copyOutput() {
+  const text = document.getElementById("outputText").innerText;
+  if (!text || text.includes("will appear here")) return;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById("copyBtn");
+    btn.textContent = "✓ Copied!";
+    btn.classList.add("copied");
+    setTimeout(() => {
+      btn.textContent = "⊕ Copy";
+      btn.classList.remove("copied");
+    }, 2000);
+  });
+}
+
+function showStatus(msg, type = "info") {
+  const el = document.getElementById("statusMsg");
+  el.textContent = msg;
+  el.className = "status-msg show " + type;
+  if (type === "success") {
+    setTimeout(() => el.className = "status-msg", 4000);
+  }
+}
+
+function hideStatus() {
+  document.getElementById("statusMsg").className = "status-msg";
+}
+
+function setApiStatus(name, state) {
+  const dot = document.getElementById("dot-" + name);
+  if (!dot) return;
+  dot.className = "api-dot " + state;
+  if (state === "active") {
+    document.getElementById("activeApiLabel").textContent = "Using: " + name.charAt(0).toUpperCase() + name.slice(1);
+  }
+}
+
+function resetApiDots() {
+  ["gemini","groq","cerebras","openrouter"].forEach(n => setApiStatus(n, ""));
+  document.getElementById("activeApiLabel").textContent = "Ready";
+}
+
+function setLoading(on) {
+  isLoading = on;
+  const btn = document.getElementById("paraphraseBtn");
+  const spinner = document.getElementById("spinner");
+  const dots = document.getElementById("loadingDots");
+  const btnText = document.getElementById("btnText");
+  btn.disabled = on;
+  spinner.style.display = on ? "block" : "none";
+  dots.className = on ? "loading-dots show" : "loading-dots";
+  btnText.textContent = on ? "Paraphrasing..." : "✦ Paraphrase Now";
+}
+
+// ════════════════════════════════════════════
+// API CALLERS
+// ════════════════════════════════════════════
+async function callGemini(text, prompt) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-latest:generateContent?key=${KEYS.gemini}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt + "\n\n" + text }] }],
+      generationConfig: { temperature: 0.7, maxOutputTokens: 4096 }
+    })
+  });
+  if (!res.ok) throw new Error("Gemini: " + res.status);
+  const data = await res.json();
+  if (data.error) throw new Error("Gemini error: " + data.error.message);
+  return data.candidates[0].content.parts[0].text;
+}
+
+async function callGroq(text, prompt) {
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + KEYS.groq
+    },
+    body: JSON.stringify({
+      model: "llama-3.1-8b-instant",
+      messages: [{ role: "user", content: prompt + "\n\n" + text }],
+      temperature: 0.7,
+      max_tokens: 4096
+    })
+  });
+  if (!res.ok) throw new Error("Groq: " + res.status);
+  const data = await res.json();
+  if (data.error) throw new Error("Groq error: " + data.error.message);
+  return data.choices[0].message.content;
+}
+
+async function callCerebras(text, prompt) {
+  const res = await fetch("https://api.cerebras.ai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + KEYS.cerebras
+    },
+    body: JSON.stringify({
+      model: "llama3.1-8b",
+      messages: [{ role: "user", content: prompt + "\n\n" + text }],
+      temperature: 0.7,
+      max_tokens: 4096
+    })
+  });
+  if (!res.ok) throw new Error("Cerebras: " + res.status);
+  const data = await res.json();
+  if (data.error) throw new Error("Cerebras error");
+  return data.choices[0].message.content;
+}
+
+async function callOpenRouter(text, prompt) {
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + KEYS.openrouter,
+      "HTTP-Referer": window.location.href,
+      "X-Title": "ParaFree"
+    },
+    body: JSON.stringify({
+      model: "meta-llama/llama-3.1-8b-instruct:free",
+      messages: [{ role: "user", content: prompt + "\n\n" + text }],
+      temperature: 0.7,
+      max_tokens: 4096
+    })
+  });
+  if (!res.ok) throw new Error("OpenRouter: " + res.status);
+  const data = await res.json();
+  if (data.error) throw new Error("OpenRouter error");
+  return data.choices[0].message.content;
+}
+
+async function callMistral(text, prompt) {
+  const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + KEYS.mistral
+    },
+    body: JSON.stringify({
+      model: "mistral-small-latest",
+      messages: [{ role: "user", content: prompt + "\n\n" + text }],
+      temperature: 0.7,
+      max_tokens: 4096
+    })
+  });
+  if (!res.ok) throw new Error("Mistral: " + res.status);
+  const data = await res.json();
+  if (data.error) throw new Error("Mistral error");
+  return data.choices[0].message.content;
+}
+
+async function callCloudflare(text, prompt) {
+  const res = await fetch(
+    "https://api.cloudflare.com/client/v4/accounts/" + KEYS.cf_account + "/ai/run/@cf/meta/llama-3.1-8b-instruct",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + KEYS.cloudflare
+      },
+      body: JSON.stringify({
+        messages: [{ role: "user", content: prompt + "\n\n" + text }],
+        max_tokens: 4096
+      })
+    }
+  );
+  if (!res.ok) throw new Error("Cloudflare: " + res.status);
+  const data = await res.json();
+  if (!data.success) throw new Error("Cloudflare error");
+  return data.result.response;
+}
+
+// ════════════════════════════════════════════
+// MAIN PARAPHRASE FUNCTION — AUTO FALLBACK
+// ════════════════════════════════════════════
+async function paraphrase() {
+  if (isLoading) return;
+
+  const text = inputEl.value.trim();
+  if (!text) {
+    showStatus("Please enter some text to paraphrase.", "error");
+    return;
+  }
+
+  if (text.length < 10) {
+    showStatus("Please enter at least a sentence to paraphrase.", "error");
+    return;
+  }
+
+  setLoading(true);
+  resetApiDots();
+  hideStatus();
+  document.getElementById("outputText").innerHTML = '<span class="output-placeholder">Paraphrasing...</span>';
+
+  const prompt = MODE_PROMPTS[currentMode];
+
+  const apis = [
+    { name: "mistral",    fn: callMistral },
+    { name: "cloudflare", fn: callCloudflare },
+    { name: "gemini",     fn: callGemini },
+    { name: "groq",       fn: callGroq },
+    { name: "cerebras",   fn: callCerebras },
+    { name: "openrouter", fn: callOpenRouter }
+  ];
+
+  let result = null;
+  let usedApi = null;
+
+  for (const api of apis) {
+    setApiStatus(api.name, "active");
+    showStatus("Trying " + api.name.charAt(0).toUpperCase() + api.name.slice(1) + "...", "info");
+    try {
+      result = await api.fn(text, prompt);
+      if (result && result.trim().length > 0) {
+        usedApi = api.name;
+        break;
+      }
+    } catch (err) {
+      console.warn(api.name + " failed:", err.message);
+      setApiStatus(api.name, "failed");
+    }
+  }
+
+  setLoading(false);
+
+  if (result) {
+    const outputEl = document.getElementById("outputText");
+    outputEl.textContent = result.trim();
+    const words = countWords(result);
+    document.getElementById("outputCount").textContent = words + " words";
+    showStatus("Done! Paraphrased using " + usedApi.charAt(0).toUpperCase() + usedApi.slice(1) + ".", "success");
+  } else {
+    document.getElementById("outputText").innerHTML = '<span class="output-placeholder">Your paraphrased text will appear here...</span>';
+    showStatus("All AI engines are busy right now. Please try again in a few hours!", "error");
+    resetApiDots();
+    document.getElementById("activeApiLabel").textContent = "All busy";
+  }
+}
+
+// ════════════════════════════════════════════
+// KEYBOARD SHORTCUT: Ctrl+Enter
+// ════════════════════════════════════════════
+document.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") paraphrase();
+});
+</script>
+</body>
+</html>
