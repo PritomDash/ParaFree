@@ -738,8 +738,74 @@
 <!-- FOOTER -->
 <footer>
   <p>© 2026 ParaFree · Free AI Paraphrasing Tool · No limits, no signup, always free</p>
-  <p style="margin-top:6px;"><a href="#">Privacy Policy</a> · <a href="#">Terms of Use</a> · <a href="#">Contact</a></p>
+  <p style="margin-top:6px;">
+    <a href="#" onclick="showPage('privacy')">Privacy Policy</a> ·
+    <a href="#" onclick="showPage('terms')">Terms of Use</a> ·
+    <a href="#" onclick="showPage('about')">About</a> ·
+    <a href="mailto:parafree.tool@gmail.com">Contact</a>
+  </p>
 </footer>
+
+<!-- MODAL OVERLAY -->
+<div id="pageOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:999; overflow-y:auto;">
+  <div style="background:#fff; max-width:700px; margin:40px auto; border-radius:16px; padding:40px; position:relative;">
+    <button onclick="hidePage()" style="position:absolute; top:16px; right:16px; background:none; border:none; font-size:24px; cursor:pointer; color:#666;">✕</button>
+
+    <!-- PRIVACY POLICY -->
+    <div id="privacy-page" style="display:none;">
+      <h1 style="font-family:'Syne',sans-serif; font-size:28px; margin-bottom:8px;">Privacy Policy</h1>
+      <p style="color:#888; font-size:13px; margin-bottom:24px;">Last updated: June 2026</p>
+      <h3 style="font-size:16px; margin:20px 0 8px;">1. Information We Collect</h3>
+      <p style="color:#444; line-height:1.7;">ParaFree does not collect or store any personal information. Text you enter for paraphrasing is sent directly to AI providers and is never stored on our servers. We do not require registration or login.</p>
+      <h3 style="font-size:16px; margin:20px 0 8px;">2. Third Party AI Services</h3>
+      <p style="color:#444; line-height:1.7;">We use the following AI services to process paraphrasing requests: Google Gemini, Groq, Cerebras, OpenRouter, Mistral AI, and Cloudflare AI. Each provider has their own privacy policy. Your text is processed by these services according to their terms.</p>
+      <h3 style="font-size:16px; margin:20px 0 8px;">3. Advertising</h3>
+      <p style="color:#444; line-height:1.7;">We use Google AdSense to display advertisements. Google may use cookies and similar technologies to show relevant ads based on your visits to this and other websites. You can opt out of personalized advertising by visiting <a href="https://www.google.com/settings/ads" style="color:#2d6a4f;">Google Ad Settings</a>.</p>
+      <h3 style="font-size:16px; margin:20px 0 8px;">4. Cookies</h3>
+      <p style="color:#444; line-height:1.7;">We use cookies only for Google AdSense advertising purposes. We do not use cookies to track personal information or browsing behavior beyond what Google AdSense requires.</p>
+      <h3 style="font-size:16px; margin:20px 0 8px;">5. Children's Privacy</h3>
+      <p style="color:#444; line-height:1.7;">ParaFree is not directed to children under 13. We do not knowingly collect personal information from children.</p>
+      <h3 style="font-size:16px; margin:20px 0 8px;">6. Changes to This Policy</h3>
+      <p style="color:#444; line-height:1.7;">We may update this privacy policy from time to time. Changes will be posted on this page with an updated date.</p>
+      <h3 style="font-size:16px; margin:20px 0 8px;">7. Contact Us</h3>
+      <p style="color:#444; line-height:1.7;">For questions about this privacy policy, contact us at: <a href="mailto:parafree.tool@gmail.com" style="color:#2d6a4f;">parafree.tool@gmail.com</a></p>
+    </div>
+
+    <!-- TERMS OF USE -->
+    <div id="terms-page" style="display:none;">
+      <h1 style="font-family:'Syne',sans-serif; font-size:28px; margin-bottom:8px;">Terms of Use</h1>
+      <p style="color:#888; font-size:13px; margin-bottom:24px;">Last updated: June 2026</p>
+      <h3 style="font-size:16px; margin:20px 0 8px;">1. Acceptance of Terms</h3>
+      <p style="color:#444; line-height:1.7;">By using ParaFree at para-free.vercel.app, you agree to these terms of use. If you do not agree, please do not use this service.</p>
+      <h3 style="font-size:16px; margin:20px 0 8px;">2. Use of Service</h3>
+      <p style="color:#444; line-height:1.7;">ParaFree is a free paraphrasing tool powered by AI. You may use it for personal, educational, and professional purposes. You may not use it for illegal, harmful, or abusive purposes.</p>
+      <h3 style="font-size:16px; margin:20px 0 8px;">3. Content Responsibility</h3>
+      <p style="color:#444; line-height:1.7;">You are responsible for the text you submit for paraphrasing. Do not submit confidential, sensitive, or copyrighted content you do not have rights to process.</p>
+      <h3 style="font-size:16px; margin:20px 0 8px;">4. No Warranties</h3>
+      <p style="color:#444; line-height:1.7;">ParaFree is provided "as is" without warranties of any kind. We do not guarantee the accuracy, quality, or availability of the paraphrasing service at all times.</p>
+      <h3 style="font-size:16px; margin:20px 0 8px;">5. Limitation of Liability</h3>
+      <p style="color:#444; line-height:1.7;">ParaFree shall not be liable for any damages arising from the use or inability to use this service.</p>
+      <h3 style="font-size:16px; margin:20px 0 8px;">6. Changes to Terms</h3>
+      <p style="color:#444; line-height:1.7;">We reserve the right to modify these terms at any time. Continued use of the service after changes constitutes acceptance of the new terms.</p>
+      <h3 style="font-size:16px; margin:20px 0 8px;">7. Contact</h3>
+      <p style="color:#444; line-height:1.7;">Questions? Email us at: <a href="mailto:parafree.tool@gmail.com" style="color:#2d6a4f;">parafree.tool@gmail.com</a></p>
+    </div>
+
+    <!-- ABOUT -->
+    <div id="about-page" style="display:none;">
+      <h1 style="font-family:'Syne',sans-serif; font-size:28px; margin-bottom:8px;">About ParaFree</h1>
+      <p style="color:#888; font-size:13px; margin-bottom:24px;">The free paraphrasing tool with no limits</p>
+      <p style="color:#444; line-height:1.7; margin-bottom:16px;">ParaFree was built with one simple mission: give students, writers, and professionals a completely free paraphrasing tool with no frustrating word limits.</p>
+      <p style="color:#444; line-height:1.7; margin-bottom:16px;">Most paraphrasing tools limit free users to 125–500 words and push you to buy subscriptions. We think that's unfair. Good writing tools should be accessible to everyone.</p>
+      <h3 style="font-size:16px; margin:20px 0 8px;">How It Works</h3>
+      <p style="color:#444; line-height:1.7; margin-bottom:16px;">ParaFree uses a chain of 6 AI engines — Gemini, Groq, Cerebras, OpenRouter, Mistral, and Cloudflare AI. When one engine reaches its daily limit, the next one automatically takes over. This means you almost always get results, completely free.</p>
+      <h3 style="font-size:16px; margin:20px 0 8px;">Our Promise</h3>
+      <p style="color:#444; line-height:1.7; margin-bottom:16px;">✅ Always free — no subscription ever<br>✅ No word limits<br>✅ No signup or account required<br>✅ Your text is never stored<br>✅ Works on any device</p>
+      <h3 style="font-size:16px; margin:20px 0 8px;">Contact</h3>
+      <p style="color:#444; line-height:1.7;">Questions or feedback? We'd love to hear from you: <a href="mailto:parafree.tool@gmail.com" style="color:#2d6a4f;">parafree.tool@gmail.com</a></p>
+    </div>
+  </div>
+</div>
 
 <script>
 // ════════════════════════════════════════════
@@ -1060,8 +1126,26 @@ async function paraphrase() {
 }
 
 // ════════════════════════════════════════════
-// KEYBOARD SHORTCUT: Ctrl+Enter
+// PAGES: PRIVACY, TERMS, ABOUT
 // ════════════════════════════════════════════
+function showPage(page) {
+  document.getElementById('privacy-page').style.display = 'none';
+  document.getElementById('terms-page').style.display = 'none';
+  document.getElementById('about-page').style.display = 'none';
+  document.getElementById(page + '-page').style.display = 'block';
+  document.getElementById('pageOverlay').style.display = 'block';
+  document.body.style.overflow = 'hidden';
+}
+
+function hidePage() {
+  document.getElementById('pageOverlay').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+document.getElementById('pageOverlay').addEventListener('click', function(e) {
+  if (e.target === this) hidePage();
+});
+
 document.addEventListener("keydown", (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === "Enter") paraphrase();
 });
