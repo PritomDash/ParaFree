@@ -1790,29 +1790,7 @@ async function humanize() {
   document.getElementById("loadingDots").className = "loading-dots show";
 
   const prompt = HUMANIZE_PROMPTS[currentHMode];
-  const apis = [
-    { name: "gemini",     fn: callGemini },
-    { name: "groq",       fn: callGroq },
-    { name: "cerebras",   fn: callCerebras },
-    { name: "openrouter", fn: callOpenRouter },
-    { name: "mistral",    fn: callMistral },
-    { name: "cloudflare", fn: callCloudflare }
-  ];
-
-  let result = null;
-  let usedApi = null;
-
-  for (const api of apis) {
-    setApiStatus(api.name, "active");
-    showStatus("Humanizing with " + api.name.charAt(0).toUpperCase() + api.name.slice(1) + "...", "info");
-    try {
-      result = await api.fn(text, prompt);
-      if (result && result.trim().length > 0) { usedApi = api.name; break; }
-    } catch (err) {
-      console.warn(api.name + " failed:", err.message);
-      setApiStatus(api.name, "failed");
-    }
-  }
+  const result = await runAPIChain(text, prompt, currentHMode, getLang(), 'humanize');
 
   isLoading = false;
   btn.disabled = false;
@@ -1824,13 +1802,10 @@ async function humanize() {
     const outputEl = document.getElementById("outputText");
     outputEl.textContent = result.trim();
     document.getElementById("outputCount").textContent = countWords(result) + " words";
-    showStatus("✓ Humanized using " + usedApi.charAt(0).toUpperCase() + usedApi.slice(1) + " — sounds human now!", "success");
+    showStatus("✓ Humanized — sounds human now!", "success");
     showDownloadBtn();
 
-    // Calculate and show scores
-    const inputText = text;
-    const outputText = result.trim();
-    const beforeScore = estimateAIScore(inputText);
+    const beforeScore = estimateAIScore(text);
     const afterScore = Math.max(3, Math.round(beforeScore * (0.1 + Math.random() * 0.2)));
     const humanScore = 100 - afterScore;
     showScorePanel(beforeScore, humanScore);
@@ -1964,58 +1939,24 @@ async function paraphrase() {
   if (isLoading) return;
 
   const text = inputEl.value.trim();
-  if (!text) {
-    showStatus("Please enter some text to paraphrase.", "error");
-    return;
-  }
-
-  if (text.length < 10) {
-    showStatus("Please enter at least a sentence to paraphrase.", "error");
-    return;
-  }
+  if (!text) { showStatus("Please enter some text to paraphrase.", "error"); return; }
+  if (text.length < 10) { showStatus("Please enter at least a sentence to paraphrase.", "error"); return; }
 
   setLoading(true);
   resetApiDots();
   hideStatus();
   document.getElementById("outputText").innerHTML = '<span class="output-placeholder">Paraphrasing...</span>';
 
-  const prompt = MODE_PROMPTS[currentMode]; // backend adds language
-
-  const apis = [
-    { name: "mistral",    fn: callMistral },
-    { name: "cloudflare", fn: callCloudflare },
-    { name: "gemini",     fn: callGemini },
-    { name: "groq",       fn: callGroq },
-    { name: "cerebras",   fn: callCerebras },
-    { name: "openrouter", fn: callOpenRouter }
-  ];
-
-  let result = null;
-  let usedApi = null;
-
-  for (const api of apis) {
-    setApiStatus(api.name, "active");
-    showStatus("Trying " + api.name.charAt(0).toUpperCase() + api.name.slice(1) + "...", "info");
-    try {
-      result = await api.fn(text, prompt);
-      if (result && result.trim().length > 0) {
-        usedApi = api.name;
-        break;
-      }
-    } catch (err) {
-      console.warn(api.name + " failed:", err.message);
-      setApiStatus(api.name, "failed");
-    }
-  }
+  const prompt = MODE_PROMPTS[currentMode];
+  const result = await runAPIChain(text, prompt, currentMode, getLang(), 'paraphrase');
 
   setLoading(false);
 
   if (result) {
     const outputEl = document.getElementById("outputText");
     outputEl.textContent = result.trim();
-    const words = countWords(result);
-    document.getElementById("outputCount").textContent = words + " words";
-    showStatus("Done! Paraphrased using " + usedApi.charAt(0).toUpperCase() + usedApi.slice(1) + ".", "success");
+    document.getElementById("outputCount").textContent = countWords(result) + " words";
+    showStatus("✓ Paraphrased successfully!", "success");
     showDownloadBtn();
   } else {
     document.getElementById("outputText").innerHTML = '<span class="output-placeholder">Your paraphrased text will appear here...</span>';
