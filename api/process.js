@@ -4,6 +4,9 @@
 // Never exposed to browser or public
 // ═══════════════════════════════════════════════════════
 
+// Vercel function config — extend timeout to 30 seconds
+module.exports.config = { maxDuration: 30 };
+
 // ── RATE LIMITING (in-memory per serverless instance) ──
 const rateLimitMap = new Map();
 const RATE_LIMIT = 15;        // max requests per IP
@@ -256,7 +259,7 @@ async function handleAdmin(body) {
 }
 
 // ── MAIN HANDLER ──
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   // CORS headers
   res.setHeader("Access-Control-Allow-Origin", "https://para-free.vercel.app");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
