@@ -1327,14 +1327,17 @@
 </div>
 
 <script>
-// ════════════════════════════════════════════
-// API KEYS — LOADS FROM ADMIN PANEL SETTINGS
-// ════════════════════════════════════════════
 // ══════════════════════════════════════════
 // SECURE: All API calls go through backend
 // No keys stored in browser code!
 // ══════════════════════════════════════════
 const BACKEND_URL = '/api/process';
+
+// ════════════════════════════════════════════
+// ADMIN CONSTANTS — Required for admin panel
+// ════════════════════════════════════════════
+const ADMIN_PW = 'Pritom994338';
+const ADMIN_PW_KEY = 'pf_admin_pw';
 
 // ════════════════════════════════════════════
 // LANGUAGE HELPER
@@ -1642,9 +1645,6 @@ function generateDetectionReport(text, aiScore, humanScore) {
   </div>`;
 }
 
-// ════════════════════════════════════════════
-// SHARED API CHAIN RUNNER
-// ════════════════════════════════════════════
 // ════════════════════════════════════════════
 // SECURE BACKEND CALL — No keys in browser!
 // All API calls go through /api/process
