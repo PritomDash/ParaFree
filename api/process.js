@@ -7,6 +7,8 @@
 const RATE_LIMIT = 15;
 const RATE_WINDOW = 60 * 60 * 1000;
 const MAX_TEXT_LENGTH = 50000;
+// NOTE: In-memory only — resets on every Vercel cold start.
+// For persistent rate limiting across all instances, use Vercel KV or Upstash Redis.
 const rateLimitMap = new Map();
 
 // ── RATE LIMITING ──
@@ -40,7 +42,7 @@ function getKeys() {
 
 // ── ADMIN PASSWORD ──
 function getAdminPassword() {
-  return process.env.ADMIN_PASSWORD || "Pritom994338";
+  return process.env.ADMIN_PASSWORD || null;
 }
 
 // ── API CALLERS ──
@@ -233,8 +235,9 @@ async function runChain(text, prompt) {
 // ── ADMIN HANDLER ──
 async function handleAdmin(body) {
   const { adminAction, password } = body;
-  if (password !== getAdminPassword()) {
-    return { error: "Wrong password", status: 401 };
+  const adminPw = getAdminPassword();
+  if (!adminPw || password !== adminPw) {
+    return { error: "Unauthorized", status: 401 };
   }
   if (adminAction === "testKeys") {
     const K = getKeys();
@@ -299,8 +302,10 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: "Text too long. Max 50,000 characters." });
     }
 
-    // Build prompt and run
-    const prompt = getPrompt(mode || type || "standard", language);
+    // Build prompt — use frontend-supplied prompt if provided, otherwise derive from mode
+    const prompt = (body.prompt && typeof body.prompt === 'string' && body.prompt.trim().length > 0)
+      ? body.prompt.trim()
+      : getPrompt(mode || type || "standard", language);
     const { success, result, usedApi, error } = await runChain(text.trim(), prompt);
 
     if (success) {

@@ -43,6 +43,8 @@
 }
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8692254823531289" crossorigin="anonymous"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
@@ -886,9 +888,9 @@
     <div style="padding:10px 18px; border-top:1px solid var(--border); background:var(--surface2); display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
       <label for="fileUpload" style="cursor:pointer; display:flex; align-items:center; gap:6px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:6px 14px; font-size:13px; color:var(--text2); transition:all 0.15s;">
         📎 Upload File
-        <input type="file" id="fileUpload" accept=".txt,.pdf,.doc,.docx" style="display:none;" onchange="handleFileUpload(event)">
+        <input type="file" id="fileUpload" accept=".txt,.pdf,.doc,.docx,.pptx" style="display:none;" onchange="handleFileUpload(event)">
       </label>
-      <span style="font-size:12px; color:var(--text3);">TXT, PDF, DOCX, DOC supported</span>
+      <span style="font-size:12px; color:var(--text3);">TXT, PDF, DOCX, DOC, PPTX supported</span>
       <span id="fileName" style="font-size:12px; color:var(--accent); font-weight:500;"></span>
     </div>
     <div class="panel-footer">
@@ -911,7 +913,9 @@
     </div>
     <div class="panel-footer">
       <button class="btn-sm btn-copy" id="copyBtn" onclick="copyOutput()">⊕ Copy</button>
-      <button class="btn-sm" id="downloadBtn" onclick="downloadOutput()" style="display:none;">⬇ Download</button>
+      <button class="btn-sm" id="downloadBtn" onclick="downloadOutput()" style="display:none;">⬇ TXT</button>
+      <button class="btn-sm" id="downloadPDFBtn" onclick="downloadAsPDF()" style="display:none;">⬇ PDF</button>
+      <button class="btn-sm" id="downloadDOCXBtn" onclick="downloadAsDOCX()" style="display:none;">⬇ DOCX</button>
       <button class="btn-sm" onclick="clearOutput()">✕ Clear</button>
     </div>
   </div>
@@ -1401,8 +1405,12 @@ async function handleFileUpload(event) {
       document.getElementById("inputText").value = result.value;
       document.getElementById("inputCount").textContent = countWords(result.value) + " words";
       hideStatus();
+    } else if (ext === 'pptx') {
+      pptxMode = false;
+      pptxData = null;
+      await handlePPTXUpload(file);
     } else {
-      showStatus("Unsupported file format. Please use TXT, PDF, DOCX or DOC.", "error");
+      showStatus("Unsupported file format. Please use TXT, PDF, DOCX, DOC or PPTX.", "error");
     }
   } catch(e) {
     showStatus("Error reading file. Please try a different file.", "error");
@@ -1432,6 +1440,7 @@ async function extractPDFText(arrayBuffer) {
 }
 
 function downloadOutput() {
+  if (pptxMode && pptxData && pptxData.results) { downloadPPTX(); return; }
   const text = document.getElementById("outputText").innerText;
   if (!text || text.includes("will appear here")) return;
   const blob = new Blob([text], { type: 'text/plain' });
@@ -1446,9 +1455,13 @@ function downloadOutput() {
   showStatus("✓ File downloaded!", "success");
 }
 
-// Show download button after result
+// Show download buttons after result
 function showDownloadBtn() {
-  document.getElementById("downloadBtn").style.display = "flex";
+  const txtBtn = document.getElementById("downloadBtn");
+  txtBtn.textContent = (pptxMode && pptxData) ? "⬇ PPTX" : "⬇ TXT";
+  txtBtn.style.display = "flex";
+  document.getElementById("downloadPDFBtn").style.display = "flex";
+  document.getElementById("downloadDOCXBtn").style.display = "flex";
   document.getElementById("shareBar").style.display = "block";
 }
 
@@ -1703,6 +1716,9 @@ let currentTool = "paraphrase";
 
 function switchTool(tool) {
   currentTool = tool;
+  pptxMode = false;
+  pptxData = null;
+  document.getElementById("downloadBtn").textContent = "⬇ TXT";
   const tools = ['paraphrase','humanize','summarize','grammar','detect'];
   tools.forEach(t => {
     document.getElementById('tab-' + t).classList.toggle('active', t === tool);
@@ -1734,6 +1750,8 @@ function switchTool(tool) {
   document.getElementById('scorePanel').classList.remove('show');
   document.getElementById('shareBar').style.display = 'none';
   document.getElementById('downloadBtn').style.display = 'none';
+  document.getElementById('downloadPDFBtn').style.display = 'none';
+  document.getElementById('downloadDOCXBtn').style.display = 'none';
 }
 
 // ════════════════════════════════════════════
@@ -1851,10 +1869,20 @@ function countWords(text) {
 function clearInput() {
   inputEl.value = "";
   document.getElementById("inputCount").textContent = "0 words";
+  pptxMode = false;
+  pptxData = null;
+  document.getElementById("downloadBtn").textContent = "⬇ TXT";
 }
 
 function clearOutput() {
-  document.getElementById("outputText").innerHTML = '<span class="output-placeholder">Your paraphrased text will appear here...</span>';
+  const placeholders = {
+    paraphrase: 'Your paraphrased text will appear here...',
+    humanize:   'Your humanized text will appear here...',
+    summarize:  'Your summary will appear here...',
+    grammar:    'Grammar results will appear here...',
+    detect:     'AI detection results will appear here...'
+  };
+  document.getElementById("outputText").innerHTML = '<span class="output-placeholder">' + (placeholders[currentTool] || placeholders.paraphrase) + '</span>';
   document.getElementById("outputCount").textContent = "0 words";
 }
 
@@ -1942,6 +1970,7 @@ function setLoading(on) {
 // ════════════════════════════════════════════
 async function paraphrase() {
   if (isLoading) return;
+  if (pptxMode && pptxData) { await paraphrasePPTX(); return; }
 
   const text = inputEl.value.trim();
   if (!text) { showStatus("Please enter some text to paraphrase.", "error"); return; }
@@ -2523,6 +2552,235 @@ function closeBlog() {
   document.body.style.overflow = '';
 }
 
+// ════════════════════════════════════════════
+// PPTX UPLOAD & PARAPHRASE
+// ════════════════════════════════════════════
+let pptxMode = false;
+let pptxData = null;
+
+async function handlePPTXUpload(file) {
+  if (typeof JSZip === 'undefined') {
+    showStatus("PPTX support is still loading. Please try again.", "error");
+    return;
+  }
+  showStatus("Reading PPTX file...", "info");
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const zip = await JSZip.loadAsync(arrayBuffer);
+    const slides = [];
+    let i = 1;
+    while (true) {
+      const slideFile = zip.file('ppt/slides/slide' + i + '.xml');
+      if (!slideFile) break;
+      const xml = await slideFile.async('string');
+      const text = extractSlideText(xml);
+      slides.push({ num: i, xml, text });
+      i++;
+    }
+    const textSlides = slides.filter(s => s.text.trim().length > 0);
+    if (textSlides.length === 0) {
+      showStatus("No text found in any PPTX slides.", "error");
+      return;
+    }
+
+    if (currentTool === 'paraphrase') {
+      // Paraphrase tool: store full PPTX data for slide-by-slide processing
+      pptxData = { zip, slides: textSlides };
+      pptxMode = true;
+      const preview = textSlides.map(s => '[Slide ' + s.num + ']\n' + s.text).join('\n\n');
+      inputEl.value = preview;
+      document.getElementById('inputCount').textContent = countWords(preview) + ' words';
+      showStatus('✓ PPTX loaded: ' + textSlides.length + ' slide(s). Click Paraphrase Now to process each slide.', 'success');
+    } else {
+      // All other tools: just extract combined text into the textarea
+      const combined = textSlides.map(s => s.text).join('\n\n');
+      inputEl.value = combined;
+      document.getElementById('inputCount').textContent = countWords(combined) + ' words';
+      showStatus('✓ PPTX text extracted from ' + textSlides.length + ' slide(s). Ready to process.', 'success');
+    }
+  } catch (e) {
+    console.error(e);
+    showStatus("Error reading PPTX. Make sure it is a valid .pptx file.", "error");
+    pptxMode = false;
+    pptxData = null;
+  }
+}
+
+function extractSlideText(xml) {
+  const paragraphs = [];
+  const pReg = /<a:p\b[^>]*>([\s\S]*?)<\/a:p>/g;
+  let pm;
+  while ((pm = pReg.exec(xml)) !== null) {
+    const tReg = /<a:t\b[^>]*>([\s\S]*?)<\/a:t>/g;
+    let tm, line = '';
+    while ((tm = tReg.exec(pm[1])) !== null) line += pptxDecodeXml(tm[1]);
+    if (line.trim()) paragraphs.push(line.trim());
+  }
+  return paragraphs.join('\n');
+}
+
+function pptxDecodeXml(str) {
+  return str.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'");
+}
+
+function pptxEncodeXml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
+}
+
+async function paraphrasePPTX() {
+  if (!pptxData) return;
+  const { zip, slides } = pptxData;
+  setLoading(true);
+  resetApiDots();
+  hideStatus();
+  document.getElementById('outputText').innerHTML = '<span class="output-placeholder">Starting PPTX paraphrase...</span>';
+
+  const results = [];
+  for (let i = 0; i < slides.length; i++) {
+    const slide = slides[i];
+    showStatus('Processing slide ' + (i + 1) + ' of ' + slides.length + '...', 'info');
+    document.getElementById('outputText').innerHTML = '<span class="output-placeholder">Processing slide ' + (i + 1) + ' of ' + slides.length + '...</span>';
+    const prompt = MODE_PROMPTS[currentMode] || MODE_PROMPTS.standard;
+    const paraphrased = await runAPIChain(slide.text, prompt, currentMode, getLang(), 'paraphrase');
+    if (!paraphrased) {
+      setLoading(false);
+      showStatus('Failed on slide ' + slide.num + '. Please try again.', 'error');
+      return;
+    }
+    results.push(Object.assign({}, slide, { paraphrased }));
+  }
+
+  setLoading(false);
+  pptxData.results = results;
+
+  const output = results.map(r => '[Slide ' + r.num + ']\n' + r.paraphrased).join('\n\n');
+  document.getElementById('outputText').textContent = output;
+  document.getElementById('outputCount').textContent = countWords(output) + ' words';
+  showStatus('✓ All ' + results.length + ' slide(s) paraphrased! Download your PPTX below.', 'success');
+  showDownloadBtn();
+}
+
+function replaceSlideText(xml, paraphrasedText) {
+  const newLines = paraphrasedText.split('\n').filter(l => l.trim().length > 0);
+  let lineIdx = 0;
+  return xml.replace(/<a:p\b([^>]*)>([\s\S]*?)<\/a:p>/g, function(match, attrs, content) {
+    const tTags = content.match(/<a:t\b[^>]*>[\s\S]*?<\/a:t>/g);
+    const paraText = tTags ? tTags.map(t => t.replace(/<[^>]+>/g, '')).join('').trim() : '';
+    if (!paraText) return match;
+    const newText = newLines[lineIdx++];
+    if (!newText) return match;
+    const pPrMatch = content.match(/<a:pPr[\s\S]*?(?:\/>|<\/a:pPr>)/);
+    const pPr = pPrMatch ? pPrMatch[0] : '';
+    const firstRunMatch = content.match(/<a:r\b[^>]*>([\s\S]*?)<\/a:r>/);
+    const rPr = firstRunMatch ? ((firstRunMatch[1].match(/<a:rPr[\s\S]*?(?:\/>|<\/a:rPr>)/) || [''])[0]) : '';
+    return '<a:p' + attrs + '>' + pPr + '<a:r>' + rPr + '<a:t>' + pptxEncodeXml(newText) + '</a:t></a:r></a:p>';
+  });
+}
+
+async function downloadPPTX() {
+  if (!pptxData || !pptxData.results) return;
+  showStatus('Generating PPTX...', 'info');
+  const { zip, results } = pptxData;
+  for (const slide of results) {
+    zip.file('ppt/slides/slide' + slide.num + '.xml', replaceSlideText(slide.xml, slide.paraphrased));
+  }
+  const blob = await zip.generateAsync({
+    type: 'blob',
+    mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    compression: 'DEFLATE'
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'paraphrased_presentation.pptx';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showStatus('✓ PPTX downloaded!', 'success');
+}
+
+// ════════════════════════════════════════════
+// PDF DOWNLOAD
+// ════════════════════════════════════════════
+function downloadAsPDF() {
+  const text = document.getElementById("outputText").innerText;
+  if (!text || text.includes("will appear here")) return;
+  if (typeof window.jspdf === 'undefined') {
+    showStatus("PDF library is still loading. Please try again.", "error");
+    return;
+  }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(12);
+  const lines = doc.splitTextToSize(text, 180);
+  const lineH = 7;
+  const pageH = doc.internal.pageSize.height - 25;
+  let y = 20;
+  for (const line of lines) {
+    if (y > pageH) { doc.addPage(); y = 20; }
+    doc.text(line, 15, y);
+    y += lineH;
+  }
+  const names = { paraphrase: 'paraphrased', humanize: 'humanized', summarize: 'summary', grammar: 'grammar_checked', detect: 'ai_detection' };
+  const base = pptxMode ? 'paraphrased_presentation' : (names[currentTool] || 'result');
+  doc.save(base + '.pdf');
+  showStatus("✓ PDF downloaded!", "success");
+}
+
+// ════════════════════════════════════════════
+// DOCX DOWNLOAD
+// ════════════════════════════════════════════
+async function downloadAsDOCX() {
+  const text = document.getElementById("outputText").innerText;
+  if (!text || text.includes("will appear here")) return;
+  if (typeof JSZip === 'undefined') {
+    showStatus("DOCX library is still loading. Please try again.", "error");
+    return;
+  }
+  const blob = await buildDocxBlob(text);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const names = { paraphrase: 'paraphrased', humanize: 'humanized', summarize: 'summary', grammar: 'grammar_checked', detect: 'ai_detection' };
+  const base = pptxMode ? 'paraphrased_presentation' : (names[currentTool] || 'result');
+  a.download = base + '.docx';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showStatus("✓ DOCX downloaded!", "success");
+}
+
+async function buildDocxBlob(text) {
+  const zip = new JSZip();
+  zip.file('[Content_Types].xml',
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+    '<Default Extension="xml" ContentType="application/xml"/>' +
+    '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
+    '</Types>');
+  zip.file('_rels/.rels',
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>' +
+    '</Relationships>');
+  zip.file('word/_rels/document.xml.rels',
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>');
+  const paragraphs = text.split('\n').map(line => {
+    const esc = line.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    if (!line.trim()) return '<w:p/>';
+    return '<w:p><w:r><w:t xml:space="preserve">' + esc + '</w:t></w:r></w:p>';
+  }).join('');
+  zip.file('word/document.xml',
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
+    '<w:body>' + paragraphs + '<w:sectPr/></w:body></w:document>');
+  return zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+}
 
 </script>
 
