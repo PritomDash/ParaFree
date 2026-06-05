@@ -2970,25 +2970,32 @@ function replaceSlideText(xml, paraphrasedText) {
   const newLines = paraphrasedText.split('\n').filter(l => l.trim().length > 0);
   let lineIdx = 0;
 
-  // Only replace <a:t> text content — never rebuild runs, paragraphs, or any XML structure.
-  // This preserves all formatting, properties, and layout.
   return xml.replace(/<a:p\b[^>]*>[\s\S]*?<\/a:p>/g, function(paraMatch) {
-    // Collect all text from this paragraph
-    const tMatches = paraMatch.match(/<a:t\b[^>]*>([\s\S]*?)<\/a:t>/g) || [];
-    const paraText = tMatches.map(t => t.replace(/<[^>]+>/g, '').trim()).join('');
-    if (!paraText) return paraMatch; // No visible text — leave untouched
+    // Collect all <a:t> entries with their text lengths
+    const tEntries = [];
+    paraMatch.replace(/<a:t\b([^>]*)>([\s\S]*?)<\/a:t>/g, function(m, attrs, content) {
+      tEntries.push({ attrs, contentLen: content.trim().length });
+    });
 
-    if (lineIdx >= newLines.length) return paraMatch; // Ran out of paraphrased lines
+    const paraText = tEntries.map(e => e.contentLen).reduce((a, b) => a + b, 0);
+    if (!paraText) return paraMatch; // Paragraph has no visible text — leave untouched
+
+    if (lineIdx >= newLines.length) return paraMatch;
     const newText = newLines[lineIdx++];
 
-    // Replace text in-place: first <a:t> gets the new text, rest are emptied
-    let firstDone = false;
-    return paraMatch.replace(/<a:t\b([^>]*)>([\s\S]*?)<\/a:t>/g, function(tMatch, tAttrs) {
-      if (!firstDone) {
-        firstDone = true;
-        return '<a:t' + tAttrs + '>' + pptxEncodeXml(newText) + '</a:t>';
-      }
-      return '<a:t' + tAttrs + '></a:t>';
+    // Identify which run had the most text — that's the real content run whose
+    // <a:rPr> font size/family/colour we want to preserve.
+    // Putting the new text there avoids landing in empty formatting-only runs
+    // (e.g. a bullet glyph at 44pt) that appear before the actual content.
+    let mainIdx = 0, maxLen = -1;
+    tEntries.forEach(function(e, i) {
+      if (e.contentLen > maxLen) { maxLen = e.contentLen; mainIdx = i; }
+    });
+
+    // Replace only <a:t> content; all other XML (rPr, pPr, shapes) is untouched
+    let runIdx = 0;
+    return paraMatch.replace(/<a:t\b([^>]*)>([\s\S]*?)<\/a:t>/g, function(m, attrs) {
+      return '<a:t' + attrs + '>' + (runIdx++ === mainIdx ? pptxEncodeXml(newText) : '') + '</a:t>';
     });
   });
 }
