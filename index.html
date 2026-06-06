@@ -2870,116 +2870,65 @@ function closeBlog() {
 let pptxMode = false;
 let pptxData = null;
 
-async function handlePPTXUpload(file) {
-  if (typeof JSZip === 'undefined') {
-    showStatus("PPTX support is still loading. Please try again.", "error");
-    return;
-  }
-  showStatus("Reading PPTX file...", "info");
-  try {
-    const arrayBuffer = await file.arrayBuffer();
-    const zip = await JSZip.loadAsync(arrayBuffer);
-    const slides = [];
-    let i = 1;
-    while (true) {
-      const slideFile = zip.file('ppt/slides/slide' + i + '.xml');
-      if (!slideFile) break;
-      const xml = await slideFile.async('string');
-      const text = extractSlideText(xml);
-      slides.push({ num: i, xml, text });
-      i++;
+// Return array of {spIdx, text} for every <p:sp> with <p:txBody> text >= 10 chars
+function extractSpTextBoxes(slideXml) {
+  const items = [];
+  let spIdx = 0;
+  slideXml.replace(/<p:sp\b[^>]*>[\s\S]*?<\/p:sp>/g, function(spXml) {
+    if (spXml.includes('<p:txBody')) {
+      const parts = [];
+      spXml.replace(/<a:t\b[^>]*>([\s\S]*?)<\/a:t>/g, (m, t) => parts.push(pptxDecodeXml(t)));
+      const text = parts.join('').trim();
+      if (text.length >= 10) items.push({ spIdx, text });
     }
-    const textSlides = slides.filter(s => s.text.trim().length > 0);
-    if (textSlides.length === 0) {
-      showStatus("No text found in any PPTX slides.", "error");
-      return;
-    }
-
-    if (currentTool === 'paraphrase') {
-      // Extract theme colors now while zip is available; PptxGenJS generates fresh output
-      const theme = await extractPptxTheme(zip);
-      pptxData = { slides: textSlides, theme };
-      pptxMode = true;
-      const preview = textSlides.map(s => '[Slide ' + s.num + ']\n' + s.text).join('\n\n');
-      inputEl.value = preview;
-      document.getElementById('inputCount').textContent = countWords(preview) + ' words';
-      showStatus('✓ PPTX loaded - ' + textSlides.length + ' slides ready. Click Paraphrase Now to process.', 'success');
-    } else {
-      // All other tools: just extract combined text into the textarea
-      const combined = textSlides.map(s => s.text).join('\n\n');
-      inputEl.value = combined;
-      document.getElementById('inputCount').textContent = countWords(combined) + ' words';
-      showStatus('✓ PPTX text extracted from ' + textSlides.length + ' slide(s). Ready to process.', 'success');
-    }
-  } catch (e) {
-    console.error(e);
-    showStatus("Error reading PPTX. Make sure it is a valid .pptx file.", "error");
-    pptxMode = false;
-    pptxData = null;
-  }
+    spIdx++;
+  });
+  return items;
 }
 
-function extractSlideText(xml) {
-  const paragraphs = [];
-  const pReg = /<a:p\b[^>]*>([\s\S]*?)<\/a:p>/g;
-  let pm;
-  while ((pm = pReg.exec(xml)) !== null) {
-    const tReg = /<a:t\b[^>]*>([\s\S]*?)<\/a:t>/g;
-    let tm, line = '';
-    while ((tm = tReg.exec(pm[1])) !== null) line += pptxDecodeXml(tm[1]);
-    if (line.trim()) paragraphs.push(line.trim());
-  }
-  return paragraphs.join('\n');
+// Surgically replace text in one <p:sp>: keep first run's rPr, add spAutoFit, one paragraph
+function modifyTextBox(spXml, paraphrasedText) {
+  const newText = pptxEncodeXml(paraphrasedText.trim());
+  return spXml.replace(/(<p:txBody\b[^>]*>)([\s\S]*?)(<\/p:txBody>)/, function(m, open, inner, close) {
+    // 1. Rebuild <a:bodyPr> with spAutoFit, keeping all original attributes
+    let newBodyPr;
+    const bpOpen = inner.match(/<a:bodyPr(\b[^>]*)>([\s\S]*?)<\/a:bodyPr>/);
+    const bpSelf = inner.match(/<a:bodyPr(\b[^>]*?)\/>/);
+    if (bpOpen) {
+      const cleaned = bpOpen[2].replace(/<a:(?:noAutofit|normAutofit|spAutoFit)\s*\/>/g, '');
+      newBodyPr = '<a:bodyPr' + bpOpen[1] + '><a:spAutoFit/>' + cleaned + '</a:bodyPr>';
+    } else if (bpSelf) {
+      newBodyPr = '<a:bodyPr' + bpSelf[1] + '><a:spAutoFit/></a:bodyPr>';
+    } else {
+      newBodyPr = '<a:bodyPr><a:spAutoFit/></a:bodyPr>';
+    }
+
+    // 2. Keep <a:lstStyle> exactly as-is
+    const lstStyleM = inner.match(/<a:lstStyle\b[^>]*>[\s\S]*?<\/a:lstStyle>|<a:lstStyle\b[^>]*\/>/);
+    const lstStyle = lstStyleM ? lstStyleM[0] : '<a:lstStyle/>';
+
+    // 3. From first <a:p>: extract <a:pPr> and first <a:r>'s <a:rPr>
+    let pPr = '', rPr = '';
+    const firstParaM = inner.match(/<a:p\b[^>]*>[\s\S]*?<\/a:p>/);
+    if (firstParaM) {
+      const pPrM = firstParaM[0].match(/<a:pPr\b[^>]*>[\s\S]*?<\/a:pPr>|<a:pPr\b[^>]*\/>/);
+      if (pPrM) pPr = pPrM[0];
+      const firstRunM = firstParaM[0].match(/<a:r\b[^>]*>([\s\S]*?)<\/a:r>/);
+      if (firstRunM) {
+        const rPrM = firstRunM[1].match(/<a:rPr\b[^>]*>[\s\S]*?<\/a:rPr>|<a:rPr\b[^>]*\/>/);
+        if (rPrM) rPr = rPrM[0];
+      }
+    }
+
+    // 4. One paragraph, one run, paraphrased text
+    const newInner = newBodyPr + lstStyle +
+      '<a:p>' + pPr + '<a:r>' + rPr + '<a:t>' + newText + '</a:t></a:r></a:p>';
+    return open + newInner + close;
+  });
 }
 
 function pptxDecodeXml(str) {
   return str.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'");
-}
-
-// Extract a hex color from either <a:srgbClr val="RRGGBB"> or <a:sysClr lastClr="RRGGBB">
-function pptxExtractColor(xml) {
-  const srgb = xml.match(/<a:srgbClr\s+val="([0-9A-Fa-f]{6})"/);
-  if (srgb) return srgb[1].toUpperCase();
-  const sys  = xml.match(/<a:sysClr\b[^>]*\blastClr="([0-9A-Fa-f]{6})"/);
-  if (sys)  return sys[1].toUpperCase();
-  return null;
-}
-
-async function extractPptxTheme(zip) {
-  const theme = { bg: 'FFFFFF', text: '000000', font: 'Calibri' };
-  try {
-    // Background from slide master solid fill
-    const masterFile = zip.file('ppt/slideMasters/slideMaster1.xml');
-    if (masterFile) {
-      const xml = await masterFile.async('string');
-      const bgBlock = xml.match(/<p:bg\b[\s\S]{0,800}?<\/p:bg>/);
-      if (bgBlock) {
-        const c = pptxExtractColor(bgBlock[0]);
-        if (c) theme.bg = c;
-      }
-    }
-  } catch(e) {}
-  try {
-    // Text color and font from theme
-    const themeFile = zip.file('ppt/theme/theme1.xml');
-    if (themeFile) {
-      const xml = await themeFile.async('string');
-      const dk1Block = xml.match(/<a:dk1>([\s\S]{0,200}?)<\/a:dk1>/);
-      if (dk1Block) { const c = pptxExtractColor(dk1Block[1]); if (c) theme.text = c; }
-      // lt1 as bg fallback when master gave us nothing
-      if (theme.bg === 'FFFFFF') {
-        const lt1Block = xml.match(/<a:lt1>([\s\S]{0,200}?)<\/a:lt1>/);
-        if (lt1Block) { const c = pptxExtractColor(lt1Block[1]); if (c) theme.bg = c; }
-      }
-      // Minor font face (body text)
-      const fontBlock = xml.match(/<a:minorFont>([\s\S]{0,300}?)<\/a:minorFont>/);
-      if (fontBlock) {
-        const fm = fontBlock[1].match(/<a:latin\s+typeface="([^"+][^"]*)"/);
-        if (fm && fm[1] !== '+mn-lt') theme.font = fm[1];
-      }
-    }
-  } catch(e) {}
-  return theme;
 }
 
 function pptxEncodeXml(str) {
@@ -3001,240 +2950,124 @@ function stripMarkdown(text) {
     .trim();
 }
 
+async function handlePPTXUpload(file) {
+  if (typeof JSZip === 'undefined') {
+    showStatus("PPTX support is still loading. Please try again.", "error");
+    return;
+  }
+  showStatus("Reading PPTX file...", "info");
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const zip = await JSZip.loadAsync(arrayBuffer);
+    const slides = [];
+    let i = 1;
+    while (true) {
+      const slideFile = zip.file('ppt/slides/slide' + i + '.xml');
+      if (!slideFile) break;
+      const xml = await slideFile.async('string');
+      const textBoxItems = extractSpTextBoxes(xml);
+      if (textBoxItems.length > 0) slides.push({ num: i, textBoxItems });
+      i++;
+    }
+    if (slides.length === 0) {
+      showStatus("No text found in any PPTX slides.", "error");
+      return;
+    }
+    if (currentTool === 'paraphrase') {
+      pptxData = { zip, slides };
+      pptxMode = true;
+      const preview = slides.map(s =>
+        '[Slide ' + s.num + ']\n' + s.textBoxItems.map(it => it.text).join('\n')
+      ).join('\n\n');
+      inputEl.value = preview;
+      document.getElementById('inputCount').textContent = countWords(preview) + ' words';
+      const total = slides.reduce((n, s) => n + s.textBoxItems.length, 0);
+      showStatus('✓ PPTX loaded — ' + total + ' text box(es) across ' + slides.length + ' slide(s). Click Paraphrase Now.', 'success');
+    } else {
+      const combined = slides.map(s => s.textBoxItems.map(it => it.text).join('\n')).join('\n\n');
+      inputEl.value = combined;
+      document.getElementById('inputCount').textContent = countWords(combined) + ' words';
+      showStatus('✓ PPTX text extracted from ' + slides.length + ' slide(s). Ready to process.', 'success');
+    }
+  } catch (e) {
+    console.error(e);
+    showStatus("Error reading PPTX. Make sure it is a valid .pptx file.", "error");
+    pptxMode = false;
+    pptxData = null;
+  }
+}
+
 async function paraphrasePPTX() {
   if (!pptxData) return;
   const { slides } = pptxData;
+  const totalItems = slides.reduce((n, s) => n + s.textBoxItems.length, 0);
+  let doneItems = 0;
+
   setLoading(true);
   resetApiDots();
   hideStatus();
   document.getElementById('outputText').innerHTML = '<span class="output-placeholder">Starting PPTX paraphrase...</span>';
 
-  const results = [];
-  for (let i = 0; i < slides.length; i++) {
-    const slide = slides[i];
-    showStatus('Processing slide ' + (i + 1) + ' of ' + slides.length + '...', 'info');
-    document.getElementById('outputText').innerHTML = '<span class="output-placeholder">Processing slide ' + (i + 1) + ' of ' + slides.length + '...</span>';
-    const prompt = MODE_PROMPTS[currentMode] || MODE_PROMPTS.standard;
-    const raw = await runAPIChain(slide.text, prompt, currentMode, getLang(), 'paraphrase');
-    if (!raw) {
-      setLoading(false);
-      showStatus('Failed on slide ' + slide.num + '. Please try again.', 'error');
-      return;
+  const allResults = [];
+  for (let si = 0; si < slides.length; si++) {
+    const slide = slides[si];
+    for (let ti = 0; ti < slide.textBoxItems.length; ti++) {
+      const item = slide.textBoxItems[ti];
+      doneItems++;
+      showStatus('Processing slide ' + slide.num + ', box ' + (ti + 1) + ' (' + doneItems + '/' + totalItems + ')...', 'info');
+      document.getElementById('outputText').innerHTML =
+        '<span class="output-placeholder">Paraphrasing text box ' + doneItems + ' of ' + totalItems + '...</span>';
+      const prompt = MODE_PROMPTS[currentMode] || MODE_PROMPTS.standard;
+      const raw = await runAPIChain(item.text, prompt, currentMode, getLang(), 'paraphrase');
+      if (!raw) {
+        setLoading(false);
+        showStatus('Failed at slide ' + slide.num + ', box ' + (ti + 1) + '. Please try again.', 'error');
+        return;
+      }
+      item.paraphrased = stripMarkdown(raw);
+      allResults.push('[Slide ' + slide.num + ', Box ' + (ti + 1) + ']\n' + item.paraphrased);
     }
-    results.push(Object.assign({}, slide, { paraphrased: stripMarkdown(raw) }));
   }
 
   setLoading(false);
-  pptxData.results = results;
+  pptxData.ready = true;
 
-  const output = results.map(r => '[Slide ' + r.num + ']\n' + r.paraphrased).join('\n\n');
+  const output = allResults.join('\n\n');
   document.getElementById('outputText').textContent = output;
   document.getElementById('outputCount').textContent = countWords(output) + ' words';
-  showStatus('✓ All ' + results.length + ' slide(s) paraphrased! Download your PPTX below.', 'success');
+  showStatus('✓ All ' + totalItems + ' text box(es) paraphrased! Download your PPTX below.', 'success');
   showDownloadBtn();
-}
-
-// Build a valid PPTX blob from scratch using JSZip only (no external PPTX library needed).
-// Slide size: 16:9 widescreen — 12192000 × 6858000 EMU.
-function buildSlideXml(text, slideNum, bg, fg, font) {
-  // Each \n becomes a new paragraph; blank lines become a small spacer paragraph
-  const lines = text.split('\n');
-  let paras = '';
-  for (const line of lines) {
-    const safe = pptxEncodeXml(line.trim());
-    if (safe) {
-      paras += '<a:p><a:r>' +
-        '<a:rPr lang="en-US" dirty="0" sz="2000">' +
-        '<a:solidFill><a:srgbClr val="' + fg + '"/></a:solidFill>' +
-        '<a:latin typeface="' + pptxEncodeXml(font) + '"/>' +
-        '</a:rPr>' +
-        '<a:t>' + safe + '</a:t>' +
-        '</a:r></a:p>';
-    } else {
-      paras += '<a:p><a:endParaRPr lang="en-US" dirty="0" sz="800"/></a:p>';
-    }
-  }
-  if (!paras) paras = '<a:p><a:endParaRPr lang="en-US" dirty="0"/></a:p>';
-
-  const slideNumSafe = pptxEncodeXml(String(slideNum));
-  const fontSafe     = pptxEncodeXml(font);
-
-  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-  '<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"' +
-  ' xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"' +
-  ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
-  '<p:cSld>' +
-    '<p:bg><p:bgPr>' +
-      '<a:solidFill><a:srgbClr val="' + bg + '"/></a:solidFill>' +
-      '<a:effectLst/>' +
-    '</p:bgPr></p:bg>' +
-    '<p:spTree>' +
-      '<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>' +
-      '<p:grpSpPr><a:xfrm>' +
-        '<a:off x="0" y="0"/><a:ext cx="12192000" cy="6858000"/>' +
-        '<a:chOff x="0" y="0"/><a:chExt cx="12192000" cy="6858000"/>' +
-      '</a:xfrm></p:grpSpPr>' +
-      // Main text box — 10% padding on all sides
-      '<p:sp>' +
-        '<p:nvSpPr><p:cNvPr id="2" name="Content"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr>' +
-        '<p:spPr>' +
-          '<a:xfrm><a:off x="1219200" y="685800"/><a:ext cx="9753600" cy="5486400"/></a:xfrm>' +
-          '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/>' +
-        '</p:spPr>' +
-        '<p:txBody>' +
-          '<a:bodyPr wrap="square" rtlCol="0"><a:normAutofit/></a:bodyPr>' +
-          '<a:lstStyle/>' +
-          paras +
-        '</p:txBody>' +
-      '</p:sp>' +
-      // Slide number — bottom-right
-      '<p:sp>' +
-        '<p:nvSpPr><p:cNvPr id="3" name="SlideNum"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr>' +
-        '<p:spPr>' +
-          '<a:xfrm><a:off x="10600000" y="6500000"/><a:ext cx="1400000" cy="250000"/></a:xfrm>' +
-          '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/>' +
-        '</p:spPr>' +
-        '<p:txBody>' +
-          '<a:bodyPr wrap="square" rtlCol="0"/><a:lstStyle/>' +
-          '<a:p><a:pPr algn="r"/><a:r>' +
-            '<a:rPr lang="en-US" dirty="0" sz="900">' +
-            '<a:solidFill><a:srgbClr val="' + fg + '"/></a:solidFill>' +
-            '<a:latin typeface="' + fontSafe + '"/>' +
-            '</a:rPr>' +
-            '<a:t>' + slideNumSafe + '</a:t>' +
-          '</a:r></a:p>' +
-        '</p:txBody>' +
-      '</p:sp>' +
-    '</p:spTree>' +
-  '</p:cSld>' +
-  '<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>' +
-  '</p:sld>';
-}
-
-async function buildPptxBlob(results, theme) {
-  const bg   = ((theme && theme.bg)   || 'FFFFFF').replace('#','').toUpperCase();
-  const fg   = ((theme && theme.text) || '000000').replace('#','').toUpperCase();
-  const font = (theme && theme.font)  || 'Calibri';
-  const n    = results.length;
-
-  const zip = new JSZip();
-
-  // [Content_Types].xml
-  let ctypes = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
-    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
-    '<Default Extension="xml" ContentType="application/xml"/>' +
-    '<Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>' +
-    '<Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>' +
-    '<Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>';
-  for (let i = 1; i <= n; i++)
-    ctypes += '<Override PartName="/ppt/slides/slide' + i + '.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>';
-  ctypes += '</Types>';
-  zip.file('[Content_Types].xml', ctypes);
-
-  // _rels/.rels
-  zip.file('_rels/.rels',
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
-    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/>' +
-    '</Relationships>');
-
-  // ppt/_rels/presentation.xml.rels
-  let presRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
-    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster1.xml"/>';
-  for (let i = 1; i <= n; i++)
-    presRels += '<Relationship Id="rId' + (i+1) + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide' + i + '.xml"/>';
-  presRels += '</Relationships>';
-  zip.file('ppt/_rels/presentation.xml.rels', presRels);
-
-  // ppt/presentation.xml
-  let sldIds = '';
-  for (let i = 1; i <= n; i++)
-    sldIds += '<p:sldId id="' + (255 + i) + '" r:id="rId' + (i+1) + '"/>';
-  zip.file('ppt/presentation.xml',
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    '<p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"' +
-    ' xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"' +
-    ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
-    '<p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst>' +
-    '<p:sldIdLst>' + sldIds + '</p:sldIdLst>' +
-    '<p:sldSz cx="12192000" cy="6858000"/>' +
-    '<p:notesSz cx="6858000" cy="9144000"/>' +
-    '</p:presentation>');
-
-  // ppt/slideMasters/slideMaster1.xml (minimal)
-  zip.file('ppt/slideMasters/slideMaster1.xml',
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    '<p:sldMaster xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"' +
-    ' xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"' +
-    ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
-    '<p:cSld><p:spTree>' +
-    '<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>' +
-    '<p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="12192000" cy="6858000"/>' +
-    '<a:chOff x="0" y="0"/><a:chExt cx="12192000" cy="6858000"/></a:xfrm></p:grpSpPr>' +
-    '</p:spTree></p:cSld>' +
-    '<p:clrMap bg1="lt1" tx1="dk1" bg2="lt2" tx2="dk2" accent1="accent1" accent2="accent2"' +
-    ' accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" hlink="hlink" folHlink="folHlink"/>' +
-    '<p:sldLayoutIdLst><p:sldLayoutId id="2147483649" r:id="rId1"/></p:sldLayoutIdLst>' +
-    '<p:txStyles><p:titleStyle/><p:bodyStyle/><p:otherStyle/></p:txStyles>' +
-    '</p:sldMaster>');
-  zip.file('ppt/slideMasters/_rels/slideMaster1.xml.rels',
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
-    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>' +
-    '</Relationships>');
-
-  // ppt/slideLayouts/slideLayout1.xml (blank layout)
-  zip.file('ppt/slideLayouts/slideLayout1.xml',
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    '<p:sldLayout xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"' +
-    ' xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"' +
-    ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" type="blank" preserve="1">' +
-    '<p:cSld name="Blank"><p:spTree>' +
-    '<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>' +
-    '<p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="12192000" cy="6858000"/>' +
-    '<a:chOff x="0" y="0"/><a:chExt cx="12192000" cy="6858000"/></a:xfrm></p:grpSpPr>' +
-    '</p:spTree></p:cSld>' +
-    '<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>' +
-    '</p:sldLayout>');
-  zip.file('ppt/slideLayouts/_rels/slideLayout1.xml.rels',
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
-    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="../slideMasters/slideMaster1.xml"/>' +
-    '</Relationships>');
-
-  // One slide per result
-  for (let i = 0; i < n; i++) {
-    const sn = i + 1;
-    zip.file('ppt/slides/slide' + sn + '.xml', buildSlideXml(results[i].paraphrased, results[i].num, bg, fg, font));
-    zip.file('ppt/slides/_rels/slide' + sn + '.xml.rels',
-      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
-      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>' +
-      '</Relationships>');
-  }
-
-  return zip.generateAsync({
-    type: 'blob',
-    mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    compression: 'DEFLATE'
-  });
 }
 
 async function downloadPPTX() {
   showStatus('Preparing PPTX...', 'info');
-
-  if (!pptxData || !pptxData.results || pptxData.results.length === 0) {
-    alert('No PPTX data found. Please upload and paraphrase a PPTX file first.');
+  if (!pptxData || !pptxData.ready) {
+    alert('No paraphrased PPTX data. Please upload and paraphrase a PPTX file first.');
     return;
   }
-
   showStatus('Building PPTX...', 'info');
   try {
-    const blob = await buildPptxBlob(pptxData.results, pptxData.theme || {});
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
+    const { zip, slides } = pptxData;
+    for (const slide of slides) {
+      const slideFile = zip.file('ppt/slides/slide' + slide.num + '.xml');
+      if (!slideFile) continue;
+      let xml = await slideFile.async('string');
+      let spIdx = 0;
+      xml = xml.replace(/<p:sp\b[^>]*>[\s\S]*?<\/p:sp>/g, function(spXml) {
+        const idx = spIdx++;
+        const item = slide.textBoxItems.find(it => it.spIdx === idx && it.paraphrased);
+        if (item) return modifyTextBox(spXml, item.paraphrased);
+        return spXml;
+      });
+      zip.file('ppt/slides/slide' + slide.num + '.xml', xml);
+    }
+    const blob = await zip.generateAsync({
+      type: 'blob',
+      mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      compression: 'DEFLATE'
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
     a.href = url;
     a.download = 'paraphrased_presentation.pptx';
     document.body.appendChild(a);
@@ -3244,10 +3077,12 @@ async function downloadPPTX() {
     showStatus('✓ PPTX downloaded!', 'success');
   } catch (e) {
     console.error('[downloadPPTX]', e);
-    alert('PPTX build failed: ' + (e && e.message ? e.message : String(e)));
+    alert('PPTX download failed: ' + (e && e.message ? e.message : String(e)));
     showStatus('PPTX download failed. See popup for details.', 'error');
   }
 }
+
+
 
 // ════════════════════════════════════════════
 // PDF DOWNLOAD
