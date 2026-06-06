@@ -3036,51 +3036,41 @@ async function paraphrasePPTX() {
 }
 
 async function downloadPPTX() {
-  alert('Starting PPTX download');  // temporary diagnostic — confirms button fires
   showStatus('Preparing your PPTX...', 'info');
-  console.log('[downloadPPTX] pptxData:', pptxData);
 
-  if (!pptxData || !pptxData.results) {
-    showStatus('Please upload and paraphrase a PPTX file first.', 'error');
+  // Hard check — alert so user sees if library didn't load
+  if (typeof PptxGenJS === 'undefined') {
+    alert('PptxGenJS library is not loaded. Please refresh the page and try again.');
     return;
   }
 
-  // Accept PptxGenJS under either global name used by different CDN bundles
-  const PptxGen = (typeof PptxGenJS !== 'undefined') ? PptxGenJS
-                : (typeof pptxgen  !== 'undefined') ? pptxgen
-                : null;
-  console.log('[downloadPPTX] PptxGen found:', !!PptxGen);
-
-  if (!PptxGen) {
-    showStatus('PPTX library still loading, retrying...', 'info');
-    setTimeout(downloadPPTX, 900);
+  if (!pptxData || !pptxData.results || pptxData.results.length === 0) {
+    alert('No PPTX data found. Please upload and paraphrase a PPTX file first.');
     return;
   }
 
   try {
     const { results, theme = {} } = pptxData;
-    const bg   = theme.bg   || 'FFFFFF';
-    const fg   = theme.text || '000000';
+    const bg   = (theme.bg   || 'FFFFFF').replace('#', '');
+    const fg   = (theme.text || '000000').replace('#', '');
     const font = theme.font || 'Calibri';
-    console.log('[downloadPPTX] theme:', theme, '| slides:', results.length);
 
-    const pptx = new PptxGen();
+    const pptx = new PptxGenJS();
     pptx.layout = 'LAYOUT_16x9';
 
     for (const slide of results) {
       const s = pptx.addSlide();
       s.background = { color: bg };
 
-      // Content — 10% padding on all sides, auto-shrinks to fit
+      // Main content — 10% padding on all sides
       s.addText(slide.paraphrased, {
         x: '10%', y: '10%', w: '80%', h: '78%',
-        fontSize: 24,
+        fontSize: 18,
         color: fg,
         fontFace: font,
         align: 'left',
         valign: 'top',
-        wrap: true,
-        autoFitType: 'shrink'
+        wrap: true
       });
 
       // Slide number — bottom-right
@@ -3094,10 +3084,13 @@ async function downloadPPTX() {
     }
 
     showStatus('Building PPTX...', 'info');
-    // write('blob') + manual anchor = most compatible browser download
-    const blob = await pptx.write('blob');
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
+    // arraybuffer → manual Blob → anchor click: most reliable cross-browser approach
+    const arrayBuffer = await pptx.write({ outputType: 'arraybuffer' });
+    const blob = new Blob([arrayBuffer], {
+      type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+    });
+    const url = URL.createObjectURL(blob);
+    const a   = document.createElement('a');
     a.href = url;
     a.download = 'paraphrased_presentation.pptx';
     document.body.appendChild(a);
@@ -3107,8 +3100,8 @@ async function downloadPPTX() {
     showStatus('✓ PPTX downloaded!', 'success');
   } catch (e) {
     console.error('[downloadPPTX] error:', e);
-    alert('PPTX generation error: ' + e.message);
-    showStatus('PPTX download failed: ' + e.message, 'error');
+    alert('PPTX error: ' + (e && e.message ? e.message : String(e)));
+    showStatus('PPTX download failed. See popup for details.', 'error');
   }
 }
 
