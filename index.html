@@ -3001,36 +3001,73 @@ async function paraphrasePPTX() {
   if (!pptxData) return;
   const { slides } = pptxData;
   const totalItems = slides.reduce((n, s) => n + s.textBoxItems.length, 0);
-  let doneItems = 0;
 
   setLoading(true);
   resetApiDots();
   hideStatus();
-  document.getElementById('outputText').innerHTML = '<span class="output-placeholder">Starting PPTX paraphrase...</span>';
+  document.getElementById('outputText').innerHTML = '<span class="output-placeholder">Preparing PPTX for paraphrase...</span>';
 
-  const allResults = [];
-  for (let si = 0; si < slides.length; si++) {
-    const slide = slides[si];
-    for (let ti = 0; ti < slide.textBoxItems.length; ti++) {
-      const item = slide.textBoxItems[ti];
-      doneItems++;
-      showStatus('Processing slide ' + slide.num + ', box ' + (ti + 1) + ' (' + doneItems + '/' + totalItems + ')...', 'info');
-      document.getElementById('outputText').innerHTML =
-        '<span class="output-placeholder">Paraphrasing text box ' + doneItems + ' of ' + totalItems + '...</span>';
-      const prompt = MODE_PROMPTS[currentMode] || MODE_PROMPTS.standard;
-      const raw = await runAPIChain(item.text, prompt, currentMode, getLang(), 'paraphrase');
-      if (!raw) {
-        setLoading(false);
-        showStatus('Failed at slide ' + slide.num + ', box ' + (ti + 1) + '. Please try again.', 'error');
-        return;
+  // Build one tagged-text block per slide, then chunk into batches
+  const CHUNK_CHAR_LIMIT = 8000;
+  const MAX_SLIDES_PER_CHUNK = 3;
+
+  const slideGroups = slides.map(slide => ({
+    slide,
+    text: slide.textBoxItems.map((item, ti) => {
+      const tag = 'SLIDE' + slide.num + '_BOX' + (ti + 1);
+      return '[' + tag + ']' + item.text + '[/' + tag + ']';
+    }).join('\n')
+  }));
+
+  const chunks = [];
+  let cur = [], curLen = 0;
+  for (const grp of slideGroups) {
+    if (cur.length >= MAX_SLIDES_PER_CHUNK || (cur.length > 0 && curLen + grp.text.length > CHUNK_CHAR_LIMIT)) {
+      chunks.push(cur); cur = []; curLen = 0;
+    }
+    cur.push(grp); curLen += grp.text.length;
+  }
+  if (cur.length > 0) chunks.push(cur);
+
+  const basePrompt = (MODE_PROMPTS[currentMode] || MODE_PROMPTS.standard) +
+    '\n\nIMPORTANT: Paraphrase the text inside each tag. Return ALL tags unchanged in your response. Never remove, rename, or modify the tags — only change the text inside them.';
+
+  for (let ci = 0; ci < chunks.length; ci++) {
+    const chunk = chunks[ci];
+    const chunkText = chunk.map(g => g.text).join('\n');
+    const suffix = chunks.length > 1 ? ' — part ' + (ci + 1) + '/' + chunks.length : '';
+    showStatus('Paraphrasing' + suffix + ' (' + totalItems + ' text boxes)...', 'info');
+    document.getElementById('outputText').innerHTML =
+      '<span class="output-placeholder">Paraphrasing ' + totalItems + ' text boxes' + suffix + '...</span>';
+
+    const raw = await runAPIChain(chunkText, basePrompt, currentMode, getLang(), 'paraphrase');
+    if (!raw) {
+      setLoading(false);
+      showStatus('Paraphrase failed' + suffix + '. Please try again.', 'error');
+      return;
+    }
+
+    // Parse each tagged section back to its item
+    for (const { slide } of chunk) {
+      for (let ti = 0; ti < slide.textBoxItems.length; ti++) {
+        const item = slide.textBoxItems[ti];
+        const tag = 'SLIDE' + slide.num + '_BOX' + (ti + 1);
+        const m = raw.match(new RegExp('\\[' + tag + '\\]([\\s\\S]*?)\\[\\/' + tag + '\\]', 'i'));
+        item.paraphrased = m ? stripMarkdown(m[1].trim()) : item.text;
       }
-      item.paraphrased = stripMarkdown(raw);
-      allResults.push('[Slide ' + slide.num + ', Box ' + (ti + 1) + ']\n' + item.paraphrased);
     }
   }
 
   setLoading(false);
   pptxData.ready = true;
+
+  const allResults = [];
+  for (const slide of slides) {
+    for (let ti = 0; ti < slide.textBoxItems.length; ti++) {
+      const item = slide.textBoxItems[ti];
+      allResults.push('[Slide ' + slide.num + ', Box ' + (ti + 1) + ']\n' + (item.paraphrased || item.text));
+    }
+  }
 
   const output = allResults.join('\n\n');
   document.getElementById('outputText').textContent = output;
