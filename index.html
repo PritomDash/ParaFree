@@ -2970,7 +2970,7 @@ function replaceSlideText(xml, paraphrasedText) {
   const newLines = paraphrasedText.split('\n').filter(l => l.trim().length > 0);
   let lineIdx = 0;
 
-  return xml.replace(/<a:p\b[^>]*>[\s\S]*?<\/a:p>/g, function(paraMatch) {
+  let result = xml.replace(/<a:p\b[^>]*>[\s\S]*?<\/a:p>/g, function(paraMatch) {
     // Collect all <a:t> entries with their text lengths
     const tEntries = [];
     paraMatch.replace(/<a:t\b([^>]*)>([\s\S]*?)<\/a:t>/g, function(m, attrs, content) {
@@ -2998,6 +2998,23 @@ function replaceSlideText(xml, paraphrasedText) {
       return '<a:t' + attrs + '>' + (runIdx++ === mainIdx ? pptxEncodeXml(newText) : '') + '</a:t>';
     });
   });
+
+  // Ensure every text body uses normAutofit so PowerPoint shrinks text to fit the box.
+  // Self-closing <a:bodyPr .../> → expand and inject normAutofit.
+  result = result.replace(/<a:bodyPr(\b[^>]*)\/>/g, function(m, attrs) {
+    return '<a:bodyPr' + attrs + '><a:normAutofit/></a:bodyPr>';
+  });
+  // Non-self-closing <a:bodyPr>...</a:bodyPr> — replace noAutofit or inject normAutofit.
+  result = result.replace(/<a:bodyPr(\b[^>]*)>([\s\S]*?)<\/a:bodyPr>/g, function(m, attrs, inner) {
+    if (inner.includes('<a:normAutofit')) return m; // already set
+    if (inner.includes('<a:spAutoFit')) return m;   // shape grows — acceptable
+    if (inner.includes('<a:noAutofit')) {
+      return '<a:bodyPr' + attrs + '>' + inner.replace(/<a:noAutofit\s*\/>/, '<a:normAutofit/>') + '</a:bodyPr>';
+    }
+    return '<a:bodyPr' + attrs + '><a:normAutofit/>' + inner + '</a:bodyPr>';
+  });
+
+  return result;
 }
 
 async function downloadPPTX() {
