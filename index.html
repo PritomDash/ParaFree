@@ -1504,7 +1504,13 @@ async function downloadOutput() {
 // Show download buttons after result
 function showDownloadBtn() {
   const txtBtn = document.getElementById("downloadBtn");
-  txtBtn.textContent = (pptxMode && pptxData) ? "⬇ PPTX" : "⬇ TXT";
+  if (pptxMode && pptxData) {
+    txtBtn.textContent = "⬇ PPTX";
+    txtBtn.onclick = downloadPPTX;
+  } else {
+    txtBtn.textContent = "⬇ TXT";
+    txtBtn.onclick = downloadOutput;
+  }
   txtBtn.style.display = "flex";
   document.getElementById("downloadPDFBtn").style.display = "flex";
   document.getElementById("downloadDOCXBtn").style.display = "flex";
@@ -2896,7 +2902,7 @@ async function handlePPTXUpload(file) {
       const preview = textSlides.map(s => '[Slide ' + s.num + ']\n' + s.text).join('\n\n');
       inputEl.value = preview;
       document.getElementById('inputCount').textContent = countWords(preview) + ' words';
-      showStatus('✓ PPTX loaded: ' + textSlides.length + ' slide(s). Click Paraphrase Now to process each slide.', 'success');
+      showStatus('✓ PPTX loaded - ' + textSlides.length + ' slides ready. Click Paraphrase Now to process.', 'success');
     } else {
       // All other tools: just extract combined text into the textarea
       const combined = textSlides.map(s => s.text).join('\n\n');
@@ -3018,14 +3024,23 @@ function replaceSlideText(xml, paraphrasedText) {
 }
 
 async function downloadPPTX() {
-  if (!pptxData || !pptxData.results) return;
+  console.log('[downloadPPTX] called — pptxMode:', pptxMode, '| pptxData:', pptxData);
+  if (!pptxData) {
+    alert('No PPTX data found. Please upload a .pptx file first.');
+    return;
+  }
+  if (!pptxData.results) {
+    alert('Slides have not been paraphrased yet. Please click "Paraphrase Now" first.');
+    return;
+  }
   if (typeof JSZip === 'undefined') {
-    showStatus('JSZip library not loaded. Please refresh the page and try again.', 'error');
+    alert('JSZip library failed to load. Please refresh the page and try again.');
     return;
   }
   showStatus('Generating PPTX...', 'info');
   try {
     const { zip, results } = pptxData;
+    console.log('[downloadPPTX] slides to write:', results.length);
     for (const slide of results) {
       zip.file('ppt/slides/slide' + slide.num + '.xml', replaceSlideText(slide.xml, slide.paraphrased));
     }
@@ -3034,6 +3049,7 @@ async function downloadPPTX() {
       mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
       compression: 'DEFLATE'
     });
+    console.log('[downloadPPTX] blob size:', blob.size);
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -3044,8 +3060,9 @@ async function downloadPPTX() {
     URL.revokeObjectURL(url);
     showStatus('✓ PPTX downloaded!', 'success');
   } catch (e) {
-    console.error('downloadPPTX error:', e);
-    showStatus('Error generating PPTX: ' + e.message + '. Check browser console for details.', 'error');
+    console.error('[downloadPPTX] error:', e);
+    alert('PPTX generation failed: ' + e.message);
+    showStatus('PPTX download failed: ' + e.message, 'error');
   }
 }
 
