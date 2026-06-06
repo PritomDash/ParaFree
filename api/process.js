@@ -4,7 +4,7 @@
 // Keys stored ONLY in Vercel Environment Variables
 // ═══════════════════════════════════════════════════
 
-const RATE_LIMIT = 15;
+const RATE_LIMIT = 50;
 const RATE_WINDOW = 60 * 60 * 1000;
 const MAX_TEXT_LENGTH = 50000;
 // NOTE: In-memory only — resets on every Vercel cold start.
