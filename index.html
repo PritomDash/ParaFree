@@ -45,6 +45,7 @@
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PptxGenJS/3.12.0/pptxgen.bundled.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8692254823531289" crossorigin="anonymous"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2896,8 +2897,8 @@ async function handlePPTXUpload(file) {
     }
 
     if (currentTool === 'paraphrase') {
-      // Paraphrase tool: store full PPTX data for slide-by-slide processing
-      pptxData = { zip, slides: textSlides };
+      // Paraphrase tool: store slides only; output PPTX is generated fresh via PptxGenJS
+      pptxData = { slides: textSlides };
       pptxMode = true;
       const preview = textSlides.map(s => '[Slide ' + s.num + ']\n' + s.text).join('\n\n');
       inputEl.value = preview;
@@ -2956,7 +2957,7 @@ function stripMarkdown(text) {
 
 async function paraphrasePPTX() {
   if (!pptxData) return;
-  const { zip, slides } = pptxData;
+  const { slides } = pptxData;
   setLoading(true);
   resetApiDots();
   hideStatus();
@@ -2987,60 +2988,58 @@ async function paraphrasePPTX() {
   showDownloadBtn();
 }
 
-function replaceSlideText(xml, paraphrasedText) {
-  // Whole-slide approach: put ALL paraphrased text in the very first <a:t>,
-  // zero out every other <a:t>. Nothing else (rPr, pPr, bodyPr, shapes) is touched.
-  const newText = pptxEncodeXml(paraphrasedText.trim());
-  let isFirst = true;
-  return xml.replace(/<a:t(\b[^>]*)>([\s\S]*?)<\/a:t>/g, function(m, attrs) {
-    if (isFirst) { isFirst = false; return '<a:t' + attrs + '>' + newText + '</a:t>'; }
-    return '<a:t' + attrs + '></a:t>';
-  });
-}
-
 async function downloadPPTX() {
-  // Give immediate feedback so the user knows something is happening
-  showStatus('Preparing download...', 'info');
-  console.log('[downloadPPTX] called — pptxMode:', pptxMode, '| pptxData:', pptxData);
-  if (!pptxData) {
-    alert('No PPTX data found. Please upload a .pptx file first.');
+  // Instant feedback — shown before any async work begins
+  showStatus('Preparing your PPTX...', 'info');
+
+  if (!pptxData || !pptxData.results) {
+    showStatus('Please upload and paraphrase a PPTX file first.', 'error');
     return;
   }
-  if (!pptxData.results) {
-    alert('Slides have not been paraphrased yet. Please click "Paraphrase Now" first.');
-    return;
-  }
-  if (typeof JSZip === 'undefined') {
-    showStatus('Loading PPTX engine, please wait...', 'info');
+  if (typeof PptxGenJS === 'undefined') {
+    showStatus('PPTX library still loading, retrying...', 'info');
     setTimeout(downloadPPTX, 900);
     return;
   }
-  showStatus('Building PPTX file...', 'info');
+
   try {
-    const { zip, results } = pptxData;
-    console.log('[downloadPPTX] slides to write:', results.length);
-    for (const slide of results) {
-      zip.file('ppt/slides/slide' + slide.num + '.xml', replaceSlideText(slide.xml, slide.paraphrased));
+    const pptx = new PptxGenJS();
+    pptx.layout = 'LAYOUT_16x9';
+
+    for (const slide of pptxData.results) {
+      const s = pptx.addSlide();
+
+      // Dark navy background — matches ParaFree brand
+      s.background = { color: '0a1628' };
+
+      // Slide number — top-right, subtle
+      s.addText('Slide ' + slide.num, {
+        x: '78%', y: '2%', w: '20%', h: '7%',
+        fontSize: 12,
+        color: '6688aa',
+        align: 'right',
+        fontFace: 'Arial'
+      });
+
+      // Paraphrased content — fills the slide, auto-shrinks if too long
+      s.addText(slide.paraphrased, {
+        x: '4%', y: '10%', w: '92%', h: '85%',
+        fontSize: 22,
+        color: 'FFFFFF',
+        fontFace: 'Arial',
+        align: 'left',
+        valign: 'top',
+        wrap: true,
+        autoFitType: 'shrink'
+      });
     }
-    const blob = await zip.generateAsync({
-      type: 'blob',
-      mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      compression: 'DEFLATE'
-    });
-    console.log('[downloadPPTX] blob size:', blob.size);
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'paraphrased_presentation.pptx';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+
+    showStatus('Building PPTX file...', 'info');
+    await pptx.writeFile({ fileName: 'paraphrased_presentation.pptx' });
     showStatus('✓ PPTX downloaded!', 'success');
   } catch (e) {
     console.error('[downloadPPTX] error:', e);
-    alert('PPTX generation failed: ' + e.message);
-    showStatus('PPTX download failed: ' + e.message, 'error');
+    showStatus('PPTX generation failed: ' + e.message, 'error');
   }
 }
 
