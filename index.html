@@ -1485,8 +1485,8 @@ async function extractPDFText(arrayBuffer) {
   return text.trim();
 }
 
-function downloadOutput() {
-  if (pptxMode && pptxData && pptxData.results) { downloadPPTX(); return; }
+async function downloadOutput() {
+  if (pptxMode && pptxData && pptxData.results) { await downloadPPTX(); return; }
   const text = document.getElementById("outputText").innerText;
   if (!text || text.includes("will appear here")) return;
   const blob = new Blob([text], { type: 'text/plain' });
@@ -3019,25 +3019,34 @@ function replaceSlideText(xml, paraphrasedText) {
 
 async function downloadPPTX() {
   if (!pptxData || !pptxData.results) return;
-  showStatus('Generating PPTX...', 'info');
-  const { zip, results } = pptxData;
-  for (const slide of results) {
-    zip.file('ppt/slides/slide' + slide.num + '.xml', replaceSlideText(slide.xml, slide.paraphrased));
+  if (typeof JSZip === 'undefined') {
+    showStatus('JSZip library not loaded. Please refresh the page and try again.', 'error');
+    return;
   }
-  const blob = await zip.generateAsync({
-    type: 'blob',
-    mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    compression: 'DEFLATE'
-  });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'paraphrased_presentation.pptx';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showStatus('✓ PPTX downloaded!', 'success');
+  showStatus('Generating PPTX...', 'info');
+  try {
+    const { zip, results } = pptxData;
+    for (const slide of results) {
+      zip.file('ppt/slides/slide' + slide.num + '.xml', replaceSlideText(slide.xml, slide.paraphrased));
+    }
+    const blob = await zip.generateAsync({
+      type: 'blob',
+      mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      compression: 'DEFLATE'
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'paraphrased_presentation.pptx';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showStatus('✓ PPTX downloaded!', 'success');
+  } catch (e) {
+    console.error('downloadPPTX error:', e);
+    showStatus('Error generating PPTX: ' + e.message + '. Check browser console for details.', 'error');
+  }
 }
 
 // ════════════════════════════════════════════
