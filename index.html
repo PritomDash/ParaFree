@@ -2976,51 +2976,24 @@ function replaceSlideText(xml, paraphrasedText) {
   const newLines = paraphrasedText.split('\n').filter(l => l.trim().length > 0);
   let lineIdx = 0;
 
-  let result = xml.replace(/<a:p\b[^>]*>[\s\S]*?<\/a:p>/g, function(paraMatch) {
-    // Collect all <a:t> entries with their text lengths
-    const tEntries = [];
-    paraMatch.replace(/<a:t\b([^>]*)>([\s\S]*?)<\/a:t>/g, function(m, attrs, content) {
-      tEntries.push({ attrs, contentLen: content.trim().length });
+  return xml.replace(/<a:p\b[^>]*>[\s\S]*?<\/a:p>/g, function(paraMatch) {
+    // Check if paragraph contains any visible text
+    let hasText = false;
+    paraMatch.replace(/<a:t\b[^>]*>([\s\S]*?)<\/a:t>/g, function(m, content) {
+      if (content.trim().length > 0) hasText = true;
     });
+    if (!hasText || lineIdx >= newLines.length) return paraMatch;
 
-    const paraText = tEntries.map(e => e.contentLen).reduce((a, b) => a + b, 0);
-    if (!paraText) return paraMatch; // Paragraph has no visible text — leave untouched
-
-    if (lineIdx >= newLines.length) return paraMatch;
     const newText = newLines[lineIdx++];
+    let isFirst = true;
 
-    // Identify which run had the most text — that's the real content run whose
-    // <a:rPr> font size/family/colour we want to preserve.
-    // Putting the new text there avoids landing in empty formatting-only runs
-    // (e.g. a bullet glyph at 44pt) that appear before the actual content.
-    let mainIdx = 0, maxLen = -1;
-    tEntries.forEach(function(e, i) {
-      if (e.contentLen > maxLen) { maxLen = e.contentLen; mainIdx = i; }
-    });
-
-    // Replace only <a:t> content; all other XML (rPr, pPr, shapes) is untouched
-    let runIdx = 0;
-    return paraMatch.replace(/<a:t\b([^>]*)>([\s\S]*?)<\/a:t>/g, function(m, attrs) {
-      return '<a:t' + attrs + '>' + (runIdx++ === mainIdx ? pptxEncodeXml(newText) : '') + '</a:t>';
+    // First <a:t> gets the new text; all subsequent <a:t> become empty.
+    // No other tags (<a:r>, <a:rPr>, <a:pPr>, <a:bodyPr>) are touched.
+    return paraMatch.replace(/<a:t(\b[^>]*)>([\s\S]*?)<\/a:t>/g, function(m, attrs) {
+      if (isFirst) { isFirst = false; return '<a:t' + attrs + '>' + pptxEncodeXml(newText) + '</a:t>'; }
+      return '<a:t' + attrs + '></a:t>';
     });
   });
-
-  // Ensure every text body uses normAutofit so PowerPoint shrinks text to fit the box.
-  // Self-closing <a:bodyPr .../> → expand and inject normAutofit.
-  result = result.replace(/<a:bodyPr(\b[^>]*)\/>/g, function(m, attrs) {
-    return '<a:bodyPr' + attrs + '><a:normAutofit/></a:bodyPr>';
-  });
-  // Non-self-closing <a:bodyPr>...</a:bodyPr> — replace noAutofit or inject normAutofit.
-  result = result.replace(/<a:bodyPr(\b[^>]*)>([\s\S]*?)<\/a:bodyPr>/g, function(m, attrs, inner) {
-    if (inner.includes('<a:normAutofit')) return m; // already set
-    if (inner.includes('<a:spAutoFit')) return m;   // shape grows — acceptable
-    if (inner.includes('<a:noAutofit')) {
-      return '<a:bodyPr' + attrs + '>' + inner.replace(/<a:noAutofit\s*\/>/, '<a:normAutofit/>') + '</a:bodyPr>';
-    }
-    return '<a:bodyPr' + attrs + '><a:normAutofit/>' + inner + '</a:bodyPr>';
-  });
-
-  return result;
 }
 
 async function downloadPPTX() {
@@ -3034,7 +3007,8 @@ async function downloadPPTX() {
     return;
   }
   if (typeof JSZip === 'undefined') {
-    alert('JSZip library failed to load. Please refresh the page and try again.');
+    showStatus('Loading PPTX engine, please wait...', 'info');
+    setTimeout(downloadPPTX, 900);
     return;
   }
   showStatus('Generating PPTX...', 'info');
