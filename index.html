@@ -2897,8 +2897,9 @@ async function handlePPTXUpload(file) {
     }
 
     if (currentTool === 'paraphrase') {
-      // Paraphrase tool: store slides only; output PPTX is generated fresh via PptxGenJS
-      pptxData = { slides: textSlides };
+      // Extract theme colors now while zip is available; PptxGenJS generates fresh output
+      const theme = await extractPptxTheme(zip);
+      pptxData = { slides: textSlides, theme };
       pptxMode = true;
       const preview = textSlides.map(s => '[Slide ' + s.num + ']\n' + s.text).join('\n\n');
       inputEl.value = preview;
@@ -2934,6 +2935,52 @@ function extractSlideText(xml) {
 
 function pptxDecodeXml(str) {
   return str.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'");
+}
+
+// Extract a hex color from either <a:srgbClr val="RRGGBB"> or <a:sysClr lastClr="RRGGBB">
+function pptxExtractColor(xml) {
+  const srgb = xml.match(/<a:srgbClr\s+val="([0-9A-Fa-f]{6})"/);
+  if (srgb) return srgb[1].toUpperCase();
+  const sys  = xml.match(/<a:sysClr\b[^>]*\blastClr="([0-9A-Fa-f]{6})"/);
+  if (sys)  return sys[1].toUpperCase();
+  return null;
+}
+
+async function extractPptxTheme(zip) {
+  const theme = { bg: 'FFFFFF', text: '000000', font: 'Calibri' };
+  try {
+    // Background from slide master solid fill
+    const masterFile = zip.file('ppt/slideMasters/slideMaster1.xml');
+    if (masterFile) {
+      const xml = await masterFile.async('string');
+      const bgBlock = xml.match(/<p:bg\b[\s\S]{0,800}?<\/p:bg>/);
+      if (bgBlock) {
+        const c = pptxExtractColor(bgBlock[0]);
+        if (c) theme.bg = c;
+      }
+    }
+  } catch(e) {}
+  try {
+    // Text color and font from theme
+    const themeFile = zip.file('ppt/theme/theme1.xml');
+    if (themeFile) {
+      const xml = await themeFile.async('string');
+      const dk1Block = xml.match(/<a:dk1>([\s\S]{0,200}?)<\/a:dk1>/);
+      if (dk1Block) { const c = pptxExtractColor(dk1Block[1]); if (c) theme.text = c; }
+      // lt1 as bg fallback when master gave us nothing
+      if (theme.bg === 'FFFFFF') {
+        const lt1Block = xml.match(/<a:lt1>([\s\S]{0,200}?)<\/a:lt1>/);
+        if (lt1Block) { const c = pptxExtractColor(lt1Block[1]); if (c) theme.bg = c; }
+      }
+      // Minor font face (body text)
+      const fontBlock = xml.match(/<a:minorFont>([\s\S]{0,300}?)<\/a:minorFont>/);
+      if (fontBlock) {
+        const fm = fontBlock[1].match(/<a:latin\s+typeface="([^"+][^"]*)"/);
+        if (fm && fm[1] !== '+mn-lt') theme.font = fm[1];
+      }
+    }
+  } catch(e) {}
+  return theme;
 }
 
 function pptxEncodeXml(str) {
@@ -2989,57 +3036,79 @@ async function paraphrasePPTX() {
 }
 
 async function downloadPPTX() {
-  // Instant feedback — shown before any async work begins
+  alert('Starting PPTX download');  // temporary diagnostic — confirms button fires
   showStatus('Preparing your PPTX...', 'info');
+  console.log('[downloadPPTX] pptxData:', pptxData);
 
   if (!pptxData || !pptxData.results) {
     showStatus('Please upload and paraphrase a PPTX file first.', 'error');
     return;
   }
-  if (typeof PptxGenJS === 'undefined') {
+
+  // Accept PptxGenJS under either global name used by different CDN bundles
+  const PptxGen = (typeof PptxGenJS !== 'undefined') ? PptxGenJS
+                : (typeof pptxgen  !== 'undefined') ? pptxgen
+                : null;
+  console.log('[downloadPPTX] PptxGen found:', !!PptxGen);
+
+  if (!PptxGen) {
     showStatus('PPTX library still loading, retrying...', 'info');
     setTimeout(downloadPPTX, 900);
     return;
   }
 
   try {
-    const pptx = new PptxGenJS();
+    const { results, theme = {} } = pptxData;
+    const bg   = theme.bg   || 'FFFFFF';
+    const fg   = theme.text || '000000';
+    const font = theme.font || 'Calibri';
+    console.log('[downloadPPTX] theme:', theme, '| slides:', results.length);
+
+    const pptx = new PptxGen();
     pptx.layout = 'LAYOUT_16x9';
 
-    for (const slide of pptxData.results) {
+    for (const slide of results) {
       const s = pptx.addSlide();
+      s.background = { color: bg };
 
-      // Dark navy background — matches ParaFree brand
-      s.background = { color: '0a1628' };
-
-      // Slide number — top-right, subtle
-      s.addText('Slide ' + slide.num, {
-        x: '78%', y: '2%', w: '20%', h: '7%',
-        fontSize: 12,
-        color: '6688aa',
-        align: 'right',
-        fontFace: 'Arial'
-      });
-
-      // Paraphrased content — fills the slide, auto-shrinks if too long
+      // Content — 10% padding on all sides, auto-shrinks to fit
       s.addText(slide.paraphrased, {
-        x: '4%', y: '10%', w: '92%', h: '85%',
-        fontSize: 22,
-        color: 'FFFFFF',
-        fontFace: 'Arial',
+        x: '10%', y: '10%', w: '80%', h: '78%',
+        fontSize: 24,
+        color: fg,
+        fontFace: font,
         align: 'left',
         valign: 'top',
         wrap: true,
         autoFitType: 'shrink'
       });
+
+      // Slide number — bottom-right
+      s.addText('Slide ' + slide.num, {
+        x: '75%', y: '90%', w: '22%', h: '8%',
+        fontSize: 10,
+        color: fg,
+        align: 'right',
+        fontFace: font
+      });
     }
 
-    showStatus('Building PPTX file...', 'info');
-    await pptx.writeFile({ fileName: 'paraphrased_presentation.pptx' });
+    showStatus('Building PPTX...', 'info');
+    // write('blob') + manual anchor = most compatible browser download
+    const blob = await pptx.write('blob');
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = 'paraphrased_presentation.pptx';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
     showStatus('✓ PPTX downloaded!', 'success');
   } catch (e) {
     console.error('[downloadPPTX] error:', e);
-    showStatus('PPTX generation failed: ' + e.message, 'error');
+    alert('PPTX generation error: ' + e.message);
+    showStatus('PPTX download failed: ' + e.message, 'error');
   }
 }
 
