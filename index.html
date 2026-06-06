@@ -2939,6 +2939,21 @@ function pptxEncodeXml(str) {
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
 }
 
+function stripMarkdown(text) {
+  return text
+    .replace(/\*\*(.+?)\*\*/gs, '$1')
+    .replace(/\*(.+?)\*/gs, '$1')
+    .replace(/_{2}(.+?)_{2}/gs, '$1')
+    .replace(/_(.+?)_/gs, '$1')
+    .replace(/#{1,6}\s*/g, '')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/^[-*+]\s+/gm, '')
+    .replace(/^\d+\.\s+/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 async function paraphrasePPTX() {
   if (!pptxData) return;
   const { zip, slides } = pptxData;
@@ -2953,13 +2968,13 @@ async function paraphrasePPTX() {
     showStatus('Processing slide ' + (i + 1) + ' of ' + slides.length + '...', 'info');
     document.getElementById('outputText').innerHTML = '<span class="output-placeholder">Processing slide ' + (i + 1) + ' of ' + slides.length + '...</span>';
     const prompt = MODE_PROMPTS[currentMode] || MODE_PROMPTS.standard;
-    const paraphrased = await runAPIChain(slide.text, prompt, currentMode, getLang(), 'paraphrase');
-    if (!paraphrased) {
+    const raw = await runAPIChain(slide.text, prompt, currentMode, getLang(), 'paraphrase');
+    if (!raw) {
       setLoading(false);
       showStatus('Failed on slide ' + slide.num + '. Please try again.', 'error');
       return;
     }
-    results.push(Object.assign({}, slide, { paraphrased }));
+    results.push(Object.assign({}, slide, { paraphrased: stripMarkdown(raw) }));
   }
 
   setLoading(false);
@@ -2973,30 +2988,19 @@ async function paraphrasePPTX() {
 }
 
 function replaceSlideText(xml, paraphrasedText) {
-  const newLines = paraphrasedText.split('\n').filter(l => l.trim().length > 0);
-  let lineIdx = 0;
-
-  return xml.replace(/<a:p\b[^>]*>[\s\S]*?<\/a:p>/g, function(paraMatch) {
-    // Check if paragraph contains any visible text
-    let hasText = false;
-    paraMatch.replace(/<a:t\b[^>]*>([\s\S]*?)<\/a:t>/g, function(m, content) {
-      if (content.trim().length > 0) hasText = true;
-    });
-    if (!hasText || lineIdx >= newLines.length) return paraMatch;
-
-    const newText = newLines[lineIdx++];
-    let isFirst = true;
-
-    // First <a:t> gets the new text; all subsequent <a:t> become empty.
-    // No other tags (<a:r>, <a:rPr>, <a:pPr>, <a:bodyPr>) are touched.
-    return paraMatch.replace(/<a:t(\b[^>]*)>([\s\S]*?)<\/a:t>/g, function(m, attrs) {
-      if (isFirst) { isFirst = false; return '<a:t' + attrs + '>' + pptxEncodeXml(newText) + '</a:t>'; }
-      return '<a:t' + attrs + '></a:t>';
-    });
+  // Whole-slide approach: put ALL paraphrased text in the very first <a:t>,
+  // zero out every other <a:t>. Nothing else (rPr, pPr, bodyPr, shapes) is touched.
+  const newText = pptxEncodeXml(paraphrasedText.trim());
+  let isFirst = true;
+  return xml.replace(/<a:t(\b[^>]*)>([\s\S]*?)<\/a:t>/g, function(m, attrs) {
+    if (isFirst) { isFirst = false; return '<a:t' + attrs + '>' + newText + '</a:t>'; }
+    return '<a:t' + attrs + '></a:t>';
   });
 }
 
 async function downloadPPTX() {
+  // Give immediate feedback so the user knows something is happening
+  showStatus('Preparing download...', 'info');
   console.log('[downloadPPTX] called — pptxMode:', pptxMode, '| pptxData:', pptxData);
   if (!pptxData) {
     alert('No PPTX data found. Please upload a .pptx file first.');
@@ -3011,7 +3015,7 @@ async function downloadPPTX() {
     setTimeout(downloadPPTX, 900);
     return;
   }
-  showStatus('Generating PPTX...', 'info');
+  showStatus('Building PPTX file...', 'info');
   try {
     const { zip, results } = pptxData;
     console.log('[downloadPPTX] slides to write:', results.length);
