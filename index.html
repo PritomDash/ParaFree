@@ -951,7 +951,7 @@
       <span class="panel-label">Your Text</span>
       <span class="word-count" id="inputCount">0 words</span>
     </div>
-    <textarea id="inputText" placeholder="Paste or type your text here... No word limit!"></textarea>
+    <textarea id="inputText" placeholder="Paste or type your text here... No word limit!" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
     <!-- FILE UPLOAD -->
     <div style="padding:10px 18px; border-top:1px solid var(--border); background:var(--surface2); display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
       <label for="fileUpload" style="cursor:pointer; display:flex; align-items:center; gap:6px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:6px 14px; font-size:13px; color:var(--text2); transition:all 0.15s;">
@@ -3363,6 +3363,12 @@ async function paraphrasePPTX() {
         const m = raw.match(new RegExp('\\[' + tag + '\\]([\\s\\S]*?)\\[\\/' + tag + '\\]', 'i'));
         item.paraphrased = m ? stripMarkdown(m[1].trim()) : item.text;
       }
+    }
+
+    // Wait 1 second between chunks so Groq's per-minute counter has time to breathe
+    // (Groq allows ~30 req/min — 1s gap keeps us well within that between chunks)
+    if (ci < chunks.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
   }
 
