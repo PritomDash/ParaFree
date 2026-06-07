@@ -47,6 +47,7 @@ function getAdminPassword() {
 
 // ── API CALLERS ──
 async function callGroq(text, prompt, key) {
+  console.log("Trying: Groq (llama-3.1-8b-instant)");
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
@@ -64,6 +65,7 @@ async function callGroq(text, prompt, key) {
 }
 
 async function callGemini(text, prompt, key) {
+  console.log("Trying: Gemini (gemini-2.0-flash)");
   const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + key;
   const res = await fetch(url, {
     method: "POST",
@@ -81,6 +83,7 @@ async function callGemini(text, prompt, key) {
 }
 
 async function callCerebras(text, prompt, key) {
+  console.log("Trying: Cerebras (llama3.1-8b)");
   const res = await fetch("https://api.cerebras.ai/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
@@ -98,6 +101,7 @@ async function callCerebras(text, prompt, key) {
 }
 
 async function callOpenRouter(text, prompt, key) {
+  console.log("Trying: OpenRouter (llama-3.1-8b-instruct)");
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -120,6 +124,7 @@ async function callOpenRouter(text, prompt, key) {
 }
 
 async function callMistral(text, prompt, key) {
+  console.log("Trying: Mistral (mistral-small-latest)");
   const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
@@ -137,6 +142,7 @@ async function callMistral(text, prompt, key) {
 }
 
 async function callCloudflare(text, prompt, key, account) {
+  console.log("Trying: Cloudflare (llama-3.1-8b-instruct)");
   const res = await fetch(
     "https://api.cloudflare.com/client/v4/accounts/" + account + "/ai/run/@cf/meta/llama-3.1-8b-instruct",
     {
@@ -152,6 +158,7 @@ async function callCloudflare(text, prompt, key, account) {
 }
 
 async function callExtra(text, prompt, key) {
+  console.log("Trying: Extra (OpenRouter fallback)");
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -196,37 +203,46 @@ function getPrompt(mode, language) {
 }
 
 // ── MAIN API CHAIN ──
+// Order is STRICT: Groq → Gemini → Cerebras → OpenRouter → Mistral → Cloudflare → Extra1-6
 async function runChain(text, prompt) {
   const K = getKeys();
+
+  // Diagnostic: log which keys are present so Vercel logs show why a fallback happens
+  console.log("[ParaFree] Key presence — Groq:", !!K.groq, "| Gemini:", !!K.gemini, "| Cerebras:", !!K.cerebras, "| OpenRouter:", !!K.openrouter, "| Mistral:", !!K.mistral, "| Cloudflare:", !!(K.cloudflare && K.cf_account));
+
+  // Build the ordered list. Groq is ALWAYS first when key is present.
   const apis = [
-    { name: "groq",       fn: () => callGroq(text, prompt, K.groq),                          enabled: !!K.groq },
-    { name: "gemini",     fn: () => callGemini(text, prompt, K.gemini),                      enabled: !!K.gemini },
-    { name: "cerebras",   fn: () => callCerebras(text, prompt, K.cerebras),                  enabled: !!K.cerebras },
-    { name: "openrouter", fn: () => callOpenRouter(text, prompt, K.openrouter),              enabled: !!K.openrouter },
-    { name: "mistral",    fn: () => callMistral(text, prompt, K.mistral),                    enabled: !!K.mistral },
-    { name: "cloudflare", fn: () => callCloudflare(text, prompt, K.cloudflare, K.cf_account), enabled: !!(K.cloudflare && K.cf_account) },
-    { name: "extra1",     fn: () => callExtra(text, prompt, K.extra1),                       enabled: !!K.extra1 },
-    { name: "extra2",     fn: () => callExtra(text, prompt, K.extra2),                       enabled: !!K.extra2 },
-    { name: "extra3",     fn: () => callExtra(text, prompt, K.extra3),                       enabled: !!K.extra3 },
-    { name: "extra4",     fn: () => callExtra(text, prompt, K.extra4),                       enabled: !!K.extra4 },
-    { name: "extra5",     fn: () => callExtra(text, prompt, K.extra5),                       enabled: !!K.extra5 },
-    { name: "extra6",     fn: () => callExtra(text, prompt, K.extra6),                       enabled: !!K.extra6 },
-  ].filter(a => a.enabled);
+    { name: "Groq",       fn: () => callGroq(text, prompt, K.groq),                            key: K.groq },
+    { name: "Gemini",     fn: () => callGemini(text, prompt, K.gemini),                        key: K.gemini },
+    { name: "Cerebras",   fn: () => callCerebras(text, prompt, K.cerebras),                    key: K.cerebras },
+    { name: "OpenRouter", fn: () => callOpenRouter(text, prompt, K.openrouter),                key: K.openrouter },
+    { name: "Mistral",    fn: () => callMistral(text, prompt, K.mistral),                      key: K.mistral },
+    { name: "Cloudflare", fn: () => callCloudflare(text, prompt, K.cloudflare, K.cf_account),  key: K.cloudflare && K.cf_account },
+    { name: "Extra1",     fn: () => callExtra(text, prompt, K.extra1),                         key: K.extra1 },
+    { name: "Extra2",     fn: () => callExtra(text, prompt, K.extra2),                         key: K.extra2 },
+    { name: "Extra3",     fn: () => callExtra(text, prompt, K.extra3),                         key: K.extra3 },
+    { name: "Extra4",     fn: () => callExtra(text, prompt, K.extra4),                         key: K.extra4 },
+    { name: "Extra5",     fn: () => callExtra(text, prompt, K.extra5),                         key: K.extra5 },
+    { name: "Extra6",     fn: () => callExtra(text, prompt, K.extra6),                         key: K.extra6 },
+  ].filter(a => !!a.key);
 
   if (apis.length === 0) {
+    console.error("[ParaFree] No API keys configured — all keys missing or empty");
     return { success: false, error: "No API keys configured" };
   }
 
+  console.log("[ParaFree] Attempt order:", apis.map(a => a.name).join(" → "));
+
   for (const api of apis) {
     try {
-      console.log("Trying:", api.name);
       const result = await api.fn();
       if (result && result.trim().length > 10) {
-        console.log("Success:", api.name);
+        console.log("[ParaFree] Success:", api.name);
         return { success: true, result: result.trim(), usedApi: api.name };
       }
+      console.warn("[ParaFree]", api.name, "returned empty/short result — trying next");
     } catch (e) {
-      console.warn(api.name, "failed:", e.message);
+      console.warn("[ParaFree]", api.name, "failed:", e.message, "— trying next");
     }
   }
   return { success: false, error: "All APIs failed" };
