@@ -464,6 +464,34 @@
   }
   .see-more-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
 
+  /* ── Grammar errors panel ── */
+  .grammar-errors-box {
+    border-left: 4px solid #e74c3c;
+    background: #fff5f5;
+    border-radius: 0 8px 8px 0;
+    padding: 16px 20px;
+  }
+  .grammar-errors-box.no-errors {
+    border-left-color: var(--accent);
+    background: var(--accent-light);
+  }
+  .grammar-errors-header {
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 10px;
+    color: #c0392b;
+  }
+  .grammar-errors-box.no-errors .grammar-errors-header {
+    color: var(--accent);
+  }
+  .grammar-errors-list {
+    font-size: 13px;
+    line-height: 1.75;
+    color: #444;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
   /* ── MODES ── */
   .modes-bar {
     max-width: 1100px;
@@ -936,6 +964,9 @@
     </div>
   </div>
 </div>
+
+<!-- GRAMMAR ERRORS PANEL (shown only for grammar checker) -->
+<div id="grammarErrorsPanel" style="display:none; max-width:1100px; margin:0 auto 12px; padding:0 16px;"></div>
 
 <!-- PARAPHRASE BUTTON -->
 <div class="paraphrase-wrap" id="paraphraseWrap">
@@ -1556,7 +1587,7 @@ async function summarize() {
   hideStatus();
   document.getElementById("outputText").innerHTML = '<span class="output-placeholder">Summarizing...</span>';
 
-  const prompt = `Summarize the following text into a clear, concise summary. Keep all key points. Use bullet points for main ideas followed by a brief paragraph conclusion.${langSuffix()} Return only the summary, nothing else:`;
+  const prompt = `Summarize the following text. Your summary MUST be significantly shorter than the input — maximum 30% of the original word count. Use concise bullet points for the key ideas, then one short conclusion sentence. Be brief and to the point. Never exceed 30% of input word count.${langSuffix()} Return only the summary, nothing else:`;
 
   const result = await runAPIChain(text, prompt, currentMode, getLang(), currentTool);
   setToolLoading('summarize', false, "∑ Summarize Now");
@@ -1575,6 +1606,64 @@ async function summarize() {
 // ════════════════════════════════════════════
 // GRAMMAR CHECKER
 // ════════════════════════════════════════════
+
+function renderGrammarOutput(raw) {
+  const result = raw.trim();
+
+  // Parse CORRECTED TEXT and ERRORS FOUND sections
+  const corrM = result.match(/CORRECTED\s+TEXT\s*:\s*/i);
+  const errM  = result.match(/ERRORS?\s+FOUND\s*:\s*/i);
+
+  let correctedText = result;
+  let errorsText = '';
+
+  if (corrM) {
+    const corrStart = result.indexOf(corrM[0]) + corrM[0].length;
+    if (errM) {
+      const errStart = result.indexOf(errM[0]);
+      correctedText = result.slice(corrStart, errStart).trim();
+      errorsText    = result.slice(errStart + errM[0].length).trim();
+    } else {
+      correctedText = result.slice(corrStart).trim();
+    }
+  }
+
+  // Only the corrected text is used for copy / downloads
+  fullOutputText = correctedText;
+  fullOutputHTML = '';
+
+  // Render corrected text in output box (with see-more if long)
+  const outputEl = document.getElementById('outputText');
+  if (correctedText.length <= PREVIEW_CHARS) {
+    outputEl.innerHTML = '<span>' + escapeHtml(correctedText) + '</span>';
+  } else {
+    outputEl.innerHTML =
+      '<span>' + escapeHtml(correctedText.slice(0, PREVIEW_CHARS)) + '...</span>' +
+      '<br><button class="see-more-btn" onclick="toggleSeeMore(this)">See more ↓</button>';
+  }
+
+  // Render errors panel
+  const panel = document.getElementById('grammarErrorsPanel');
+  panel.style.display = 'block';
+  const noErrors = !errorsText ||
+    /no errors found/i.test(errorsText) ||
+    errorsText.trim() === '';
+
+  if (noErrors) {
+    panel.innerHTML =
+      '<div class="grammar-errors-box no-errors">' +
+        '<div class="grammar-errors-header">✅ No errors found!</div>' +
+        '<div class="grammar-errors-list">Your text looks great.</div>' +
+      '</div>';
+  } else {
+    panel.innerHTML =
+      '<div class="grammar-errors-box">' +
+        '<div class="grammar-errors-header">⚠️ Errors Found</div>' +
+        '<div class="grammar-errors-list">' + escapeHtml(errorsText) + '</div>' +
+      '</div>';
+  }
+}
+
 async function checkGrammar() {
   if (isLoading) return;
   const text = document.getElementById("inputText").value.trim();
@@ -1583,16 +1672,18 @@ async function checkGrammar() {
   setToolLoading('grammar', true, "Checking...");
   hideStatus();
   document.getElementById("outputText").innerHTML = '<span class="output-placeholder">Checking grammar...</span>';
+  const gep = document.getElementById('grammarErrorsPanel');
+  if (gep) { gep.style.display = 'none'; gep.innerHTML = ''; }
 
-  const prompt = `You are a grammar checker. Check the following text for grammar, spelling, punctuation, and style errors. Format your response as:
+  const prompt = `You are a grammar checker. Check the following text for grammar, spelling, punctuation, and style errors. Respond in this EXACT format:
 
 CORRECTED TEXT:
 [Write the fully corrected text here]
 
 ERRORS FOUND:
-[List each error found with: "Original: ... → Corrected: ... (Reason)"]
+[Number each error: 1. Original → Corrected (reason)]
 
-If no errors found, write "No errors found! Your text looks great."
+If no errors exist, write under ERRORS FOUND: "No errors found! Your text looks great."
 
 Text to check:`;
 
@@ -1600,8 +1691,8 @@ Text to check:`;
   setToolLoading('grammar', false, "✓ Check Grammar");
 
   if (result) {
-    renderOutput(result.trim());
-    document.getElementById("outputCount").textContent = countWords(result) + " words";
+    renderGrammarOutput(result.trim());
+    document.getElementById("outputCount").textContent = countWords(fullOutputText) + " words";
     showStatus("✓ Grammar check complete!", "success");
     showDownloadBtn();
   } else {
@@ -2038,6 +2129,8 @@ function clearInput() {
 function clearOutput() {
   fullOutputText = '';
   fullOutputHTML = '';
+  const gep = document.getElementById('grammarErrorsPanel');
+  if (gep) { gep.style.display = 'none'; gep.innerHTML = ''; }
   const placeholders = {
     paraphrase: 'Your paraphrased text will appear here...',
     humanize:   'Your humanized text will appear here...',
