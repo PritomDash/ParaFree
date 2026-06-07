@@ -8,7 +8,6 @@ const RATE_LIMIT = 50;
 const RATE_WINDOW = 60 * 60 * 1000;
 const MAX_TEXT_LENGTH = 50000;
 // NOTE: In-memory only — resets on every Vercel cold start.
-// For persistent rate limiting across all instances, use Vercel KV or Upstash Redis.
 const rateLimitMap = new Map();
 
 // ── RATE LIMITING ──
@@ -21,23 +20,10 @@ function getRateLimit(ip) {
   return { count: entry.count, remaining: Math.max(0, RATE_LIMIT - entry.count) };
 }
 
-// ── LOAD KEYS FROM VERCEL ENV VARS ──
-function getKeys() {
-  return {
-    groq:       process.env.GROQ_KEY       || "",
-    gemini:     process.env.GEMINI_KEY     || "",
-    cerebras:   process.env.CEREBRAS_KEY   || "",
-    openrouter: process.env.OPENROUTER_KEY || "",
-    mistral:    process.env.MISTRAL_KEY    || "",
-    cloudflare: process.env.CF_KEY         || "",
-    cf_account: process.env.CF_ACCOUNT     || "",
-    extra1:     process.env.EXTRA1_KEY     || "",
-    extra2:     process.env.EXTRA2_KEY     || "",
-    extra3:     process.env.EXTRA3_KEY     || "",
-    extra4:     process.env.EXTRA4_KEY     || "",
-    extra5:     process.env.EXTRA5_KEY     || "",
-    extra6:     process.env.EXTRA6_KEY     || "",
-  };
+// ── KEY VALIDATION ──
+// A key must be a non-empty string with more than 10 characters to be considered valid.
+function validKey(k) {
+  return typeof k === 'string' && k.trim().length > 10;
 }
 
 // ── ADMIN PASSWORD ──
@@ -47,7 +33,7 @@ function getAdminPassword() {
 
 // ── API CALLERS ──
 async function callGroq(text, prompt, key) {
-  console.log("Trying: Groq (llama-3.1-8b-instant)");
+  console.log("Attempting API: Groq");
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
@@ -65,7 +51,7 @@ async function callGroq(text, prompt, key) {
 }
 
 async function callGemini(text, prompt, key) {
-  console.log("Trying: Gemini (gemini-2.0-flash)");
+  console.log("Attempting API: Gemini");
   const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + key;
   const res = await fetch(url, {
     method: "POST",
@@ -83,7 +69,7 @@ async function callGemini(text, prompt, key) {
 }
 
 async function callCerebras(text, prompt, key) {
-  console.log("Trying: Cerebras (llama3.1-8b)");
+  console.log("Attempting API: Cerebras");
   const res = await fetch("https://api.cerebras.ai/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
@@ -101,7 +87,7 @@ async function callCerebras(text, prompt, key) {
 }
 
 async function callOpenRouter(text, prompt, key) {
-  console.log("Trying: OpenRouter (llama-3.1-8b-instruct)");
+  console.log("Attempting API: OpenRouter");
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -124,7 +110,7 @@ async function callOpenRouter(text, prompt, key) {
 }
 
 async function callMistral(text, prompt, key) {
-  console.log("Trying: Mistral (mistral-small-latest)");
+  console.log("Attempting API: Mistral");
   const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
@@ -142,7 +128,7 @@ async function callMistral(text, prompt, key) {
 }
 
 async function callCloudflare(text, prompt, key, account) {
-  console.log("Trying: Cloudflare (llama-3.1-8b-instruct)");
+  console.log("Attempting API: Cloudflare");
   const res = await fetch(
     "https://api.cloudflare.com/client/v4/accounts/" + account + "/ai/run/@cf/meta/llama-3.1-8b-instruct",
     {
@@ -157,8 +143,8 @@ async function callCloudflare(text, prompt, key, account) {
   return data.result.response;
 }
 
-async function callExtra(text, prompt, key) {
-  console.log("Trying: Extra (OpenRouter fallback)");
+async function callExtra(text, prompt, key, label) {
+  console.log("Attempting API:", label);
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -174,9 +160,9 @@ async function callExtra(text, prompt, key) {
       max_tokens: 2048
     })
   });
-  if (!res.ok) throw new Error("Extra:" + res.status);
+  if (!res.ok) throw new Error(label + ":" + res.status);
   const data = await res.json();
-  if (!data.choices || !data.choices[0]) throw new Error("Extra: no response");
+  if (!data.choices || !data.choices[0]) throw new Error(label + ": no response");
   return data.choices[0].message.content;
 }
 
@@ -205,46 +191,68 @@ function getPrompt(mode, language) {
 // ── MAIN API CHAIN ──
 // Order is STRICT: Groq → Gemini → Cerebras → OpenRouter → Mistral → Cloudflare → Extra1-6
 async function runChain(text, prompt) {
-  const K = getKeys();
+  // Read keys directly from process.env — no intermediate variable that could mask undefined
+  const GROQ_KEY       = process.env.GROQ_KEY;
+  const GEMINI_KEY     = process.env.GEMINI_KEY;
+  const CEREBRAS_KEY   = process.env.CEREBRAS_KEY;
+  const OPENROUTER_KEY = process.env.OPENROUTER_KEY;
+  const MISTRAL_KEY    = process.env.MISTRAL_KEY;
+  const CF_KEY         = process.env.CF_KEY;
+  const CF_ACCOUNT     = process.env.CF_ACCOUNT;
+  const EXTRA1_KEY     = process.env.EXTRA1_KEY;
+  const EXTRA2_KEY     = process.env.EXTRA2_KEY;
+  const EXTRA3_KEY     = process.env.EXTRA3_KEY;
+  const EXTRA4_KEY     = process.env.EXTRA4_KEY;
+  const EXTRA5_KEY     = process.env.EXTRA5_KEY;
+  const EXTRA6_KEY     = process.env.EXTRA6_KEY;
 
-  // Diagnostic: log which keys are present so Vercel logs show why a fallback happens
-  console.log("[ParaFree] Key presence — Groq:", !!K.groq, "| Gemini:", !!K.gemini, "| Cerebras:", !!K.cerebras, "| OpenRouter:", !!K.openrouter, "| Mistral:", !!K.mistral, "| Cloudflare:", !!(K.cloudflare && K.cf_account));
+  // Ordered candidates — Groq MUST be first
+  const candidates = [
+    { name: "Groq",       key: GROQ_KEY,       fn: () => callGroq(text, prompt, GROQ_KEY.trim()) },
+    { name: "Gemini",     key: GEMINI_KEY,      fn: () => callGemini(text, prompt, GEMINI_KEY.trim()) },
+    { name: "Cerebras",   key: CEREBRAS_KEY,    fn: () => callCerebras(text, prompt, CEREBRAS_KEY.trim()) },
+    { name: "OpenRouter", key: OPENROUTER_KEY,  fn: () => callOpenRouter(text, prompt, OPENROUTER_KEY.trim()) },
+    { name: "Mistral",    key: MISTRAL_KEY,     fn: () => callMistral(text, prompt, MISTRAL_KEY.trim()) },
+    { name: "Cloudflare", key: CF_KEY,          fn: () => callCloudflare(text, prompt, CF_KEY.trim(), CF_ACCOUNT.trim()), extra: CF_ACCOUNT },
+    { name: "Extra1",     key: EXTRA1_KEY,      fn: () => callExtra(text, prompt, EXTRA1_KEY.trim(), "Extra1") },
+    { name: "Extra2",     key: EXTRA2_KEY,      fn: () => callExtra(text, prompt, EXTRA2_KEY.trim(), "Extra2") },
+    { name: "Extra3",     key: EXTRA3_KEY,      fn: () => callExtra(text, prompt, EXTRA3_KEY.trim(), "Extra3") },
+    { name: "Extra4",     key: EXTRA4_KEY,      fn: () => callExtra(text, prompt, EXTRA4_KEY.trim(), "Extra4") },
+    { name: "Extra5",     key: EXTRA5_KEY,      fn: () => callExtra(text, prompt, EXTRA5_KEY.trim(), "Extra5") },
+    { name: "Extra6",     key: EXTRA6_KEY,      fn: () => callExtra(text, prompt, EXTRA6_KEY.trim(), "Extra6") },
+  ];
 
-  // Build the ordered list. Groq is ALWAYS first when key is present.
-  const apis = [
-    { name: "Groq",       fn: () => callGroq(text, prompt, K.groq),                            key: K.groq },
-    { name: "Gemini",     fn: () => callGemini(text, prompt, K.gemini),                        key: K.gemini },
-    { name: "Cerebras",   fn: () => callCerebras(text, prompt, K.cerebras),                    key: K.cerebras },
-    { name: "OpenRouter", fn: () => callOpenRouter(text, prompt, K.openrouter),                key: K.openrouter },
-    { name: "Mistral",    fn: () => callMistral(text, prompt, K.mistral),                      key: K.mistral },
-    { name: "Cloudflare", fn: () => callCloudflare(text, prompt, K.cloudflare, K.cf_account),  key: K.cloudflare && K.cf_account },
-    { name: "Extra1",     fn: () => callExtra(text, prompt, K.extra1),                         key: K.extra1 },
-    { name: "Extra2",     fn: () => callExtra(text, prompt, K.extra2),                         key: K.extra2 },
-    { name: "Extra3",     fn: () => callExtra(text, prompt, K.extra3),                         key: K.extra3 },
-    { name: "Extra4",     fn: () => callExtra(text, prompt, K.extra4),                         key: K.extra4 },
-    { name: "Extra5",     fn: () => callExtra(text, prompt, K.extra5),                         key: K.extra5 },
-    { name: "Extra6",     fn: () => callExtra(text, prompt, K.extra6),                         key: K.extra6 },
-  ].filter(a => !!a.key);
+  let anyKeyFound = false;
 
-  if (apis.length === 0) {
-    console.error("[ParaFree] No API keys configured — all keys missing or empty");
+  for (const c of candidates) {
+    // Cloudflare also needs CF_ACCOUNT to be valid
+    const keyOk  = validKey(c.key);
+    const extraOk = c.extra !== undefined ? validKey(c.extra) : true;
+
+    if (!keyOk || !extraOk) {
+      console.log("Skipping", c.name, "- key missing or empty");
+      continue;
+    }
+
+    anyKeyFound = true;
+
+    try {
+      const result = await c.fn();
+      if (result && result.trim().length > 10) {
+        console.log("[ParaFree] Success:", c.name);
+        return { success: true, result: result.trim(), usedApi: c.name };
+      }
+      console.warn("[ParaFree]", c.name, "returned empty/short result — trying next");
+    } catch (e) {
+      console.warn("[ParaFree]", c.name, "failed:", e.message, "— trying next");
+    }
+  }
+
+  if (!anyKeyFound) {
+    console.error("[ParaFree] No valid API keys found — check Vercel environment variables");
     return { success: false, error: "No API keys configured" };
   }
 
-  console.log("[ParaFree] Attempt order:", apis.map(a => a.name).join(" → "));
-
-  for (const api of apis) {
-    try {
-      const result = await api.fn();
-      if (result && result.trim().length > 10) {
-        console.log("[ParaFree] Success:", api.name);
-        return { success: true, result: result.trim(), usedApi: api.name };
-      }
-      console.warn("[ParaFree]", api.name, "returned empty/short result — trying next");
-    } catch (e) {
-      console.warn("[ParaFree]", api.name, "failed:", e.message, "— trying next");
-    }
-  }
   return { success: false, error: "All APIs failed" };
 }
 
@@ -256,20 +264,19 @@ async function handleAdmin(body) {
     return { error: "Unauthorized", status: 401 };
   }
   if (adminAction === "testKeys") {
-    const K = getKeys();
     const results = {};
     const testText = "Hello";
     const testPrompt = "Say OK and nothing else:";
     const tests = [
-      { name: "groq",       fn: () => callGroq(testText, testPrompt, K.groq),       enabled: !!K.groq },
-      { name: "gemini",     fn: () => callGemini(testText, testPrompt, K.gemini),   enabled: !!K.gemini },
-      { name: "cerebras",   fn: () => callCerebras(testText, testPrompt, K.cerebras), enabled: !!K.cerebras },
-      { name: "openrouter", fn: () => callOpenRouter(testText, testPrompt, K.openrouter), enabled: !!K.openrouter },
-      { name: "mistral",    fn: () => callMistral(testText, testPrompt, K.mistral), enabled: !!K.mistral },
+      { name: "groq",       key: process.env.GROQ_KEY,       fn: (k) => callGroq(testText, testPrompt, k) },
+      { name: "gemini",     key: process.env.GEMINI_KEY,     fn: (k) => callGemini(testText, testPrompt, k) },
+      { name: "cerebras",   key: process.env.CEREBRAS_KEY,   fn: (k) => callCerebras(testText, testPrompt, k) },
+      { name: "openrouter", key: process.env.OPENROUTER_KEY, fn: (k) => callOpenRouter(testText, testPrompt, k) },
+      { name: "mistral",    key: process.env.MISTRAL_KEY,    fn: (k) => callMistral(testText, testPrompt, k) },
     ];
     await Promise.all(tests.map(async t => {
-      if (!t.enabled) { results[t.name] = "no_key"; return; }
-      try { await t.fn(); results[t.name] = "ok"; }
+      if (!validKey(t.key)) { results[t.name] = "no_key"; return; }
+      try { await t.fn(t.key.trim()); results[t.name] = "ok"; }
       catch (e) { results[t.name] = "failed: " + e.message; }
     }));
     return { success: true, results };
@@ -286,6 +293,17 @@ module.exports = async function handler(req, res) {
 
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+
+  // ENV CHECK — log at the very start of every real request so Vercel logs show key state
+  console.log("ENV CHECK:", {
+    hasGroq:       typeof process.env.GROQ_KEY === 'string' && process.env.GROQ_KEY.trim().length > 10,
+    hasGemini:     typeof process.env.GEMINI_KEY === 'string' && process.env.GEMINI_KEY.trim().length > 10,
+    hasCerebras:   typeof process.env.CEREBRAS_KEY === 'string' && process.env.CEREBRAS_KEY.trim().length > 10,
+    hasOpenRouter: typeof process.env.OPENROUTER_KEY === 'string' && process.env.OPENROUTER_KEY.trim().length > 10,
+    hasMistral:    typeof process.env.MISTRAL_KEY === 'string' && process.env.MISTRAL_KEY.trim().length > 10,
+    hasCloudflare: typeof process.env.CF_KEY === 'string' && process.env.CF_KEY.trim().length > 10,
+    groqKeyLength: process.env.GROQ_KEY ? process.env.GROQ_KEY.length : 0,
+  });
 
   // Get IP
   const ip = (req.headers["x-forwarded-for"] || "unknown").split(",")[0].trim();
@@ -322,6 +340,7 @@ module.exports = async function handler(req, res) {
     const prompt = (body.prompt && typeof body.prompt === 'string' && body.prompt.trim().length > 0)
       ? body.prompt.trim()
       : getPrompt(mode || type || "standard", language);
+
     const { success, result, usedApi, error } = await runChain(text.trim(), prompt);
 
     if (success) {
