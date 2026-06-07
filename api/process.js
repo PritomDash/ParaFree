@@ -21,9 +21,8 @@ function getRateLimit(ip) {
 }
 
 // ── KEY VALIDATION ──
-// A key must be a non-empty string with more than 10 characters to be considered valid.
 function validKey(k) {
-  return typeof k === 'string' && k.trim().length > 10;
+  return k && k.length > 10;
 }
 
 // ── ADMIN PASSWORD ──
@@ -103,6 +102,7 @@ async function callOpenRouter(text, prompt, key) {
       max_tokens: 2048
     })
   });
+  if (res.status === 401) throw new Error("OpenRouter:401:invalid_key — check OPENROUTER_KEY in Vercel env vars");
   if (!res.ok) throw new Error("OpenRouter:" + res.status);
   const data = await res.json();
   if (!data.choices || !data.choices[0]) throw new Error("OpenRouter: no response");
@@ -208,26 +208,27 @@ async function runChain(text, prompt) {
 
   // Ordered candidates — Groq MUST be first
   const candidates = [
-    { name: "Groq",       key: GROQ_KEY,       fn: () => callGroq(text, prompt, GROQ_KEY.trim()) },
-    { name: "Gemini",     key: GEMINI_KEY,      fn: () => callGemini(text, prompt, GEMINI_KEY.trim()) },
-    { name: "Cerebras",   key: CEREBRAS_KEY,    fn: () => callCerebras(text, prompt, CEREBRAS_KEY.trim()) },
-    { name: "OpenRouter", key: OPENROUTER_KEY,  fn: () => callOpenRouter(text, prompt, OPENROUTER_KEY.trim()) },
-    { name: "Mistral",    key: MISTRAL_KEY,     fn: () => callMistral(text, prompt, MISTRAL_KEY.trim()) },
-    { name: "Cloudflare", key: CF_KEY,          fn: () => callCloudflare(text, prompt, CF_KEY.trim(), CF_ACCOUNT.trim()), extra: CF_ACCOUNT },
-    { name: "Extra1",     key: EXTRA1_KEY,      fn: () => callExtra(text, prompt, EXTRA1_KEY.trim(), "Extra1") },
-    { name: "Extra2",     key: EXTRA2_KEY,      fn: () => callExtra(text, prompt, EXTRA2_KEY.trim(), "Extra2") },
-    { name: "Extra3",     key: EXTRA3_KEY,      fn: () => callExtra(text, prompt, EXTRA3_KEY.trim(), "Extra3") },
-    { name: "Extra4",     key: EXTRA4_KEY,      fn: () => callExtra(text, prompt, EXTRA4_KEY.trim(), "Extra4") },
-    { name: "Extra5",     key: EXTRA5_KEY,      fn: () => callExtra(text, prompt, EXTRA5_KEY.trim(), "Extra5") },
-    { name: "Extra6",     key: EXTRA6_KEY,      fn: () => callExtra(text, prompt, EXTRA6_KEY.trim(), "Extra6") },
+    { name: "Groq",       key: GROQ_KEY,       fn: () => callGroq(text, prompt, GROQ_KEY) },
+    { name: "Gemini",     key: GEMINI_KEY,      fn: () => callGemini(text, prompt, GEMINI_KEY) },
+    { name: "Cerebras",   key: CEREBRAS_KEY,    fn: () => callCerebras(text, prompt, CEREBRAS_KEY) },
+    { name: "OpenRouter", key: OPENROUTER_KEY,  fn: () => callOpenRouter(text, prompt, OPENROUTER_KEY) },
+    { name: "Mistral",    key: MISTRAL_KEY,     fn: () => callMistral(text, prompt, MISTRAL_KEY) },
+    { name: "Cloudflare", key: CF_KEY,          fn: () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT), extra: CF_ACCOUNT },
+    { name: "Extra1",     key: EXTRA1_KEY,      fn: () => callExtra(text, prompt, EXTRA1_KEY, "Extra1") },
+    { name: "Extra2",     key: EXTRA2_KEY,      fn: () => callExtra(text, prompt, EXTRA2_KEY, "Extra2") },
+    { name: "Extra3",     key: EXTRA3_KEY,      fn: () => callExtra(text, prompt, EXTRA3_KEY, "Extra3") },
+    { name: "Extra4",     key: EXTRA4_KEY,      fn: () => callExtra(text, prompt, EXTRA4_KEY, "Extra4") },
+    { name: "Extra5",     key: EXTRA5_KEY,      fn: () => callExtra(text, prompt, EXTRA5_KEY, "Extra5") },
+    { name: "Extra6",     key: EXTRA6_KEY,      fn: () => callExtra(text, prompt, EXTRA6_KEY, "Extra6") },
   ];
 
   let anyKeyFound = false;
 
   for (const c of candidates) {
-    // Cloudflare also needs CF_ACCOUNT to be valid
-    const keyOk  = validKey(c.key);
-    const extraOk = c.extra !== undefined ? validKey(c.extra) : true;
+    const key = c.key;
+    const extraKey = c.extra;
+    const keyOk  = key && key.length > 10;
+    const extraOk = extraKey !== undefined ? (extraKey && extraKey.length > 10) : true;
 
     if (!keyOk || !extraOk) {
       console.log("Skipping", c.name, "- key missing or empty");
@@ -275,8 +276,8 @@ async function handleAdmin(body) {
       { name: "mistral",    key: process.env.MISTRAL_KEY,    fn: (k) => callMistral(testText, testPrompt, k) },
     ];
     await Promise.all(tests.map(async t => {
-      if (!validKey(t.key)) { results[t.name] = "no_key"; return; }
-      try { await t.fn(t.key.trim()); results[t.name] = "ok"; }
+      if (!t.key || t.key.length <= 10) { results[t.name] = "no_key"; return; }
+      try { await t.fn(t.key); results[t.name] = "ok"; }
       catch (e) { results[t.name] = "failed: " + e.message; }
     }));
     return { success: true, results };
@@ -286,6 +287,15 @@ async function handleAdmin(body) {
 
 // ── MAIN HANDLER ──
 module.exports = async function handler(req, res) {
+  // KEYS FOUND — absolute first line so this appears in every Vercel function invocation
+  console.log("KEYS FOUND:", {
+    groq:       process.env.GROQ_KEY       ? process.env.GROQ_KEY.slice(0, 8)       + "..." : "(not set)",
+    gemini:     process.env.GEMINI_KEY     ? process.env.GEMINI_KEY.slice(0, 8)     + "..." : "(not set)",
+    cerebras:   process.env.CEREBRAS_KEY   ? process.env.CEREBRAS_KEY.slice(0, 8)   + "..." : "(not set)",
+    openrouter: process.env.OPENROUTER_KEY ? process.env.OPENROUTER_KEY.slice(0, 8) + "..." : "(not set)",
+    mistral:    process.env.MISTRAL_KEY    ? process.env.MISTRAL_KEY.slice(0, 8)    + "..." : "(not set)",
+  });
+
   // CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -293,17 +303,6 @@ module.exports = async function handler(req, res) {
 
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
-
-  // ENV CHECK — log at the very start of every real request so Vercel logs show key state
-  console.log("ENV CHECK:", {
-    hasGroq:       typeof process.env.GROQ_KEY === 'string' && process.env.GROQ_KEY.trim().length > 10,
-    hasGemini:     typeof process.env.GEMINI_KEY === 'string' && process.env.GEMINI_KEY.trim().length > 10,
-    hasCerebras:   typeof process.env.CEREBRAS_KEY === 'string' && process.env.CEREBRAS_KEY.trim().length > 10,
-    hasOpenRouter: typeof process.env.OPENROUTER_KEY === 'string' && process.env.OPENROUTER_KEY.trim().length > 10,
-    hasMistral:    typeof process.env.MISTRAL_KEY === 'string' && process.env.MISTRAL_KEY.trim().length > 10,
-    hasCloudflare: typeof process.env.CF_KEY === 'string' && process.env.CF_KEY.trim().length > 10,
-    groqKeyLength: process.env.GROQ_KEY ? process.env.GROQ_KEY.length : 0,
-  });
 
   // Get IP
   const ip = (req.headers["x-forwarded-for"] || "unknown").split(",")[0].trim();
