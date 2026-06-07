@@ -492,6 +492,27 @@
     word-break: break-word;
   }
 
+  /* ── AI DETECTOR RESULT CARD ── */
+  .det-card { white-space: normal; font-family: 'DM Sans', sans-serif; }
+  .det-circles { display: flex; justify-content: center; align-items: flex-start; gap: 48px; margin-bottom: 22px; flex-wrap: wrap; }
+  .det-circle-wrap { text-align: center; }
+  .det-circle-inner { position: relative; width: 120px; height: 120px; margin: 0 auto 10px; }
+  .det-svg { transform: rotate(-90deg); display: block; }
+  .det-ring-bg { fill: none; stroke: var(--surface2); stroke-width: 10; }
+  .det-ring { fill: none; stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1); }
+  .det-pct { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-family: 'Syne', sans-serif; font-weight: 800; font-size: 23px; line-height: 1; white-space: nowrap; }
+  .det-circle-label { font-size: 13px; color: var(--text2); font-weight: 600; }
+  .det-verdict { text-align: center; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 16px; padding: 12px 20px; border-radius: 10px; margin-bottom: 20px; }
+  .verdict-human { background: #d8f3dc; color: #1b4332; }
+  .verdict-mixed { background: #fff3cd; color: #7d4e00; }
+  .verdict-ai { background: #fde8e8; color: #b91c1c; }
+  .det-metrics { display: flex; flex-direction: column; gap: 11px; margin-bottom: 16px; }
+  .det-metric-label { display: flex; justify-content: space-between; font-size: 13px; font-weight: 500; color: var(--text2); margin-bottom: 5px; }
+  .det-metric-pct { font-weight: 700; }
+  .det-metric-bar { height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+  .det-metric-fill { height: 100%; border-radius: 4px; width: 0; transition: width 1s ease; }
+  .det-disclaimer { font-size: 12px; color: var(--text3); background: var(--surface2); padding: 10px 14px; border-radius: 8px; line-height: 1.5; }
+
   /* ── MODES ── */
   .modes-bar {
     max-width: 1100px;
@@ -1713,14 +1734,14 @@ function detectAI() {
   showStatus("Analyzing AI patterns...", "info");
 
   setTimeout(() => {
-    const score = calculateAIScore(text);
-    const humanScore = 100 - score;
-    const result = generateDetectionReport(text, score, humanScore);
-    renderOutput(result, true);
+    const aiScore = calculateAIScore(text);
+    const humanScore = 100 - aiScore;
+    const metrics = calculateMetrics(text);
+    renderDetectorResult(aiScore, humanScore, metrics);
     document.getElementById("outputCount").textContent = text.split(/\s+/).length + " words analyzed";
 
-    if (score >= 70) showStatus("⚠️ High AI content detected (" + score + "%)", "error");
-    else if (score >= 40) showStatus("⚡ Moderate AI content detected (" + score + "%)", "info");
+    if (aiScore >= 70) showStatus("⚠️ High AI content detected (" + aiScore + "%)", "error");
+    else if (aiScore >= 40) showStatus("⚡ Moderate AI content detected (" + aiScore + "%)", "info");
     else showStatus("✅ Text appears mostly human-written (" + humanScore + "% human)", "success");
 
     document.getElementById("shareBar").style.display = "block";
@@ -1765,59 +1786,107 @@ function calculateAIScore(text) {
   return Math.min(Math.max(Math.round(score), 5), 95);
 }
 
-function generateDetectionReport(text, aiScore, humanScore) {
-  const words = text.split(/\s+/).length;
-  const sentences = text.split(/[.!?]+/).filter(s=>s.trim().length>5).length;
+function calculateMetrics(text) {
+  const lower = text.toLowerCase();
+  const words = text.split(/\s+/);
+  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 5);
+  const paras = text.split(/\n+/).filter(p => p.trim().length > 20);
 
-  let verdict, color, icon;
-  if (aiScore >= 70) { verdict = "Likely AI-Generated"; color = "#e63946"; icon = "🤖"; }
-  else if (aiScore >= 40) { verdict = "Mixed — Possibly AI-Assisted"; color = "#f4a261"; icon = "⚡"; }
-  else { verdict = "Likely Human-Written"; color = "#2d6a4f"; icon = "✅"; }
+  const aiPhrases = ["furthermore","moreover","additionally","in conclusion","it is important to note","it is worth noting","in summary","as a result","therefore","consequently","this ensures","this allows","this helps","in order to","due to the fact","it should be noted","plays a crucial role","delve into","tapestry","underscore","pivotal","it's worth noting","one can observe","it can be seen","needless to say","at the end of the day","when it comes to","in the realm of","it goes without saying","from a holistic perspective","in today's world","in the modern era","in conclusion it is evident"];
+  let aiCount = 0;
+  aiPhrases.forEach(p => { if (lower.includes(p)) aiCount++; });
+  const phrasesPct = Math.min(Math.round((aiCount / 8) * 100), 100);
 
-  const circumference = 226;
-  const aiOffset = circumference - (aiScore/100)*circumference;
-  const humanOffset = circumference - (humanScore/100)*circumference;
+  let uniformityPct = 20;
+  if (sentences.length > 4) {
+    const lengths = sentences.map(s => s.trim().split(/\s+/).length);
+    const avg = lengths.reduce((a,b)=>a+b,0)/lengths.length;
+    const variance = lengths.reduce((a,b)=>a+Math.pow(b-avg,2),0)/lengths.length;
+    uniformityPct = variance < 15 ? 90 : variance < 30 ? 65 : variance < 50 ? 38 : 20;
+  }
 
-  return `<div style="font-family:'DM Sans',sans-serif;">
-    <div style="display:flex; gap:24px; align-items:center; flex-wrap:wrap; margin-bottom:20px; padding:20px; background:var(--surface2); border-radius:12px;">
-      <div style="text-align:center;">
-        <div style="position:relative; width:90px; height:90px; margin:0 auto 8px;">
-          <svg viewBox="0 0 90 90" width="90" height="90" style="transform:rotate(-90deg)">
-            <circle cx="45" cy="45" r="36" fill="none" stroke="var(--surface)" stroke-width="8"/>
-            <circle cx="45" cy="45" r="36" fill="none" stroke="#e63946" stroke-width="8" stroke-linecap="round" stroke-dasharray="226" stroke-dashoffset="${aiOffset}" style="transition:stroke-dashoffset 1.5s ease;"/>
-          </svg>
-          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">
-            <span style="font-family:'Syne',sans-serif;font-weight:800;font-size:20px;color:#e63946;display:block;">${aiScore}%</span>
-            <span style="font-size:10px;color:var(--text3);">AI</span>
+  const uniqueWords = new Set(words.map(w => w.toLowerCase().replace(/[^a-z]/g,'')).filter(Boolean));
+  const vocabPct = Math.min(Math.round((uniqueWords.size / words.length) * 120), 100);
+
+  let structPct = 25;
+  if (paras.length >= 3) {
+    const pl = paras.map(p => p.split(/\s+/).length);
+    const pAvg = pl.reduce((a,b)=>a+b,0)/pl.length;
+    const pVar = pl.reduce((a,b)=>a+Math.pow(b-pAvg,2),0)/pl.length;
+    structPct = pVar < 50 ? 80 : pVar < 100 ? 50 : 25;
+  }
+
+  const col = v => v >= 65 ? '#e63946' : v >= 35 ? '#f4a261' : '#2d6a4f';
+  return [
+    { label: 'AI Phrases Detected', value: phrasesPct,    color: col(phrasesPct) },
+    { label: 'Sentence Uniformity', value: uniformityPct, color: col(uniformityPct) },
+    { label: 'Vocabulary Richness', value: vocabPct,      color: col(vocabPct) },
+    { label: 'Structural Patterns', value: structPct,     color: col(structPct) },
+  ];
+}
+
+function renderDetectorResult(aiScore, humanScore, metrics) {
+  fullOutputText = '';
+  fullOutputHTML = '';
+
+  let verdictClass, verdictText, verdictIcon;
+  if (aiScore <= 30) { verdictClass = 'verdict-human'; verdictText = 'Mostly Human Written'; verdictIcon = '✅'; }
+  else if (aiScore <= 60) { verdictClass = 'verdict-mixed'; verdictText = 'Mixed Content Detected'; verdictIcon = '⚠️'; }
+  else { verdictClass = 'verdict-ai'; verdictText = 'Likely AI Generated'; verdictIcon = '🤖'; }
+
+  const CIRCUM = 314;
+  const aiOff  = Math.round(CIRCUM - (aiScore  / 100) * CIRCUM);
+  const humOff = Math.round(CIRCUM - (humanScore / 100) * CIRCUM);
+
+  const metricRows = metrics.map(m =>
+    `<div class="det-metric">
+      <div class="det-metric-label"><span>${m.label}</span><span class="det-metric-pct" style="color:${m.color}">${m.value}%</span></div>
+      <div class="det-metric-bar"><div class="det-metric-fill" style="background:${m.color}" data-w="${m.value}"></div></div>
+    </div>`
+  ).join('');
+
+  const outputEl = document.getElementById('outputText');
+  outputEl.innerHTML = `
+    <div class="det-card">
+      <div class="det-circles">
+        <div class="det-circle-wrap">
+          <div class="det-circle-inner">
+            <svg class="det-svg" viewBox="0 0 120 120" width="120" height="120">
+              <circle class="det-ring-bg" cx="60" cy="60" r="50"/>
+              <circle class="det-ring" cx="60" cy="60" r="50" stroke="#e63946"
+                stroke-dasharray="${CIRCUM}" stroke-dashoffset="${CIRCUM}" data-target="${aiOff}"/>
+            </svg>
+            <div class="det-pct" style="color:#e63946">${aiScore}%</div>
           </div>
+          <div class="det-circle-label">AI Generated</div>
         </div>
-        <div style="font-size:12px;color:var(--text2);">AI Content</div>
-      </div>
-      <div style="font-size:24px; color:var(--accent2);">→</div>
-      <div style="text-align:center;">
-        <div style="position:relative; width:90px; height:90px; margin:0 auto 8px;">
-          <svg viewBox="0 0 90 90" width="90" height="90" style="transform:rotate(-90deg)">
-            <circle cx="45" cy="45" r="36" fill="none" stroke="var(--surface)" stroke-width="8"/>
-            <circle cx="45" cy="45" r="36" fill="none" stroke="#2d6a4f" stroke-width="8" stroke-linecap="round" stroke-dasharray="226" stroke-dashoffset="${humanOffset}" style="transition:stroke-dashoffset 1.5s ease;"/>
-          </svg>
-          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">
-            <span style="font-family:'Syne',sans-serif;font-weight:800;font-size:20px;color:#2d6a4f;display:block;">${humanScore}%</span>
-            <span style="font-size:10px;color:var(--text3);">Human</span>
+        <div class="det-circle-wrap">
+          <div class="det-circle-inner">
+            <svg class="det-svg" viewBox="0 0 120 120" width="120" height="120">
+              <circle class="det-ring-bg" cx="60" cy="60" r="50"/>
+              <circle class="det-ring" cx="60" cy="60" r="50" stroke="#2d6a4f"
+                stroke-dasharray="${CIRCUM}" stroke-dashoffset="${CIRCUM}" data-target="${humOff}"/>
+            </svg>
+            <div class="det-pct" style="color:#2d6a4f">${humanScore}%</div>
           </div>
+          <div class="det-circle-label">Human Written</div>
         </div>
-        <div style="font-size:12px;color:var(--text2);">Human Content</div>
       </div>
-      <div style="flex:1; min-width:160px;">
-        <div style="font-size:28px; margin-bottom:4px;">${icon}</div>
-        <div style="font-family:'Syne',sans-serif; font-weight:700; font-size:18px; color:${color}; margin-bottom:6px;">${verdict}</div>
-        <div style="font-size:13px; color:var(--text2);">${words} words · ${sentences} sentences analyzed</div>
-        ${aiScore >= 40 ? '<div style="margin-top:10px; font-size:13px; color:var(--accent); font-weight:500;">💡 Use the AI Humanizer tab to reduce AI score!</div>' : ''}
-      </div>
+      <div class="det-verdict ${verdictClass}">${verdictIcon} ${verdictText}</div>
+      <div class="det-metrics">${metricRows}</div>
+      ${aiScore >= 40 ? '<div style="text-align:center;font-size:13px;color:var(--accent);font-weight:500;margin-bottom:12px;">💡 Use the AI Humanizer tab to reduce your AI score!</div>' : ''}
+      <div class="det-disclaimer">⚠️ Estimate based on text pattern analysis. Results may vary from tools like GPTZero or Turnitin.</div>
     </div>
-    <div style="font-size:13px; color:var(--text3); padding:12px; background:var(--surface2); border-radius:8px;">
-      ⚠️ This is an estimate based on text pattern analysis. Results may vary from tools like GPTZero or Turnitin which use different algorithms. Always review manually.
-    </div>
-  </div>`;
+  `;
+
+  setTimeout(() => {
+    outputEl.querySelectorAll('.det-ring[data-target]').forEach(r => {
+      r.style.strokeDashoffset = r.getAttribute('data-target');
+    });
+    outputEl.querySelectorAll('.det-metric-fill[data-w]').forEach(b => {
+      b.style.width = b.getAttribute('data-w') + '%';
+    });
+  }, 50);
 }
 
 // ════════════════════════════════════════════
@@ -1909,6 +1978,8 @@ function switchTool(tool) {
   document.getElementById('downloadBtn').style.display = 'none';
   document.getElementById('downloadPDFBtn').style.display = 'none';
   document.getElementById('downloadDOCXBtn').style.display = 'none';
+  // Detect tool has its own visual output — no copy/download needed
+  document.getElementById('copyBtn').style.display = tool === 'detect' ? 'none' : '';
 }
 
 // ════════════════════════════════════════════
