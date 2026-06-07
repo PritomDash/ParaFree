@@ -448,6 +448,21 @@
     font-style: italic;
     font-weight: 300;
   }
+  .see-more-btn {
+    display: inline-block;
+    margin: 10px 0 0;
+    padding: 5px 16px;
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent2);
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: background 0.2s, color 0.2s;
+    font-family: inherit;
+  }
+  .see-more-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
 
   /* ── MODES ── */
   .modes-bar {
@@ -1486,10 +1501,9 @@ async function extractPDFText(arrayBuffer) {
 }
 
 async function downloadOutput() {
-  if (pptxMode && pptxData && pptxData.results) { await downloadPPTX(); return; }
-  const text = document.getElementById("outputText").innerText;
-  if (!text || text.includes("will appear here")) return;
-  const blob = new Blob([text], { type: 'text/plain' });
+  if (pptxMode && pptxData && pptxData.ready) { await downloadPPTX(); return; }
+  if (!fullOutputText) return;
+  const blob = new Blob([fullOutputText], { type: 'text/plain' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -1548,7 +1562,7 @@ async function summarize() {
   setToolLoading('summarize', false, "∑ Summarize Now");
 
   if (result) {
-    document.getElementById("outputText").textContent = result.trim();
+    renderOutput(result.trim());
     document.getElementById("outputCount").textContent = countWords(result) + " words";
     showStatus("✓ Summarized successfully!", "success");
     showDownloadBtn();
@@ -1586,7 +1600,7 @@ Text to check:`;
   setToolLoading('grammar', false, "✓ Check Grammar");
 
   if (result) {
-    document.getElementById("outputText").textContent = result.trim();
+    renderOutput(result.trim());
     document.getElementById("outputCount").textContent = countWords(result) + " words";
     showStatus("✓ Grammar check complete!", "success");
     showDownloadBtn();
@@ -1611,7 +1625,7 @@ function detectAI() {
     const score = calculateAIScore(text);
     const humanScore = 100 - score;
     const result = generateDetectionReport(text, score, humanScore);
-    document.getElementById("outputText").innerHTML = result;
+    renderOutput(result, true);
     document.getElementById("outputCount").textContent = text.split(/\s+/).length + " words analyzed";
 
     if (score >= 70) showStatus("⚠️ High AI content detected (" + score + "%)", "error");
@@ -1874,8 +1888,7 @@ async function humanize() {
   document.getElementById("loadingDots").className = "loading-dots";
 
   if (result) {
-    const outputEl = document.getElementById("outputText");
-    outputEl.textContent = result.trim();
+    renderOutput(result.trim());
     document.getElementById("outputCount").textContent = countWords(result) + " words";
     showStatus("✓ Humanized — sounds human now!", "success");
     showDownloadBtn();
@@ -1918,6 +1931,102 @@ function countWords(text) {
 // ════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ════════════════════════════════════════════
+
+// Full output text (always the untruncated version — used by copy & downloads)
+let fullOutputText = '';
+let fullOutputHTML = '';  // only set for HTML outputs (AI detect)
+
+const PREVIEW_CHARS = 300;
+
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Render output with optional 300-char "See more" collapse
+function renderOutput(content, isHTML) {
+  const outputEl = document.getElementById('outputText');
+  if (isHTML) {
+    fullOutputHTML = content;
+    const tmp = document.createElement('div');
+    tmp.innerHTML = content;
+    fullOutputText = tmp.innerText || tmp.textContent || '';
+    if (fullOutputText.length <= PREVIEW_CHARS) {
+      outputEl.innerHTML = content;
+    } else {
+      outputEl.innerHTML =
+        '<span>' + escapeHtml(fullOutputText.slice(0, PREVIEW_CHARS)) + '...</span>' +
+        '<br><button class="see-more-btn" onclick="toggleSeeMore(this)">See more ↓</button>';
+    }
+    return;
+  }
+  fullOutputText = content;
+  fullOutputHTML = '';
+  if (content.length <= PREVIEW_CHARS) {
+    outputEl.innerHTML = '<span>' + escapeHtml(content) + '</span>';
+    return;
+  }
+  outputEl.innerHTML =
+    '<span>' + escapeHtml(content.slice(0, PREVIEW_CHARS)) + '...</span>' +
+    '<br><button class="see-more-btn" onclick="toggleSeeMore(this)">See more ↓</button>';
+}
+
+function toggleSeeMore(btn) {
+  const outputEl = document.getElementById('outputText');
+  const expanding = btn.textContent.includes('↓');
+  if (expanding) {
+    if (fullOutputHTML) {
+      outputEl.innerHTML = fullOutputHTML +
+        '<br><button class="see-more-btn" onclick="toggleSeeMore(this)">See less ↑</button>';
+    } else {
+      outputEl.innerHTML =
+        '<span>' + escapeHtml(fullOutputText) + '</span>' +
+        '<br><button class="see-more-btn" onclick="toggleSeeMore(this)">See less ↑</button>';
+    }
+  } else {
+    const preview = fullOutputHTML
+      ? escapeHtml(fullOutputText.slice(0, PREVIEW_CHARS))
+      : escapeHtml(fullOutputText.slice(0, PREVIEW_CHARS));
+    outputEl.innerHTML =
+      '<span>' + preview + '...</span>' +
+      '<br><button class="see-more-btn" onclick="toggleSeeMore(this)">See more ↓</button>';
+  }
+}
+
+// ── Download button loading states ──
+function setDlBtnLoading(btnId) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  btn._origText = btn.textContent;
+  btn.textContent = '⏳ Preparing...';
+  btn.disabled = true;
+  btn.style.opacity = '0.7';
+}
+function restoreDlBtn(btnId) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  if (btn._origText) btn.textContent = btn._origText;
+  btn.disabled = false;
+  btn.style.opacity = '1';
+}
+
+// ── PPTX processing overlay ──
+function showPptxOverlay() {
+  let ov = document.getElementById('pptxOverlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'pptxOverlay';
+    ov.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    ov.innerHTML = '<div style="background:#fff;padding:32px 40px;border-radius:14px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.25);"><div style="font-size:28px;margin-bottom:12px;">🔄</div><div style="font-size:17px;font-weight:600;color:#222;margin-bottom:6px;">Preparing your PPTX...</div><div style="font-size:14px;color:#666;">Please wait</div></div>';
+    document.body.appendChild(ov);
+  } else {
+    ov.style.display = 'flex';
+  }
+}
+function hidePptxOverlay() {
+  const ov = document.getElementById('pptxOverlay');
+  if (ov) ov.style.display = 'none';
+}
+
 function clearInput() {
   inputEl.value = "";
   document.getElementById("inputCount").textContent = "0 words";
@@ -1927,6 +2036,8 @@ function clearInput() {
 }
 
 function clearOutput() {
+  fullOutputText = '';
+  fullOutputHTML = '';
   const placeholders = {
     paraphrase: 'Your paraphrased text will appear here...',
     humanize:   'Your humanized text will appear here...',
@@ -1950,9 +2061,8 @@ async function pasteText() {
 }
 
 function copyOutput() {
-  const text = document.getElementById("outputText").innerText;
-  if (!text || text.includes("will appear here")) return;
-  navigator.clipboard.writeText(text).then(() => {
+  if (!fullOutputText) return;
+  navigator.clipboard.writeText(fullOutputText).then(() => {
     const btn = document.getElementById("copyBtn");
     btn.textContent = "✓ Copied!";
     btn.classList.add("copied");
@@ -2039,8 +2149,7 @@ async function paraphrase() {
   setLoading(false);
 
   if (result) {
-    const outputEl = document.getElementById("outputText");
-    outputEl.textContent = result.trim();
+    renderOutput(result.trim());
     document.getElementById("outputCount").textContent = countWords(result) + " words";
     showStatus("✓ Paraphrased successfully!", "success");
     showDownloadBtn();
@@ -3070,19 +3179,19 @@ async function paraphrasePPTX() {
   }
 
   const output = allResults.join('\n\n');
-  document.getElementById('outputText').textContent = output;
+  renderOutput(output);
   document.getElementById('outputCount').textContent = countWords(output) + ' words';
   showStatus('✓ All ' + totalItems + ' text box(es) paraphrased! Download your PPTX below.', 'success');
   showDownloadBtn();
 }
 
 async function downloadPPTX() {
-  showStatus('Preparing PPTX...', 'info');
   if (!pptxData || !pptxData.ready) {
     alert('No paraphrased PPTX data. Please upload and paraphrase a PPTX file first.');
     return;
   }
-  showStatus('Building PPTX...', 'info');
+  showPptxOverlay();
+  setDlBtnLoading('downloadBtn');
   try {
     const { zip, slides } = pptxData;
     for (const slide of slides) {
@@ -3116,6 +3225,9 @@ async function downloadPPTX() {
     console.error('[downloadPPTX]', e);
     alert('PPTX download failed: ' + (e && e.message ? e.message : String(e)));
     showStatus('PPTX download failed. See popup for details.', 'error');
+  } finally {
+    hidePptxOverlay();
+    restoreDlBtn('downloadBtn');
   }
 }
 
@@ -3125,53 +3237,61 @@ async function downloadPPTX() {
 // PDF DOWNLOAD
 // ════════════════════════════════════════════
 function downloadAsPDF() {
-  const text = document.getElementById("outputText").innerText;
-  if (!text || text.includes("will appear here")) return;
+  if (!fullOutputText) return;
   if (typeof window.jspdf === 'undefined') {
     showStatus("PDF library is still loading. Please try again.", "error");
     return;
   }
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(12);
-  const lines = doc.splitTextToSize(text, 180);
-  const lineH = 7;
-  const pageH = doc.internal.pageSize.height - 25;
-  let y = 20;
-  for (const line of lines) {
-    if (y > pageH) { doc.addPage(); y = 20; }
-    doc.text(line, 15, y);
-    y += lineH;
+  setDlBtnLoading('downloadPDFBtn');
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(12);
+    const lines = doc.splitTextToSize(fullOutputText, 180);
+    const lineH = 7;
+    const pageH = doc.internal.pageSize.height - 25;
+    let y = 20;
+    for (const line of lines) {
+      if (y > pageH) { doc.addPage(); y = 20; }
+      doc.text(line, 15, y);
+      y += lineH;
+    }
+    const names = { paraphrase: 'paraphrased', humanize: 'humanized', summarize: 'summary', grammar: 'grammar_checked', detect: 'ai_detection' };
+    const base = pptxMode ? 'paraphrased_presentation' : (names[currentTool] || 'result');
+    doc.save(base + '.pdf');
+    showStatus("✓ PDF downloaded!", "success");
+  } finally {
+    restoreDlBtn('downloadPDFBtn');
   }
-  const names = { paraphrase: 'paraphrased', humanize: 'humanized', summarize: 'summary', grammar: 'grammar_checked', detect: 'ai_detection' };
-  const base = pptxMode ? 'paraphrased_presentation' : (names[currentTool] || 'result');
-  doc.save(base + '.pdf');
-  showStatus("✓ PDF downloaded!", "success");
 }
 
 // ════════════════════════════════════════════
 // DOCX DOWNLOAD
 // ════════════════════════════════════════════
 async function downloadAsDOCX() {
-  const text = document.getElementById("outputText").innerText;
-  if (!text || text.includes("will appear here")) return;
+  if (!fullOutputText) return;
   if (typeof JSZip === 'undefined') {
     showStatus("DOCX library is still loading. Please try again.", "error");
     return;
   }
-  const blob = await buildDocxBlob(text);
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  const names = { paraphrase: 'paraphrased', humanize: 'humanized', summarize: 'summary', grammar: 'grammar_checked', detect: 'ai_detection' };
-  const base = pptxMode ? 'paraphrased_presentation' : (names[currentTool] || 'result');
-  a.download = base + '.docx';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showStatus("✓ DOCX downloaded!", "success");
+  setDlBtnLoading('downloadDOCXBtn');
+  try {
+    const blob = await buildDocxBlob(fullOutputText);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const names = { paraphrase: 'paraphrased', humanize: 'humanized', summarize: 'summary', grammar: 'grammar_checked', detect: 'ai_detection' };
+    const base = pptxMode ? 'paraphrased_presentation' : (names[currentTool] || 'result');
+    a.download = base + '.docx';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showStatus("✓ DOCX downloaded!", "success");
+  } finally {
+    restoreDlBtn('downloadDOCXBtn');
+  }
 }
 
 async function buildDocxBlob(text) {
