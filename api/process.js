@@ -257,32 +257,84 @@ async function runChain(text, prompt) {
   return { success: false, error: "All APIs failed" };
 }
 
-// ── ADMIN HANDLER ──
-async function handleAdmin(body) {
-  const { adminAction, password } = body;
+// ── TEST KEYS HANDLER ──
+async function handleTestKeys(body) {
   const adminPw = getAdminPassword();
-  if (!adminPw || password !== adminPw) {
+  if (!adminPw || body.adminPassword !== adminPw) {
     return { error: "Unauthorized", status: 401 };
   }
-  if (adminAction === "testKeys") {
-    const results = {};
-    const testText = "Hello";
-    const testPrompt = "Say OK and nothing else:";
-    const tests = [
-      { name: "groq",       key: process.env.GROQ_KEY,       fn: (k) => callGroq(testText, testPrompt, k) },
-      { name: "gemini",     key: process.env.GEMINI_KEY,     fn: (k) => callGemini(testText, testPrompt, k) },
-      { name: "cerebras",   key: process.env.CEREBRAS_KEY,   fn: (k) => callCerebras(testText, testPrompt, k) },
-      { name: "openrouter", key: process.env.OPENROUTER_KEY, fn: (k) => callOpenRouter(testText, testPrompt, k) },
-      { name: "mistral",    key: process.env.MISTRAL_KEY,    fn: (k) => callMistral(testText, testPrompt, k) },
-    ];
-    await Promise.all(tests.map(async t => {
-      if (!t.key || t.key.length <= 10) { results[t.name] = "no_key"; return; }
-      try { await t.fn(t.key); results[t.name] = "ok"; }
-      catch (e) { results[t.name] = "failed: " + e.message; }
-    }));
-    return { success: true, results };
-  }
-  return { error: "Unknown action", status: 400 };
+
+  const testText = "say hi";
+  const testPrompt = "Say hi and nothing else:";
+
+  const tests = [
+    {
+      name: "groq",
+      model: "llama-3.1-8b-instant",
+      key: process.env.GROQ_KEY,
+      fn: (k) => callGroq(testText, testPrompt, k),
+    },
+    {
+      name: "gemini",
+      model: "gemini-2.0-flash",
+      key: process.env.GEMINI_KEY,
+      fn: (k) => callGemini(testText, testPrompt, k),
+    },
+    {
+      name: "cerebras",
+      model: "llama3.1-8b",
+      key: process.env.CEREBRAS_KEY,
+      fn: (k) => callCerebras(testText, testPrompt, k),
+    },
+    {
+      name: "openrouter",
+      model: "llama-3.1-8b-instruct:free",
+      key: process.env.OPENROUTER_KEY,
+      fn: (k) => callOpenRouter(testText, testPrompt, k),
+    },
+    {
+      name: "mistral",
+      model: "mistral-small-latest",
+      key: process.env.MISTRAL_KEY,
+      fn: (k) => callMistral(testText, testPrompt, k),
+    },
+    {
+      name: "cloudflare",
+      model: "llama-3.1-8b-instruct",
+      key: process.env.CF_KEY,
+      account: process.env.CF_ACCOUNT,
+      fn: (k) => callCloudflare(testText, testPrompt, k, process.env.CF_ACCOUNT),
+    },
+  ];
+
+  const results = {};
+
+  await Promise.all(tests.map(async (t) => {
+    const keyMissing = !t.key || t.key.length <= 10;
+    const accountMissing = t.account !== undefined && (!t.account || t.account.length <= 5);
+
+    if (keyMissing) {
+      results[t.name] = { status: "⚠️ no key", error: "Key not set in Vercel environment variables" };
+      return;
+    }
+    if (accountMissing) {
+      results[t.name] = { status: "⚠️ no key", error: "CF_ACCOUNT not set in Vercel environment variables" };
+      return;
+    }
+
+    try {
+      const response = await t.fn(t.key);
+      if (!response || response.trim().length === 0) {
+        results[t.name] = { status: "❌ failed", error: "Empty response from API" };
+      } else {
+        results[t.name] = { status: "✅ working", model: t.model };
+      }
+    } catch (e) {
+      results[t.name] = { status: "❌ failed", error: e.message };
+    }
+  }));
+
+  return { success: true, results };
 }
 
 // ── MAIN HANDLER ──
@@ -310,9 +362,9 @@ module.exports = async function handler(req, res) {
   try {
     const body = req.body;
 
-    // Admin endpoint
-    if (body && body.type === "admin") {
-      const result = await handleAdmin(body);
+    // Test keys endpoint
+    if (body && body.type === "testKeys") {
+      const result = await handleTestKeys(body);
       if (result.status) return res.status(result.status).json(result);
       return res.status(200).json(result);
     }
