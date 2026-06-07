@@ -191,7 +191,6 @@ function getPrompt(mode, language) {
 // ── MAIN API CHAIN ──
 // Order is STRICT: Groq → Gemini → Cerebras → OpenRouter → Mistral → Cloudflare → Extra1-6
 async function runChain(text, prompt) {
-  // Read keys directly from process.env — no intermediate variable that could mask undefined
   const GROQ_KEY       = process.env.GROQ_KEY;
   const GEMINI_KEY     = process.env.GEMINI_KEY;
   const CEREBRAS_KEY   = process.env.CEREBRAS_KEY;
@@ -208,30 +207,33 @@ async function runChain(text, prompt) {
 
   // Ordered candidates — Groq MUST be first
   const candidates = [
-    { name: "Groq",       key: GROQ_KEY,       fn: () => callGroq(text, prompt, GROQ_KEY) },
-    { name: "Gemini",     key: GEMINI_KEY,      fn: () => callGemini(text, prompt, GEMINI_KEY) },
-    { name: "Cerebras",   key: CEREBRAS_KEY,    fn: () => callCerebras(text, prompt, CEREBRAS_KEY) },
-    { name: "OpenRouter", key: OPENROUTER_KEY,  fn: () => callOpenRouter(text, prompt, OPENROUTER_KEY) },
-    { name: "Mistral",    key: MISTRAL_KEY,     fn: () => callMistral(text, prompt, MISTRAL_KEY) },
-    { name: "Cloudflare", key: CF_KEY,          fn: () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT), extra: CF_ACCOUNT },
-    { name: "Extra1",     key: EXTRA1_KEY,      fn: () => callExtra(text, prompt, EXTRA1_KEY, "Extra1") },
-    { name: "Extra2",     key: EXTRA2_KEY,      fn: () => callExtra(text, prompt, EXTRA2_KEY, "Extra2") },
-    { name: "Extra3",     key: EXTRA3_KEY,      fn: () => callExtra(text, prompt, EXTRA3_KEY, "Extra3") },
-    { name: "Extra4",     key: EXTRA4_KEY,      fn: () => callExtra(text, prompt, EXTRA4_KEY, "Extra4") },
-    { name: "Extra5",     key: EXTRA5_KEY,      fn: () => callExtra(text, prompt, EXTRA5_KEY, "Extra5") },
-    { name: "Extra6",     key: EXTRA6_KEY,      fn: () => callExtra(text, prompt, EXTRA6_KEY, "Extra6") },
+    { name: "groq",       key: GROQ_KEY,       fn: () => callGroq(text, prompt, GROQ_KEY) },
+    { name: "gemini",     key: GEMINI_KEY,      fn: () => callGemini(text, prompt, GEMINI_KEY) },
+    { name: "cerebras",   key: CEREBRAS_KEY,    fn: () => callCerebras(text, prompt, CEREBRAS_KEY) },
+    { name: "openrouter", key: OPENROUTER_KEY,  fn: () => callOpenRouter(text, prompt, OPENROUTER_KEY) },
+    { name: "mistral",    key: MISTRAL_KEY,     fn: () => callMistral(text, prompt, MISTRAL_KEY) },
+    { name: "cloudflare", key: CF_KEY,          fn: () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT), extra: CF_ACCOUNT },
+    { name: "extra1",     key: EXTRA1_KEY,      fn: () => callExtra(text, prompt, EXTRA1_KEY, "Extra1") },
+    { name: "extra2",     key: EXTRA2_KEY,      fn: () => callExtra(text, prompt, EXTRA2_KEY, "Extra2") },
+    { name: "extra3",     key: EXTRA3_KEY,      fn: () => callExtra(text, prompt, EXTRA3_KEY, "Extra3") },
+    { name: "extra4",     key: EXTRA4_KEY,      fn: () => callExtra(text, prompt, EXTRA4_KEY, "Extra4") },
+    { name: "extra5",     key: EXTRA5_KEY,      fn: () => callExtra(text, prompt, EXTRA5_KEY, "Extra5") },
+    { name: "extra6",     key: EXTRA6_KEY,      fn: () => callExtra(text, prompt, EXTRA6_KEY, "Extra6") },
   ];
+
+  // All start as skipped; updated as each candidate is tried
+  const apiStatuses = {};
+  candidates.forEach(c => { apiStatuses[c.name] = "skipped"; });
 
   let anyKeyFound = false;
 
   for (const c of candidates) {
-    const key = c.key;
-    const extraKey = c.extra;
-    const keyOk  = key && key.length > 10;
-    const extraOk = extraKey !== undefined ? (extraKey && extraKey.length > 10) : true;
+    const keyOk  = c.key && c.key.length > 10;
+    const extraOk = c.extra !== undefined ? (c.extra && c.extra.length > 10) : true;
 
     if (!keyOk || !extraOk) {
       console.log("Skipping", c.name, "- key missing or empty");
+      // already "skipped" in apiStatuses
       continue;
     }
 
@@ -241,20 +243,30 @@ async function runChain(text, prompt) {
       const result = await c.fn();
       if (result && result.trim().length > 10) {
         console.log("[ParaFree] Success:", c.name);
-        return { success: true, result: result.trim(), usedApi: c.name };
+        apiStatuses[c.name] = "success";
+        return { success: true, result: result.trim(), usedApi: c.name, apiStatuses };
       }
       console.warn("[ParaFree]", c.name, "returned empty/short result — trying next");
+      apiStatuses[c.name] = "failed";
     } catch (e) {
-      console.warn("[ParaFree]", c.name, "failed:", e.message, "— trying next");
+      const msg = e.message || "";
+      if (msg.includes(":401") || msg.includes(":403")) {
+        apiStatuses[c.name] = "expired";
+      } else if (msg.includes(":429")) {
+        apiStatuses[c.name] = "limit";
+      } else {
+        apiStatuses[c.name] = "failed";
+      }
+      console.warn("[ParaFree]", c.name, "failed:", msg, "— trying next");
     }
   }
 
   if (!anyKeyFound) {
     console.error("[ParaFree] No valid API keys found — check Vercel environment variables");
-    return { success: false, error: "No API keys configured" };
+    return { success: false, error: "No API keys configured", apiStatuses };
   }
 
-  return { success: false, error: "All APIs failed" };
+  return { success: false, error: "All APIs failed", apiStatuses };
 }
 
 // ── TEST KEYS HANDLER ──
@@ -392,20 +404,22 @@ module.exports = async function handler(req, res) {
       ? body.prompt.trim()
       : getPrompt(mode || type || "standard", language);
 
-    const { success, result, usedApi, error } = await runChain(text.trim(), prompt);
+    const { success, result, usedApi, error, apiStatuses } = await runChain(text.trim(), prompt);
 
     if (success) {
       return res.status(200).json({
         success: true,
         result,
         usedApi,
+        apiStatuses,
         remaining: rate.remaining
       });
     }
 
     return res.status(503).json({
       error: "All AI engines busy",
-      message: "All free AI engines are currently busy. Please try again in a few hours!"
+      message: "All free AI engines are currently busy. Please try again in a few hours!",
+      apiStatuses
     });
 
   } catch (err) {
