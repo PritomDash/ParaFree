@@ -4,20 +4,89 @@
 // Keys stored ONLY in Vercel Environment Variables
 // ═══════════════════════════════════════════════════
 
-const RATE_LIMIT = 50;
-const RATE_WINDOW = 60 * 60 * 1000;
-const MAX_TEXT_LENGTH = 50000;
+// ── RATE LIMIT CONSTANTS ──
+const HOURLY_LIMIT       = 200;              // 200 requests per hour per IP
+const HOURLY_WINDOW      = 60 * 60 * 1000;  // 1 hour
+const BURST_LIMIT        = 10;              // max requests within burst window
+const BURST_WINDOW       = 5 * 1000;        // 5 seconds
+const BURST_BLOCK        = 60 * 60 * 1000;  // block 1 hour on burst
+const DUPE_THRESHOLD     = 5;              // same text N times = bot
+const DUPE_BLOCK         = 30 * 60 * 1000; // block 30 mins on duplicate spam
+const MAX_TEXT_LENGTH    = 50000;
+
 // NOTE: In-memory only — resets on every Vercel cold start.
 const rateLimitMap = new Map();
+let lastCleanup = Date.now();
+
+// Fingerprint = first 200 chars + total length (avoids storing full text in memory)
+function textFingerprint(text) {
+  return text ? text.slice(0, 200) + '|' + text.length : '';
+}
 
 // ── RATE LIMITING ──
-function getRateLimit(ip) {
+// Returns { allowed, remaining, reason }
+function checkRateLimit(ip, text) {
   const now = Date.now();
-  const entry = rateLimitMap.get(ip) || { count: 0, resetAt: now + RATE_WINDOW };
-  if (now > entry.resetAt) { entry.count = 0; entry.resetAt = now + RATE_WINDOW; }
-  entry.count++;
-  rateLimitMap.set(ip, entry);
-  return { count: entry.count, remaining: Math.max(0, RATE_LIMIT - entry.count) };
+
+  // Periodic cleanup: remove stale entries every 10 minutes to prevent memory growth
+  if (now - lastCleanup > 10 * 60 * 1000) {
+    for (const [key, e] of rateLimitMap.entries()) {
+      if (e.resetAt < now && e.blockedUntil < now) rateLimitMap.delete(key);
+    }
+    lastCleanup = now;
+  }
+
+  let e = rateLimitMap.get(ip);
+  if (!e) {
+    e = { count: 0, resetAt: now + HOURLY_WINDOW, burstTs: [], blockedUntil: 0, blockReason: '', fps: [] };
+    rateLimitMap.set(ip, e);
+  }
+
+  // If actively blocked (burst or duplicate spam), reject immediately
+  if (e.blockedUntil > now) {
+    return { allowed: false, remaining: 0, reason: e.blockReason };
+  }
+
+  // Reset hourly window when expired
+  if (now > e.resetAt) {
+    e.count = 0;
+    e.resetAt = now + HOURLY_WINDOW;
+    e.burstTs = [];
+    e.fps = [];
+  }
+
+  // ── BURST DETECTION: 10 requests within 5 seconds = bot ──
+  e.burstTs = e.burstTs.filter(t => now - t < BURST_WINDOW);
+  if (e.burstTs.length >= BURST_LIMIT) {
+    e.blockedUntil = now + BURST_BLOCK;
+    e.blockReason  = 'burst';
+    console.warn('[RateLimit] Burst detected from', ip);
+    return { allowed: false, remaining: 0, reason: 'burst' };
+  }
+
+  // ── DUPLICATE TEXT DETECTION: same text 5+ times = bot ──
+  const fp = textFingerprint(text);
+  if (fp) {
+    const dupes = e.fps.filter(f => f === fp).length;
+    if (dupes >= DUPE_THRESHOLD) {
+      e.blockedUntil = now + DUPE_BLOCK;
+      e.blockReason  = 'duplicate';
+      console.warn('[RateLimit] Duplicate text spam from', ip);
+      return { allowed: false, remaining: 0, reason: 'duplicate' };
+    }
+    e.fps.push(fp);
+    if (e.fps.length > 30) e.fps.shift(); // keep last 30 fingerprints
+  }
+
+  // ── HOURLY LIMIT ──
+  if (e.count >= HOURLY_LIMIT) {
+    return { allowed: false, remaining: 0, reason: 'hourly' };
+  }
+
+  // All checks passed — consume quota
+  e.count++;
+  e.burstTs.push(now);
+  return { allowed: true, remaining: HOURLY_LIMIT - e.count };
 }
 
 // ── KEY VALIDATION ──
@@ -374,29 +443,36 @@ module.exports = async function handler(req, res) {
   try {
     const body = req.body;
 
-    // Test keys endpoint
+    // Test keys endpoint (exempt from rate limiting)
     if (body && body.type === "testKeys") {
       const result = await handleTestKeys(body);
       if (result.status) return res.status(result.status).json(result);
       return res.status(200).json(result);
     }
 
-    // Rate limit check
-    const rate = getRateLimit(ip);
-    if (rate.count > RATE_LIMIT) {
-      return res.status(429).json({
-        error: "Too many requests",
-        message: "Rate limit reached. Please try again in 1 hour."
-      });
-    }
-
-    // Validate input
+    // Validate input early so we have `text` for duplicate detection
     const { text, mode, language, type } = body || {};
     if (!text || typeof text !== "string" || text.trim().length < 5) {
       return res.status(400).json({ error: "No text provided" });
     }
     if (text.length > MAX_TEXT_LENGTH) {
       return res.status(400).json({ error: "Text too long. Max 50,000 characters." });
+    }
+
+    // Rate limit check (uses text for duplicate detection)
+    const rate = checkRateLimit(ip, text);
+    res.setHeader("X-RateLimit-Remaining", rate.remaining);
+
+    if (!rate.allowed) {
+      const messages = {
+        burst:     "Too many requests too quickly — please slow down.",
+        duplicate: "Repeated identical requests detected. Please wait 30 minutes before trying again.",
+        hourly:    "Hourly limit reached (200 requests). Please try again in 1 hour.",
+      };
+      return res.status(429).json({
+        error: "Too many requests",
+        message: messages[rate.reason] || "Rate limit reached. Please try again later."
+      });
     }
 
     // Build prompt — use frontend-supplied prompt if provided, otherwise derive from mode
