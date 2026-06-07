@@ -1915,9 +1915,10 @@ async function runAPIChain(text, prompt, mode, language, toolType) {
       showStatus(data.message || "All AI engines busy. Try again later!", "error");
       return null;
     }
-    if (data.usedApi) {
+    if (data.usedApi && !apiLabelLocked) {
       const label = data.usedApi.charAt(0).toUpperCase() + data.usedApi.slice(1);
       document.getElementById("activeApiLabel").textContent = "Used: " + label;
+      apiLabelLocked = true;
     }
     return data.result;
   } catch(e) {
@@ -2257,6 +2258,7 @@ function hideStatus() {
 
 const API_DOT_NAMES = ["groq","gemini","cerebras","openrouter","mistral","cloudflare"];
 const LS_KEY = "paraFreeApiStatuses";
+let apiLabelLocked = false; // prevents secondary API calls from overwriting the label
 
 function setApiStatus(name, state) {
   const key = name.toLowerCase();
@@ -2289,6 +2291,7 @@ function loadApiStatusesFromStorage() {
 }
 
 function resetApiDots() {
+  apiLabelLocked = false;
   API_DOT_NAMES.forEach(n => {
     const dot = document.getElementById("dot-" + n);
     if (dot) dot.className = "api-dot";
