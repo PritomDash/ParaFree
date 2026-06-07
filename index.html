@@ -2269,6 +2269,7 @@ function setApiStatus(name, state) {
     const stored = JSON.parse(localStorage.getItem(LS_KEY) || "{}");
     if (state && state !== "") stored[key] = state;
     else delete stored[key];
+    stored._ts = Date.now();
     localStorage.setItem(LS_KEY, JSON.stringify(stored));
   } catch(e) {}
 }
@@ -2283,7 +2284,13 @@ function applyApiStatuses(statuses) {
 function loadApiStatusesFromStorage() {
   try {
     const stored = JSON.parse(localStorage.getItem(LS_KEY) || "{}");
+    // Discard cached dot states older than 5 minutes — stale rate-limit status is misleading
+    if (Date.now() - (stored._ts || 0) > 5 * 60 * 1000) {
+      localStorage.removeItem(LS_KEY);
+      return;
+    }
     Object.entries(stored).forEach(([name, state]) => {
+      if (name === '_ts') return;
       const dot = document.getElementById("dot-" + name);
       if (dot && state) dot.className = "api-dot " + state;
     });
@@ -3315,25 +3322,25 @@ async function paraphrasePPTX() {
   hideStatus();
   document.getElementById('outputText').innerHTML = '<span class="output-placeholder">Preparing PPTX for paraphrase...</span>';
 
-  // Build one tagged-text block per slide, then chunk into batches
+  // Flatten all text boxes across slides, then chunk into groups of max 20 items
   const CHUNK_CHAR_LIMIT = 8000;
-  const MAX_SLIDES_PER_CHUNK = 3;
+  const MAX_ITEMS_PER_CHUNK = 20;
 
-  const slideGroups = slides.map(slide => ({
-    slide,
-    text: slide.textBoxItems.map((item, ti) => {
+  const allItems = [];
+  for (const slide of slides) {
+    for (let ti = 0; ti < slide.textBoxItems.length; ti++) {
       const tag = 'SLIDE' + slide.num + '_BOX' + (ti + 1);
-      return '[' + tag + ']' + item.text + '[/' + tag + ']';
-    }).join('\n')
-  }));
+      allItems.push({ slide, ti, tag, tagged: '[' + tag + ']' + slide.textBoxItems[ti].text + '[/' + tag + ']' });
+    }
+  }
 
   const chunks = [];
   let cur = [], curLen = 0;
-  for (const grp of slideGroups) {
-    if (cur.length >= MAX_SLIDES_PER_CHUNK || (cur.length > 0 && curLen + grp.text.length > CHUNK_CHAR_LIMIT)) {
+  for (const item of allItems) {
+    if (cur.length >= MAX_ITEMS_PER_CHUNK || (cur.length > 0 && curLen + item.tagged.length > CHUNK_CHAR_LIMIT)) {
       chunks.push(cur); cur = []; curLen = 0;
     }
-    cur.push(grp); curLen += grp.text.length;
+    cur.push(item); curLen += item.tagged.length;
   }
   if (cur.length > 0) chunks.push(cur);
 
@@ -3342,33 +3349,31 @@ async function paraphrasePPTX() {
 
   for (let ci = 0; ci < chunks.length; ci++) {
     const chunk = chunks[ci];
-    const chunkText = chunk.map(g => g.text).join('\n');
-    const suffix = chunks.length > 1 ? ' — part ' + (ci + 1) + '/' + chunks.length : '';
-    showStatus('Paraphrasing' + suffix + ' (' + totalItems + ' text boxes)...', 'info');
+    const chunkText = chunk.map(i => i.tagged).join('\n');
+    const partLabel = chunks.length > 1 ? 'part ' + (ci + 1) + ' of ' + chunks.length : '';
+    const statusMsg = chunks.length > 1
+      ? 'Paraphrasing ' + partLabel + ' (' + chunk.length + ' text boxes)...'
+      : 'Paraphrasing ' + totalItems + ' text boxes...';
+    showStatus(statusMsg, 'info');
     document.getElementById('outputText').innerHTML =
-      '<span class="output-placeholder">Paraphrasing ' + totalItems + ' text boxes' + suffix + '...</span>';
+      '<span class="output-placeholder">' + (chunks.length > 1 ? 'Paraphrasing ' + partLabel + '...' : 'Paraphrasing...') + '</span>';
 
     const raw = await runAPIChain(chunkText, basePrompt, currentMode, getLang(), 'paraphrase');
     if (!raw) {
       setLoading(false);
-      showStatus('Paraphrase failed' + suffix + '. Please try again.', 'error');
+      showStatus('Paraphrase failed' + (chunks.length > 1 ? ' on ' + partLabel : '') + '. Please try again.', 'error');
       return;
     }
 
     // Parse each tagged section back to its item
-    for (const { slide } of chunk) {
-      for (let ti = 0; ti < slide.textBoxItems.length; ti++) {
-        const item = slide.textBoxItems[ti];
-        const tag = 'SLIDE' + slide.num + '_BOX' + (ti + 1);
-        const m = raw.match(new RegExp('\\[' + tag + '\\]([\\s\\S]*?)\\[\\/' + tag + '\\]', 'i'));
-        item.paraphrased = m ? stripMarkdown(m[1].trim()) : item.text;
-      }
+    for (const { slide, ti, tag } of chunk) {
+      const m = raw.match(new RegExp('\\[' + tag + '\\]([\\s\\S]*?)\\[\\/' + tag + '\\]', 'i'));
+      slide.textBoxItems[ti].paraphrased = m ? stripMarkdown(m[1].trim()) : slide.textBoxItems[ti].text;
     }
 
-    // Wait 1 second between chunks so Groq's per-minute counter has time to breathe
-    // (Groq allows ~30 req/min — 1s gap keeps us well within that between chunks)
+    // 2s delay between chunks — Groq's per-minute token limit needs breathing room
     if (ci < chunks.length - 1) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 2000));
     }
   }
 
