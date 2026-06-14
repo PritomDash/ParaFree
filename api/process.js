@@ -161,7 +161,7 @@ async function callOpenRouter(text, prompt, key) {
     headers: {
       "Content-Type": "application/json",
       "Authorization": "Bearer " + key,
-      "HTTP-Referer": "https://para-free.vercel.app",
+      "HTTP-Referer": "https://parafree.app",
       "X-Title": "ParaFree"
     },
     body: JSON.stringify({
@@ -219,7 +219,7 @@ async function callExtra(text, prompt, key, label) {
     headers: {
       "Content-Type": "application/json",
       "Authorization": "Bearer " + key,
-      "HTTP-Referer": "https://para-free.vercel.app",
+      "HTTP-Referer": "https://parafree.app",
       "X-Title": "ParaFree"
     },
     body: JSON.stringify({
@@ -248,6 +248,9 @@ const PROMPTS = {
   casual:       "Rewrite the following AI-generated text in a casual conversational tone. Use everyday language and contractions. Return only the rewritten text, nothing else:",
   summarize:    "Summarize the following text. Your summary MUST be significantly shorter than the input — maximum 30% of the original word count. Use concise bullet points for the key ideas, then one short conclusion sentence. Be brief and to the point. Never exceed 30% of input word count. Return only the summary, nothing else:",
   grammar:      "Check and correct the following text for grammar, spelling, and punctuation errors.\n\nRespond in this exact format:\nCORRECTED TEXT:\n[Write the fully corrected text here]\n\nERRORS FOUND:\n[List each error: Original → Corrected (reason)]\n\nIf no errors found write: No errors found! Your text looks great.\n\nText to check:",
+  cv_build:     "You are a professional resume writer. Based on the following rough information, write polished, professional, ATS-optimized resume content. Use strong action verbs, quantify achievements where possible, and keep tone confident and concise. Return only the polished text, nothing else:",
+  job_analyze:  "You are an ATS and recruiting expert. Compare the CV against the job description provided. Respond in this EXACT format:\n\nMATCH SCORE: [number 0-100]\n\nMATCHED KEYWORDS:\n[comma separated list of skills/keywords from the job description that ARE present in the CV]\n\nMISSING KEYWORDS:\n[comma separated list of important skills/keywords from the job description that are NOT in the CV]\n\nSUGGESTIONS:\n1. [specific suggestion]\n2. [specific suggestion]\n3. [specific suggestion]\n4. [specific suggestion]\n5. [specific suggestion]\n\nJob Description and CV follow:",
+  cover_letter: "Write a professional, tailored cover letter based on the candidate information and job description provided. Keep it to 3-4 paragraphs, confident tone, specific to the role. Return only the cover letter text, nothing else:",
 };
 
 function getPrompt(mode, language) {

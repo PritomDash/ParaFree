@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Free CV Templates — Classic, Modern &amp; Minimal | ParaFree CV Builder</title>
+<meta name="description" content="Choose from 3 free professional CV templates — Classic, Modern and Minimal. All templates are ATS-friendly, downloadable as PDF or DOCX, with no signup and no watermark.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://parafree.app/cv-templates.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f7f5f0; --surface: #ffffff; --border: #e2ddd4;
+  --text: #1a1814; --text2: #6b6660; --text3: #9e9890;
+  --accent: #2d6a4f; --accent2: #52b788; --accent-light: #d8f3dc;
+}
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); font-size: 15px; line-height: 1.6; }
+nav { background: #1a3a2a; padding: 10px 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+nav a.logo { color: #52b788; font-weight: 700; font-size: 16px; text-decoration: none; }
+nav .nav-links { display: flex; gap: 16px; flex-wrap: wrap; }
+nav .nav-links a { color: #ccc; text-decoration: none; font-size: 14px; }
+nav .nav-links a:hover { color: #fff; }
+nav .nav-links a.active { color: #52b788; font-weight: 600; }
+.hero { background: linear-gradient(135deg, #1a3a2a 0%, #2d6a4f 100%); color: white; padding: 48px 24px; text-align: center; }
+.hero h1 { font-family: 'Syne', sans-serif; font-size: 32px; font-weight: 800; margin-bottom: 10px; }
+.hero p { opacity: 0.85; max-width: 520px; margin: 0 auto; }
+.container { max-width: 1100px; margin: 48px auto; padding: 0 16px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 28px; }
+.tpl-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; transition: transform .2s, box-shadow .2s; }
+.tpl-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,.1); }
+.tpl-preview { padding: 24px 20px; min-height: 340px; position: relative; }
+
+/* Classic preview */
+.tpl-card.classic .tpl-preview { background: white; border-bottom: 1px solid var(--border); font-family: 'DM Sans', sans-serif; }
+.tpl-card.classic .p-name { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 800; }
+.tpl-card.classic .p-title { font-size: 11px; color: #2d6a4f; font-weight: 600; margin-top: 2px; }
+.tpl-card.classic .p-contact { font-size: 9px; color: #6b6660; margin-top: 3px; }
+.tpl-card.classic .p-divider { border: none; border-top: 1.5px solid #2d6a4f; margin: 10px 0 8px; }
+.tpl-card.classic .p-sec { font-size: 8px; font-weight: 800; color: #2d6a4f; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #e2ddd4; padding-bottom: 3px; margin-bottom: 6px; margin-top: 12px; font-family: 'Syne', sans-serif; }
+.tpl-card.classic .p-role { font-size: 10px; font-weight: 700; }
+.tpl-card.classic .p-co { font-size: 9px; color: #6b6660; font-style: italic; }
+.tpl-card.classic .p-bul { font-size: 8.5px; color: #333; padding-left: 10px; margin-top: 3px; }
+.tpl-card.classic .p-bul li { margin-bottom: 1px; }
+
+/* Modern preview */
+.tpl-card.modern .tpl-preview { padding: 0; display: grid; grid-template-columns: 100px 1fr; background: white; border-bottom: 1px solid var(--border); }
+.tpl-card.modern .p-sidebar { background: #2d6a4f; padding: 18px 12px; }
+.tpl-card.modern .p-name { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 800; color: white; margin-bottom: 2px; line-height: 1.2; }
+.tpl-card.modern .p-title { font-size: 9px; color: #a8d8c4; font-weight: 600; margin-bottom: 14px; }
+.tpl-card.modern .p-sidebar-hdr { font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #52b788; border-bottom: 1px solid rgba(255,255,255,.2); padding-bottom: 3px; margin-bottom: 6px; }
+.tpl-card.modern .p-contact-item { font-size: 8px; color: rgba(255,255,255,.8); margin-bottom: 3px; }
+.tpl-card.modern .p-skill { display: inline-block; background: rgba(255,255,255,.15); color: white; border-radius: 3px; font-size: 8px; padding: 1px 5px; margin: 1px 1px 0 0; }
+.tpl-card.modern .p-main { padding: 16px 14px; }
+.tpl-card.modern .p-sec { font-size: 8px; font-weight: 800; color: #2d6a4f; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1.5px solid #2d6a4f; padding-bottom: 2px; margin-bottom: 6px; margin-top: 10px; font-family: 'Syne', sans-serif; }
+.tpl-card.modern .p-sec:first-child { margin-top: 0; }
+.tpl-card.modern .p-role { font-size: 9px; font-weight: 700; }
+.tpl-card.modern .p-co { font-size: 8px; color: #6b6660; }
+.tpl-card.modern .p-bul { font-size: 8px; color: #333; padding-left: 8px; margin-top: 2px; }
+
+/* Minimal preview */
+.tpl-card.minimal .tpl-preview { background: white; border-bottom: 1px solid var(--border); font-family: 'DM Sans', sans-serif; }
+.tpl-card.minimal .p-name { font-size: 22px; font-weight: 300; color: #1a1814; letter-spacing: -0.5px; }
+.tpl-card.minimal .p-title { font-size: 9px; color: #9e9890; text-transform: uppercase; letter-spacing: 2px; margin-top: 2px; }
+.tpl-card.minimal .p-contact { font-size: 9px; color: #9e9890; margin-top: 4px; }
+.tpl-card.minimal .p-divider { border: none; border-top: 1px solid #e2ddd4; margin: 12px 0 10px; }
+.tpl-card.minimal .p-sec { font-size: 8px; font-weight: 700; color: #9e9890; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; margin-top: 14px; }
+.tpl-card.minimal .p-role { font-size: 10px; font-weight: 600; }
+.tpl-card.minimal .p-co { font-size: 9px; color: #9e9890; }
+.tpl-card.minimal .p-bul { font-size: 8.5px; color: #6b6660; padding-left: 10px; margin-top: 2px; }
+
+.tpl-info { padding: 20px; }
+.tpl-name { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.tpl-desc { font-size: 13px; color: var(--text2); margin-bottom: 14px; }
+.tpl-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.tpl-tag { background: var(--accent-light); color: var(--accent); font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 20px; }
+.use-btn { display: inline-block; background: var(--accent); color: white; text-decoration: none; padding: 10px 22px; border-radius: 8px; font-weight: 700; font-size: 14px; transition: background .15s; }
+.use-btn:hover { background: #235a40; }
+footer { background: #1a3a2a; color: #ccc; padding: 32px 24px; margin-top: 60px; text-align: center; }
+footer div { display: flex; justify-content: center; gap: 24px; flex-wrap: wrap; margin-bottom: 16px; }
+footer a { color: #ccc; text-decoration: none; font-size: 14px; }
+footer a:hover { color: #fff; }
+footer p { margin: 0; font-size: 13px; color: #999; }
+</style>
+</head>
+<body>
+<nav>
+  <a href="/" class="logo">ParaFree</a>
+  <div class="nav-links">
+    <a href="/">Home</a>
+    <a href="/about.html">About</a>
+    <a href="/blog.html">Blog</a>
+    <a href="/cv-builder.html" class="active">CV Builder</a>
+    <a href="/faq.html">FAQ</a>
+    <a href="/contact.html">Contact</a>
+    <a href="/privacy.html">Privacy</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <h1>3 Free Professional CV Templates</h1>
+  <p>ATS-friendly, downloadable as PDF or DOCX — no signup, no watermark, no cost.</p>
+</div>
+
+<div class="container">
+  <div class="grid">
+
+    <!-- Classic -->
+    <div class="tpl-card classic">
+      <div class="tpl-preview">
+        <div class="p-name">Jane Smith</div>
+        <div class="p-title">Senior Marketing Manager</div>
+        <div class="p-contact">jane@email.com · +61 400 123 456 · Sydney, Australia</div>
+        <hr class="p-divider">
+        <div class="p-sec">Professional Summary</div>
+        <div style="font-size:8.5px;color:#333;">Results-driven marketing professional with 8+ years of experience driving brand growth and digital campaigns across B2B and B2C sectors.</div>
+        <div class="p-sec">Work Experience</div>
+        <div class="p-role">Marketing Manager — Acme Corp <span style="float:right;font-weight:400;font-size:8.5px;color:#6b6660;">2021 – Present</span></div>
+        <div class="p-co">Sydney, Australia</div>
+        <ul class="p-bul"><li>Grew organic traffic by 240% through SEO-led content strategy</li><li>Managed $1.2M annual advertising budget across 4 channels</li></ul>
+        <div class="p-sec">Education</div>
+        <div class="p-role">Bachelor of Business — University of Sydney <span style="float:right;font-weight:400;font-size:8.5px;color:#6b6660;">2013 – 2016</span></div>
+        <div class="p-sec">Skills</div>
+        <div style="font-size:8.5px;color:#333;">Google Ads · SEO · HubSpot · Project Management · Excel · Copywriting</div>
+      </div>
+      <div class="tpl-info">
+        <div class="tpl-name">Classic</div>
+        <div class="tpl-desc">Traditional single-column layout. Clean, professional, and highly readable by ATS software. Best for corporate roles, finance, law, and government.</div>
+        <div class="tpl-tags">
+          <span class="tpl-tag">ATS-Friendly</span>
+          <span class="tpl-tag">Single Column</span>
+          <span class="tpl-tag">Conservative</span>
+          <span class="tpl-tag">Print-Ready</span>
+        </div>
+        <a href="/cv-builder.html?template=classic" class="use-btn">Use Classic Template →</a>
+      </div>
+    </div>
+
+    <!-- Modern -->
+    <div class="tpl-card modern">
+      <div class="tpl-preview">
+        <div class="p-sidebar">
+          <div class="p-name">Alex Chen</div>
+          <div class="p-title">UX Designer</div>
+          <div class="p-sidebar-hdr" style="margin-top:12px;">Contact</div>
+          <div class="p-contact-item">alex@design.io</div>
+          <div class="p-contact-item">+1 555 0123</div>
+          <div class="p-contact-item">New York, NY</div>
+          <div class="p-sidebar-hdr" style="margin-top:10px;">Skills</div>
+          <div><span class="p-skill">Figma</span><span class="p-skill">UX Research</span><span class="p-skill">Prototyping</span><span class="p-skill">CSS</span><span class="p-skill">Design Systems</span></div>
+        </div>
+        <div class="p-main">
+          <div class="p-sec">Summary</div>
+          <div style="font-size:8.5px;color:#333;">UX Designer with 5 years experience creating intuitive digital products for 10M+ users across mobile and web.</div>
+          <div class="p-sec">Experience</div>
+          <div class="p-role">Senior UX Designer — Stripe</div>
+          <div class="p-co">2022 – Present</div>
+          <ul class="p-bul"><li>Redesigned checkout flow — increased conversions 18%</li><li>Led design system used by 40+ engineers</li></ul>
+          <div class="p-sec">Education</div>
+          <div class="p-role">BFA Interaction Design</div>
+          <div class="p-co">Parsons School of Design · 2019</div>
+        </div>
+      </div>
+      <div class="tpl-info">
+        <div class="tpl-name">Modern</div>
+        <div class="tpl-desc">Two-column layout with a green sidebar for contact and skills. Eye-catching and contemporary. Best for design, tech, marketing, and creative roles.</div>
+        <div class="tpl-tags">
+          <span class="tpl-tag">Two Column</span>
+          <span class="tpl-tag">Sidebar</span>
+          <span class="tpl-tag">Modern</span>
+          <span class="tpl-tag">Tech &amp; Creative</span>
+        </div>
+        <a href="/cv-builder.html?template=modern" class="use-btn">Use Modern Template →</a>
+      </div>
+    </div>
+
+    <!-- Minimal -->
+    <div class="tpl-card minimal">
+      <div class="tpl-preview">
+        <div class="p-name">Sarah Okafor</div>
+        <div class="p-title">Product Manager</div>
+        <div class="p-contact">sarah@pm.co · London, UK · linkedin.com/in/sarahokafor</div>
+        <hr class="p-divider">
+        <div class="p-sec">Profile</div>
+        <div style="font-size:8.5px;color:#6b6660;">Strategic product manager with a track record of shipping zero-to-one products in fast-paced startup environments.</div>
+        <div class="p-sec">Experience</div>
+        <div class="p-role">Product Manager · Monzo <span style="float:right;font-weight:400;font-size:8.5px;color:#9e9890;">2020 – 2024</span></div>
+        <div class="p-co">London, UK</div>
+        <ul class="p-bul"><li>Launched savings product adopted by 800K users in 6 months</li><li>Defined roadmap for core payments feature across 3 markets</li></ul>
+        <div class="p-sec">Education</div>
+        <div class="p-role">MSc Computer Science · UCL <span style="float:right;font-weight:400;font-size:8.5px;color:#9e9890;">2018 – 2019</span></div>
+        <div class="p-sec">Skills</div>
+        <div style="font-size:8.5px;color:#6b6660;">Product Strategy · SQL · Figma · A/B Testing · Stakeholder Management · Roadmapping</div>
+      </div>
+      <div class="tpl-info">
+        <div class="tpl-name">Minimal</div>
+        <div class="tpl-desc">Clean single-column with generous whitespace and restrained typography. Modern startup feel. Best for tech, product, consulting, and data roles.</div>
+        <div class="tpl-tags">
+          <span class="tpl-tag">Minimal</span>
+          <span class="tpl-tag">Startup</span>
+          <span class="tpl-tag">Whitespace</span>
+          <span class="tpl-tag">ATS-Friendly</span>
+        </div>
+        <a href="/cv-builder.html?template=minimal" class="use-btn">Use Minimal Template →</a>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px 32px;margin-top:40px;text-align:center;">
+    <h2 style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;margin-bottom:8px;">All Templates Are 100% Free</h2>
+    <p style="color:var(--text2);max-width:520px;margin:0 auto 20px;">No signup, no watermark, no download limit. Download your CV as a PDF or Word file as many times as you need — completely free, forever.</p>
+    <a href="/cv-builder.html" style="display:inline-block;background:var(--accent);color:white;text-decoration:none;padding:13px 32px;border-radius:10px;font-weight:700;font-family:'Syne',sans-serif;font-size:16px;">Start Building Your CV →</a>
+  </div>
+</div>
+
+<footer>
+  <div>
+    <a href="/">Home</a>
+    <a href="/about.html">About</a>
+    <a href="/blog.html">Blog</a>
+    <a href="/cv-builder.html">CV Builder</a>
+    <a href="/faq.html">FAQ</a>
+    <a href="/contact.html">Contact</a>
+    <a href="/privacy.html">Privacy</a>
+    <a href="/terms.html">Terms</a>
+  </div>
+  <p>© 2026 ParaFree · Free AI Writing Suite · No limits, no signup, always free</p>
+</footer>
+
+<script>
+// Apply template from URL param if present
+const urlParams = new URLSearchParams(window.location.search);
+const tpl = urlParams.get('template');
+if (tpl) {
+  sessionStorage.setItem('cvTemplate', tpl);
+}
+</script>
+</body>
+</html>
