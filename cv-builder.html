@@ -75,7 +75,7 @@ nav .nav-links a.active { color: #52b788; font-weight: 600; }
 .hero-badge { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.25); color: white; font-size: 13px; padding: 5px 12px; border-radius: 20px; }
 
 /* Main container */
-.cv-main { max-width: 1240px; margin: 0 auto; padding: 28px 16px 60px; }
+.cv-main { max-width: 1400px; margin: 0 auto; padding: 28px 16px 60px; }
 
 /* Tab bar */
 .cv-tabs { display: flex; gap: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 5px; margin-bottom: 24px; width: fit-content; }
@@ -88,8 +88,8 @@ nav .nav-links a.active { color: #52b788; font-weight: 600; }
 .tab-panel.active { display: block; }
 
 /* Builder layout */
-.builder-layout { display: grid; grid-template-columns: 420px 1fr; gap: 24px; align-items: start; }
-@media (max-width: 900px) { .builder-layout { grid-template-columns: 1fr; } }
+.builder-layout { display: grid; grid-template-columns: minmax(340px, 420px) 1fr; gap: 24px; align-items: start; }
+@media (max-width: 1024px) { .builder-layout { grid-template-columns: 1fr; } }
 
 /* Form panel */
 .form-panel { display: flex; flex-direction: column; gap: 16px; }
@@ -124,7 +124,7 @@ nav .nav-links a.active { color: #52b788; font-weight: 600; }
 .entry-card-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 13px; font-weight: 600; color: var(--text2); }
 
 /* Preview panel */
-.preview-panel { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 12px; }
+.preview-panel { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .preview-top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
 .tpl-selector { display: flex; gap: 6px; }
 .tpl-btn { background: var(--surface); border: 1.5px solid var(--border); border-radius: 8px; padding: 6px 14px; font-size: 13px; font-weight: 600; color: var(--text2); cursor: pointer; transition: all .15s; }
@@ -136,8 +136,8 @@ nav .nav-links a.active { color: #52b788; font-weight: 600; }
 .dl-btn.secondary:hover { background: var(--surface2); }
 
 /* CV Preview container */
-.preview-wrap { background: white; border: 1px solid var(--border); border-radius: 10px; min-height: 500px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,.06); }
-.cv-sheet { padding: 32px 36px; font-size: 13px; line-height: 1.5; }
+.preview-wrap { background: white; border: 1px solid var(--border); border-radius: 10px; min-height: 500px; overflow: auto; box-shadow: 0 2px 12px rgba(0,0,0,.06); }
+.cv-sheet { padding: 32px 36px; font-size: 13px; line-height: 1.5; word-break: break-word; overflow-wrap: break-word; }
 
 /* ── CLASSIC TEMPLATE ── */
 .tpl-classic .cv-sheet { font-family: 'DM Sans', sans-serif; }
@@ -294,8 +294,8 @@ nav .nav-links a.active { color: #52b788; font-weight: 600; }
 .improve-output.show { display: block; }
 
 /* Cover letter tab */
-.cover-layout { display: grid; grid-template-columns: 380px 1fr; gap: 24px; }
-@media (max-width: 800px) { .cover-layout { grid-template-columns: 1fr; } }
+.cover-layout { display: grid; grid-template-columns: minmax(320px, 380px) 1fr; gap: 24px; }
+@media (max-width: 900px) { .cover-layout { grid-template-columns: 1fr; } }
 .cover-preview { background: white; border: 1px solid var(--border); border-radius: 10px; padding: 32px 36px; min-height: 400px; font-size: 13px; line-height: 1.7; color: #1a1814; white-space: pre-wrap; }
 
 /* Status */
@@ -1029,7 +1029,16 @@ async function aiGenSummary() {
   btn.disabled = true; btn.textContent = '...';
   showStatus('summary-status', 'Generating professional summary...', 'info');
   try {
-    const result = await callAPI('cv_build', 'Write a professional CV summary for:\n' + roughInfo);
+    const instruction =
+      'Write ONE professional summary paragraph (3-4 sentences, 50-80 words).\n\n' +
+      'Rules:\n' +
+      '- Output ONLY the paragraph — no labels like "Summary:" or "Professional Summary:"\n' +
+      '- Do NOT open by restating the person\'s name\n' +
+      '- Avoid clichés: results-driven, proven track record, dynamic professional\n' +
+      '- Be specific to the job title, experience and skills provided — no invented filler\n' +
+      '- Confident but conversational tone, varied sentence structure\n\n' +
+      'Person\'s information:\n' + roughInfo;
+    const result = await callAPI('cv_build', instruction);
     document.getElementById('f-summary').value = result.trim();
     updatePreview();
     hideStatus('summary-status');
@@ -1053,7 +1062,16 @@ async function aiGenBullets(id) {
   showStatus('exp-status-' + id, 'Generating bullet points...', 'info');
   const input = `Role: ${role || 'Professional'}\nCompany: ${company || ''}\nRough notes: ${rough || role}`;
   try {
-    const result = await callAPI('cv_build', 'Write 3-5 strong ATS-optimized bullet points for this CV position. Use action verbs and quantify where possible. Return only the bullet points, one per line:\n' + input);
+    const instruction =
+      'Write 3-5 polished CV bullet points for this role.\n\n' +
+      'Rules:\n' +
+      '- Start each bullet with a strong action verb (e.g. Led, Designed, Delivered, Built, Managed, Grew)\n' +
+      '- Be specific to the role and company provided — no generic filler\n' +
+      '- Quantify where the notes suggest metrics (%, $, headcount, time saved, etc.)\n' +
+      '- Transform rough notes into professional, ATS-optimized language\n' +
+      '- Return ONLY the bullet points, one per line, no numbering or extra labels\n\n' +
+      input;
+    const result = await callAPI('cv_build', instruction);
     bulletsTA.value = result.trim();
     updatePreview();
     hideStatus('exp-status-' + id);
