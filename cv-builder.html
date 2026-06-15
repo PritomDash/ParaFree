@@ -198,7 +198,7 @@ nav .nav-links a.active { color: #52b788; font-weight: 600; }
 .tpl-minimal .cv-jobtitle { font-size: 13px; color: #9e9890; font-weight: 400; margin-top: 2px; letter-spacing: 2px; text-transform: uppercase; }
 .tpl-minimal .cv-contact { font-size: 11px; color: #9e9890; margin-top: 6px; }
 .tpl-minimal .cv-divider { border: none; border-top: 1px solid #e2ddd4; margin: 18px 0 14px; }
-.tpl-minimal .cv-sec-title { font-size: 10px; font-weight: 700; color: #9e9890; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 12px; margin-top: 20px; }
+.tpl-minimal .cv-sec-title { font-family: 'Syne', sans-serif; font-size: 10px; font-weight: 700; color: #9e9890; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 12px; margin-top: 20px; }
 .tpl-minimal .cv-exp-role { font-weight: 600; font-size: 13px; }
 .tpl-minimal .cv-exp-dates { font-size: 11px; color: #9e9890; }
 .tpl-minimal .cv-exp-company { font-size: 12px; color: #9e9890; }
@@ -295,6 +295,183 @@ nav .nav-links a.active { color: #52b788; font-weight: 600; }
 .tpl-tech .cv-skills-grid { display: flex; flex-wrap: wrap; gap: 5px; }
 .tpl-tech .cv-skill-tag { font-family: 'Courier New', monospace; font-size: 11px; background: #e8f8ef; color: #2d6a4f; border: 1px solid #b7e4c7; padding: 2px 8px; border-radius: 4px; }
 .tpl-tech .cv-edu-entry { margin-bottom: 8px; }
+
+/* Fill notice */
+.cv-fill-notice { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #92400e; display: flex; align-items: flex-start; gap: 8px; }
+.cv-fill-notice-close { background: none; border: none; cursor: pointer; color: #92400e; font-size: 18px; line-height: 1; padding: 0 2px; margin-left: auto; flex-shrink: 0; opacity: 0.55; }
+.cv-fill-notice-close:hover { opacity: 1; }
+
+/* ── NAVY TEMPLATE ── */
+.tpl-navy .cv-sheet { padding: 0; display: grid; grid-template-columns: 200px 1fr; }
+.tpl-navy .cv-sidebar { background: #162a4a; color: white; padding: 28px 16px; }
+.tpl-navy .cv-name { font-family: 'Syne', sans-serif; font-size: 17px; font-weight: 800; color: white; line-height: 1.2; margin-bottom: 3px; }
+.tpl-navy .cv-jobtitle { font-size: 11px; color: #93c5fd; font-weight: 500; margin-bottom: 16px; }
+.tpl-navy .cv-sidebar-sec { margin-bottom: 16px; }
+.tpl-navy .cv-sidebar-hdr { font-family: 'Syne', sans-serif; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; color: #60a5fa; border-bottom: 1px solid rgba(255,255,255,.15); padding-bottom: 3px; margin-bottom: 7px; }
+.tpl-navy .cv-contact-item { font-size: 10.5px; color: rgba(255,255,255,.8); margin-bottom: 4px; word-break: break-all; }
+.tpl-navy .cv-skill-pill { display: inline-block; background: rgba(255,255,255,.12); color: #bfdbfe; border-radius: 3px; font-size: 10px; padding: 2px 6px; margin: 2px 2px 0 0; }
+.tpl-navy .cv-main-col { padding: 26px 22px 26px 20px; }
+.tpl-navy .cv-sec-title { font-family: 'Syne', sans-serif; font-size: 10px; font-weight: 800; color: #162a4a; text-transform: uppercase; letter-spacing: 1.5px; border-bottom: 2px solid #162a4a; padding-bottom: 3px; margin: 16px 0 10px; }
+.tpl-navy .cv-sec-title:first-child { margin-top: 0; }
+.tpl-navy .cv-exp-role { font-weight: 700; font-size: 13px; }
+.tpl-navy .cv-exp-dates { font-size: 11px; color: #6b6660; }
+.tpl-navy .cv-exp-company { font-size: 11px; color: #6b6660; font-style: italic; }
+.tpl-navy .cv-exp-hdr { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; }
+.tpl-navy .cv-bullets { padding-left: 14px; margin-top: 3px; }
+.tpl-navy .cv-bullets li { font-size: 12px; margin-bottom: 2px; }
+.tpl-navy .cv-sec-body { font-size: 12px; }
+
+/* ── BURGUNDY TEMPLATE ── */
+.tpl-burgundy .cv-sheet { font-family: 'DM Sans', sans-serif; }
+.tpl-burgundy .cv-name { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 800; color: #1a1814; }
+.tpl-burgundy .cv-jobtitle { font-size: 13px; color: #7b2d3e; font-weight: 600; margin-top: 2px; }
+.tpl-burgundy .cv-contact { font-size: 11px; color: #6b6660; margin-top: 4px; }
+.tpl-burgundy .cv-divider { border: none; border-top: 2px solid #7b2d3e; margin: 14px 0 12px; }
+.tpl-burgundy .cv-sec-title { font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 800; color: #7b2d3e; text-transform: uppercase; letter-spacing: 1.5px; border-left: 3px solid #7b2d3e; padding-left: 8px; margin-bottom: 10px; margin-top: 18px; }
+.tpl-burgundy .cv-sec-body { color: #1a1814; font-size: 12px; }
+.tpl-burgundy .cv-exp-hdr { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 4px; }
+.tpl-burgundy .cv-exp-role { font-weight: 700; font-size: 13px; }
+.tpl-burgundy .cv-exp-dates { font-size: 11px; color: #6b6660; }
+.tpl-burgundy .cv-exp-company { font-size: 12px; color: #6b6660; font-style: italic; margin-bottom: 4px; }
+.tpl-burgundy .cv-bullets { padding-left: 16px; margin-top: 4px; }
+.tpl-burgundy .cv-bullets li { margin-bottom: 2px; color: #1a1814; }
+.tpl-burgundy .cv-edu-entry { margin-bottom: 8px; }
+
+/* ── TEAL TEMPLATE ── */
+.tpl-teal .cv-sheet { font-family: 'DM Sans', sans-serif; }
+.tpl-teal .cv-header-band { background: #0f766e; color: white; padding: 26px 60px 20px; margin: -40px -60px 22px; }
+.tpl-teal .cv-name { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 800; color: white; }
+.tpl-teal .cv-jobtitle { font-size: 12px; color: rgba(255,255,255,.75); font-weight: 400; text-transform: uppercase; letter-spacing: 2px; margin-top: 4px; }
+.tpl-teal .cv-contact { font-size: 11px; color: rgba(255,255,255,.6); margin-top: 8px; }
+.tpl-teal .cv-sec-title { font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 800; color: #0f766e; text-transform: uppercase; letter-spacing: 1.5px; border-bottom: 2px solid #0f766e; padding-bottom: 3px; margin-bottom: 10px; margin-top: 18px; }
+.tpl-teal .cv-sec-body { color: #1a1814; font-size: 12px; }
+.tpl-teal .cv-exp-hdr { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 4px; }
+.tpl-teal .cv-exp-role { font-weight: 700; font-size: 13px; }
+.tpl-teal .cv-exp-dates { font-size: 11px; color: #6b6660; background: #f0fdf9; padding: 1px 8px; border-radius: 10px; }
+.tpl-teal .cv-exp-company { font-size: 12px; color: #6b6660; margin-bottom: 4px; }
+.tpl-teal .cv-bullets { padding-left: 16px; margin-top: 4px; }
+.tpl-teal .cv-bullets li { margin-bottom: 2px; color: #1a1814; font-size: 12px; }
+.tpl-teal .cv-edu-entry { margin-bottom: 8px; }
+
+/* ── SLATE TEMPLATE ── */
+.tpl-slate .cv-sheet { font-family: 'DM Sans', sans-serif; }
+.tpl-slate .cv-name { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800; color: #0f172a; letter-spacing: -0.5px; }
+.tpl-slate .cv-jobtitle { font-size: 13px; color: #475569; font-weight: 500; margin-top: 3px; }
+.tpl-slate .cv-contact { font-size: 11px; color: #64748b; margin-top: 4px; }
+.tpl-slate .cv-divider { border: none; border-top: 1px solid #cbd5e1; margin: 14px 0 12px; }
+.tpl-slate .cv-sec-title { font-family: 'Syne', sans-serif; font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 2px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-bottom: 10px; margin-top: 18px; }
+.tpl-slate .cv-sec-body { font-size: 12px; color: #1e293b; }
+.tpl-slate .cv-exp-hdr { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; }
+.tpl-slate .cv-exp-role { font-weight: 700; font-size: 13px; color: #0f172a; }
+.tpl-slate .cv-exp-dates { font-size: 11px; color: #64748b; background: #f1f5f9; padding: 1px 8px; border-radius: 10px; }
+.tpl-slate .cv-exp-company { font-size: 12px; color: #475569; margin-bottom: 3px; }
+.tpl-slate .cv-bullets { padding-left: 15px; margin-top: 4px; }
+.tpl-slate .cv-bullets li { font-size: 12px; margin-bottom: 2px; color: #1e293b; }
+.tpl-slate .cv-edu-entry { margin-bottom: 8px; }
+
+/* ── TERRACOTTA TEMPLATE ── */
+.tpl-terracotta .cv-sheet { font-family: 'DM Sans', sans-serif; }
+.tpl-terracotta .cv-name { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 800; color: #1c0a00; }
+.tpl-terracotta .cv-jobtitle { font-size: 13px; color: #c2522d; font-weight: 600; margin-top: 2px; }
+.tpl-terracotta .cv-contact { font-size: 11px; color: #78350f; margin-top: 4px; }
+.tpl-terracotta .cv-divider { border: none; border-top: 2px solid #c2522d; margin: 14px 0 12px; }
+.tpl-terracotta .cv-sec-title { font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 800; color: #c2522d; text-transform: uppercase; letter-spacing: 1.5px; background: #fff7ed; border-left: 3px solid #c2522d; padding: 3px 8px; margin-bottom: 10px; margin-top: 16px; display: block; }
+.tpl-terracotta .cv-sec-body { color: #1c0a00; font-size: 12px; }
+.tpl-terracotta .cv-exp-hdr { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; }
+.tpl-terracotta .cv-exp-role { font-weight: 700; font-size: 13px; color: #1c0a00; }
+.tpl-terracotta .cv-exp-dates { font-size: 11px; color: #92400e; font-weight: 600; }
+.tpl-terracotta .cv-exp-company { font-size: 12px; color: #78350f; margin-bottom: 4px; }
+.tpl-terracotta .cv-bullets { padding-left: 15px; margin-top: 4px; }
+.tpl-terracotta .cv-bullets li { font-size: 12px; margin-bottom: 2px; color: #1c0a00; }
+.tpl-terracotta .cv-edu-entry { margin-bottom: 8px; }
+
+/* ── BOLD TEMPLATE ── */
+.tpl-bold .cv-sheet { font-family: 'DM Sans', sans-serif; }
+.tpl-bold .cv-header { text-align: center; padding-bottom: 18px; border-bottom: 3px solid #1a1814; margin-bottom: 20px; }
+.tpl-bold .cv-name { font-family: 'Syne', sans-serif; font-size: 38px; font-weight: 800; color: #1a1814; letter-spacing: -1.5px; line-height: 1.05; }
+.tpl-bold .cv-jobtitle { font-size: 12px; color: #6b6660; font-weight: 500; margin-top: 8px; text-transform: uppercase; letter-spacing: 3px; }
+.tpl-bold .cv-contact { font-size: 11px; color: #9e9890; margin-top: 8px; }
+.tpl-bold .cv-sec-title { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 800; color: #1a1814; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #1a1814; padding-bottom: 5px; margin-bottom: 12px; margin-top: 20px; }
+.tpl-bold .cv-sec-body { color: #1a1814; font-size: 12px; }
+.tpl-bold .cv-exp-hdr { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 4px; }
+.tpl-bold .cv-exp-role { font-weight: 700; font-size: 13px; }
+.tpl-bold .cv-exp-dates { font-size: 11px; color: #6b6660; }
+.tpl-bold .cv-exp-company { font-size: 12px; color: #6b6660; font-style: italic; margin-bottom: 4px; }
+.tpl-bold .cv-bullets { padding-left: 16px; margin-top: 4px; }
+.tpl-bold .cv-bullets li { margin-bottom: 2px; }
+.tpl-bold .cv-edu-entry { margin-bottom: 8px; }
+
+/* ── ACADEMIC TEMPLATE ── */
+.tpl-academic .cv-sheet { font-family: 'DM Sans', sans-serif; }
+.tpl-academic .cv-name { font-family: 'Syne', sans-serif; font-size: 24px; font-weight: 800; color: #1e3a5f; }
+.tpl-academic .cv-jobtitle { font-size: 13px; color: #2c5282; font-weight: 500; margin-top: 2px; font-style: italic; }
+.tpl-academic .cv-contact { font-size: 11px; color: #4a6fa5; margin-top: 4px; }
+.tpl-academic .cv-divider { border: none; border-top: 1px solid #bee3f8; margin: 12px 0 10px; }
+.tpl-academic .cv-sec-title { font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 700; color: #1e3a5f; text-transform: uppercase; letter-spacing: 1px; background: #ebf8ff; padding: 4px 10px; margin-bottom: 10px; margin-top: 18px; border-radius: 4px; }
+.tpl-academic .cv-sec-body { font-size: 12px; color: #1a1814; }
+.tpl-academic .cv-exp-hdr { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; }
+.tpl-academic .cv-exp-role { font-weight: 700; font-size: 13px; color: #1e3a5f; }
+.tpl-academic .cv-exp-dates { font-size: 11px; color: #4a6fa5; }
+.tpl-academic .cv-exp-company { font-size: 12px; color: #2c5282; font-style: italic; margin-bottom: 4px; }
+.tpl-academic .cv-bullets { padding-left: 16px; margin-top: 4px; }
+.tpl-academic .cv-bullets li { font-size: 12px; margin-bottom: 2px; color: #1a1814; }
+.tpl-academic .cv-edu-entry { margin-bottom: 10px; }
+
+/* ── ELEGANT TEMPLATE ── */
+.tpl-elegant .cv-sheet { padding: 0; display: grid; grid-template-columns: 1fr 170px; }
+.tpl-elegant .cv-main-col { padding: 28px 22px; }
+.tpl-elegant .cv-sidebar { background: #1c1c2e; padding: 22px 14px; }
+.tpl-elegant .cv-name { font-family: 'Syne', sans-serif; font-size: 24px; font-weight: 800; color: #1a1814; margin-bottom: 2px; }
+.tpl-elegant .cv-jobtitle { font-size: 13px; color: #7c3aed; font-weight: 600; }
+.tpl-elegant .cv-divider { border: none; border-top: 2px solid #7c3aed; margin: 12px 0 10px; }
+.tpl-elegant .cv-sec-title { font-family: 'Syne', sans-serif; font-size: 10px; font-weight: 800; color: #7c3aed; text-transform: uppercase; letter-spacing: 1.5px; border-bottom: 1px solid #ede9fe; padding-bottom: 3px; margin-bottom: 8px; margin-top: 14px; display: block; }
+.tpl-elegant .cv-sec-body { font-size: 12px; color: #1a1814; }
+.tpl-elegant .cv-exp-hdr { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 4px; }
+.tpl-elegant .cv-exp-role { font-weight: 700; font-size: 13px; }
+.tpl-elegant .cv-exp-dates { font-size: 11px; color: #7c3aed; font-weight: 600; }
+.tpl-elegant .cv-exp-company { font-size: 12px; color: #6b6660; margin-bottom: 3px; }
+.tpl-elegant .cv-bullets { padding-left: 13px; margin-top: 3px; }
+.tpl-elegant .cv-bullets li { font-size: 12px; margin-bottom: 2px; }
+.tpl-elegant .cv-sidebar-hdr { font-family: 'Syne', sans-serif; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; color: #a78bfa; border-bottom: 1px solid rgba(255,255,255,.12); padding-bottom: 3px; margin-bottom: 6px; margin-top: 16px; }
+.tpl-elegant .cv-sidebar-hdr:first-child { margin-top: 0; }
+.tpl-elegant .cv-contact-item { font-size: 10px; color: rgba(255,255,255,.8); margin-bottom: 4px; word-break: break-all; }
+.tpl-elegant .cv-skill-pill { display: inline-block; background: rgba(167,139,250,.2); color: #c4b5fd; border-radius: 4px; font-size: 9.5px; padding: 2px 5px; margin: 2px 1px 0 0; }
+
+/* ── PURPLE TEMPLATE ── */
+.tpl-purple .cv-sheet { padding: 0; display: grid; grid-template-columns: 190px 1fr; }
+.tpl-purple .cv-sidebar { background: #3b0764; color: white; padding: 28px 16px; }
+.tpl-purple .cv-name { font-family: 'Syne', sans-serif; font-size: 17px; font-weight: 800; color: white; line-height: 1.2; margin-bottom: 3px; }
+.tpl-purple .cv-jobtitle { font-size: 11px; color: #d8b4fe; font-weight: 500; margin-bottom: 18px; }
+.tpl-purple .cv-sidebar-sec { margin-bottom: 16px; }
+.tpl-purple .cv-sidebar-hdr { font-family: 'Syne', sans-serif; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; color: #c084fc; border-bottom: 1px solid rgba(255,255,255,.15); padding-bottom: 3px; margin-bottom: 7px; }
+.tpl-purple .cv-contact-item { font-size: 10.5px; color: rgba(255,255,255,.8); margin-bottom: 4px; word-break: break-all; }
+.tpl-purple .cv-skill-pill { display: inline-block; background: rgba(255,255,255,.12); color: #e9d5ff; border-radius: 3px; font-size: 9.5px; padding: 2px 6px; margin: 2px 2px 0 0; }
+.tpl-purple .cv-main-col { padding: 26px 22px 26px 20px; }
+.tpl-purple .cv-sec-title { font-family: 'Syne', sans-serif; font-size: 10px; font-weight: 800; color: #3b0764; text-transform: uppercase; letter-spacing: 1.5px; border-bottom: 2px solid #7c3aed; padding-bottom: 3px; margin: 16px 0 10px; }
+.tpl-purple .cv-sec-title:first-child { margin-top: 0; }
+.tpl-purple .cv-exp-role { font-weight: 700; font-size: 13px; color: #1a1814; }
+.tpl-purple .cv-exp-dates { font-size: 11px; color: #7c3aed; font-weight: 600; }
+.tpl-purple .cv-exp-company { font-size: 11px; color: #6b6660; font-style: italic; }
+.tpl-purple .cv-exp-hdr { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; }
+.tpl-purple .cv-bullets { padding-left: 14px; margin-top: 3px; }
+.tpl-purple .cv-bullets li { font-size: 12px; margin-bottom: 2px; }
+.tpl-purple .cv-sec-body { font-size: 12px; color: #1a1814; }
+
+/* ── WARM TEMPLATE ── */
+.tpl-warm .cv-sheet { font-family: 'DM Sans', sans-serif; }
+.tpl-warm .cv-header-band { background: #991b1b; color: white; padding: 26px 60px 20px; margin: -40px -60px 22px; }
+.tpl-warm .cv-name { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800; color: white; letter-spacing: -0.5px; }
+.tpl-warm .cv-jobtitle { font-size: 12px; color: #fca5a5; font-weight: 400; margin-top: 3px; }
+.tpl-warm .cv-contact { font-size: 11px; color: rgba(255,255,255,.55); margin-top: 7px; }
+.tpl-warm .cv-sec-title { font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 800; color: #991b1b; text-transform: uppercase; letter-spacing: 1.5px; border-bottom: 2px solid #fca5a5; padding-bottom: 3px; margin-bottom: 10px; margin-top: 18px; }
+.tpl-warm .cv-sec-body { color: #1a1814; font-size: 12px; }
+.tpl-warm .cv-exp-hdr { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 4px; }
+.tpl-warm .cv-exp-role { font-weight: 700; font-size: 13px; }
+.tpl-warm .cv-exp-dates { font-size: 11px; color: #6b6660; }
+.tpl-warm .cv-exp-company { font-size: 12px; color: #78350f; margin-bottom: 4px; }
+.tpl-warm .cv-bullets { padding-left: 16px; margin-top: 4px; }
+.tpl-warm .cv-bullets li { margin-bottom: 2px; color: #1a1814; font-size: 12px; }
+.tpl-warm .cv-edu-entry { margin-bottom: 8px; }
 
 /* Fill notice */
 .cv-fill-notice { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #92400e; display: flex; align-items: flex-start; gap: 8px; }
@@ -465,7 +642,17 @@ footer p { margin: 0; font-size: 13px; color: #999; }
             <button class="tpl-btn" id="tpl-compact" onclick="setTemplate('compact')">Compact</button>
             <button class="tpl-btn" id="tpl-timeline" onclick="setTemplate('timeline')">Timeline</button>
             <button class="tpl-btn" id="tpl-tech" onclick="setTemplate('tech')">Tech</button>
-            <button class="tpl-btn" id="ai-surprise-btn" onclick="aiSurpriseMe()" style="background:linear-gradient(135deg,#2d6a4f,#52b788);color:white;border-color:transparent;">🎲 AI Pick</button>
+            <button class="tpl-btn" id="tpl-navy" onclick="setTemplate('navy')">Navy</button>
+            <button class="tpl-btn" id="tpl-burgundy" onclick="setTemplate('burgundy')">Burgundy</button>
+            <button class="tpl-btn" id="tpl-teal" onclick="setTemplate('teal')">Teal</button>
+            <button class="tpl-btn" id="tpl-slate" onclick="setTemplate('slate')">Slate</button>
+            <button class="tpl-btn" id="tpl-terracotta" onclick="setTemplate('terracotta')">Terracotta</button>
+            <button class="tpl-btn" id="tpl-bold" onclick="setTemplate('bold')">Bold</button>
+            <button class="tpl-btn" id="tpl-academic" onclick="setTemplate('academic')">Academic</button>
+            <button class="tpl-btn" id="tpl-elegant" onclick="setTemplate('elegant')">Elegant</button>
+            <button class="tpl-btn" id="tpl-purple" onclick="setTemplate('purple')">Purple</button>
+            <button class="tpl-btn" id="tpl-warm" onclick="setTemplate('warm')">Warm</button>
+            <button class="tpl-btn" id="surprise-btn" onclick="surpriseMe()" style="background:linear-gradient(135deg,#2d6a4f,#52b788);color:white;border-color:transparent;">🎲 Surprise Me</button>
           </div>
           <div class="dl-row">
             <button class="dl-btn" onclick="downloadPDF()">⬇ PDF</button>
@@ -951,6 +1138,65 @@ function renderTech(d) {
   return h;
 }
 
+// ── Bold template (centered header) ──
+function renderBold(d) {
+  const contact = [d.email,d.phone,d.location,d.linkedin].filter(Boolean).map(esc).join(' · ');
+  let h = `<div class="cv-header">
+    <div class="cv-name">${esc(d.name||'Your Name')}</div>
+    ${d.title?`<div class="cv-jobtitle">${esc(d.title)}</div>`:''}
+    ${contact?`<div class="cv-contact">${contact}</div>`:''}
+  </div>`;
+  if (d.summary) h += `<div class="cv-sec-title">Professional Summary</div><div class="cv-sec-body">${esc(d.summary)}</div>`;
+  const exps = d.experience.filter(e=>e.company||e.role);
+  if (exps.length) {
+    h += `<div class="cv-sec-title">Work Experience</div>`;
+    exps.forEach(e => {
+      const dates = [e.start,e.end].filter(Boolean).join(' – ');
+      h += `<div style="margin-bottom:12px;"><div class="cv-exp-hdr"><span class="cv-exp-role">${esc(e.role)}</span>${dates?`<span class="cv-exp-dates">${esc(dates)}</span>`:''}</div><div class="cv-exp-company">${esc(e.company)}</div>${renderBullets(e.bullets,'cv-bullets')}</div>`;
+    });
+  }
+  const edus = d.education.filter(e=>e.school||e.degree);
+  if (edus.length) {
+    h += `<div class="cv-sec-title">Education</div>`;
+    edus.forEach(e => {
+      const dates = [e.start,e.end].filter(Boolean).join(' – ');
+      h += `<div class="cv-edu-entry"><div class="cv-exp-hdr"><span class="cv-exp-role">${esc(e.degree)}</span>${dates?`<span class="cv-exp-dates">${esc(dates)}</span>`:''}</div><div class="cv-exp-company">${esc(e.school)}</div></div>`;
+    });
+  }
+  if (d.skills) h += `<div class="cv-sec-title">Skills</div><div class="cv-sec-body">${esc(d.skills)}</div>`;
+  if (d.certs)  h += `<div class="cv-sec-title">Certifications</div><div class="cv-sec-body">${esc(d.certs)}</div>`;
+  return h;
+}
+
+// ── Academic template (education first) ──
+function renderAcademic(d) {
+  const contact = [d.email,d.phone,d.location,d.linkedin].filter(Boolean).map(esc).join(' · ');
+  let h = `<div class="cv-name">${esc(d.name||'Your Name')}</div>`;
+  if (d.title) h += `<div class="cv-jobtitle">${esc(d.title)}</div>`;
+  if (contact) h += `<div class="cv-contact">${contact}</div>`;
+  h += `<hr class="cv-divider">`;
+  if (d.summary) h += `<div class="cv-sec-title">Research Profile</div><div class="cv-sec-body">${esc(d.summary)}</div>`;
+  const edus = d.education.filter(e=>e.school||e.degree);
+  if (edus.length) {
+    h += `<div class="cv-sec-title">Education</div>`;
+    edus.forEach(e => {
+      const dates = [e.start,e.end].filter(Boolean).join(' – ');
+      h += `<div class="cv-edu-entry"><div class="cv-exp-hdr"><span class="cv-exp-role">${esc(e.degree)}</span>${dates?`<span class="cv-exp-dates">${esc(dates)}</span>`:''}</div><div class="cv-exp-company">${esc(e.school)}</div></div>`;
+    });
+  }
+  const exps = d.experience.filter(e=>e.company||e.role);
+  if (exps.length) {
+    h += `<div class="cv-sec-title">Experience</div>`;
+    exps.forEach(e => {
+      const dates = [e.start,e.end].filter(Boolean).join(' – ');
+      h += `<div style="margin-bottom:12px;"><div class="cv-exp-hdr"><span class="cv-exp-role">${esc(e.role)}</span>${dates?`<span class="cv-exp-dates">${esc(dates)}</span>`:''}</div><div class="cv-exp-company">${esc(e.company)}</div>${renderBullets(e.bullets,'cv-bullets')}</div>`;
+    });
+  }
+  if (d.skills) h += `<div class="cv-sec-title">Skills & Methods</div><div class="cv-sec-body">${esc(d.skills)}</div>`;
+  if (d.certs)  h += `<div class="cv-sec-title">Certifications</div><div class="cv-sec-body">${esc(d.certs)}</div>`;
+  return h;
+}
+
 // ── Content fill scoring ──
 let fillNoticeDismissed = false;
 
@@ -992,7 +1238,11 @@ function dismissFillNotice() {
 const RENDER_MAP = {
   classic: renderClassic, modern: renderModern, minimal: renderMinimal,
   executive: renderExecutive, creative: renderCreative, compact: renderCompact,
-  timeline: renderTimeline, tech: renderTech
+  timeline: renderTimeline, tech: renderTech,
+  navy: renderModern, burgundy: renderClassic, teal: renderExecutive,
+  slate: renderClassic, terracotta: renderClassic, bold: renderBold,
+  academic: renderAcademic, elegant: renderCreative, purple: renderModern,
+  warm: renderExecutive
 };
 
 function updatePreview() {
@@ -1466,23 +1716,10 @@ function updateJobSearch() {
   document.getElementById('job-google').href = `https://www.google.com/search?q=${encodeURIComponent(title + ' jobs in ' + location)}&ibp=htl;jobs`;
 }
 
-// ── AI Template Picker ──
-async function aiSurpriseMe() {
-  const d = getFormData();
-  const btn = document.getElementById('ai-surprise-btn');
-  btn.disabled = true; btn.textContent = '🎲 Picking...';
-  try {
-    const text = `Job Title: ${d.title||'not specified'}\nExperience: ${d.experience.map(e=>e.role).filter(Boolean).join(', ')||'not specified'}\nSkills: ${d.skills||'not specified'}`;
-    const result = await callAPI('cv_template_pick', text);
-    const raw = result.trim().toLowerCase().replace(/[^a-z]/g,'');
-    const valid = ['classic','modern','minimal','executive','creative','compact','timeline','tech'];
-    const picked = valid.find(t => raw.includes(t)) || 'classic';
-    setTemplate(picked);
-    btn.textContent = `✓ ${picked.charAt(0).toUpperCase()+picked.slice(1)}`;
-    setTimeout(() => { btn.disabled = false; btn.textContent = '🎲 AI Pick'; }, 3000);
-  } catch(e) {
-    btn.disabled = false; btn.textContent = '🎲 AI Pick';
-  }
+// ── Surprise Me ──
+function surpriseMe() {
+  const all = ['classic','modern','minimal','executive','creative','compact','timeline','tech','navy','burgundy','teal','slate','terracotta','bold','academic','elegant','purple','warm'];
+  setTemplate(all[Math.floor(Math.random() * all.length)]);
 }
 
 // Initialise with one experience and one education entry
