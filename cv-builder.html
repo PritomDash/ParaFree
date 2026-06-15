@@ -135,8 +135,25 @@ nav .nav-links a.active { color: #52b788; font-weight: 600; }
 .dl-btn.secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
 .dl-btn.secondary:hover { background: var(--surface2); }
 
-/* CV Preview container */
-.preview-wrap { background: white; border: 1px solid var(--border); border-radius: 10px; min-height: 500px; overflow: auto; box-shadow: 0 2px 12px rgba(0,0,0,.06); max-width: 800px; width: 100%; margin: 0 auto; }
+/* CV Preview container — A4-proportioned, grows for multi-page */
+.preview-wrap {
+  background-color: white;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent calc(1100px - 2px),
+    #d0cdc8 calc(1100px - 2px),
+    #d0cdc8 1100px
+  );
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  min-height: 1100px;
+  overflow: auto;
+  box-shadow: 0 2px 12px rgba(0,0,0,.06);
+  max-width: 800px;
+  width: 100%;
+  margin: 0 auto;
+}
 .cv-sheet { padding: 40px 60px; font-size: 13px; line-height: 1.5; word-break: break-word; overflow-wrap: break-word; }
 
 /* ── CLASSIC TEMPLATE ── */
@@ -156,7 +173,7 @@ nav .nav-links a.active { color: #52b788; font-weight: 600; }
 .tpl-classic .cv-edu-entry { margin-bottom: 8px; }
 
 /* ── MODERN TEMPLATE ── */
-.tpl-modern .cv-sheet { padding: 0; display: grid; grid-template-columns: 180px 1fr; min-height: 500px; }
+.tpl-modern .cv-sheet { padding: 0; display: grid; grid-template-columns: 180px 1fr; }
 .tpl-modern .cv-sidebar { background: #2d6a4f; color: white; padding: 28px 18px; }
 .tpl-modern .cv-name { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 800; color: white; line-height: 1.2; margin-bottom: 4px; }
 .tpl-modern .cv-jobtitle { font-size: 12px; color: #a8d8c4; font-weight: 600; margin-bottom: 20px; }
@@ -208,7 +225,7 @@ nav .nav-links a.active { color: #52b788; font-weight: 600; }
 .tpl-executive .cv-edu-entry { margin-bottom: 8px; }
 
 /* ── CREATIVE TEMPLATE ── */
-.tpl-creative .cv-sheet { padding: 0; display: grid; grid-template-columns: 1fr 155px; min-height: 500px; }
+.tpl-creative .cv-sheet { padding: 0; display: grid; grid-template-columns: 1fr 155px; }
 .tpl-creative .cv-main-col { padding: 28px 22px; }
 .tpl-creative .cv-sidebar { background: #e8f8ef; padding: 22px 14px; }
 .tpl-creative .cv-name { font-family: 'Syne', sans-serif; font-size: 24px; font-weight: 800; color: #1a1814; margin-bottom: 2px; }
@@ -278,6 +295,11 @@ nav .nav-links a.active { color: #52b788; font-weight: 600; }
 .tpl-tech .cv-skills-grid { display: flex; flex-wrap: wrap; gap: 5px; }
 .tpl-tech .cv-skill-tag { font-family: 'Courier New', monospace; font-size: 11px; background: #e8f8ef; color: #2d6a4f; border: 1px solid #b7e4c7; padding: 2px 8px; border-radius: 4px; }
 .tpl-tech .cv-edu-entry { margin-bottom: 8px; }
+
+/* Fill notice */
+.cv-fill-notice { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #92400e; display: flex; align-items: flex-start; gap: 8px; }
+.cv-fill-notice-close { background: none; border: none; cursor: pointer; color: #92400e; font-size: 18px; line-height: 1; padding: 0 2px; margin-left: auto; flex-shrink: 0; opacity: 0.55; }
+.cv-fill-notice-close:hover { opacity: 1; }
 
 /* Empty state */
 .cv-empty { text-align: center; padding: 60px 24px; color: var(--text3); }
@@ -450,6 +472,11 @@ footer p { margin: 0; font-size: 13px; color: #999; }
             <button class="dl-btn" onclick="downloadDOCX()">⬇ DOCX</button>
             <button class="dl-btn secondary" onclick="copyCV()">⎘ Copy</button>
           </div>
+        </div>
+        <div id="cv-fill-notice" class="cv-fill-notice" style="display:none;">
+          <span>💡</span>
+          <span>Your CV looks a bit light — add more work experience details, bullet points, or skills for a fuller, more competitive resume.</span>
+          <button class="cv-fill-notice-close" onclick="dismissFillNotice()" aria-label="Dismiss">×</button>
         </div>
         <div class="preview-wrap tpl-classic">
           <div id="cv-preview" class="cv-sheet">
@@ -924,6 +951,43 @@ function renderTech(d) {
   return h;
 }
 
+// ── Content fill scoring ──
+let fillNoticeDismissed = false;
+
+function calcFillScore(d) {
+  let score = 0;
+  const summaryWords = (d.summary || '').trim().split(/\s+/).filter(Boolean).length;
+  if (summaryWords >= 50) score += 3;
+  else if (summaryWords >= 20) score += 2;
+  else if (summaryWords > 0) score += 1;
+  const exps = d.experience.filter(e => e.company || e.role);
+  exps.forEach(e => {
+    score += 1;
+    const bullets = (e.bullets || '').split('\n').filter(b => b.trim()).length;
+    if (bullets >= 3) score += 1.5;
+    else if (bullets >= 1) score += 0.75;
+  });
+  const edus = d.education.filter(e => e.school || e.degree);
+  score += Math.min(edus.length * 0.75, 1.5);
+  const skillCount = d.skills ? d.skills.split(',').filter(s => s.trim()).length : 0;
+  if (skillCount >= 5) score += 2;
+  else if (skillCount >= 1) score += 1;
+  return score;
+}
+
+function updateFillNotice(d) {
+  const notice = document.getElementById('cv-fill-notice');
+  if (fillNoticeDismissed) { notice.style.display = 'none'; return; }
+  const hasContent = d.name || d.title || d.summary || d.experience.some(e => e.role || e.company);
+  if (!hasContent) { notice.style.display = 'none'; return; }
+  notice.style.display = calcFillScore(d) < 5 ? 'flex' : 'none';
+}
+
+function dismissFillNotice() {
+  fillNoticeDismissed = true;
+  document.getElementById('cv-fill-notice').style.display = 'none';
+}
+
 // ── Update preview ──
 const RENDER_MAP = {
   classic: renderClassic, modern: renderModern, minimal: renderMinimal,
@@ -935,6 +999,7 @@ function updatePreview() {
   const d = getFormData();
   const hasContent = d.name || d.title || d.summary || d.experience.some(e=>e.role||e.company);
   const preview = document.getElementById('cv-preview');
+  updateFillNotice(d);
   if (!hasContent) {
     preview.innerHTML = '<div class="cv-empty"><div style="font-size:40px;">📄</div><p>Start filling in the form and your CV will appear here live.</p></div>';
     updateJobSearch();
