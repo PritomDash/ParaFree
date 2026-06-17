@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ParaFree – Free Paraphraser, AI Humanizer, Grammar Checker &amp; Summarizer | No Word Limit</title>
-<meta name="description" content="ParaFree (also known as perafree, pafreea, parafree.app) — Free AI paraphraser with no word limit. Paraphrase essays, humanize AI text, check grammar, summarize and detect AI content. 10 languages. No signup ever. Better than Quillbot free.">
-<meta name="keywords" content="parafree, perafree, pafreea, para free, parafree app, parafree.app, perafree.app, parafree com, free paraphraser, paraphrase free, paraphrase no word limit, free ai humanizer, bypass ai detection free, bypass turnitin free, bypass gptZero free, grammar checker free, ai detector free, ai checker free, summarize text free, summarizer free, free paraphrasing tool, quillbot alternative free, paraphrase essay free, free paraphraser for students, paraphrase ppt free, paraphrase powerpoint free, free pptx paraphraser, paraphrasing tool australia, free paraphraser no signup, free paraphraser online, free paraphrasing tool no signup 2026, best free ai writing tools, free essay rewriter, free text rewriter online, paraphrase tool that bypasses ai detection, free grammar and spell checker, ai writing assistant free, free content rewriter tool, paraphrase generator no limit, free academic writing tool, university assignment helper free, free writing tools for international students">
+<meta name="description" content="ParaFree (also known as perafree, pafreea, parafree.app) — Free AI paraphraser with no word limit. Paraphrase essays, humanize AI text, check grammar, summarize and detect AI content. Free CV builder with 18 templates. 10 languages. No signup ever. Better than Quillbot free. Free grammar checker, AI detector, text summarizer and cover letter generator.">
+<meta name="keywords" content="parafree, perafree, pafreea, para free, parafree app, parafree.app, perafree.app, parafree com, free paraphraser, paraphrase free, paraphrase no word limit, free ai humanizer, bypass ai detection free, bypass turnitin free, bypass gptZero free, grammar checker free, ai detector free, ai checker free, summarize text free, summarizer free, free paraphrasing tool, quillbot alternative free, paraphrase essay free, free paraphraser for students, paraphrase ppt free, paraphrase powerpoint free, free pptx paraphraser, paraphrasing tool australia, free paraphraser no signup, free paraphraser online, free paraphrasing tool no signup 2026, best free ai writing tools, free essay rewriter, free text rewriter online, paraphrase tool that bypasses ai detection, free grammar and spell checker, ai writing assistant free, free content rewriter tool, paraphrase generator no limit, free academic writing tool, university assignment helper free, free writing tools for international students, free cv builder, cv templates free, resume builder free, 18 cv templates free, cover letter generator free, ai cv builder free, ats resume builder free, free resume download, humanize chatgpt text free, humanize claude ai text free, make ai text undetectable, bypass copyleaks free, ai text humanizer free, undetectable ai writing, grammar checker online free 2026, spell checker free online, grammarly free alternative, text summarizer free online, article summarizer free, summarize essay free, tldr tool free, ai content detector free online, chatgpt detector free, gptZero alternative free, copyleaks alternative free, free writing tools 2026, free ai writing suite, paraphrase online no limit, free online writing tool, rewrite ai text free, free word changer online, paraphrase generator free online, ai rewriter free, reword text free online, free article rewriter, paraphrasing tool for students 2026, paraphrase academic text free, free thesis paraphraser, paraphrase research paper free, free tools for university students australia">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://parafree.app/">
 <meta property="og:title" content="ParaFree – Free Paraphraser, AI Humanizer &amp; Grammar Checker">
@@ -49,7 +49,13 @@
     "PPTX PowerPoint Paraphraser - Free",
     "10 Languages Supported",
     "No Signup Required",
-    "Always Free Forever"
+    "Always Free Forever",
+    "CV Builder - 18 Free Professional Templates",
+    "Cover Letter Generator - AI-Powered Free",
+    "File Upload Support - PDF DOCX PPTX TXT",
+    "6 AI Engines Auto-Switching Fallback",
+    "ATS-Ready Resume Download No Watermark",
+    "Job Search Links - LinkedIn Indeed SEEK Google Jobs"
   ],
   "aggregateRating": {
     "@type": "AggregateRating",
@@ -824,6 +830,67 @@
     0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
     40% { transform: scale(1); opacity: 1; }
   }
+
+  /* ── RESPONSIVE ── */
+
+  @media (max-width: 1024px) {
+    .cv-showcase-grid { grid-template-columns: 1fr !important; padding: 28px !important; }
+    .cv-showcase-grid > div:last-child { display: none; }
+  }
+
+  @media (max-width: 768px) {
+    .header-badge { display: none; }
+    header { padding: 0 14px; }
+    .hero { padding: 28px 16px 20px; }
+    .hero p { font-size: 15px; }
+    .tool-tabs { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .tool-tab { padding: 9px 16px; font-size: 13px; white-space: nowrap; }
+    .modes-bar { padding: 0 10px; gap: 6px; }
+    .mode-btn { padding: 5px 12px; font-size: 12px; }
+    .paraphrase-wrap { padding: 0 10px; }
+    .btn-paraphrase, .btn-humanize { padding: 12px 36px; font-size: 15px; }
+    .tool-container { padding: 0 10px 24px; gap: 12px; }
+    .status-bar { padding: 0 10px; }
+    .api-status { padding: 0 10px; margin-bottom: 16px; }
+    .api-status-inner { font-size: 11px; gap: 6px; }
+    .api-item { font-size: 11px; padding: 2px 8px; }
+    .features { grid-template-columns: repeat(2, 1fr); padding: 0 10px; gap: 10px; }
+    .faq { padding: 20px 16px; }
+    .lower { padding: 0 10px; }
+    .score-inner { padding: 16px 20px; gap: 20px; }
+    #blogModal > div { margin: 20px auto; }
+  }
+
+  @media (max-width: 480px) {
+    header { height: 52px; padding: 0 12px; }
+    .logo { font-size: 19px; }
+    .hero { padding: 20px 12px 16px; }
+    .hero h1 { letter-spacing: -0.5px; }
+    .tool-tabs { gap: 4px; padding: 3px; }
+    .tool-tab { padding: 7px 10px; font-size: 12px; }
+    .tab-new { display: none; }
+    textarea { min-height: 180px; font-size: 14px; padding: 14px; }
+    .output-text { min-height: 180px; font-size: 14px; padding: 14px; }
+    .panel-footer { padding: 8px 12px; }
+    .btn-sm { padding: 5px 10px; font-size: 12px; }
+    .btn-paraphrase, .btn-humanize { padding: 11px 28px; font-size: 14px; }
+    .api-item { font-size: 10px; padding: 2px 6px; }
+    .api-status-inner { gap: 5px; }
+    .features { gap: 8px; }
+    .feature-card { padding: 14px; }
+    .feature-card h3 { font-size: 13px; }
+    .blog-grid { grid-template-columns: 1fr !important; }
+    .score-circles { flex-direction: column; align-items: center; }
+    .score-arrow { display: inline-block; transform: rotate(90deg); }
+    .det-circles { gap: 24px; }
+    .det-circle-inner { width: 100px; height: 100px; }
+    #blogModal { padding: 8px; }
+    #blogModal > div { margin: 12px auto; border-radius: 10px; }
+    #blogContent { padding: 20px 16px !important; }
+    #blogModal > div > div:first-child { padding: 14px 16px !important; }
+    #blogModal > div > div:last-child { padding: 16px !important; }
+    footer { padding: 24px 16px; }
+  }
 </style>
 </head>
 <body>
@@ -863,11 +930,11 @@
 <!-- TOOL TABS -->
 <div class="tool-tabs-wrap">
   <div class="tool-tabs" style="flex-wrap:wrap;">
-    <button class="tool-tab active" id="tab-paraphrase" onclick="switchTool('paraphrase')">✦ Paraphraser</button>
-    <button class="tool-tab" id="tab-humanize" onclick="switchTool('humanize')">◈ AI Humanizer</button>
-    <button class="tool-tab" id="tab-summarize" onclick="switchTool('summarize')">∑ Summarizer <span class="tab-new">NEW</span></button>
-    <button class="tool-tab" id="tab-grammar" onclick="switchTool('grammar')">✓ Grammar <span class="tab-new">NEW</span></button>
-    <button class="tool-tab" id="tab-detect" onclick="switchTool('detect')">🔍 AI Detector <span class="tab-new">NEW</span></button>
+    <button class="tool-tab active" id="tab-paraphrase" onclick="switchTool('paraphrase')" aria-label="Free AI Paraphraser - No Word Limit" title="Free AI Paraphraser — Paraphrase essays, articles and text with no word limit, no signup">✦ Paraphraser</button>
+    <button class="tool-tab" id="tab-humanize" onclick="switchTool('humanize')" aria-label="Free AI Humanizer - Bypass AI Detection" title="Free AI Humanizer — Make ChatGPT and AI text undetectable, bypass GPTZero and Turnitin AI">◈ AI Humanizer</button>
+    <button class="tool-tab" id="tab-summarize" onclick="switchTool('summarize')" aria-label="Free AI Text Summarizer - No Word Limit" title="Free Text Summarizer — Summarize any article, essay or document instantly, 10 languages">∑ Summarizer <span class="tab-new">NEW</span></button>
+    <button class="tool-tab" id="tab-grammar" onclick="switchTool('grammar')" aria-label="Free Grammar Checker Online - Fix All Grammar Errors" title="Free Grammar Checker — Fix grammar, spelling and punctuation errors instantly, no Grammarly needed">✓ Grammar <span class="tab-new">NEW</span></button>
+    <button class="tool-tab" id="tab-detect" onclick="switchTool('detect')" aria-label="Free AI Content Detector - Check If Text Is AI-Written" title="Free AI Detector — Check if text was written by ChatGPT, Claude or other AI, free GPTZero alternative">🔍 AI Detector <span class="tab-new">NEW</span></button>
   </div>
 </div>
 
@@ -987,7 +1054,7 @@
 
 <!-- PARAPHRASE BUTTON -->
 <div class="paraphrase-wrap" id="paraphraseWrap">
-  <button class="btn-paraphrase" id="paraphraseBtn" onclick="paraphrase()">
+  <button class="btn-paraphrase" id="paraphraseBtn" onclick="paraphrase()" aria-label="Paraphrase text now - Free AI Paraphraser No Word Limit">
     <div class="spinner" id="spinner"></div>
     <span id="btnText">✦ Paraphrase Now</span>
   </button>
@@ -995,7 +1062,7 @@
 
 <!-- HUMANIZE BUTTON -->
 <div class="paraphrase-wrap" id="humanizeWrap" style="display:none;">
-  <button class="btn-humanize" id="humanizeBtn" onclick="humanize()">
+  <button class="btn-humanize" id="humanizeBtn" onclick="humanize()" aria-label="Humanize AI text now - Free AI Humanizer Bypass Detection">
     <div class="spinner" id="spinnerH"></div>
     <span id="btnTextH">◈ Humanize Now</span>
   </button>
@@ -1003,7 +1070,7 @@
 
 <!-- SUMMARIZE BUTTON -->
 <div class="paraphrase-wrap" id="summarizeWrap" style="display:none;">
-  <button class="btn-paraphrase" style="background:#1565c0;" id="summarizeBtn" onclick="summarize()">
+  <button class="btn-paraphrase" style="background:#1565c0;" id="summarizeBtn" onclick="summarize()" aria-label="Summarize text now - Free AI Text Summarizer No Limit">
     <div class="spinner" id="spinnerS"></div>
     <span id="btnTextS">∑ Summarize Now</span>
   </button>
@@ -1011,7 +1078,7 @@
 
 <!-- GRAMMAR BUTTON -->
 <div class="paraphrase-wrap" id="grammarWrap" style="display:none;">
-  <button class="btn-paraphrase" style="background:#6a1b9a;" id="grammarBtn" onclick="checkGrammar()">
+  <button class="btn-paraphrase" style="background:#6a1b9a;" id="grammarBtn" onclick="checkGrammar()" aria-label="Check grammar now - Free Grammar Checker Online">
     <div class="spinner" id="spinnerG"></div>
     <span id="btnTextG">✓ Check Grammar</span>
   </button>
@@ -1019,7 +1086,7 @@
 
 <!-- AI DETECT BUTTON -->
 <div class="paraphrase-wrap" id="detectWrap" style="display:none;">
-  <button class="btn-paraphrase" style="background:#c62828;" id="detectBtn" onclick="detectAI()">
+  <button class="btn-paraphrase" style="background:#c62828;" id="detectBtn" onclick="detectAI()" aria-label="Detect AI content now - Free AI Content Detector">
     <div class="spinner" id="spinnerD"></div>
     <span id="btnTextD">🔍 Detect AI Now</span>
   </button>
@@ -1128,7 +1195,7 @@
 
 <!-- CV BUILDER SHOWCASE -->
 <div style="max-width:1100px; margin:48px auto 0; padding:0 16px;">
-  <div style="background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:40px 40px; display:grid; grid-template-columns:1fr 1fr; gap:40px; align-items:center;">
+  <div class="cv-showcase-grid" style="background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:40px 40px; display:grid; grid-template-columns:1fr 1fr; gap:40px; align-items:center;">
     <div>
       <div style="display:inline-block; background:var(--accent-light); color:var(--accent); font-size:12px; font-weight:700; padding:3px 10px; border-radius:20px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:14px;">Free CV Builder</div>
       <h2 style="font-family:'Syne',sans-serif; font-size:26px; font-weight:800; color:var(--text); margin-bottom:12px; line-height:1.3;">Build an ATS-Ready Resume — No Signup, No Watermark</h2>
@@ -1209,7 +1276,7 @@
   </div>
 
   <!-- Blog Grid -->
-  <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:20px; margin-bottom:32px;">
+  <div class="blog-grid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:20px; margin-bottom:32px;">
 
     <!-- Blog Card 1 -->
     <div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; cursor:pointer;" onclick="showBlog('b1')">
@@ -1425,6 +1492,7 @@
     <a href="/terms.html" style="color:#ccc; text-decoration:none; font-size:14px;">Terms</a>
   </div>
   <p style="margin:0; font-size:13px; color:#999;">© 2026 ParaFree · Free AI Writing Suite · No limits, no signup, always free</p>
+  <p style="margin-top:12px; font-size:11px; color:#555; line-height:1.8;">Free paraphrasing tool · AI humanizer free · free grammar checker · free summarizer · AI detector free · free CV builder · 18 resume templates · cover letter generator · bypass GPTZero free · bypass Turnitin AI · free PPTX paraphraser · quillbot alternative free · paraphrase no word limit · free writing tools for students 2026 · parafree.app</p>
 </footer>
 
 <!-- MODAL OVERLAY -->
