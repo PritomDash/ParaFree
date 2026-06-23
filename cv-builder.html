@@ -5,9 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Free CV Builder — 8 Templates, AI Writing, Cover Letter &amp; Job Search | ParaFree</title>
 <meta name="description" content="Build a professional, ATS-friendly CV or resume for free — no signup, no watermark, unlimited downloads. Choose from 8 templates, get AI to write your bullet points, generate a cover letter, and find matching jobs on LinkedIn, Indeed and SEEK.">
-<meta name="keywords" content="free cv builder, free resume builder, free cv builder no signup, free resume builder unlimited, ats resume checker free, job match analyzer free, ai resume builder free, free cv maker no watermark, free cover letter generator, resume builder no watermark, cv builder australia free, free resume templates, ats friendly resume builder free, resume score checker free, job description match checker free, free cv builder for students, unlimited resume downloads free, cv builder unlimited free, resume keyword optimizer free, free cv templates download, ai cv writer free, cv improver free, upload cv improve free">
+<meta name="keywords" content="free cv builder, free resume builder, free cv builder no signup, free resume builder unlimited, ats resume checker free, job match analyzer free, ai resume builder free, free cv maker no watermark, free cover letter generator, resume builder no watermark, cv builder australia free, free resume templates, ats friendly resume builder free, resume score checker free, job description match checker free, free cv builder for students, unlimited resume downloads free, cv builder unlimited free, resume keyword optimizer free, free cv templates download, ai cv writer free, cv improver free, upload cv improve free, cv builder free 2026, resume builder free 2026, free cv maker australia, free resume maker india, free cv builder bangladesh, ats friendly cv free, job application tools free, career tools free, free professional cv builder, resume templates free 2026">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://parafree.app/cv-builder.html">
+<meta name="author" content="ParaFree">
+<meta property="og:locale" content="en_AU">
+<meta name="category" content="Career Tools, CV Builder, Resume Builder">
 <meta property="og:title" content="Free CV Builder — 8 Templates, AI Writing & Job Search | ParaFree">
 <meta property="og:description" content="Build a professional ATS-friendly CV for free — 8 templates, AI bullet points, cover letter generator, job search links. No signup, no watermark, unlimited downloads.">
 <meta property="og:url" content="https://parafree.app/cv-builder.html">
@@ -525,6 +528,28 @@ footer div { display: flex; justify-content: center; gap: 24px; flex-wrap: wrap;
 footer a { color: #ccc; text-decoration: none; font-size: 14px; }
 footer a:hover { color: #fff; }
 footer p { margin: 0; font-size: 13px; color: #999; }
+
+/* ── ParaFree Design Upgrade ── */
+:root { --transition: all 0.2s ease; --shadow-hover: 0 8px 24px rgba(0,0,0,.10); }
+html { scroll-behavior: smooth; }
+* { -webkit-tap-highlight-color: transparent; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+nav div a { position: relative; transition: color 0.2s ease; }
+nav div a::after { content: ''; position: absolute; bottom: -2px; left: 0; width: 0; height: 1.5px; background: #52b788; transition: width 0.2s ease; }
+nav div a:hover::after { width: 100%; }
+.pf-reveal { opacity: 0; transform: translateY(20px); transition: opacity 0.5s ease, transform 0.5s ease; }
+.pf-reveal.is-visible { opacity: 1; transform: none; }
+@keyframes pf-fade-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.pf-hero-animate > * { animation: pf-fade-up 0.6s ease both; }
+.pf-hero-animate > *:nth-child(1) { animation-delay: 0s; }
+.pf-hero-animate > *:nth-child(2) { animation-delay: 0.1s; }
+.pf-hero-animate > *:nth-child(3) { animation-delay: 0.2s; }
+.pf-hero-animate > *:nth-child(4) { animation-delay: 0.3s; }
+#pf-scroll-top { position:fixed; bottom:24px; right:24px; width:44px; height:44px; background:var(--accent); color:white; border:none; border-radius:50%; cursor:pointer; font-size:20px; line-height:1; display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transform:translateY(10px); transition:opacity 0.3s ease,transform 0.3s ease; z-index:9999; box-shadow:0 4px 12px rgba(45,106,79,.3); }
+#pf-scroll-top.visible { opacity:1; pointer-events:auto; transform:none; }
+#pf-scroll-top:hover { background:#245a41; }
+@media (prefers-reduced-motion: reduce) { *,*::before,*::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+@media print { nav, footer, #pf-scroll-top, .cv-toolbar, .tpl-selector { display: none !important; } .preview-wrap { box-shadow: none; border: 1px solid #ccc; } }
 </style>
 </head>
 <body>
@@ -788,6 +813,7 @@ footer p { margin: 0; font-size: 13px; color: #999; }
   </div>
   <p style="margin-bottom:8px;">Need to paraphrase text or humanize AI content? <a href="/" style="color:#52b788;">Try ParaFree's free Paraphraser &amp; Humanizer →</a></p>
   <p>© 2026 ParaFree · Free AI Writing Suite · No limits, no signup, always free</p>
+  <p style="margin-top:8px; font-size:12px; color:#666;">Used by students in 50+ countries — always free</p>
 </footer>
 
 <script>
@@ -1726,6 +1752,14 @@ function surpriseMe() {
 addExp();
 addEdu();
 updateJobSearch();
+</script>
+
+<button id="pf-scroll-top" aria-label="Scroll to top">↑</button>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"Organization","name":"ParaFree","url":"https://parafree.app","logo":"https://parafree.app/logo.png","description":"Free AI writing suite — paraphraser, humanizer, CV builder, grammar checker, summarizer and AI detector. No signup, no word limits, always free.","foundingDate":"2026","contactPoint":{"@type":"ContactPoint","email":"parafree.tool@gmail.com","contactType":"customer support"},"sameAs":["https://parafree.app","https://threads.net/@parafree"],"areaServed":["AU","US","GB","BD","IN","SG","CA","NZ"],"serviceType":["Paraphrasing Tool","AI Humanizer","CV Builder","Grammar Checker","AI Detector","Text Summarizer"]}
+</script>
+<script>
+(function(){var b=document.getElementById('pf-scroll-top');if(b){window.addEventListener('scroll',function(){b.classList.toggle('visible',window.scrollY>300);},{passive:true});b.addEventListener('click',function(){window.scrollTo({top:0,behavior:'smooth'});});}var h=document.querySelector('.hero,.page-hero,.cv-hero');if(h)h.classList.add('pf-hero-animate');if(!('IntersectionObserver' in window))return;var els=document.querySelectorAll('.feature-card,.tool-card,.card');if(!els.length)return;var obs=new IntersectionObserver(function(en){en.forEach(function(e){if(e.isIntersecting){e.target.classList.add('is-visible');obs.unobserve(e.target);}});},{threshold:0.08});els.forEach(function(el,i){el.classList.add('pf-reveal');el.style.transitionDelay=(i%5*0.07)+'s';obs.observe(el);});})();
 </script>
 </body>
 </html>
