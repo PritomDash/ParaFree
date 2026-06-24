@@ -212,47 +212,6 @@ async function callCloudflare(text, prompt, key, account) {
   return data.result.response;
 }
 
-async function callOpenRouterModel(text, prompt, key, model) {
-  console.log("Attempting API: OpenRouter/" + model);
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": "Bearer " + key,
-      "HTTP-Referer": "https://parafree.app",
-      "X-Title": "ParaFree"
-    },
-    body: JSON.stringify({
-      model: model,
-      messages: [{ role: "user", content: prompt + "\n\n" + text }],
-      temperature: 0.7,
-      max_tokens: 4096
-    })
-  });
-  if (!res.ok) throw new Error("OpenRouter/" + model + ":" + res.status);
-  const data = await res.json();
-  if (!data.choices || !data.choices[0]) throw new Error("OpenRouter/" + model + ": no response");
-  return data.choices[0].message.content;
-}
-
-async function callGroqModel(text, prompt, key, model) {
-  console.log("Attempting API: Groq/" + model);
-  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
-    body: JSON.stringify({
-      model: model,
-      messages: [{ role: "user", content: prompt + "\n\n" + text }],
-      temperature: 0.7,
-      max_tokens: 4096
-    })
-  });
-  if (!res.ok) throw new Error("Groq/" + model + ":" + res.status);
-  const data = await res.json();
-  if (!data.choices || !data.choices[0]) throw new Error("Groq/" + model + ": no response");
-  return data.choices[0].message.content;
-}
-
 async function callExtra(text, prompt, key, label) {
   console.log("Attempting API:", label);
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -291,48 +250,9 @@ const PROMPTS = {
   grammar:      "Check and correct the following text for grammar, spelling, and punctuation errors.\n\nRespond in this exact format:\nCORRECTED TEXT:\n[Write the fully corrected text here]\n\nERRORS FOUND:\n[List each error: Original → Corrected (reason)]\n\nIf no errors found write: No errors found! Your text looks great.\n\nText to check:",
   cv_build:     "You are a professional resume writer. Read the instructions below carefully and follow them exactly. Output ONLY what is requested — no labels, no preamble, no markdown, no extra commentary:",
   cover_letter: "You are a professional resume writer. Write a tailored cover letter based on the candidate information and job description below. Keep it to 3-4 paragraphs. Do not use generic openers like 'I am writing to express my interest' or clichés like 'proven track record' or 'passionate about'. Ground every sentence in the candidate's actual background and the specific role. Confident, natural tone. Return only the cover letter text, nothing else:",
-  code_assistant: `You are an expert coding assistant. Analyze the user's request and code carefully.
-
-If they want debugging: find and fix ALL bugs, explain what was wrong and why the fix works.
-If they want explanation: explain clearly step by step what the code does.
-If they want code generation: write clean, well-commented, production-ready code.
-If they want review: check for bugs, security issues, performance problems and best practices.
-If they want conversion: convert to the target language maintaining the same logic.
-If they want comments: add clear, helpful documentation comments throughout.
-If they want optimization: improve performance, readability and efficiency.
-If they want tests: write comprehensive unit tests covering edge cases.
-If they want git commit message: generate a conventional commit message (feat/fix/docs etc.) based on the code changes shown.
-If they want README: generate a professional README.md with description, installation, usage, and examples.
-If they want security scan: identify ALL security vulnerabilities with severity levels (HIGH/MEDIUM/LOW) and how to fix each.
-If they want formatting: format and beautify the code following language best practices.
-
-Always structure your response as:
-1. What you did (1-2 sentences)
-2. The code (properly formatted in triple backtick code blocks)
-3. What changed and why (brief explanation)
-4. One tip to prevent similar issues
-
-Return only the response, no preamble.`,
-  code_project: `You are an expert coding assistant helping with a multi-file project.
-
-You have access to ALL project files provided. When suggesting changes, always specify:
-- EXACTLY which file to modify
-- Show the complete diff (what to remove, what to add)
-- Explain why this change is needed
-
-Format file changes as:
-CHANGE FILE: [filename]
-REMOVE: [old code]
-ADD: [new code]
-REASON: [why]
-
-If changes span multiple files, show each file change separately in this format.
-Maintain consistency across all files. Consider how changes in one file affect others.`,
 };
 
 function getPrompt(mode, language) {
-  if (mode === "code_assistant") return PROMPTS.code_assistant;
-  if (mode === "code_project") return PROMPTS.code_project;
   const base = PROMPTS[mode] || PROMPTS.standard;
   if (!language || language === "english") return base;
   const langName = language.charAt(0).toUpperCase() + language.slice(1);
@@ -362,9 +282,6 @@ async function runChain(text, prompt) {
     { name: "gemini",     key: GEMINI_KEY,      fn: () => callGemini(text, prompt, GEMINI_KEY) },
     { name: "cerebras",   key: CEREBRAS_KEY,    fn: () => callCerebras(text, prompt, CEREBRAS_KEY) },
     { name: "openrouter",     key: OPENROUTER_KEY,  fn: () => callOpenRouter(text, prompt, OPENROUTER_KEY) },
-    { name: "deepseek-coder", key: OPENROUTER_KEY,  fn: () => callOpenRouterModel(text, prompt, OPENROUTER_KEY, "deepseek/deepseek-coder-v2-instruct:free") },
-    { name: "qwen-coder",     key: OPENROUTER_KEY,  fn: () => callOpenRouterModel(text, prompt, OPENROUTER_KEY, "qwen/qwen-2.5-coder-32b-instruct:free") },
-    { name: "groq-70b",       key: GROQ_KEY,        fn: () => callGroqModel(text, prompt, GROQ_KEY, "llama-3.1-70b-versatile") },
     { name: "mistral",        key: MISTRAL_KEY,     fn: () => callMistral(text, prompt, MISTRAL_KEY) },
     { name: "cloudflare", key: CF_KEY,          fn: () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT), extra: CF_ACCOUNT },
     { name: "extra1",     key: EXTRA1_KEY,      fn: () => callExtra(text, prompt, EXTRA1_KEY, "Extra1") },
