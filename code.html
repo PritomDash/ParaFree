@@ -950,6 +950,312 @@ footer p { margin: 0; font-size: 13px; color: #999; }
 }
 
 @media print { nav, footer, #pf-scroll-top, .chat-input-area, .engine-bar { display: none !important; } }
+
+/* ── Token Tracker Section ── */
+.token-section {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: 48px 24px;
+}
+.token-inner {
+  max-width: 900px;
+  margin: 0 auto;
+}
+.section-heading {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: clamp(20px, 2.5vw, 26px);
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.section-sub {
+  font-size: 14px;
+  color: var(--text2);
+  margin-bottom: 32px;
+}
+.tracker-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+  align-items: start;
+}
+@media (max-width: 700px) { .tracker-grid { grid-template-columns: 1fr; } }
+
+/* Comparison table */
+.tracker-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+.tracker-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.tracker-table th {
+  background: var(--surface2);
+  color: var(--text2);
+  font-weight: 600;
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.tracker-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  vertical-align: middle;
+}
+.tracker-table tr:last-child td { border-bottom: none; }
+.tracker-table tr:hover td { background: #fafaf8; }
+.tracker-table .highlight-row td {
+  background: var(--accent-light);
+  font-weight: 600;
+  color: var(--accent);
+}
+.tracker-table .highlight-row:hover td { background: #cef0d6; }
+.status-free  { color: var(--accent); font-weight: 600; }
+.status-paid  { color: var(--text3); }
+.status-limit { color: var(--amber); font-weight: 600; }
+
+/* Personal tracker */
+.personal-tracker {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+.personal-tracker h3 {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 4px;
+  color: var(--text);
+}
+.tracker-reset-note {
+  font-size: 12px;
+  color: var(--text3);
+  margin-bottom: 16px;
+}
+.tracker-reset-note span {
+  font-weight: 600;
+  color: var(--accent);
+}
+.tracker-row {
+  margin-bottom: 14px;
+}
+.tracker-row:last-child { margin-bottom: 0; }
+.tracker-row-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 5px;
+  gap: 8px;
+}
+.tracker-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+}
+.tracker-count {
+  font-size: 12px;
+  color: var(--text2);
+  white-space: nowrap;
+}
+.tracker-controls {
+  display: flex;
+  gap: 3px;
+}
+.tracker-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text2);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: all 0.15s;
+}
+.tracker-btn:hover { background: var(--accent-light); color: var(--accent); border-color: #b7e4c7; }
+.tracker-bar-bg {
+  height: 6px;
+  background: var(--surface2);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.tracker-bar-fill {
+  height: 100%;
+  border-radius: 10px;
+  background: var(--accent2);
+  transition: width 0.4s ease;
+  min-width: 2px;
+}
+.tracker-bar-fill.warn  { background: var(--amber); }
+.tracker-bar-fill.full  { background: var(--red); }
+
+/* ── Blog Section ── */
+.blog-section {
+  background: var(--bg);
+  padding: 48px 24px;
+  border-top: 1px solid var(--border);
+}
+.blog-inner {
+  max-width: 960px;
+  margin: 0 auto;
+}
+.blog-grid-code {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 20px;
+  margin-top: 24px;
+}
+.blog-card-code {
+  background: var(--surface);
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.blog-card-code:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+}
+.blog-card-img {
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+}
+.blog-card-body-code {
+  padding: 16px 18px 18px;
+}
+.blog-card-body-code h3 {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.blog-card-body-code p {
+  font-size: 13px;
+  color: var(--text2);
+  line-height: 1.55;
+  margin-bottom: 10px;
+}
+.blog-read-more {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+/* ── Blog Modal ── */
+.code-blog-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(26,24,20,0.6);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  backdrop-filter: blur(2px);
+}
+.code-blog-modal.open { display: flex; }
+.code-blog-modal-inner {
+  background: var(--surface);
+  border-radius: var(--radius);
+  max-width: 680px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.2);
+}
+.code-blog-modal-inner::-webkit-scrollbar { width: 5px; }
+.code-blog-modal-inner::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+.code-blog-modal-header {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 1;
+}
+.code-blog-modal-header h2 {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 18px;
+  line-height: 1.35;
+  color: var(--text);
+}
+.modal-close-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  width: 30px;
+  height: 30px;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text2);
+  transition: all 0.15s;
+}
+.modal-close-btn:hover { background: var(--accent-light); color: var(--accent); }
+#codeBlogContent {
+  padding: 24px;
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--text);
+}
+#codeBlogContent h2 {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 17px;
+  color: var(--accent);
+  margin: 20px 0 8px;
+}
+#codeBlogContent h2:first-child { margin-top: 0; }
+#codeBlogContent p { margin-bottom: 12px; color: var(--text2); }
+#codeBlogContent strong { color: var(--text); font-weight: 600; }
+.code-blog-modal-cta {
+  padding: 20px 24px;
+  border-top: 1px solid var(--border);
+  background: var(--accent-light);
+  text-align: center;
+}
+.code-blog-modal-cta button {
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 11px 28px;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.code-blog-modal-cta button:hover { background: #245a41; }
 </style>
 </head>
 <body>
@@ -1119,6 +1425,221 @@ footer p { margin: 0; font-size: 13px; color: #999; }
   </div><!-- /preview-panel -->
 
 </div><!-- /code-app -->
+
+<!-- Token Tracker Section -->
+<div class="token-section">
+  <div class="token-inner">
+    <h2 class="section-heading">Free AI Code Tool Comparison</h2>
+    <p class="section-sub">How ParaFree Code compares to paid tools — and how to track your own daily usage</p>
+    <div class="tracker-grid">
+
+      <!-- Part A: Comparison table -->
+      <div>
+        <div class="tracker-table-wrap">
+          <table class="tracker-table">
+            <thead>
+              <tr>
+                <th>Tool</th>
+                <th>Free Limit</th>
+                <th>Quality</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Gemini 2.0 Flash</td>
+                <td>1,500/day</td>
+                <td>⭐⭐⭐⭐⭐</td>
+                <td class="status-free">Free</td>
+              </tr>
+              <tr>
+                <td>DeepSeek Coder</td>
+                <td>Limited</td>
+                <td>⭐⭐⭐⭐⭐</td>
+                <td class="status-free">Free</td>
+              </tr>
+              <tr>
+                <td>Qwen 2.5 Coder</td>
+                <td>Limited</td>
+                <td>⭐⭐⭐⭐½</td>
+                <td class="status-free">Free</td>
+              </tr>
+              <tr>
+                <td>Groq Llama 70B</td>
+                <td>1,000/day</td>
+                <td>⭐⭐⭐⭐</td>
+                <td class="status-free">Free</td>
+              </tr>
+              <tr>
+                <td>Cursor Free</td>
+                <td>500/month</td>
+                <td>⭐⭐⭐⭐⭐</td>
+                <td class="status-limit">Limited</td>
+              </tr>
+              <tr>
+                <td>GitHub Copilot</td>
+                <td>Trial only</td>
+                <td>⭐⭐⭐⭐⭐</td>
+                <td class="status-paid">Paid</td>
+              </tr>
+              <tr>
+                <td>Codeium</td>
+                <td>Unlimited</td>
+                <td>⭐⭐⭐⭐</td>
+                <td class="status-free">Free</td>
+              </tr>
+              <tr class="highlight-row">
+                <td><strong>ParaFree Code</strong></td>
+                <td>Unlimited*</td>
+                <td>⭐⭐⭐⭐⭐</td>
+                <td class="status-free">Free ✅</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="font-size:11px;color:var(--text3);margin-top:8px;">*Subject to daily free-tier API limits across 5 engines. Resets at midnight.</p>
+      </div>
+
+      <!-- Part B: Personal tracker -->
+      <div class="personal-tracker">
+        <h3>My Daily Usage Tracker</h3>
+        <p class="tracker-reset-note">Resets at midnight &mdash; <span id="midnightCountdown">calculating...</span></p>
+
+        <div class="tracker-row">
+          <div class="tracker-row-header">
+            <span class="tracker-name">Gemini 2.0 Flash</span>
+            <div class="tracker-controls">
+              <button class="tracker-btn" id="gem-minus">&#8722;</button>
+              <button class="tracker-btn" id="gem-plus">+</button>
+            </div>
+            <span class="tracker-count" id="gem-count">0 / 1,500</span>
+          </div>
+          <div class="tracker-bar-bg"><div class="tracker-bar-fill" id="gem-bar" style="width:0%"></div></div>
+        </div>
+
+        <div class="tracker-row">
+          <div class="tracker-row-header">
+            <span class="tracker-name">DeepSeek Coder</span>
+            <div class="tracker-controls">
+              <button class="tracker-btn" id="ds-minus">&#8722;</button>
+              <button class="tracker-btn" id="ds-plus">+</button>
+            </div>
+            <span class="tracker-count" id="ds-count">0 / 200</span>
+          </div>
+          <div class="tracker-bar-bg"><div class="tracker-bar-fill" id="ds-bar" style="width:0%"></div></div>
+        </div>
+
+        <div class="tracker-row">
+          <div class="tracker-row-header">
+            <span class="tracker-name">Qwen 2.5 Coder</span>
+            <div class="tracker-controls">
+              <button class="tracker-btn" id="qw-minus">&#8722;</button>
+              <button class="tracker-btn" id="qw-plus">+</button>
+            </div>
+            <span class="tracker-count" id="qw-count">0 / 200</span>
+          </div>
+          <div class="tracker-bar-bg"><div class="tracker-bar-fill" id="qw-bar" style="width:0%"></div></div>
+        </div>
+
+        <div class="tracker-row">
+          <div class="tracker-row-header">
+            <span class="tracker-name">Groq Llama 70B</span>
+            <div class="tracker-controls">
+              <button class="tracker-btn" id="groq-minus">&#8722;</button>
+              <button class="tracker-btn" id="groq-plus">+</button>
+            </div>
+            <span class="tracker-count" id="groq-count">0 / 1,000</span>
+          </div>
+          <div class="tracker-bar-bg"><div class="tracker-bar-fill" id="groq-bar" style="width:0%"></div></div>
+        </div>
+
+        <div class="tracker-row">
+          <div class="tracker-row-header">
+            <span class="tracker-name">Cursor Free</span>
+            <div class="tracker-controls">
+              <button class="tracker-btn" id="cur-minus">&#8722;</button>
+              <button class="tracker-btn" id="cur-plus">+</button>
+            </div>
+            <span class="tracker-count" id="cur-count">0 / 500</span>
+          </div>
+          <div class="tracker-bar-bg"><div class="tracker-bar-fill" id="cur-bar" style="width:0%"></div></div>
+        </div>
+      </div>
+
+    </div><!-- /tracker-grid -->
+  </div>
+</div>
+
+<!-- Blog Section -->
+<div class="blog-section">
+  <div class="blog-inner">
+    <h2 class="section-heading">Free AI Coding Guides</h2>
+    <p class="section-sub">How to get the most out of free AI code tools in 2026</p>
+    <div class="blog-grid-code">
+
+      <div class="blog-card-code" onclick="showCodeBlog('b1')">
+        <div class="blog-card-img" style="background:linear-gradient(135deg,#1565c0,#2d6a4f);">🖱️</div>
+        <div class="blog-card-body-code">
+          <h3>Free Alternative to Cursor AI in 2026 — ParaFree Code Assistant</h3>
+          <p>Cursor free tier limits you to 500 requests/month. ParaFree Code uses 5 engines with no monthly cap.</p>
+          <span class="blog-read-more">Read more &rarr;</span>
+        </div>
+      </div>
+
+      <div class="blog-card-code" onclick="showCodeBlog('b2')">
+        <div class="blog-card-img" style="background:linear-gradient(135deg,#c62828,#e65100);">🐛</div>
+        <div class="blog-card-body-code">
+          <h3>How to Fix Code Bugs Free with AI — No Token Limits</h3>
+          <p>AI debugging without token limits. How context handoff keeps your debugging session alive across engines.</p>
+          <span class="blog-read-more">Read more &rarr;</span>
+        </div>
+      </div>
+
+      <div class="blog-card-code" onclick="showCodeBlog('b3')">
+        <div class="blog-card-img" style="background:linear-gradient(135deg,#6a1b9a,#283593);">🤖</div>
+        <div class="blog-card-body-code">
+          <h3>Free GitHub Copilot Alternative — AI Code Review 2026</h3>
+          <p>Copilot costs $10–19/month. Get the same code review and security scanning free in your browser.</p>
+          <span class="blog-read-more">Read more &rarr;</span>
+        </div>
+      </div>
+
+      <div class="blog-card-code" onclick="showCodeBlog('b4')">
+        <div class="blog-card-img" style="background:linear-gradient(135deg,#00695c,#1565c0);">⚡</div>
+        <div class="blog-card-body-code">
+          <h3>Best Free AI Coding Tools 2026 — Complete Comparison</h3>
+          <p>Cursor, Codeium, Copilot, Tabnine, Aider, ChatGPT, ParaFree — every free AI coding tool ranked.</p>
+          <span class="blog-read-more">Read more &rarr;</span>
+        </div>
+      </div>
+
+      <div class="blog-card-code" onclick="showCodeBlog('b5')">
+        <div class="blog-card-img" style="background:linear-gradient(135deg,#283593,#1a3a2a);">✨</div>
+        <div class="blog-card-body-code">
+          <h3>Generate Code Free with AI — No Limits, No Signup 2026</h3>
+          <p>Generate React components, Python scripts, APIs and more using natural language. Live preview included.</p>
+          <span class="blog-read-more">Read more &rarr;</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Blog Modal -->
+<div class="code-blog-modal" id="codeBlogModal" role="dialog" aria-modal="true" aria-labelledby="codeBlogModalTitle">
+  <div class="code-blog-modal-inner">
+    <div class="code-blog-modal-header">
+      <h2 id="codeBlogModalTitle">Blog Article</h2>
+      <button class="modal-close-btn" onclick="closeCodeBlog()" aria-label="Close">&#x2715;</button>
+    </div>
+    <div id="codeBlogContent"></div>
+    <div class="code-blog-modal-cta">
+      <p style="font-size:13px;color:var(--text2);margin-bottom:12px;">Ready to try it for free?</p>
+      <button onclick="closeCodeBlog();window.scrollTo({top:0,behavior:'smooth'});">&#9889; Use ParaFree Code &mdash; Free Forever</button>
+    </div>
+  </div>
+</div>
 
 <!-- Footer -->
 <footer>
