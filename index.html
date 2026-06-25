@@ -101,6 +101,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://unpkg.com/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<script src="https://unpkg.com/docx@8.5.0/build/index.js"></script>
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8692254823531289" crossorigin="anonymous"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
@@ -297,15 +299,12 @@
     transition: grid-template-columns 0.3s ease;
   }
   #aiChatLayout.preview-open { grid-template-columns: 55fr 45fr; }
-  #homeChatPanel { display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
-  #homePreviewPanel { display: none; flex-direction: column; background: #0d1117; overflow: hidden; border-left: 1px solid var(--border); }
-  #homePreviewPanel.visible { display: flex; }
+  #homeChatPanel { display: flex; flex-direction: column; overflow: hidden; min-width: 0; height: 100%; }
+  #homePreviewPanel { display: none; flex-direction: column; background: #1a1814; overflow: hidden; border-left: 1px solid var(--border); min-width: 0; height: 100%; }
   @media (max-width: 768px) {
-    #aiChatLayout.preview-open {
-      grid-template-columns: 1fr;
-      grid-template-rows: 1fr 50vh;
-    }
-    #homePreviewPanel { border-left: none; border-top: 1px solid var(--border); }
+    #aiChatLayout { grid-template-columns: 1fr !important; grid-template-rows: auto; height: auto !important; }
+    #homeChatPanel { height: 60vh; min-height: 400px; }
+    #homePreviewPanel { height: 50vh; border-left: none !important; border-top: 2px solid var(--accent); }
   }
 
   @keyframes homeThinking {
@@ -4043,41 +4042,61 @@ async function homeSendMessage() {
 }
 
 async function homeHandleOutput(result) {
-  const patterns = [/```json\s*\n?([\s\S]*?)\n?```/, /```\s*\n?(\{[\s\S]*?"type"[\s\S]*?\})\s*\n?```/];
-  for (const pat of patterns) {
-    const m = result.match(pat);
-    if (!m) continue;
+  const jsonPatterns = [
+    /```json\s*\n?([\s\S]*?)\n?```/,
+    /```\s*\n?(\{[\s\S]*?"type"[\s\S]*?\})\s*\n?```/,
+    /(\{[\s\S]*?"type"\s*:\s*"(?:presentation|document)"[\s\S]*?\})/
+  ];
+  for (const pattern of jsonPatterns) {
+    const match = result.match(pattern);
+    if (!match) continue;
     try {
-      let js = m[1].trim().replace(/,\s*}/g,'}').replace(/,\s*]/g,']');
-      const parsed = JSON.parse(js);
+      let jsonStr = match[1].trim().replace(/,\s*}/g,'}').replace(/,\s*]/g,']');
+      const parsed = JSON.parse(jsonStr);
       if (parsed.type === 'presentation' && Array.isArray(parsed.slides)) {
-        homeRenderSlidesPreview(parsed); homeShowPreview(); return;
+        homeShowDownloadBtn('pptx', parsed);
+        homeRenderSlidesPreview(parsed);
+        homeShowPreview();
+        if (typeof PptxGenJS !== 'undefined') { try { await homeCreatePPTX(parsed); } catch(e) {} }
+        return;
       }
       if (parsed.type === 'document' && Array.isArray(parsed.content)) {
-        homeRenderDocPreview(parsed); homeShowPreview(); return;
+        homeShowDownloadBtn('docx', parsed);
+        homeRenderDocPreview(parsed);
+        homeShowPreview();
+        if (typeof docx !== 'undefined') { try { await homeCreateDOCX(parsed); } catch(e) {} }
+        return;
       }
     } catch(e) { continue; }
   }
   const hm = result.match(/```(?:html)?\s*\n?(<!DOCTYPE[\s\S]*?<\/html>)\s*```/i) || result.match(/(<!DOCTYPE html[\s\S]*?<\/html>)/i);
-  if (hm) { homeRenderHTMLPreview(hm[1]); homeShowPreview(); }
+  if (hm) { homeRenderHTMLPreview(hm[1]); homeShowPreview(); return; }
+  const codeMatch = result.match(/```(?:html|css|javascript|js)?\s*\n?([\s\S]*?)```/);
+  if (codeMatch) {
+    const code = codeMatch[1].trim();
+    if (/<[a-z]/i.test(code)) {
+      homeRenderHTMLPreview(`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:sans-serif;padding:16px;margin:0;}</style></head><body>${code}</body></html>`);
+      homeShowPreview();
+    }
+  }
 }
 
 function homeShowPreview() {
   const p = document.getElementById('homePreviewPanel');
   const l = document.getElementById('aiChatLayout');
-  if (p) p.classList.add('visible');
-  if (l) l.classList.add('preview-open');
+  if (p) p.style.display = 'flex';
+  if (l) l.style.gridTemplateColumns = '55fr 45fr';
 }
 function homeHidePreview() {
   const p = document.getElementById('homePreviewPanel');
   const l = document.getElementById('aiChatLayout');
-  if (p) p.classList.remove('visible');
-  if (l) l.classList.remove('preview-open');
+  if (p) p.style.display = 'none';
+  if (l) l.style.gridTemplateColumns = '1fr';
 }
 function homeTogglePreview() {
   const p = document.getElementById('homePreviewPanel');
   if (!p) return;
-  if (p.classList.contains('visible')) homeHidePreview(); else homeShowPreview();
+  if (p.style.display === 'flex') homeHidePreview(); else homeShowPreview();
 }
 function homeRenderHTMLPreview(html) {
   const f = document.getElementById('homePreviewFrame'); if (f) f.srcdoc = html;
@@ -4123,9 +4142,25 @@ function homeAddUserMessage(msg, files) {
 }
 
 function homeAddAIMessage(content, usedApi) {
+  let displayContent = content;
+
+  // Detect HTML response — show simplified message in chat
+  if (/<!DOCTYPE html/i.test(content) || (/```html/i.test(content) && content.length > 400)) {
+    const textBefore = content.split('```')[0].trim();
+    displayContent = textBefore || '✅ Done! See preview on the right →';
+  }
+  // Detect presentation JSON
+  else if (/```json[\s\S]*?"type"\s*:\s*"presentation"/.test(content)) {
+    displayContent = '✅ Presentation created! Download buttons appear in preview →';
+  }
+  // Detect document JSON
+  else if (/```json[\s\S]*?"type"\s*:\s*"document"/.test(content)) {
+    displayContent = '✅ Document created! Download buttons appear in preview →';
+  }
+
   const div = document.createElement('div');
   div.style.cssText = 'display:flex;gap:12px;margin-bottom:18px;animation:homeFadeIn 0.3s ease;';
-  let rendered = content
+  let rendered = displayContent
     .replace(/```(\w+)?\n?([\s\S]*?)```/g, (m,lang,code)=>
       `<div style="margin:8px 0;border-radius:8px;overflow:hidden;border:1px solid #333;background:#1a1814;">
         <div style="background:#252320;padding:5px 12px;display:flex;justify-content:space-between;align-items:center;">
@@ -4169,6 +4204,179 @@ function homeShowThinking() {
   document.getElementById('homeChatHistory')?.appendChild(div);
   homeScrollBottom();
   return id;
+}
+
+function homeShowToast(msg) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a3a2a;color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;z-index:9999;pointer-events:none;opacity:0;transition:opacity 0.2s;';
+  document.body.appendChild(t);
+  requestAnimationFrame(() => { t.style.opacity = '1'; });
+  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 2500);
+}
+
+function homeShowDownloadBtn(type, data) {
+  const panel = document.getElementById('homePreviewPanel');
+  if (!panel) return;
+  panel.querySelectorAll('.home-dl-bar').forEach(el => el.remove());
+  const bar = document.createElement('div');
+  bar.className = 'home-dl-bar';
+  bar.style.cssText = 'display:flex;gap:8px;padding:10px 14px;background:#252320;border-top:1px solid #333;flex-wrap:wrap;flex-shrink:0;';
+  if (type === 'pptx') {
+    bar.innerHTML = `
+      <button onclick="homeCreatePPTX(window._homeLastDoc)" style="padding:7px 14px;background:#2d6a4f;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">⬇️ Download PPTX</button>
+      <button onclick="homeCreatePDF(window._homeLastDoc)" style="padding:7px 14px;background:#1565c0;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;">⬇️ Download PDF</button>`;
+  } else {
+    bar.innerHTML = `
+      <button onclick="homeCreateDOCX(window._homeLastDoc)" style="padding:7px 14px;background:#2d6a4f;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">⬇️ Download DOCX</button>
+      <button onclick="homeCreatePDF(window._homeLastDoc)" style="padding:7px 14px;background:#1565c0;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;">⬇️ Download PDF</button>`;
+  }
+  panel.appendChild(bar);
+  window._homeLastDoc = data;
+}
+
+async function homeCreatePPTX(data) {
+  if (!window.PptxGenJS) { homeShowToast('PPTX library not loaded yet'); return; }
+  const pptx = new PptxGenJS();
+  pptx.layout = 'LAYOUT_16x9'; pptx.author = 'ParaFree AI'; pptx.title = data.title || 'Presentation';
+  const THEME = { dark:'0D1B2A', accent:'2D6A4F', accent2:'52B788', gold:'F59E0B', red:'EF4444', blue:'3B82F6', white:'FFFFFF', light:'F7F5F0', gray:'6B7280', text:'1F2937', lightGreen:'D1FAE5' };
+  const addTag = (s,label,x,y) => { s.addShape('rect',{x,y,w:1.4,h:0.28,fill:{color:THEME.accent2},line:{color:THEME.accent2}}); s.addText(label,{x,y,w:1.4,h:0.28,fontSize:8,bold:true,color:THEME.dark,align:'center',valign:'middle'}); };
+  const addFooter = (s,i,total,title) => { s.addShape('rect',{x:0,y:7.0,w:10,h:0.5,fill:{color:'F0FDF4'},line:{color:'D1FAE5',width:0.3}}); s.addText('✦ ParaFree AI',{x:0.3,y:7.05,w:3,h:0.4,fontSize:9,color:'2D6A4F',bold:true}); s.addText(title||'',{x:3,y:7.05,w:4,h:0.4,fontSize:8,color:'6B7280',align:'center'}); s.addText(`${i} / ${total}`,{x:7,y:7.05,w:2.7,h:0.4,fontSize:9,color:'6B7280',align:'right'}); };
+  data.slides.forEach((slide, i) => {
+    const s = pptx.addSlide();
+    if (i === 0) {
+      s.background = {color:THEME.dark};
+      s.addShape('ellipse',{x:6.2,y:-1.2,w:5.5,h:5.5,fill:{type:'solid',color:THEME.accent,alpha:82},line:{color:THEME.accent}});
+      s.addShape('ellipse',{x:8.2,y:4.8,w:2.8,h:2.8,fill:{type:'solid',color:THEME.accent2,alpha:88},line:{color:THEME.accent2}});
+      s.addShape('rect',{x:0,y:1.2,w:0.12,h:4.2,fill:{color:THEME.accent2},line:{color:THEME.accent2}});
+      s.addShape('triangle',{x:7,y:0.5,w:2.5,h:2.5,fill:{color:'52B788',alpha:70},line:{color:'52B788'}});
+      [0,1,2,3,4].forEach(si=>s.addShape('rect',{x:0.3+(si*0.5),y:6.2,w:0.3,h:0.3,fill:{color:si%2===0?'52B788':'40916C',alpha:60},line:{color:'52B788'}}));
+      s.addText(data.title||'Presentation',{x:0.5,y:1.5,w:7.2,h:2.2,fontSize:44,bold:true,color:THEME.white,fontFace:'Calibri',align:'left',wrap:true});
+      s.addText(slide.title||'A Professional Presentation',{x:0.5,y:3.9,w:6.5,h:0.65,fontSize:17,color:THEME.accent2,fontFace:'Calibri',align:'left',italic:true});
+      addTag(s,'PARAFREE AI',0.5,4.75);
+      s.addShape('rect',{x:0,y:6.8,w:10,h:0.7,fill:{color:THEME.accent},line:{color:THEME.accent}});
+      s.addText('parafree.app',{x:0.3,y:6.85,w:4,h:0.5,fontSize:10,color:THEME.white,fontFace:'Calibri',valign:'middle'});
+    } else if (i%5===0) {
+      s.background={color:'FFFFFF'};
+      s.addShape('rect',{x:0,y:0,w:10,h:1.3,fill:{color:'1A3A2A'},line:{color:'1A3A2A'}});
+      s.addText(slide.title||'',{x:0.4,y:0,w:9,h:1.3,fontSize:22,bold:true,color:'FFFFFF',fontFace:'Calibri',valign:'middle'});
+      const pieData=[{name:'Distribution',labels:(slide.bullets||[]).slice(0,5).map((_,idx)=>`Part ${idx+1}`),values:(slide.bullets||[]).slice(0,5).map((_,idx)=>[30,25,20,15,10][idx]||10)}];
+      try { s.addChart('pie',pieData,{x:0.5,y:1.5,w:4.5,h:5,chartColors:['2D6A4F','52B788','40916C','74C69D','95D5B2'],showLegend:true,legendPos:'b',showLeaderLines:true,dataLabelFormatCode:'0"%"',showTitle:false}); } catch(e){}
+      const pC=['2D6A4F','52B788','40916C','74C69D','95D5B2'];
+      (slide.bullets||[]).slice(0,5).forEach((b,bi)=>{s.addShape('rect',{x:5.3,y:1.6+(bi*0.95),w:4.4,h:0.8,fill:{color:'F0FDF4'},line:{color:'D1FAE5',width:0.5}});s.addShape('rect',{x:5.3,y:1.6+(bi*0.95),w:0.25,h:0.8,fill:{color:pC[bi]||'2D6A4F'},line:{color:pC[bi]||'2D6A4F'}});s.addText(b,{x:5.65,y:1.65+(bi*0.95),w:3.9,h:0.7,fontSize:12,color:'1F2937',fontFace:'Calibri',valign:'middle',wrap:true});});
+      addFooter(s,i,data.slides.length,data.title);
+    } else if (i%4===1) {
+      s.background={color:THEME.light};
+      s.addShape('rect',{x:0,y:0,w:2.8,h:7.5,fill:{color:THEME.dark},line:{color:THEME.dark}});
+      s.addShape('rect',{x:2.8,y:0,w:0.06,h:7.5,fill:{color:THEME.accent2},line:{color:THEME.accent2}});
+      s.addText(`${String(i).padStart(2,'0')}`,{x:0.1,y:0.4,w:2.5,h:1.4,fontSize:64,bold:true,color:THEME.accent2,fontFace:'Calibri',align:'center'});
+      s.addText(slide.title||'',{x:0.15,y:2.0,w:2.5,h:4.2,fontSize:15,bold:true,color:THEME.white,fontFace:'Calibri',align:'center',valign:'top',wrap:true});
+      (slide.bullets||[]).slice(0,5).forEach((bullet,bi)=>{const yPos=0.3+(bi*1.28);s.addShape('rect',{x:3.1,y:yPos,w:6.5,h:1.08,fill:{color:THEME.white},line:{color:'E2E8F0',width:0.5}});s.addShape('ellipse',{x:3.2,y:yPos+0.2,w:0.55,h:0.55,fill:{color:THEME.accent},line:{color:THEME.accent}});s.addText(`${bi+1}`,{x:3.2,y:yPos+0.2,w:0.55,h:0.55,fontSize:12,bold:true,color:THEME.white,align:'center',valign:'middle'});s.addText(bullet,{x:3.88,y:yPos+0.08,w:5.6,h:0.9,fontSize:13,color:THEME.text,fontFace:'Calibri',valign:'middle',wrap:true});});
+      addFooter(s,i,data.slides.length,data.title);
+    } else if (i%4===2) {
+      s.background={color:THEME.white};
+      s.addShape('rect',{x:0,y:0,w:10,h:1.0,fill:{color:THEME.accent},line:{color:THEME.accent}});
+      s.addText(slide.title||'',{x:0.4,y:0.1,w:7.5,h:0.8,fontSize:22,bold:true,color:THEME.white,fontFace:'Calibri',valign:'middle'});
+      const cD=[{name:'Series 1',labels:(slide.bullets||[]).slice(0,5).map((_,idx)=>`Item ${idx+1}`),values:(slide.bullets||[]).slice(0,5).map(()=>Math.floor(40+Math.random()*55))}];
+      try { s.addChart('bar',cD,{x:0.3,y:1.5,w:4.5,h:4.8,chartColors:['2D6A4F','52B788','40916C','74C69D','1B4332'],showLegend:false,showTitle:false,showValue:true,valAxisMaxVal:100,barDir:'col',barGrouping:'clustered',dataLabelFormatCode:'0"%"',valAxisNumFmt:'0"%"',catAxisLabelFontSize:9,valAxisLabelFontSize:9}); } catch(e){}
+      s.addShape('rect',{x:6.4,y:1.15,w:3.3,h:5.5,fill:{color:THEME.lightGreen},line:{color:THEME.accent2,width:0.75}});
+      s.addText('KEY INSIGHTS',{x:6.55,y:1.28,w:3.0,h:0.35,fontSize:9,bold:true,color:THEME.accent,fontFace:'Calibri'});
+      (slide.bullets||[]).slice(0,5).forEach((ins,ii)=>{const yp=1.82+ii*0.95;s.addShape('ellipse',{x:6.58,y:yp,w:0.22,h:0.22,fill:{color:THEME.accent},line:{color:THEME.accent}});s.addText(ins.slice(0,80),{x:6.88,y:yp-0.04,w:2.65,h:0.82,fontSize:10,color:THEME.text,fontFace:'Calibri',valign:'top',wrap:true});});
+      addFooter(s,i,data.slides.length,data.title);
+    } else if (i%4===3) {
+      s.background={color:THEME.dark};
+      s.addShape('rect',{x:0,y:0,w:10,h:1.2,fill:{color:THEME.accent},line:{color:THEME.accent}});
+      s.addText(slide.title||'',{x:0.4,y:0.1,w:8.5,h:1.0,fontSize:24,bold:true,color:THEME.white,fontFace:'Calibri',valign:'middle'});
+      if (slide.bullets&&slide.bullets.length>0){const cols=slide.bullets.length<=3?1:2;const colW=cols===1?8.6:4.1;slide.bullets.slice(0,6).forEach((bullet,bi)=>{const col=bi%cols;const row=Math.floor(bi/cols);const xPos=cols===1?0.7:0.35+col*4.75;const yPos=1.45+row*1.5;if(yPos>6.5)return;s.addShape('rect',{x:xPos,y:yPos,w:colW,h:1.25,fill:{color:'162435'},line:{color:THEME.accent2,width:0.5}});s.addShape('ellipse',{x:xPos+0.12,y:yPos+0.32,w:0.55,h:0.55,fill:{color:THEME.accent2},line:{color:THEME.accent2}});s.addText(`${bi+1}`,{x:xPos+0.12,y:yPos+0.32,w:0.55,h:0.55,fontSize:13,bold:true,color:THEME.dark,align:'center',valign:'middle'});s.addText(bullet,{x:xPos+0.82,y:yPos+0.1,w:colW-0.95,h:1.05,fontSize:13,color:THEME.white,fontFace:'Calibri',valign:'middle',wrap:true});});}
+      addFooter(s,i,data.slides.length,data.title);
+    } else {
+      s.background={color:THEME.white};
+      s.addShape('rect',{x:0,y:0,w:10,h:1.35,fill:{color:THEME.dark},line:{color:THEME.dark}});
+      s.addShape('rect',{x:0,y:1.35,w:10,h:0.1,fill:{color:THEME.accent2},line:{color:THEME.accent2}});
+      s.addText(slide.title||'',{x:0.4,y:0.15,w:8.8,h:1.05,fontSize:24,bold:true,color:THEME.white,fontFace:'Calibri',valign:'middle'});
+      const cC=[THEME.lightGreen,'EFF6FF','FEF3C7','FEE2E2','F3E8FF'];const aC=[THEME.accent,THEME.blue,THEME.gold,THEME.red,'7C3AED'];
+      (slide.bullets||[]).slice(0,5).forEach((bullet,bi)=>{const yPos=1.65+bi*1.02;if(yPos>6.8)return;s.addShape('rect',{x:0.4,y:yPos,w:9.2,h:0.87,fill:{color:cC[bi%cC.length]},line:{color:'E2E8F0',width:0.5}});s.addShape('rect',{x:0.4,y:yPos,w:0.1,h:0.87,fill:{color:aC[bi%aC.length]},line:{color:aC[bi%aC.length]}});s.addText(bullet,{x:0.65,y:yPos+0.1,w:8.8,h:0.68,fontSize:13,color:THEME.text,fontFace:'Calibri',valign:'middle',wrap:true});});
+      addFooter(s,i,data.slides.length,data.title);
+    }
+  });
+  const fs=pptx.addSlide(); fs.background={color:THEME.dark};
+  fs.addShape('ellipse',{x:2.5,y:0.5,w:5,h:5,fill:{type:'solid',color:THEME.accent,alpha:80},line:{color:THEME.accent}});
+  fs.addShape('ellipse',{x:7.5,y:4.5,w:3,h:3,fill:{type:'solid',color:THEME.accent2,alpha:85},line:{color:THEME.accent2}});
+  fs.addText('Thank You',{x:0.5,y:2.0,w:9,h:1.8,fontSize:54,bold:true,color:THEME.white,fontFace:'Calibri',align:'center'});
+  fs.addText('Created with ParaFree AI',{x:0.5,y:4.0,w:9,h:0.5,fontSize:15,color:THEME.accent2,fontFace:'Calibri',align:'center'});
+  fs.addText('parafree.app',{x:0.5,y:4.55,w:9,h:0.4,fontSize:12,color:THEME.white,fontFace:'Calibri',align:'center'});
+  const fn=(data.title||'presentation').replace(/[^a-z0-9\s]/gi,'').replace(/\s+/g,'-').toLowerCase().slice(0,40);
+  await pptx.writeFile({fileName:fn+'.pptx'});
+  homeShowToast('✓ PPTX downloaded!');
+}
+
+async function homeCreateDOCX(data) {
+  try {
+    if (typeof docx === 'undefined') { homeShowToast('Loading DOCX library…'); await new Promise(r=>setTimeout(r,1200)); }
+    if (typeof docx === 'undefined') { homeShowToast('DOCX library not loaded'); return; }
+    const {Document,Paragraph,TextRun,Packer,AlignmentType,BorderStyle} = docx;
+    const children = [];
+    if (data.title) {
+      children.push(new Paragraph({children:[new TextRun({text:data.title,bold:true,size:52,color:'2D6A4F',font:'Calibri'})],spacing:{after:400,before:200},border:{bottom:{color:'2D6A4F',space:4,style:BorderStyle.SINGLE,size:12}}}));
+      children.push(new Paragraph({children:[new TextRun({text:'Created with ParaFree AI — parafree.app',size:18,color:'9E9890',italics:true,font:'Calibri'})],spacing:{after:600}}));
+    }
+    (data.content||[]).forEach(item=>{
+      if(!item||!item.text) return;
+      switch(item.type){
+        case 'heading': case 'h1': children.push(new Paragraph({children:[new TextRun({text:item.text,bold:true,size:36,color:'1A3A2A',font:'Calibri'})],spacing:{before:480,after:160},border:{left:{color:'2D6A4F',space:8,style:BorderStyle.SINGLE,size:24}},indent:{left:240}})); break;
+        case 'bullet': case 'list': children.push(new Paragraph({children:[new TextRun({text:item.text,size:24,color:'1F2937',font:'Calibri'})],bullet:{level:0},spacing:{after:120},indent:{left:360,hanging:360}})); break;
+        default: children.push(new Paragraph({children:[new TextRun({text:item.text,size:24,color:'1F2937',font:'Calibri'})],spacing:{after:200},alignment:AlignmentType.JUSTIFIED}));
+      }
+    });
+    const doc = new Document({creator:'ParaFree AI',title:data.title||'Document',sections:[{properties:{page:{margin:{top:1440,right:1440,bottom:1440,left:1440}}},children}]});
+    const blob = await Packer.toBlob(doc);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href=url; a.download=(data.title||'document').replace(/[^a-z0-9\s]/gi,'').replace(/\s+/g,'-').toLowerCase().slice(0,40)+'.docx';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    homeShowToast('✓ DOCX downloaded!');
+  } catch(err) { homeShowToast('DOCX error: '+err.message); }
+}
+
+async function homeCreatePDF(data) {
+  try {
+    if (!window.jspdf||!window.jspdf.jsPDF) { homeShowToast('PDF library not loaded'); return; }
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    const pageW=210,pageH=297,margin=20,contentW=pageW-margin*2; let yPos=margin;
+    function checkPageBreak(n=10){if(yPos+n>pageH-margin){doc.addPage();yPos=margin;drawHdr();yPos+=15;}}
+    function drawHdr(){doc.setFillColor(45,106,79);doc.rect(0,0,pageW,8,'F');doc.setFontSize(8);doc.setTextColor(255,255,255);doc.text('parafree.app',margin,5.5);doc.text(data.title||'',pageW/2,5.5,{align:'center'});}
+    drawHdr(); yPos=20;
+    doc.setFillColor(26,58,42);doc.rect(margin-5,yPos-5,contentW+10,25,'F');
+    doc.setFontSize(24);doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');
+    doc.text(doc.splitTextToSize(data.title||'Document',contentW-10),margin,yPos+8); yPos+=32;
+    doc.setFontSize(9);doc.setTextColor(158,152,144);doc.setFont('helvetica','italic');
+    doc.text('Created with ParaFree AI — parafree.app',margin,yPos); yPos+=12;
+    doc.setDrawColor(45,106,79);doc.setLineWidth(0.5);doc.line(margin,yPos,pageW-margin,yPos); yPos+=8;
+    (data.content||[]).forEach(item=>{
+      if(!item||!item.text) return; checkPageBreak(15);
+      switch(item.type){
+        case 'heading': case 'h1':
+          yPos+=4; doc.setFillColor(240,253,244);doc.rect(margin-3,yPos-4,contentW+6,12,'F');
+          doc.setFillColor(45,106,79);doc.rect(margin-3,yPos-4,2,12,'F');
+          doc.setFontSize(14);doc.setTextColor(26,58,42);doc.setFont('helvetica','bold');
+          const hl=doc.splitTextToSize(item.text,contentW-10); doc.text(hl,margin+4,yPos+4); yPos+=(hl.length*6)+8; break;
+        case 'bullet': case 'list':
+          doc.setFontSize(10);doc.setTextColor(31,41,55);doc.setFont('helvetica','normal');
+          doc.setFillColor(45,106,79);doc.circle(margin+2,yPos-1.5,1,'F');
+          const bl=doc.splitTextToSize(item.text,contentW-8); doc.text(bl,margin+6,yPos); yPos+=(bl.length*5.5)+2; break;
+        default:
+          doc.setFontSize(10);doc.setTextColor(31,41,55);doc.setFont('helvetica','normal');
+          const pl=doc.splitTextToSize(item.text||'',contentW);
+          pl.forEach(line=>{checkPageBreak(6);doc.text(line,margin,yPos);yPos+=5.5;}); yPos+=3;
+      }
+    });
+    const total=doc.getNumberOfPages();
+    for(let p=1;p<=total;p++){doc.setPage(p);doc.setFillColor(26,58,42);doc.rect(0,pageH-10,pageW,10,'F');doc.setFontSize(8);doc.setTextColor(255,255,255);doc.setFont('helvetica','normal');doc.text('Created with ParaFree AI',margin,pageH-4);doc.text(`Page ${p} of ${total}`,pageW-margin,pageH-4,{align:'right'});}
+    doc.save((data.title||'document').replace(/[^a-z0-9\s]/gi,'').replace(/\s+/g,'-').toLowerCase().slice(0,40)+'.pdf');
+    homeShowToast('✓ PDF downloaded!');
+  } catch(err) { homeShowToast('PDF error: '+err.message); }
 }
 
 function homeRemoveThinking(id) { document.getElementById(id)?.remove(); }
