@@ -1314,13 +1314,13 @@ footer p { margin: 0; font-size: 13px; color: #999; }
         <div class="msg-avatar ai-avatar">&lt;/&gt;</div>
         <div class="msg-bubble-wrap">
           <div class="msg-meta">
-            <span class="msg-name">ParaFree Code</span>
+            <span class="msg-name">ParaFree AI</span>
             <span class="msg-time">just now</span>
           </div>
           <div class="msg-bubble">
-            <p>Hey! 👋 I'm ParaFree AI — your free assistant for everything.</p>
-            <p>Chat with me about anything, ask coding questions, do research, upload files, or get a live preview of your HTML/CSS/JS.</p>
-            <p>What can I help you with today? 😊</p>
+            <p>Hey! 👋 I'm ParaFree AI.</p>
+            <p>Ask me anything — build a website, debug code, answer questions, do research. I'll just do it, no unnecessary questions.</p>
+            <p>What do you need? 😊</p>
           </div>
         </div>
       </div>
@@ -1891,8 +1891,12 @@ async function handleSend() {
       if (conversationHistory.length > MAX_HISTORY * 2) {
         conversationHistory = conversationHistory.slice(-MAX_HISTORY * 2);
       }
-      const code = extractPreviewCode(data.result);
-      if (code) { updatePreview(code); flashPreview(); }
+      const code = extractCode(data.result);
+      if (code) {
+        updatePreview(code);
+      } else if (/<(?:html|body|div|section|header|main|article|p|h[1-6]|button|form|ul|ol|table)/i.test(data.result)) {
+        updatePreview(data.result);
+      }
       if (data.usedApi) updateEngineStatus(data.usedApi);
     } else {
       addErrorMessage('The AI returned an empty response. Please try again.');
@@ -2127,11 +2131,16 @@ function retryLastMessage() {
 }
 
 // ── Live preview ────────────────────────────────────────
-function extractPreviewCode(text) {
-  const htmlMatch = text.match(/```(?:html|jsx|vue)\n?([\s\S]*?)```/i);
+function extractCode(text) {
+  const htmlMatch = text.match(/```(?:html|jsx|vue|tsx|svelte)\n?([\s\S]*?)```/i);
   if (htmlMatch) return htmlMatch[1].trim();
-  const jsMatch = text.match(/```(?:javascript|js|css)\n?([\s\S]*?)```/i);
+  const jsMatch = text.match(/```(?:javascript|js|ts|typescript|css|scss)\n?([\s\S]*?)```/i);
   if (jsMatch) return jsMatch[1].trim();
+  const anyMatch = text.match(/```\w*\n?([\s\S]*?)```/);
+  if (anyMatch) {
+    const inner = anyMatch[1].trim();
+    if (/<[a-z]/i.test(inner) || /\{[\s\S]*:[\s\S]*;/.test(inner)) return inner;
+  }
   return null;
 }
 
@@ -2183,10 +2192,9 @@ function updatePreview(code) {
   previewFrame.srcdoc = html;
   previewEmpty.style.display = 'none';
   previewFrame.style.display = 'block';
-  if (!previewVisible) {
-    previewPanel.style.display = 'flex';
-    previewVisible = true;
-  }
+  previewPanel.style.display = 'flex';
+  previewVisible = true;
+  flashPreview();
 }
 
 function flashPreview() {
