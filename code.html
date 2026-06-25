@@ -249,10 +249,17 @@ nav .nav-links a.active::after { width: 100%; }
 /* ── App Layout ── */
 .code-app {
   display: flex;
+  max-width: 1400px;
+  width: calc(100% - 40px);
+  margin: 0 auto;
   height: calc(100vh - var(--nav-h) - 130px - 44px); /* nav + hero + engine bar */
   min-height: 480px;
   overflow: hidden;
-  border-bottom: 1px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 2px 16px rgba(0,0,0,0.06);
+  margin-bottom: 24px;
 }
 
 /* ─── Chat Panel (left 55%) ─── */
@@ -285,8 +292,11 @@ nav .nav-links a.active::after { width: 100%; }
   display: flex;
   gap: 10px;
   align-items: flex-start;
-  margin-bottom: 14px;
+  margin-bottom: 18px;
   animation: msgIn 0.2s ease;
+  max-width: 760px;
+  width: 100%;
+  align-self: center;
 }
 @keyframes msgIn {
   from { opacity: 0; transform: translateY(6px); }
@@ -517,6 +527,10 @@ nav .nav-links a.active::after { width: 100%; }
   background: var(--surface);
   border-top: 1px solid var(--border);
   position: relative;
+}
+.chat-input-inner {
+  max-width: 760px;
+  margin: 0 auto;
 }
 
 /* Drag-and-drop overlay */
@@ -926,7 +940,14 @@ footer p { margin: 0; font-size: 13px; color: #999; }
     flex-direction: column;
     height: auto;
     overflow: visible;
+    width: 100%;
+    margin-bottom: 0;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
   }
+  .msg { max-width: 100%; }
+  .chat-input-inner { max-width: 100%; }
   .chat-panel {
     flex: none;
     height: 60vh;
@@ -1351,6 +1372,8 @@ footer p { margin: 0; font-size: 13px; color: #999; }
         <div class="drag-content">📁 Drop files to attach</div>
       </div>
 
+      <div class="chat-input-inner">
+
       <!-- File pills (hidden until files attached) -->
       <div class="file-pills" id="filePills" style="display:none;"></div>
 
@@ -1381,6 +1404,8 @@ footer p { margin: 0; font-size: 13px; color: #999; }
       <input type="file" id="fileInput" multiple
         accept=".py,.js,.ts,.jsx,.tsx,.html,.css,.java,.cpp,.c,.cs,.php,.sql,.go,.rs,.swift,.kt,.rb,.dart,.sh,.ps1,.json,.xml,.yaml,.yml,.env,.md,.txt,.png,.jpg,.jpeg,.gif,.webp,.svg,.pdf,.docx,.doc,.zip"
         style="display:none;" aria-hidden="true">
+
+      </div><!-- /chat-input-inner -->
 
     </div><!-- /chat-input-area -->
 
@@ -2436,12 +2461,14 @@ function setPreviewMode(mode) {
 function showPreviewPanel() {
   previewPanel.classList.add('visible');
   previewPanel.style.display = 'flex';
+  document.getElementById('codeApp').classList.add('has-preview');
   previewVisible = true;
 }
 
 function hidePreviewPanel() {
   previewPanel.classList.remove('visible');
   previewPanel.style.display = 'none';
+  document.getElementById('codeApp').classList.remove('has-preview');
   document.getElementById('previewEditArea').style.display = 'none';
   previewVisible = false;
 }
