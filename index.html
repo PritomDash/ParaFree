@@ -299,6 +299,15 @@
     transition: grid-template-columns 0.3s ease;
   }
   #aiChatLayout.preview-open { grid-template-columns: 55fr 45fr; }
+  /* Home chat typography — Claude-style */
+  #homeChatHistory { font-size: 15px; line-height: 1.75; font-family: 'DM Sans', sans-serif; }
+  #homeChatHistory p { font-size: 15px; line-height: 1.75; margin: 0 0 10px; color: var(--text); }
+  #homeChatHistory ul, #homeChatHistory ol { font-size: 15px; line-height: 1.75; padding-left: 20px; margin: 8px 0; }
+  #homeChatHistory li { margin-bottom: 6px; }
+  #homeChatHistory h2 { font-size: 17px; font-weight: 700; font-family: 'Syne', sans-serif; color: var(--text); margin: 16px 0 8px; }
+  #homeChatHistory h3 { font-size: 15px; font-weight: 700; font-family: 'Syne', sans-serif; color: var(--text); margin: 14px 0 6px; }
+  #homeChatHistory a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+  #homeChatInput { font-size: 15px; line-height: 1.6; font-family: 'DM Sans', sans-serif; }
   #homeChatPanel { display: flex; flex-direction: column; overflow: hidden; min-width: 0; height: 100%; }
   #homePreviewPanel { display: none; flex-direction: column; background: #1a1814; overflow: hidden; border-left: 1px solid var(--border); min-width: 0; height: 100%; }
   @media (max-width: 768px) {
@@ -4144,42 +4153,63 @@ function homeAddUserMessage(msg, files) {
 function homeAddAIMessage(content, usedApi) {
   let displayContent = content;
 
-  // Detect HTML response — show simplified message in chat
+  // Simplify chat display for large code/JSON responses — show in preview instead
   if (/<!DOCTYPE html/i.test(content) || (/```html/i.test(content) && content.length > 400)) {
     const textBefore = content.split('```')[0].trim();
     displayContent = textBefore || '✅ Done! See preview on the right →';
-  }
-  // Detect presentation JSON
-  else if (/```json[\s\S]*?"type"\s*:\s*"presentation"/.test(content)) {
+  } else if (/```json[\s\S]*?"type"\s*:\s*"presentation"/.test(content)) {
     displayContent = '✅ Presentation created! Download buttons appear in preview →';
-  }
-  // Detect document JSON
-  else if (/```json[\s\S]*?"type"\s*:\s*"document"/.test(content)) {
+  } else if (/```json[\s\S]*?"type"\s*:\s*"document"/.test(content)) {
     displayContent = '✅ Document created! Download buttons appear in preview →';
   }
 
+  // Full markdown rendering with links
+  let rendered = displayContent;
+  // Code blocks first (protect from other replacements)
+  rendered = rendered.replace(/```(\w+)?\n?([\s\S]*?)```/g, (m,lang,code)=>
+    `<div style="margin:8px 0;border-radius:8px;overflow:hidden;border:1px solid #333;background:#1a1814;">
+      <div style="background:#252320;padding:5px 12px;display:flex;justify-content:space-between;align-items:center;">
+        <span style="color:#888;font-size:11px;font-family:monospace;">${lang||'code'}</span>
+        <button onclick="navigator.clipboard.writeText(this.closest('div').nextElementSibling.querySelector('code').textContent);this.textContent='✓ Copied!';setTimeout(()=>this.textContent='Copy',1500)" style="background:rgba(255,255,255,.1);border:none;color:#ccc;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px;">Copy</button>
+      </div>
+      <pre style="margin:0;padding:12px;overflow-x:auto;font-size:12px;line-height:1.5;color:#e8e6e0;font-family:monospace;max-height:260px;overflow-y:auto;"><code>${code.trim().replace(/</g,'&lt;').replace(/>/g,'&gt;')}</code></pre>
+    </div>`);
+  // Markdown links [text](url)
+  rendered = rendered.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
+    '<a href="$2" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline;text-underline-offset:2px;">$1</a>');
+  // Bare URLs
+  rendered = rendered.replace(/(?<!href=["'])(https?:\/\/[^\s<)"']+)/g,
+    '<a href="$1" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline;word-break:break-all;">$1</a>');
+  // Bold
+  rendered = rendered.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
+  // Inline code
+  rendered = rendered.replace(/`([^`\n]+)`/g,'<code style="background:rgba(45,106,79,0.1);padding:1px 5px;border-radius:3px;font-family:monospace;font-size:13px;">$1</code>');
+  // Headers
+  rendered = rendered.replace(/^### (.+)$/gm,'<h3 style="font-size:15px;font-weight:700;margin:14px 0 6px;font-family:\'Syne\',sans-serif;">$1</h3>');
+  rendered = rendered.replace(/^## (.+)$/gm,'<h2 style="font-size:17px;font-weight:700;margin:16px 0 8px;font-family:\'Syne\',sans-serif;">$1</h2>');
+  // Bullets
+  rendered = rendered.replace(/^[•\-\*] (.+)$/gm,'<li style="margin-bottom:5px;">$1</li>');
+  rendered = rendered.replace(/(<li[^>]*>[\s\S]*?<\/li>\n?)+/g, m=>`<ul style="padding-left:20px;margin:8px 0;">${m}</ul>`);
+  // Numbered lists
+  rendered = rendered.replace(/^\d+\. (.+)$/gm,'<li style="margin-bottom:5px;">$1</li>');
+  // Paragraphs
+  rendered = rendered.replace(/\n\n/g,'</p><p style="margin:0 0 10px;">');
+  rendered = rendered.replace(/\n/g,'<br>');
+  rendered = '<p style="margin:0 0 10px;">' + rendered + '</p>';
+  rendered = rendered.replace(/<p[^>]*><\/p>/g,'');
+
   const div = document.createElement('div');
-  div.style.cssText = 'display:flex;gap:12px;margin-bottom:18px;animation:homeFadeIn 0.3s ease;';
-  let rendered = displayContent
-    .replace(/```(\w+)?\n?([\s\S]*?)```/g, (m,lang,code)=>
-      `<div style="margin:8px 0;border-radius:8px;overflow:hidden;border:1px solid #333;background:#1a1814;">
-        <div style="background:#252320;padding:5px 12px;display:flex;justify-content:space-between;align-items:center;">
-          <span style="color:#888;font-size:11px;font-family:monospace;">${lang||'code'}</span>
-          <button onclick="navigator.clipboard.writeText(this.closest('div').nextElementSibling.querySelector('code').textContent);this.textContent='✓ Copied!';setTimeout(()=>this.textContent='Copy',1500)" style="background:rgba(255,255,255,.1);border:none;color:#ccc;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px;">Copy</button>
-        </div>
-        <pre style="margin:0;padding:12px;overflow-x:auto;font-size:12px;line-height:1.5;color:#e8e6e0;font-family:monospace;max-height:260px;overflow-y:auto;"><code>${code.trim().replace(/</g,'&lt;').replace(/>/g,'&gt;')}</code></pre>
-      </div>`)
-    .replace(/`([^`]+)`/g,'<code style="background:#f0f0f0;padding:1px 5px;border-radius:3px;font-family:monospace;font-size:13px;">$1</code>')
-    .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
-    .replace(/\n\n/g,'</p><p style="margin:6px 0;">');
-  rendered = '<p style="margin:0;">' + rendered + '</p>';
+  div.style.cssText = 'display:flex;gap:12px;margin-bottom:20px;animation:homeFadeIn 0.3s ease;';
   div.innerHTML = `
-    <div style="width:30px;height:30px;border-radius:50%;background:var(--accent);color:white;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">✦</div>
-    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:18px;border-bottom-left-radius:4px;padding:12px 16px;max-width:85%;font-size:14px;line-height:1.6;color:var(--text);">
-      <div>${rendered}</div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
-        <span style="font-size:10px;color:var(--text3);">${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}${usedApi?` · via ${usedApi}`:''}</span>
-        <button onclick="navigator.clipboard.writeText(this.closest('div').parentElement.querySelector('div').innerText);this.textContent='✓';setTimeout(()=>this.textContent='📋',1500)" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:11px;padding:2px 6px;border-radius:4px;" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background='none'">📋</button>
+    <div style="width:32px;height:32px;border-radius:50%;background:var(--accent);color:white;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:2px;">✦</div>
+    <div style="max-width:88%;padding:0;background:transparent;border:none;">
+      <div style="font-size:15px;line-height:1.75;color:var(--text);font-family:'DM Sans',sans-serif;">${rendered}</div>
+      <div style="display:flex;gap:12px;align-items:center;margin-top:6px;">
+        <span style="font-size:11px;color:var(--text3);">${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}${usedApi?` · via ${usedApi}`:''}</span>
+        <button onclick="navigator.clipboard.writeText(this.dataset.text);this.textContent='✓ Copied';setTimeout(()=>this.textContent='Copy',2000)"
+          data-text="${content.replace(/"/g,'&quot;').replace(/'/g,'&#39;')}"
+          style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;padding:0;transition:color 0.2s;"
+          onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text3)'">Copy</button>
       </div>
     </div>`;
   document.getElementById('homeChatHistory')?.appendChild(div);
@@ -4312,31 +4342,69 @@ async function homeCreatePPTX(data) {
 
 async function homeCreateDOCX(data) {
   try {
-    if (typeof docx === 'undefined') { homeShowToast('Loading DOCX library…'); await new Promise(r=>setTimeout(r,1200)); }
-    if (typeof docx === 'undefined') { homeShowToast('DOCX library not loaded'); return; }
-    const {Document,Paragraph,TextRun,Packer,AlignmentType,BorderStyle} = docx;
-    const children = [];
-    if (data.title) {
-      children.push(new Paragraph({children:[new TextRun({text:data.title,bold:true,size:52,color:'2D6A4F',font:'Calibri'})],spacing:{after:400,before:200},border:{bottom:{color:'2D6A4F',space:4,style:BorderStyle.SINGLE,size:12}}}));
-      children.push(new Paragraph({children:[new TextRun({text:'Created with ParaFree AI — parafree.app',size:18,color:'9E9890',italics:true,font:'Calibri'})],spacing:{after:600}}));
+    if (typeof docx === 'undefined') {
+      homeShowToast('⏳ Loading DOCX library...');
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://unpkg.com/docx@8.5.0/build/index.js';
+        s.onload = resolve; s.onerror = reject;
+        document.head.appendChild(s);
+      });
+      await new Promise(r => setTimeout(r, 500));
     }
-    (data.content||[]).forEach(item=>{
-      if(!item||!item.text) return;
-      switch(item.type){
-        case 'heading': case 'h1': children.push(new Paragraph({children:[new TextRun({text:item.text,bold:true,size:36,color:'1A3A2A',font:'Calibri'})],spacing:{before:480,after:160},border:{left:{color:'2D6A4F',space:8,style:BorderStyle.SINGLE,size:24}},indent:{left:240}})); break;
-        case 'bullet': case 'list': children.push(new Paragraph({children:[new TextRun({text:item.text,size:24,color:'1F2937',font:'Calibri'})],bullet:{level:0},spacing:{after:120},indent:{left:360,hanging:360}})); break;
-        default: children.push(new Paragraph({children:[new TextRun({text:item.text,size:24,color:'1F2937',font:'Calibri'})],spacing:{after:200},alignment:AlignmentType.JUSTIFIED}));
+    if (typeof docx === 'undefined') { homeShowToast('❌ Could not load DOCX library'); return; }
+
+    const {Document, Paragraph, TextRun, Packer, AlignmentType, BorderStyle} = docx;
+    const children = [];
+
+    if (data.title) {
+      children.push(new Paragraph({
+        children: [new TextRun({text: data.title, bold: true, size: 52, color: '2D6A4F', font: 'Calibri'})],
+        spacing: {after: 400},
+        border: {bottom: {color: '2D6A4F', space: 4, style: BorderStyle.SINGLE, size: 12}}
+      }));
+    }
+
+    (data.content || []).forEach(item => {
+      if (!item?.text) return;
+      if (item.type === 'heading' || item.type === 'h1') {
+        children.push(new Paragraph({
+          children: [new TextRun({text: item.text, bold: true, size: 32, color: '1A3A2A', font: 'Calibri'})],
+          spacing: {before: 400, after: 120},
+          border: {left: {color: '2D6A4F', space: 8, style: BorderStyle.SINGLE, size: 24}},
+          indent: {left: 240}
+        }));
+      } else if (item.type === 'bullet' || item.type === 'list') {
+        children.push(new Paragraph({
+          children: [new TextRun({text: item.text, size: 24, font: 'Calibri'})],
+          bullet: {level: 0}, spacing: {after: 100}
+        }));
+      } else {
+        children.push(new Paragraph({
+          children: [new TextRun({text: item.text, size: 24, font: 'Calibri'})],
+          spacing: {after: 160}, alignment: AlignmentType.JUSTIFIED
+        }));
       }
     });
-    const doc = new Document({creator:'ParaFree AI',title:data.title||'Document',sections:[{properties:{page:{margin:{top:1440,right:1440,bottom:1440,left:1440}}},children}]});
+
+    const doc = new Document({
+      creator: '', title: data.title || '',
+      sections: [{properties: {page: {margin: {top:1440, right:1440, bottom:1440, left:1440}}}, children}]
+    });
+
     const blob = await Packer.toBlob(doc);
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href=url; a.download=(data.title||'document').replace(/[^a-z0-9\s]/gi,'').replace(/\s+/g,'-').toLowerCase().slice(0,40)+'.docx';
+    const fileName = (data.title || 'document').replace(/[^a-z0-9\s]/gi,'').replace(/\s+/g,'-').toLowerCase().slice(0,40);
+    a.href = url; a.download = fileName + '.docx';
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(()=>URL.revokeObjectURL(url),1000);
-    homeShowToast('✓ DOCX downloaded!');
-  } catch(err) { homeShowToast('DOCX error: '+err.message); }
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    window._homeLastDoc = data;
+    homeShowToast('✓ Word document downloaded!');
+  } catch(err) {
+    console.error('DOCX error:', err);
+    homeShowToast('❌ Error: ' + err.message);
+  }
 }
 
 async function homeCreatePDF(data) {
@@ -4373,7 +4441,7 @@ async function homeCreatePDF(data) {
       }
     });
     const total=doc.getNumberOfPages();
-    for(let p=1;p<=total;p++){doc.setPage(p);doc.setFillColor(26,58,42);doc.rect(0,pageH-10,pageW,10,'F');doc.setFontSize(8);doc.setTextColor(255,255,255);doc.setFont('helvetica','normal');doc.text('Created with ParaFree AI',margin,pageH-4);doc.text(`Page ${p} of ${total}`,pageW-margin,pageH-4,{align:'right'});}
+    for(let p=1;p<=total;p++){doc.setPage(p);doc.setFontSize(8);doc.setTextColor(150,150,150);doc.setFont('helvetica','normal');doc.text(`Page ${p} of ${total}`,pageW-margin,pageH-6,{align:'right'});}
     doc.save((data.title||'document').replace(/[^a-z0-9\s]/gi,'').replace(/\s+/g,'-').toLowerCase().slice(0,40)+'.pdf');
     homeShowToast('✓ PDF downloaded!');
   } catch(err) { homeShowToast('PDF error: '+err.message); }

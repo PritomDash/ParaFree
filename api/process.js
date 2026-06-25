@@ -178,6 +178,32 @@ async function callOpenRouter(text, prompt, key) {
   return data.choices[0].message.content;
 }
 
+async function callOpenRouterModel(text, prompt, key, model) {
+  console.log("Attempting API: OpenRouter/" + model);
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key, "HTTP-Referer": "https://parafree.app", "X-Title": "ParaFree" },
+    body: JSON.stringify({ model, messages: [{ role: "user", content: prompt + "\n\n" + text }], temperature: 0.7, max_tokens: 4096 })
+  });
+  if (!res.ok) throw new Error("OpenRouter/" + model + ":" + res.status);
+  const data = await res.json();
+  if (!data.choices || !data.choices[0]) throw new Error("OpenRouter/" + model + ": no response");
+  return data.choices[0].message.content;
+}
+
+async function callGroqModel(text, prompt, key, model) {
+  console.log("Attempting API: Groq/" + model);
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
+    body: JSON.stringify({ model, messages: [{ role: "user", content: prompt + "\n\n" + text }], temperature: 0.7, max_tokens: 4096 })
+  });
+  if (!res.ok) throw new Error("Groq/" + model + ":" + res.status);
+  const data = await res.json();
+  if (!data.choices || !data.choices[0]) throw new Error("Groq/" + model + ": no response");
+  return data.choices[0].message.content;
+}
+
 async function callMistral(text, prompt, key) {
   console.log("Attempting API: Mistral");
   const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
@@ -367,20 +393,21 @@ async function runChain(text, prompt, type) {
 
   const isCodeRequest = type === "code_assistant" || type === "code_project";
 
-  // Code requests: quality-first (Gemini leads). Writing/chat: speed-first (Groq leads).
+  // Code requests: Gemini first (best JSON/structured output), then capable fallbacks.
+  // Writing/chat: speed-first (Groq leads).
   const candidates = isCodeRequest ? [
-    { name: "gemini",     key: GEMINI_KEY,      fn: () => callGemini(text, prompt, GEMINI_KEY) },
-    { name: "cerebras",   key: CEREBRAS_KEY,    fn: () => callCerebras(text, prompt, CEREBRAS_KEY) },
-    { name: "openrouter", key: OPENROUTER_KEY,  fn: () => callOpenRouter(text, prompt, OPENROUTER_KEY) },
-    { name: "mistral",    key: MISTRAL_KEY,     fn: () => callMistral(text, prompt, MISTRAL_KEY) },
-    { name: "groq",       key: GROQ_KEY,        fn: () => callGroq(text, prompt, GROQ_KEY) },
-    { name: "cloudflare", key: CF_KEY,          fn: () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT), extra: CF_ACCOUNT },
-    { name: "extra1",     key: EXTRA1_KEY,      fn: () => callExtra(text, prompt, EXTRA1_KEY, "Extra1") },
-    { name: "extra2",     key: EXTRA2_KEY,      fn: () => callExtra(text, prompt, EXTRA2_KEY, "Extra2") },
-    { name: "extra3",     key: EXTRA3_KEY,      fn: () => callExtra(text, prompt, EXTRA3_KEY, "Extra3") },
-    { name: "extra4",     key: EXTRA4_KEY,      fn: () => callExtra(text, prompt, EXTRA4_KEY, "Extra4") },
-    { name: "extra5",     key: EXTRA5_KEY,      fn: () => callExtra(text, prompt, EXTRA5_KEY, "Extra5") },
-    { name: "extra6",     key: EXTRA6_KEY,      fn: () => callExtra(text, prompt, EXTRA6_KEY, "Extra6") },
+    { name: "gemini",        key: GEMINI_KEY,      fn: () => callGemini(text, prompt, GEMINI_KEY) },
+    { name: "deepseek-coder",key: OPENROUTER_KEY,  fn: () => callOpenRouterModel(text, prompt, OPENROUTER_KEY, "deepseek/deepseek-coder-v2-instruct:free") },
+    { name: "qwen-coder",    key: OPENROUTER_KEY,  fn: () => callOpenRouterModel(text, prompt, OPENROUTER_KEY, "qwen/qwen-2.5-coder-32b-instruct:free") },
+    { name: "groq-70b",      key: GROQ_KEY,        fn: () => callGroqModel(text, prompt, GROQ_KEY, "llama-3.3-70b-versatile") },
+    { name: "cerebras",      key: CEREBRAS_KEY,    fn: () => callCerebras(text, prompt, CEREBRAS_KEY) },
+    { name: "cloudflare",    key: CF_KEY,          fn: () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT), extra: CF_ACCOUNT },
+    { name: "extra1",        key: EXTRA1_KEY,      fn: () => callExtra(text, prompt, EXTRA1_KEY, "Extra1") },
+    { name: "extra2",        key: EXTRA2_KEY,      fn: () => callExtra(text, prompt, EXTRA2_KEY, "Extra2") },
+    { name: "extra3",        key: EXTRA3_KEY,      fn: () => callExtra(text, prompt, EXTRA3_KEY, "Extra3") },
+    { name: "extra4",        key: EXTRA4_KEY,      fn: () => callExtra(text, prompt, EXTRA4_KEY, "Extra4") },
+    { name: "extra5",        key: EXTRA5_KEY,      fn: () => callExtra(text, prompt, EXTRA5_KEY, "Extra5") },
+    { name: "extra6",        key: EXTRA6_KEY,      fn: () => callExtra(text, prompt, EXTRA6_KEY, "Extra6") },
   ] : [
     { name: "groq",       key: GROQ_KEY,        fn: () => callGroq(text, prompt, GROQ_KEY) },
     { name: "gemini",     key: GEMINI_KEY,       fn: () => callGemini(text, prompt, GEMINI_KEY) },
