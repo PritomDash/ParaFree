@@ -212,6 +212,28 @@ async function callCloudflare(text, prompt, key, account) {
   return data.result.response;
 }
 
+async function callGLM(text, prompt, key) {
+  console.log("Attempting API: GLM");
+  const res = await fetch("https://open.bigmodel.cn/api/paas/v4/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
+    body: JSON.stringify({
+      model: "glm-4-flash",
+      messages: [
+        { role: "system", content: prompt },
+        { role: "user",   content: text }
+      ],
+      max_tokens: 4000,
+      temperature: 0.7
+    })
+  });
+  if (!res.ok) throw new Error("GLM:" + res.status);
+  const data = await res.json();
+  const result = data.choices?.[0]?.message?.content;
+  if (!result) throw new Error("GLM: empty response");
+  return result;
+}
+
 async function callExtra(text, prompt, key, label) {
   console.log("Attempting API:", label);
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -279,11 +301,12 @@ function getPrompt(mode, language) {
 
 // ── MAIN API CHAIN ──
 // Order is STRICT: Groq → Gemini → Cerebras → OpenRouter → Mistral → Cloudflare → Extra1-6
-async function runChain(text, prompt) {
+async function runChain(text, prompt, type) {
   const GROQ_KEY       = process.env.GROQ_KEY;
   const GEMINI_KEY     = process.env.GEMINI_KEY;
   const CEREBRAS_KEY   = process.env.CEREBRAS_KEY;
   const OPENROUTER_KEY = process.env.OPENROUTER_KEY;
+  const GLM_KEY        = process.env.GLM_KEY;
   const MISTRAL_KEY    = process.env.MISTRAL_KEY;
   const CF_KEY         = process.env.CF_KEY;
   const CF_ACCOUNT     = process.env.CF_ACCOUNT;
@@ -294,13 +317,17 @@ async function runChain(text, prompt) {
   const EXTRA5_KEY     = process.env.EXTRA5_KEY;
   const EXTRA6_KEY     = process.env.EXTRA6_KEY;
 
+  // GLM is only used for writing/chat tasks, not code requests
+  const isCodeRequest = type === "code_assistant" || type === "code_project";
+
   // Ordered candidates — Groq MUST be first
   const candidates = [
     { name: "groq",       key: GROQ_KEY,       fn: () => callGroq(text, prompt, GROQ_KEY) },
     { name: "gemini",     key: GEMINI_KEY,      fn: () => callGemini(text, prompt, GEMINI_KEY) },
     { name: "cerebras",   key: CEREBRAS_KEY,    fn: () => callCerebras(text, prompt, CEREBRAS_KEY) },
-    { name: "openrouter",     key: OPENROUTER_KEY,  fn: () => callOpenRouter(text, prompt, OPENROUTER_KEY) },
-    { name: "mistral",        key: MISTRAL_KEY,     fn: () => callMistral(text, prompt, MISTRAL_KEY) },
+    { name: "openrouter", key: OPENROUTER_KEY,  fn: () => callOpenRouter(text, prompt, OPENROUTER_KEY) },
+    ...(!isCodeRequest && validKey(GLM_KEY) ? [{ name: "glm", key: GLM_KEY, fn: () => callGLM(text, prompt, GLM_KEY) }] : []),
+    { name: "mistral",    key: MISTRAL_KEY,     fn: () => callMistral(text, prompt, MISTRAL_KEY) },
     { name: "cloudflare", key: CF_KEY,          fn: () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT), extra: CF_ACCOUNT },
     { name: "extra1",     key: EXTRA1_KEY,      fn: () => callExtra(text, prompt, EXTRA1_KEY, "Extra1") },
     { name: "extra2",     key: EXTRA2_KEY,      fn: () => callExtra(text, prompt, EXTRA2_KEY, "Extra2") },
@@ -500,7 +527,7 @@ module.exports = async function handler(req, res) {
       ? body.prompt.trim()
       : getPrompt(mode || type || "standard", language);
 
-    const { success, result, usedApi, error, apiStatuses } = await runChain(text.trim(), prompt);
+    const { success, result, usedApi, error, apiStatuses } = await runChain(text.trim(), prompt, type);
 
     if (success) {
       return res.status(200).json({
