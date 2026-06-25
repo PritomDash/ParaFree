@@ -1666,7 +1666,832 @@ footer p { margin: 0; font-size: 13px; color: #999; }
 <!-- Toast notification -->
 <div id="toast" role="status" aria-live="polite"></div>
 
-<!-- JavaScript comes in Part 2 -->
+<script>
+/* ── ParaFree Code Assistant — JavaScript ── */
+
+// ── Constants & State ──────────────────────────────────
+const API_URL = '/api/process';
+const MAX_HISTORY = 20;
+
+let conversationHistory = [];
+let attachedFiles = [];
+let currentController = null;
+let isProcessing = false;
+let previewVisible = true;
+let currentPreviewMode = 'desktop';
+let lastUserMessage = '';
+
+const EXTENSIONS = {
+  python:'.py', javascript:'.js', typescript:'.ts',
+  html:'.html', css:'.css', jsx:'.jsx', tsx:'.tsx',
+  java:'.java', cpp:'.cpp', c:'.c', csharp:'.cs',
+  php:'.php', sql:'.sql', bash:'.sh', powershell:'.ps1',
+  go:'.go', rust:'.rs', ruby:'.rb', vue:'.vue',
+  swift:'.swift', kotlin:'.kt', dart:'.dart',
+  json:'.json', xml:'.xml', yaml:'.yaml',
+  markdown:'.md', plaintext:'.txt', text:'.txt'
+};
+
+const FILE_ICONS = {
+  py:'🐍', js:'📜', ts:'📘', html:'🌐', css:'🎨',
+  jsx:'⚛️', tsx:'⚛️', java:'☕', cpp:'⚙️', c:'⚙️',
+  cs:'💠', php:'🐘', sql:'🗃️', go:'🐹', rs:'⚙️',
+  rb:'💎', sh:'🖥️', ps1:'🖥️', md:'📝', txt:'📄',
+  json:'📋', zip:'📦', png:'🖼️', jpg:'🖼️', jpeg:'🖼️',
+  gif:'🖼️', webp:'🖼️', svg:'🖼️', pdf:'📕',
+  docx:'📘', doc:'📘', vue:'💚', swift:'🍎', kt:'🟣'
+};
+
+// ── Element references ──────────────────────────────────
+const chatInput    = document.getElementById('chatInput');
+const sendBtn      = document.getElementById('sendBtn');
+const chatHistory  = document.getElementById('chatHistory');
+const filePillsEl  = document.getElementById('filePills');
+const fileInput    = document.getElementById('fileInput');
+const attachBtn    = document.getElementById('attachBtn');
+const previewFrame = document.getElementById('previewFrame');
+const previewEmpty = document.getElementById('previewEmpty');
+const previewPanel = document.getElementById('previewPanel');
+const dragOverlay  = document.getElementById('dragOverlay');
+const chatPanel    = document.getElementById('chatPanel');
+
+// ── Textarea auto-expand ────────────────────────────────
+chatInput.addEventListener('input', () => {
+  chatInput.style.height = 'auto';
+  chatInput.style.height = Math.min(chatInput.scrollHeight, 200) + 'px';
+});
+
+// ── Enter to send / Shift+Enter for newline ─────────────
+chatInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    if (!isProcessing) handleSend();
+  }
+});
+
+// ── Send / Stop toggle ──────────────────────────────────
+sendBtn.addEventListener('click', () => {
+  if (isProcessing) stopRequest();
+  else handleSend();
+});
+
+function stopRequest() {
+  if (currentController) currentController.abort();
+  isProcessing = false;
+  sendBtn.classList.remove('loading');
+  sendBtn.innerHTML = '<span>↑</span>';
+  sendBtn.title = 'Send message';
+  showToast('Stopped ✓');
+}
+
+// ── Attach buttons ──────────────────────────────────────
+attachBtn.addEventListener('click', () => fileInput.click());
+document.getElementById('toolAttach').addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', async e => {
+  await handleFiles(Array.from(e.target.files));
+  fileInput.value = '';
+});
+
+// ── Toolbar buttons ─────────────────────────────────────
+document.getElementById('toolTogglePreview').addEventListener('click', togglePreview);
+document.getElementById('toolClearChat').addEventListener('click', clearChat);
+document.getElementById('toolCopyLast').addEventListener('click', () => {
+  const all = chatHistory.querySelectorAll('.ai-msg .msg-bubble');
+  if (all.length < 2) { showToast('No response to copy yet'); return; }
+  const last = all[all.length - 1].cloneNode(true);
+  last.querySelectorAll('button').forEach(b => b.remove());
+  navigator.clipboard.writeText(last.innerText || last.textContent || '');
+  showToast('Last response copied!');
+});
+
+// ── Preview controls ────────────────────────────────────
+document.getElementById('ctrlDesktop').addEventListener('click', () => setPreviewMode('desktop'));
+document.getElementById('ctrlTablet').addEventListener('click',  () => setPreviewMode('tablet'));
+document.getElementById('ctrlMobile').addEventListener('click',  () => setPreviewMode('mobile'));
+document.getElementById('ctrlFullscreen').addEventListener('click', openFullscreen);
+document.getElementById('ctrlRefresh').addEventListener('click', refreshPreview);
+document.getElementById('ctrlClosePreview').addEventListener('click', () => {
+  previewPanel.style.display = 'none';
+  previewVisible = false;
+  showToast('Preview hidden — click 👁 Preview to restore');
+});
+
+// ── Console clear ───────────────────────────────────────
+document.getElementById('clearConsoleBtn').addEventListener('click', () => {
+  document.getElementById('consoleOutput').innerHTML =
+    '<span class="console-placeholder">JavaScript console output appears here...</span>';
+});
+
+// ── Drag and drop ───────────────────────────────────────
+chatPanel.addEventListener('dragover', e => {
+  e.preventDefault();
+  dragOverlay.classList.add('active');
+});
+chatPanel.addEventListener('dragleave', e => {
+  if (!chatPanel.contains(e.relatedTarget)) dragOverlay.classList.remove('active');
+});
+chatPanel.addEventListener('drop', async e => {
+  e.preventDefault();
+  dragOverlay.classList.remove('active');
+  await handleFiles(Array.from(e.dataTransfer.files));
+});
+
+// ── Clipboard paste (images) ────────────────────────────
+document.addEventListener('paste', async e => {
+  const img = Array.from(e.clipboardData.items).find(i => i.type.startsWith('image/'));
+  if (img) await handleFiles([img.getAsFile()]);
+});
+
+// ── File handling ───────────────────────────────────────
+async function handleFiles(files) {
+  for (const file of files) {
+    if (!file || !file.name) continue;
+    if (file.size > 2 * 1024 * 1024) {
+      showToast(file.name + ' is too large (max 2 MB)');
+      continue;
+    }
+    const ext = file.name.includes('.') ? file.name.split('.').pop().toLowerCase() : '';
+    if (ext === 'zip') { await handleZip(file); continue; }
+    if (['png','jpg','jpeg','gif','webp','svg'].includes(ext)) {
+      attachedFiles.push({name:file.name, type:'image', content:await readAsBase64(file), ext});
+    } else {
+      attachedFiles.push({name:file.name, type:'code', content:await readAsText(file), ext});
+    }
+  }
+  updateFilePills();
+}
+
+async function handleZip(file) {
+  if (!window.JSZip) { showToast('JSZip not available — please try again'); return; }
+  try {
+    const zip = await window.JSZip.loadAsync(file);
+    const entries = Object.keys(zip.files).filter(n => !zip.files[n].dir);
+    for (const name of entries) {
+      const content = await zip.files[name].async('string');
+      const ext = name.includes('.') ? name.split('.').pop().toLowerCase() : 'txt';
+      attachedFiles.push({name, type:'code', content, ext});
+    }
+    showToast('Extracted ' + entries.length + ' file(s) from ZIP');
+    updateFilePills();
+  } catch(e) { showToast('Could not read ZIP file'); }
+}
+
+const readAsText = file => new Promise((res, rej) => {
+  const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = rej; r.readAsText(file);
+});
+const readAsBase64 = file => new Promise((res, rej) => {
+  const r = new FileReader(); r.onload = e => res(e.target.result.split(',')[1]); r.onerror = rej; r.readAsDataURL(file);
+});
+
+function updateFilePills() {
+  if (!attachedFiles.length) {
+    filePillsEl.style.display = 'none';
+    filePillsEl.innerHTML = '';
+    return;
+  }
+  filePillsEl.style.display = 'flex';
+  filePillsEl.innerHTML = attachedFiles.map((f, i) =>
+    `<div class="file-pill">
+      <span class="file-pill-name">${FILE_ICONS[f.ext] || '📄'} ${escapeHtml(f.name)}</span>
+      <button class="file-pill-rm" onclick="removeFile(${i})" aria-label="Remove file">×</button>
+    </div>`
+  ).join('');
+}
+
+function removeFile(i) { attachedFiles.splice(i, 1); updateFilePills(); }
+
+// ── Send message ────────────────────────────────────────
+async function handleSend() {
+  const message = chatInput.value.trim();
+  if (!message && !attachedFiles.length) return;
+
+  lastUserMessage = message;
+  const filesToSend = [...attachedFiles];
+  addUserMessage(message, filesToSend);
+
+  chatInput.value = '';
+  chatInput.style.height = 'auto';
+  attachedFiles = [];
+  updateFilePills();
+
+  isProcessing = true;
+  sendBtn.classList.add('loading');
+  sendBtn.innerHTML = '<span>■</span>';
+  sendBtn.title = 'Stop generation';
+
+  const thinkingId = showThinking();
+  const context = buildContext(message, filesToSend);
+  currentController = new AbortController();
+
+  try {
+    const resp = await fetch(API_URL, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({text: context, prompt: '', type: 'code_assistant'}),
+      signal: currentController.signal
+    });
+    const data = await resp.json();
+    removeThinking(thinkingId);
+
+    if (data.result) {
+      addAIMessage(data.result, data.usedApi);
+      conversationHistory.push({role:'user', content:message}, {role:'assistant', content:data.result});
+      if (conversationHistory.length > MAX_HISTORY * 2) {
+        conversationHistory = conversationHistory.slice(-MAX_HISTORY * 2);
+      }
+      const code = extractPreviewCode(data.result);
+      if (code) { updatePreview(code); flashPreview(); }
+      if (data.usedApi) updateEngineStatus(data.usedApi);
+    } else {
+      addErrorMessage('The AI returned an empty response. Please try again.');
+    }
+  } catch(e) {
+    removeThinking(thinkingId);
+    if (e.name !== 'AbortError') addErrorMessage();
+  } finally {
+    isProcessing = false;
+    sendBtn.classList.remove('loading');
+    sendBtn.innerHTML = '<span>↑</span>';
+    sendBtn.title = 'Send message';
+    currentController = null;
+  }
+}
+
+function buildContext(message, files) {
+  let ctx = '';
+  if (conversationHistory.length > 0) {
+    ctx += 'Previous conversation:\n';
+    conversationHistory.forEach(h => {
+      ctx += (h.role === 'user' ? 'User' : 'Assistant') + ': ' + h.content + '\n\n';
+    });
+    ctx += '---\n\n';
+  }
+  if (files.length > 0) {
+    ctx += 'Attached files:\n\n';
+    files.forEach(f => {
+      if (f.type === 'code') ctx += 'FILE: ' + f.name + '\n```\n' + f.content + '\n```\n\n';
+      else ctx += 'IMAGE: ' + f.name + ' (image attached)\n\n';
+    });
+  }
+  ctx += 'User request: ' + message + '\n\n';
+  ctx += 'Instructions: Respond as a helpful coding assistant. Use markdown code blocks with language names (e.g. ```html, ```javascript, ```python). For web output (HTML/CSS/JS), provide complete runnable code.';
+  return ctx;
+}
+
+// ── Message rendering ───────────────────────────────────
+function addUserMessage(message, files) {
+  const div = document.createElement('div');
+  div.className = 'msg user-msg';
+  const filesHTML = files.length
+    ? '<div class="msg-file-pills">' + files.map(f =>
+        `<span class="msg-file-pill">${FILE_ICONS[f.ext] || '📄'} ${escapeHtml(f.name)}</span>`
+      ).join('') + '</div>'
+    : '';
+  div.innerHTML =
+    `<div class="msg-bubble-wrap">
+      <div class="msg-meta">
+        <span class="msg-name">You</span>
+        <span class="msg-time">${getTime()}</span>
+      </div>
+      <div class="msg-bubble">
+        ${filesHTML}
+        ${message ? '<p>' + escapeHtml(message).replace(/\n/g, '<br>') + '</p>' : ''}
+      </div>
+    </div>
+    <div class="msg-avatar" style="background:var(--accent);color:#fff;font-weight:700;font-size:13px;flex-shrink:0;">P</div>`;
+  chatHistory.appendChild(div);
+  scrollToBottom();
+}
+
+function addAIMessage(content, usedApi) {
+  const div = document.createElement('div');
+  div.className = 'msg ai-msg';
+  const rendered = renderMarkdown(content);
+  const apiTag = usedApi
+    ? `<span style="font-size:10px;color:var(--text3);margin-left:6px;">via ${escapeHtml(usedApi)}</span>` : '';
+  div.innerHTML =
+    `<div class="msg-avatar ai-avatar">&lt;/&gt;</div>
+    <div class="msg-bubble-wrap">
+      <div class="msg-meta">
+        <span class="msg-name">ParaFree Code</span>
+        <span class="msg-time">${getTime()}</span>
+        ${apiTag}
+      </div>
+      <div class="msg-bubble">
+        <div class="msg-content">${rendered}</div>
+        <div style="margin-top:10px;">
+          <button onclick="copyMsgContent(this)"
+            style="background:none;border:1px solid var(--border);border-radius:6px;padding:2px 9px;font-size:11px;cursor:pointer;color:var(--text2);font-family:'DM Sans',sans-serif;">
+            📋 Copy response
+          </button>
+        </div>
+      </div>
+    </div>`;
+  chatHistory.appendChild(div);
+  scrollToBottom();
+  div.querySelectorAll('pre code').forEach(block => {
+    if (window.hljs) window.hljs.highlightElement(block);
+  });
+}
+
+function addErrorMessage(msg) {
+  const div = document.createElement('div');
+  div.className = 'msg ai-msg error-bubble';
+  div.innerHTML =
+    `<div class="msg-avatar ai-avatar">&lt;/&gt;</div>
+    <div class="msg-bubble-wrap">
+      <div class="msg-meta"><span class="msg-name">ParaFree Code</span><span class="msg-time">${getTime()}</span></div>
+      <div class="msg-bubble">
+        <p>⚠️ ${msg || 'Something went wrong. Please try again.'}</p>
+        <button class="error-retry-btn" onclick="retryLastMessage()">↺ Retry</button>
+      </div>
+    </div>`;
+  chatHistory.appendChild(div);
+  scrollToBottom();
+}
+
+function showThinking() {
+  const id = 'thinking-' + Date.now();
+  const div = document.createElement('div');
+  div.className = 'msg ai-msg thinking-bubble';
+  div.id = id;
+  div.innerHTML =
+    `<div class="msg-avatar ai-avatar">&lt;/&gt;</div>
+    <div class="msg-bubble-wrap">
+      <div class="msg-bubble">
+        <div class="thinking-dots">
+          <div class="thinking-dot"></div>
+          <div class="thinking-dot"></div>
+          <div class="thinking-dot"></div>
+        </div>
+        <span class="thinking-label">ParaFree is thinking...</span>
+      </div>
+    </div>`;
+  chatHistory.appendChild(div);
+  scrollToBottom();
+  return id;
+}
+
+function removeThinking(id) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+}
+
+// ── Markdown + code block rendering ────────────────────
+function renderMarkdown(text) {
+  // Fenced code blocks
+  text = text.replace(/```(\w+)?\n?([\s\S]*?)```/g, (_, lang, code) => {
+    const language = lang || 'plaintext';
+    const lines = code.trim().split('\n');
+    const isLong = lines.length > 30;
+    const preId  = 'pre-' + Math.random().toString(36).slice(2, 9);
+    const blkId  = 'cb-'  + Math.random().toString(36).slice(2, 9);
+    const ext = EXTENSIONS[language] || '.txt';
+    return (
+      `<div class="code-block${isLong ? ' collapsed' : ''}" id="${blkId}">` +
+        `<div class="code-block-bar">` +
+          `<span class="code-lang">${language}</span>` +
+          `<div class="code-actions">` +
+            `<button class="code-btn" onclick="copyCodePre('${preId}')">📋 Copy</button>` +
+            `<button class="code-btn" onclick="downloadCodePre('${preId}','${escapeHtml(ext)}')">⬇️ Download</button>` +
+          `</div>` +
+        `</div>` +
+        `<pre id="${preId}"><code class="language-${language}">${escapeHtml(code.trim())}</code></pre>` +
+        (isLong
+          ? `<button class="code-toggle-btn" onclick="toggleCodeBlock('${blkId}','${preId}',this)">▼ Show all ${lines.length} lines</button>`
+          : '') +
+      `</div>`
+    );
+  });
+  // Inline code
+  text = text.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+  // Bold / italic
+  text = text.replace(/\*\*([\s\S]*?)\*\*/g, '<strong>$1</strong>');
+  text = text.replace(/\*([^\*\n]+)\*/g, '<em>$1</em>');
+  // Headers
+  text = text.replace(/^### (.+)$/gm, '<h3 style="font-size:13px;font-weight:700;margin:10px 0 4px;">$1</h3>');
+  text = text.replace(/^## (.+)$/gm,  '<h2 style="font-size:14px;font-weight:700;margin:12px 0 5px;">$1</h2>');
+  text = text.replace(/^# (.+)$/gm,   '<h2 style="font-size:15px;font-weight:700;margin:14px 0 6px;">$1</h2>');
+  // Lists (bullet then numbered)
+  text = text.replace(/^[•\-\*] (.+)$/gm, '<li>$1</li>');
+  text = text.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
+  text = text.replace(/(<li>[\s\S]*?<\/li>(\n|$))+/g, m => '<ul style="padding-left:18px;margin:6px 0;">' + m + '</ul>');
+  // Paragraphs (split on double newline, skip block-level elements)
+  text = text.split(/\n{2,}/).map(p => {
+    p = p.trim();
+    if (!p || /^<(h[1-6]|ul|ol|li|div|pre|blockquote)/.test(p)) return p;
+    return '<p>' + p.replace(/\n/g, '<br>') + '</p>';
+  }).join('');
+  return text;
+}
+
+function copyCodePre(preId) {
+  const pre = document.getElementById(preId);
+  if (!pre) return;
+  navigator.clipboard.writeText(pre.textContent || '').then(() => showToast('Code copied!'));
+}
+
+function downloadCodePre(preId, ext) {
+  const pre = document.getElementById(preId);
+  if (!pre) return;
+  const blob = new Blob([pre.textContent || ''], {type:'text/plain'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'parafree-code' + ext; a.click();
+  URL.revokeObjectURL(url);
+  showToast('Downloaded!');
+}
+
+function toggleCodeBlock(blkId, preId, btn) {
+  const block = document.getElementById(blkId);
+  const pre   = document.getElementById(preId);
+  if (!block || !pre) return;
+  if (block.classList.contains('collapsed')) {
+    block.classList.remove('collapsed');
+    btn.textContent = '↑ Show less';
+  } else {
+    block.classList.add('collapsed');
+    btn.textContent = '▼ Show all ' + pre.textContent.split('\n').length + ' lines';
+  }
+}
+
+function copyMsgContent(btn) {
+  const bubble = btn.closest('.msg-bubble');
+  if (!bubble) return;
+  const clone = bubble.cloneNode(true);
+  clone.querySelectorAll('button').forEach(b => b.remove());
+  navigator.clipboard.writeText(clone.innerText || clone.textContent || '');
+  showToast('Copied!');
+}
+
+function retryLastMessage() {
+  if (!lastUserMessage) return;
+  chatInput.value = lastUserMessage;
+  handleSend();
+}
+
+// ── Live preview ────────────────────────────────────────
+function extractPreviewCode(text) {
+  const htmlMatch = text.match(/```(?:html|jsx|vue)\n?([\s\S]*?)```/i);
+  if (htmlMatch) return htmlMatch[1].trim();
+  const jsMatch = text.match(/```(?:javascript|js|css)\n?([\s\S]*?)```/i);
+  if (jsMatch) return jsMatch[1].trim();
+  return null;
+}
+
+function buildPreviewHTML(code) {
+  if (/<!doctype|<html/i.test(code)) return code;
+
+  const hasTailwind = /class="[^"]*(?:flex|grid|text-\w|bg-\w|p-\d|m-\d)/.test(code);
+  const hasReact    = /(?:React|useState|ReactDOM)/i.test(code);
+  const hasVue      = /(?:createApp|v-bind|v-model)\b/.test(code);
+
+  const consolePatch =
+    '<sc' + 'ript>' +
+    'window.onerror=(m,s,l)=>{window.parent.postMessage({type:"console",level:"error",message:m+" (line "+l+")"}, "*")};' +
+    '["log","warn","error","info"].forEach(lv=>{const o=console[lv];console[lv]=(...a)=>{window.parent.postMessage({type:"console",level:lv,message:a.join(" ")},"*");o.apply(console,a);}});' +
+    '<\/sc' + 'ript>';
+
+  let head = '<meta charset="UTF-8"><meta name="viewport" content="width=device-width">' + consolePatch;
+  if (hasTailwind) head += '<sc' + 'ript src="https://cdn.tailwindcss.com"><\/sc' + 'ript>';
+  if (hasReact) head +=
+    '<sc' + 'ript src="https://unpkg.com/react@18/umd/react.development.js"><\/sc' + 'ript>' +
+    '<sc' + 'ript src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"><\/sc' + 'ript>' +
+    '<sc' + 'ript src="https://unpkg.com/@babel/standalone/babel.min.js"><\/sc' + 'ript>';
+  if (hasVue) head += '<sc' + 'ript src="https://unpkg.com/vue@3/dist/vue.global.js"><\/sc' + 'ript>';
+
+  if (/^\s*</.test(code) || /<(?:div|section|header|main|p|h[1-6])/i.test(code)) {
+    return `<html><head>${head}<style>body{font-family:sans-serif;padding:16px;box-sizing:border-box;}*{box-sizing:inherit;}</style></head><body>${code}</body></html>`;
+  }
+  if (hasReact) {
+    return `<html><head>${head}</head><body><div id="root"></div><sc` +
+      `ript type="text/babel">${code}\ntry{ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App))}catch(e){document.body.innerHTML="<pre style='color:red'>"+e+"</pre>";}<\/sc` +
+      `ript></body></html>`;
+  }
+  if (hasVue) {
+    return `<html><head>${head}</head><body><div id="app"></div><sc` +
+      `ript>${code}\nVue.createApp(App).mount("#app")<\/sc` +
+      `ript></body></html>`;
+  }
+  // Pure CSS or generic JS
+  const isCSS = /^[\s\S]*\{[\s\S]*:[\s\S]*;/.test(code) && !code.includes('function') && !code.includes('=>');
+  if (isCSS) {
+    return `<html><head>${head}<style>${code}</style></head><body style="font-family:sans-serif;padding:20px;"><p style="color:#888;font-size:13px;">CSS applied — add HTML elements to see styling</p></body></html>`;
+  }
+  return `<html><head>${head}<style>body{font-family:sans-serif;padding:16px;}</style></head><body><sc` +
+    `ript>${code}<\/sc` + `ript></body></html>`;
+}
+
+function updatePreview(code) {
+  const html = buildPreviewHTML(code);
+  previewFrame.srcdoc = html;
+  previewEmpty.style.display = 'none';
+  previewFrame.style.display = 'block';
+  if (!previewVisible) {
+    previewPanel.style.display = 'flex';
+    previewVisible = true;
+  }
+}
+
+function flashPreview() {
+  previewPanel.style.outline = '2px solid var(--accent)';
+  showToast('Preview updated ✓');
+  setTimeout(() => { previewPanel.style.outline = ''; }, 1200);
+}
+
+function setPreviewMode(mode) {
+  currentPreviewMode = mode;
+  const wrap = document.getElementById('previewFrameWrap');
+  const widths = {desktop:'100%', tablet:'768px', mobile:'375px'};
+  previewFrame.style.width = widths[mode] || '100%';
+  if (mode !== 'desktop') {
+    wrap.style.justifyContent = 'center';
+    wrap.style.background = '#e8e8e8';
+    previewFrame.style.boxShadow = '0 0 20px rgba(0,0,0,0.15)';
+  } else {
+    wrap.style.justifyContent = '';
+    wrap.style.background = '';
+    previewFrame.style.boxShadow = '';
+  }
+  const modeMap = {desktop:'ctrlDesktop', tablet:'ctrlTablet', mobile:'ctrlMobile'};
+  Object.entries(modeMap).forEach(([m, id]) => {
+    document.getElementById(id).classList.toggle('active', m === mode);
+  });
+}
+
+function togglePreview() {
+  previewVisible = !previewVisible;
+  previewPanel.style.display = previewVisible ? 'flex' : 'none';
+  showToast(previewVisible ? 'Preview shown' : 'Preview hidden');
+}
+
+function openFullscreen() {
+  if (!previewFrame.srcdoc) { showToast('No preview yet — ask for some code!'); return; }
+  const w = window.open('', '_blank');
+  if (w) { w.document.write(previewFrame.srcdoc); w.document.close(); }
+}
+
+function refreshPreview() {
+  const src = previewFrame.srcdoc;
+  if (!src) { showToast('Nothing to refresh'); return; }
+  previewFrame.srcdoc = '';
+  setTimeout(() => { previewFrame.srcdoc = src; }, 80);
+  showToast('Preview refreshed');
+}
+
+// Console capture from iframe
+window.addEventListener('message', e => {
+  if (!e.data || e.data.type !== 'console') return;
+  const out = document.getElementById('consoleOutput');
+  if (!out) return;
+  const placeholder = out.querySelector('.console-placeholder');
+  if (placeholder) placeholder.remove();
+  const colors = {log:'#e6edf3', warn:'#ffa726', error:'#ef5350', info:'#42a5f5'};
+  const line = document.createElement('div');
+  line.style.cssText = 'padding:2px 8px;font-size:12px;font-family:monospace;color:' + (colors[e.data.level] || '#e6edf3');
+  line.textContent = '[' + e.data.level + '] ' + e.data.message;
+  out.appendChild(line);
+  out.scrollTop = out.scrollHeight;
+});
+
+// ── Engine status dots ──────────────────────────────────
+const ENGINE_DOT_MAP = {
+  gemini:'dot-gemini', google:'dot-gemini',
+  deepseek:'dot-deepseek',
+  openrouter:'dot-deepseek',
+  cerebras:'dot-qwen', qwen:'dot-qwen',
+  groq:'dot-groq',
+  mistral:'dot-mistral', cloudflare:'dot-mistral'
+};
+
+function updateEngineStatus(apiName) {
+  ['dot-gemini','dot-deepseek','dot-qwen','dot-groq','dot-mistral'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.className = 'dot idle';
+  });
+  const key = (apiName || '').toLowerCase();
+  const dotId = ENGINE_DOT_MAP[key] || Object.values(ENGINE_DOT_MAP).find(v => key.includes(v.split('-')[1]));
+  if (dotId) {
+    const el = document.getElementById(dotId);
+    if (el) el.className = 'dot active';
+  }
+  const label = document.getElementById('engineUsedLabel');
+  if (label) label.textContent = apiName ? 'Used: ' + apiName : '';
+}
+
+// ── Utility ─────────────────────────────────────────────
+function scrollToBottom() { chatHistory.scrollTop = chatHistory.scrollHeight; }
+
+function getTime() {
+  return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+    .replace(/'/g,'&#039;');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._tid);
+  t._tid = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+function clearChat() {
+  if (!confirm('Clear conversation history?')) return;
+  conversationHistory = [];
+  chatHistory.querySelectorAll('.msg:not(#welcomeMsg)').forEach(m => m.remove());
+  showToast('Chat cleared');
+}
+
+// ── Scroll-to-top ────────────────────────────────────────
+const scrollTopBtn = document.getElementById('pf-scroll-top');
+window.addEventListener('scroll', () => {
+  scrollTopBtn.classList.toggle('visible', window.scrollY > 300);
+}, {passive:true});
+scrollTopBtn.addEventListener('click', () => window.scrollTo({top:0, behavior:'smooth'}));
+
+// ── Token Tracker ─────────────────────────────────────────
+let tokenUsage = {};
+try { tokenUsage = JSON.parse(localStorage.getItem('pfTokenUsage') || '{}'); } catch(e) { tokenUsage = {}; }
+
+const TRACKER_CFG = [
+  {key:'gem',  limit:1500, name:'Gemini'},
+  {key:'ds',   limit:200,  name:'DeepSeek'},
+  {key:'qw',   limit:200,  name:'Qwen'},
+  {key:'groq', limit:1000, name:'Groq'},
+  {key:'cur',  limit:500,  name:'Cursor'}
+];
+
+function renderTokenTracker() {
+  TRACKER_CFG.forEach(({key, limit}) => {
+    const used = tokenUsage[key] || 0;
+    const pct  = Math.min((used / limit) * 100, 100);
+    const bar  = document.getElementById(key + '-bar');
+    const cnt  = document.getElementById(key + '-count');
+    if (bar) {
+      bar.style.width = pct + '%';
+      bar.style.background = pct >= 90 ? 'var(--red)' : pct >= 70 ? '#f59e0b' : 'var(--accent)';
+    }
+    if (cnt) cnt.textContent = used.toLocaleString() + ' / ' + limit.toLocaleString();
+  });
+}
+
+function adjustUsage(key, delta) {
+  if (tokenUsage[key] === undefined) tokenUsage[key] = 0;
+  tokenUsage[key] = Math.max(0, tokenUsage[key] + delta);
+  localStorage.setItem('pfTokenUsage', JSON.stringify(tokenUsage));
+  renderTokenTracker();
+}
+
+// Wire up +/- buttons (5% of limit per click)
+TRACKER_CFG.forEach(({key, limit}) => {
+  const step = Math.max(10, Math.round(limit * 0.05));
+  const minus = document.getElementById(key + '-minus');
+  const plus  = document.getElementById(key + '-plus');
+  if (minus) minus.addEventListener('click', () => adjustUsage(key, -step));
+  if (plus)  plus.addEventListener('click',  () => adjustUsage(key, +step));
+});
+
+// Midnight reset
+function scheduleMidnightReset() {
+  const now = new Date();
+  const midnight = new Date(); midnight.setHours(24, 0, 0, 0);
+  setTimeout(() => {
+    tokenUsage = {};
+    localStorage.setItem('pfTokenUsage', '{}');
+    renderTokenTracker();
+    showToast('Token counts reset for the new day!');
+    scheduleMidnightReset();
+  }, midnight - now);
+}
+
+function updateCountdown() {
+  const el = document.getElementById('midnightCountdown');
+  if (!el) return;
+  const now = new Date();
+  const midnight = new Date(); midnight.setHours(24, 0, 0, 0);
+  const rem = midnight - now;
+  const h = Math.floor(rem / 3600000);
+  const m = Math.floor((rem % 3600000) / 60000);
+  const s = Math.floor((rem % 60000) / 1000);
+  el.textContent = h + 'h ' + m + 'm ' + s + 's';
+}
+
+// ── Blog system ───────────────────────────────────────────
+const CODE_BLOGS = {
+  b1: {
+    title: 'Free Alternative to Cursor AI in 2026',
+    content: '<h2>Free Alternative to Cursor AI in 2026</h2>' +
+      '<p>Cursor AI has become one of the most popular AI coding tools, but its free tier limits you to just 500 fast requests per month. Once you hit that limit, you are either paying $20 monthly or switching tools. ParaFree Code Assistant solves this problem completely.</p>' +
+      '<h3>What Cursor Free Tier Actually Gives You</h3>' +
+      '<p>The Cursor free plan includes 500 fast premium model requests per month, then unlimited slow requests using less capable models. For developers who code daily, 500 requests can disappear in a week. After that, you wait or pay.</p>' +
+      '<h3>How ParaFree Code is Different</h3>' +
+      '<p>ParaFree uses a fallback chain of multiple AI engines — Gemini, DeepSeek, Qwen, Groq, and Mistral. When one engine hits its rate limit, the next one automatically takes over with full conversation context preserved. Your coding session never stops due to limits.</p>' +
+      '<h3>Feature Comparison</h3>' +
+      '<p>Both tools offer AI code assistance, but ParaFree adds live browser preview for HTML and JavaScript, file upload support including ZIP extraction, and works entirely in your browser without any installation. Cursor requires a desktop app and IDE integration.</p>' +
+      '<h3>When to Use Each Tool</h3>' +
+      '<p>Use Cursor when you need deep IDE integration for large professional projects with a budget. Use ParaFree Code when you need unlimited free access, quick browser-based help, or want to try AI coding without commitment.</p>' +
+      '<p>ParaFree Code Assistant is completely free, requires no signup, and works instantly in any browser.</p>'
+  },
+  b2: {
+    title: 'How to Fix Code Bugs Free Using AI in 2026',
+    content: '<h2>Fix Code Bugs Free with AI in 2026</h2>' +
+      '<p>Finding and fixing bugs is the most time-consuming part of development. AI assistants have transformed this process, but most free tiers run out quickly. Here is how to debug unlimited for free using ParaFree Code Assistant.</p>' +
+      '<h3>Common Bug Types AI Handles Best</h3>' +
+      '<p>AI coding assistants excel at null pointer exceptions, off-by-one errors in loops, incorrect variable scoping, missing error handling, and typos in variable names. These account for most bugs developers encounter daily.</p>' +
+      '<h3>How Context Handoff Works</h3>' +
+      '<p>When you describe a bug to ParaFree Code, the AI maintains full conversation context across multiple messages. If one engine hits its rate limit mid-session, the next engine receives your entire conversation history automatically. You never need to re-explain the problem.</p>' +
+      '<h3>Step by Step Debugging with AI</h3>' +
+      '<p>Start by pasting your code and describing the error message you see. Upload your full file if the bug involves multiple functions. Ask the AI to explain what it found before applying the fix. Use the live preview to verify the fix works for frontend code.</p>' +
+      '<h3>Tips for Better Results</h3>' +
+      '<p>Include error messages exactly as they appear. Mention what you expected versus what happened. Paste relevant surrounding code, not just the broken line. Ask follow-up questions if the first fix does not work — the AI remembers your entire conversation.</p>'
+  },
+  b3: {
+    title: 'Free GitHub Copilot Alternative — AI Code Review 2026',
+    content: '<h2>Free GitHub Copilot Alternative in 2026</h2>' +
+      '<p>GitHub Copilot costs between $10 and $19 per month. For students and independent developers, this adds up to over $200 yearly. ParaFree Code Assistant provides similar AI code assistance completely free.</p>' +
+      '<h3>What Copilot Does Well</h3>' +
+      '<p>GitHub Copilot integrates directly into VS Code and other editors, providing inline suggestions as you type. It understands your codebase context and can complete entire functions. For professional developers on company budgets, it is a worthwhile investment.</p>' +
+      '<h3>What ParaFree Code Does Better</h3>' +
+      '<p>ParaFree Code offers conversation-based assistance where you can ask questions, get explanations, and iterate on solutions through dialogue. The live preview lets you see HTML and JavaScript results instantly. File upload allows you to share entire projects for review.</p>' +
+      '<h3>Code Review Workflow</h3>' +
+      '<p>Upload your code file or paste it into the chat. Ask ParaFree to review for bugs, security issues, performance problems, or style. The AI provides specific feedback with explanations. Ask follow-up questions about any suggestion.</p>' +
+      '<h3>Best Use Cases</h3>' +
+      '<p>ParaFree Code works best for code review, learning new concepts, debugging specific problems, generating boilerplate, and writing documentation. Copilot works better for real-time autocomplete in an editor. Use both together for maximum coverage at zero cost.</p>'
+  },
+  b4: {
+    title: 'Best Free AI Coding Tools 2026 — Complete Comparison',
+    content: '<h2>Best Free AI Coding Tools in 2026</h2>' +
+      '<p>The AI coding tool landscape has expanded rapidly in 2026. From IDE plugins to browser-based assistants, developers have more options than ever. This guide compares the best free options.</p>' +
+      '<h3>Codeium — Best Free IDE Plugin</h3>' +
+      '<p>Codeium offers unlimited free autocomplete in VS Code, JetBrains, and other editors. Quality is good for simple completions but falls short for complex reasoning tasks. Best for developers who want always-on autocomplete without paying.</p>' +
+      '<h3>Aider — Best Free Terminal Tool</h3>' +
+      '<p>Aider is an open-source terminal tool that works with your existing API keys. You pay for API usage but the tool itself is free. Best for developers comfortable managing API keys and working in terminal.</p>' +
+      '<h3>Cursor Free Tier — Best Limited IDE</h3>' +
+      '<p>Cursor provides 500 premium requests monthly with full VS Code compatibility. After the limit, slower models take over. Best for developers who need occasional AI assistance in their existing editor.</p>' +
+      '<h3>ParaFree Code — Best Browser Tool</h3>' +
+      '<p>ParaFree Code combines multiple AI engines with automatic fallback, live preview, file upload, and unlimited conversation. No installation, no signup, works in any browser. Best for students, casual developers, and anyone who wants instant AI help without setup.</p>' +
+      '<h3>Which Should You Use</h3>' +
+      '<p>Use multiple tools together. Codeium for autocomplete while typing, ParaFree Code for debugging and explanation sessions. The combination costs nothing and covers every use case.</p>'
+  },
+  b5: {
+    title: 'Generate Code Free with AI — No Signup No Limits 2026',
+    content: '<h2>Generate Code Free with AI in 2026</h2>' +
+      '<p>AI code generation has reached a point where describing what you want in plain English produces working code in seconds. The challenge is finding a free tool without frustrating limits. ParaFree Code generates unlimited code at no cost.</p>' +
+      '<h3>What You Can Generate</h3>' +
+      '<p>ParaFree Code handles complete web pages in HTML, CSS, and JavaScript, React and Vue components, Python scripts for data processing, API endpoints in Node.js or Python, SQL queries and database schemas, shell scripts for automation, and documentation including README files.</p>' +
+      '<h3>How to Write Good Prompts</h3>' +
+      '<p>Be specific about what the code should do. Mention the language and any frameworks you prefer. Describe the input and expected output. Include requirements like responsive design or error handling. The more specific you are, the better the generated code.</p>' +
+      '<h3>Iterating on Generated Code</h3>' +
+      '<p>Generated code is rarely perfect on the first attempt. Use the conversation to refine it — ask the AI to add features, fix issues, or change the approach. ParaFree remembers your full conversation so you never need to repeat context. The live preview shows web results instantly.</p>' +
+      '<h3>Learning from Generated Code</h3>' +
+      '<p>Ask ParaFree to explain any code it generates. Understanding why the code works makes you a better developer. Ask about alternative approaches, potential problems, or how to extend the code. AI code generation is most valuable when paired with learning.</p>'
+  }
+};
+
+function showCodeBlog(id) {
+  const blog = CODE_BLOGS[id];
+  if (!blog) return;
+  document.getElementById('codeBlogContent').innerHTML = blog.content;
+  document.getElementById('codeBlogModalTitle').textContent = blog.title;
+  document.getElementById('codeBlogModal').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeCodeBlog() {
+  document.getElementById('codeBlogModal').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+// ── Initialization ────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  renderTokenTracker();
+  scheduleMidnightReset();
+  setInterval(updateCountdown, 1000);
+  updateCountdown();
+
+  // Blog modal: backdrop click + Escape
+  document.getElementById('codeBlogModal').addEventListener('click', e => {
+    if (e.target.id === 'codeBlogModal') closeCodeBlog();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeCodeBlog();
+  });
+
+  // Share param: ?s=base64encodedText
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const shared = params.get('s');
+    if (shared) { chatInput.value = atob(shared); showToast('Shared code loaded!'); }
+  } catch(e) {}
+});
+</script>
 
 </body>
 </html>
