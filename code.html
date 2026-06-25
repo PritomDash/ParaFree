@@ -255,9 +255,9 @@ nav .nav-links a.active::after { width: 100%; }
   border-bottom: 1px solid var(--border);
 }
 
-/* ─── Chat Panel (left 65%) ─── */
+/* ─── Chat Panel (left 55%) ─── */
 .chat-panel {
-  flex: 65;
+  flex: 55;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -682,22 +682,25 @@ nav .nav-links a.active::after { width: 100%; }
   border-color: #b7e4c7;
 }
 
-/* ─── Preview Panel (right 35%) ─── */
+/* ─── Preview Panel (right 45%) — hidden until code arrives ─── */
 .preview-panel {
-  flex: 35;
+  flex: 45;
   min-width: 0;
-  display: flex;
+  display: none;
   flex-direction: column;
   overflow: hidden;
-  background: var(--surface);
+  background: var(--code-bg);
+}
+.preview-panel.visible {
+  display: flex;
 }
 
 /* Preview header */
 .preview-header {
   flex-shrink: 0;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  padding: 7px 10px;
+  background: var(--code-surface);
+  border-bottom: 1px solid var(--code-border);
+  padding: 8px 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -707,7 +710,7 @@ nav .nav-links a.active::after { width: 100%; }
   font-family: 'Syne', sans-serif;
   font-size: 12px;
   font-weight: 700;
-  color: var(--text2);
+  color: var(--code-text);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   white-space: nowrap;
@@ -721,7 +724,7 @@ nav .nav-links a.active::after { width: 100%; }
 .preview-ctrl {
   background: none;
   border: 1px solid transparent;
-  color: var(--text3);
+  color: var(--code-muted);
   padding: 3px 6px;
   border-radius: 5px;
   cursor: pointer;
@@ -730,14 +733,14 @@ nav .nav-links a.active::after { width: 100%; }
   line-height: 1;
 }
 .preview-ctrl:hover, .preview-ctrl.active {
-  background: var(--accent-light);
-  color: var(--accent);
-  border-color: #b7e4c7;
+  background: rgba(255,255,255,0.1);
+  color: var(--code-text);
+  border-color: var(--code-border);
 }
 .preview-divider {
   width: 1px;
   height: 14px;
-  background: var(--border);
+  background: var(--code-border);
   margin: 0 3px;
   flex-shrink: 0;
 }
@@ -798,25 +801,33 @@ nav .nav-links a.active::after { width: 100%; }
 }
 .preview-frame-wrap.updated { animation: previewFlash 0.8s ease-out; }
 
-/* Console panel */
+/* Console panel — collapsed by default, expand on click */
 .console-panel {
   flex-shrink: 0;
-  height: 115px;
+  height: 32px;
+  overflow: hidden;
   border-top: 1px solid var(--code-border);
   display: flex;
   flex-direction: column;
   background: var(--code-bg);
+  transition: height 0.25s ease;
+  cursor: pointer;
+}
+.console-panel.expanded {
+  height: 180px;
+  cursor: default;
 }
 .console-header {
   flex-shrink: 0;
   background: var(--code-surface);
-  padding: 4px 10px;
+  padding: 6px 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid var(--code-border);
   font-size: 11px;
   color: var(--code-muted);
+  user-select: none;
   font-family: 'DM Sans', sans-serif;
   font-weight: 600;
   text-transform: uppercase;
@@ -929,7 +940,7 @@ footer p { margin: 0; font-size: 13px; color: #999; }
     min-height: 280px;
     display: none;
   }
-  .preview-panel.has-content { display: flex; }
+  .preview-panel.visible { display: flex; }
   .engine-used-label { display: none; }
 }
 
@@ -1380,7 +1391,10 @@ footer p { margin: 0; font-size: 13px; color: #999; }
 
     <!-- Preview header -->
     <div class="preview-header">
-      <span class="preview-title">Live Preview</span>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="preview-title">Live Preview</span>
+        <span id="previewBadge" style="display:none;background:var(--accent2);color:#fff;font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600;">Updated ✓</span>
+      </div>
       <div class="preview-controls">
         <button class="preview-ctrl active" id="ctrlDesktop" title="Desktop view">🖥</button>
         <button class="preview-ctrl" id="ctrlTablet" title="Tablet (768px)">📱</button>
@@ -1408,13 +1422,14 @@ footer p { margin: 0; font-size: 13px; color: #999; }
       ></iframe>
     </div>
 
-    <!-- Console -->
+    <!-- Console (collapsed by default, click header to expand) -->
     <div class="console-panel" id="consolePanel">
       <div class="console-header">
-        <span>Console</span>
+        <span><span id="consoleArrow">▶</span> Console</span>
+        <span id="consoleCount" style="margin-left:auto;margin-right:8px;font-size:10px;"></span>
         <button class="console-clear-btn" id="clearConsoleBtn">Clear</button>
       </div>
-      <div class="console-output" id="consoleOutput">
+      <div class="console-output" id="consoleOutput" onclick="event.stopPropagation()">
         <span class="console-placeholder">JavaScript console output appears here...</span>
       </div>
     </div>
@@ -1680,7 +1695,7 @@ let conversationHistory = [];
 let attachedFiles = [];
 let currentController = null;
 let isProcessing = false;
-let previewVisible = true;
+let previewVisible = false;
 let currentPreviewMode = 'desktop';
 let lastUserMessage = '';
 
@@ -1774,17 +1789,19 @@ document.getElementById('ctrlMobile').addEventListener('click',  () => setPrevie
 document.getElementById('ctrlFullscreen').addEventListener('click', openFullscreen);
 document.getElementById('ctrlRefresh').addEventListener('click', refreshPreview);
 document.getElementById('ctrlClosePreview').addEventListener('click', () => {
-  previewPanel.style.display = 'none';
-  previewPanel.classList.remove('has-content');
-  document.getElementById('previewEditArea').style.display = 'none';
-  previewVisible = false;
-  showToast('Preview hidden — click 👁 Preview to restore');
+  hidePreviewPanel();
 });
 
-// ── Console clear ───────────────────────────────────────
-document.getElementById('clearConsoleBtn').addEventListener('click', () => {
+// ── Console toggle + clear ──────────────────────────────
+document.getElementById('consolePanel').addEventListener('click', e => {
+  if (!e.target.closest('#clearConsoleBtn') && !e.target.closest('#consoleOutput')) toggleConsole();
+});
+document.getElementById('clearConsoleBtn').addEventListener('click', e => {
+  e.stopPropagation();
   document.getElementById('consoleOutput').innerHTML =
     '<span class="console-placeholder">JavaScript console output appears here...</span>';
+  const cnt = document.getElementById('consoleCount');
+  if (cnt) cnt.textContent = '';
 });
 
 // ── Drag and drop ───────────────────────────────────────
@@ -2251,9 +2268,7 @@ function updatePreview(code) {
   previewFrame.srcdoc = html;
   previewEmpty.style.display = 'none';
   previewFrame.style.display = 'block';
-  previewPanel.style.display = 'flex';
-  previewPanel.classList.add('has-content');
-  previewVisible = true;
+  showPreviewPanel();
   document.getElementById('previewEditArea').style.display = 'block';
   flashPreview();
 }
@@ -2277,17 +2292,17 @@ function renderInPreview(code) {
   previewFrame.srcdoc = html;
   previewEmpty.style.display = 'none';
   previewFrame.style.display = 'block';
-  previewPanel.style.display = 'flex';
-  previewPanel.classList.add('has-content');
-  previewVisible = true;
+  showPreviewPanel();
   document.getElementById('previewEditArea').style.display = 'block';
-  showToast('Preview ready ✓');
+  flashPreview();
 }
 
 function flashPreview() {
-  previewPanel.style.outline = '2px solid var(--accent)';
-  showToast('Preview updated ✓');
-  setTimeout(() => { previewPanel.style.outline = ''; }, 1200);
+  const badge = document.getElementById('previewBadge');
+  if (!badge) return;
+  badge.style.display = 'inline-block';
+  clearTimeout(badge._timer);
+  badge._timer = setTimeout(() => { badge.style.display = 'none'; }, 2000);
 }
 
 function sendPreviewEdit() {
@@ -2418,10 +2433,29 @@ function setPreviewMode(mode) {
   });
 }
 
+function showPreviewPanel() {
+  previewPanel.classList.add('visible');
+  previewPanel.style.display = 'flex';
+  previewVisible = true;
+}
+
+function hidePreviewPanel() {
+  previewPanel.classList.remove('visible');
+  previewPanel.style.display = 'none';
+  document.getElementById('previewEditArea').style.display = 'none';
+  previewVisible = false;
+}
+
+function toggleConsole() {
+  const panel = document.getElementById('consolePanel');
+  if (!panel) return;
+  panel.classList.toggle('expanded');
+  const arrow = document.getElementById('consoleArrow');
+  if (arrow) arrow.textContent = panel.classList.contains('expanded') ? '▼' : '▶';
+}
+
 function togglePreview() {
-  previewVisible = !previewVisible;
-  previewPanel.style.display = previewVisible ? 'flex' : 'none';
-  showToast(previewVisible ? 'Preview shown' : 'Preview hidden');
+  if (previewVisible) hidePreviewPanel(); else showPreviewPanel();
 }
 
 function openFullscreen() {
@@ -2451,6 +2485,13 @@ window.addEventListener('message', e => {
   line.textContent = '[' + e.data.level + '] ' + e.data.message;
   out.appendChild(line);
   out.scrollTop = out.scrollHeight;
+  const cnt = document.getElementById('consoleCount');
+  const n = out.querySelectorAll('div').length;
+  if (cnt) cnt.textContent = n + (n === 1 ? ' msg' : ' msgs');
+  if (e.data.level === 'error') {
+    const cp = document.getElementById('consolePanel');
+    if (cp && !cp.classList.contains('expanded')) { cp.classList.add('expanded'); const arr = document.getElementById('consoleArrow'); if (arr) arr.textContent = '▼'; }
+  }
 });
 
 // ── Engine status dots ──────────────────────────────────
