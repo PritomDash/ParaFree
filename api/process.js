@@ -285,9 +285,10 @@ Return ONLY this JSON inside a \`\`\`json code block. Nothing else. No text befo
 {"type":"presentation","title":"Title","slides":[{"title":"Slide Title","bullets":["Point one","Point two","Point three"]}]}
 Create 6-8 slides minimum. Make content professional and specific.
 
-RULE 4 — DOCUMENT/WORD DOC REQUESTS:
-Return ONLY this JSON inside a \`\`\`json code block. Nothing else.
-{"type":"document","title":"Title","content":[{"type":"heading","text":"Section"},{"type":"paragraph","text":"Content"},{"type":"bullet","text":"List item"}]}
+RULE 4 — DOCUMENT/WORD DOC/PDF/REPORT/ESSAY/LETTER REQUESTS:
+Return ONLY this JSON inside a \`\`\`json code block. Nothing else. No text before or after.
+{"type":"document","title":"Document Title","content":[{"type":"heading","text":"Introduction"},{"type":"paragraph","text":"Full detailed paragraph here with professional content."},{"type":"heading","text":"Section 2"},{"type":"paragraph","text":"More detailed content here."},{"type":"bullet","text":"Key point one"},{"type":"bullet","text":"Key point two"},{"type":"heading","text":"Conclusion"},{"type":"paragraph","text":"Concluding paragraph here."}]}
+Create minimum 8-10 content items. Make paragraphs detailed and professional (2-4 sentences each). Use headings, paragraphs, and bullets appropriately.
 
 RULE 5 — WEBSITE/APP/UI REQUESTS:
 Return ONLY complete HTML in one \`\`\`html code block. Start with <!DOCTYPE html>. Include all CSS and JS. No explanations.
