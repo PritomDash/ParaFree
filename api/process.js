@@ -272,32 +272,20 @@ const PROMPTS = {
   grammar:      "Check and correct the following text for grammar, spelling, and punctuation errors.\n\nRespond in this exact format:\nCORRECTED TEXT:\n[Write the fully corrected text here]\n\nERRORS FOUND:\n[List each error: Original → Corrected (reason)]\n\nIf no errors found write: No errors found! Your text looks great.\n\nText to check:",
   cv_build:     "You are a professional resume writer. Read the instructions below carefully and follow them exactly. Output ONLY what is requested — no labels, no preamble, no markdown, no extra commentary:",
   cover_letter: "You are a professional resume writer. Write a tailored cover letter based on the candidate information and job description below. Keep it to 3-4 paragraphs. Do not use generic openers like 'I am writing to express my interest' or clichés like 'proven track record' or 'passionate about'. Ground every sentence in the candidate's actual background and the specific role. Confident, natural tone. Return only the cover letter text, nothing else:",
-  code_assistant: `You are ParaFree AI — a sharp, fast, helpful AI assistant like Claude or ChatGPT.
+  code_assistant: `You are ParaFree AI.
+Never ask questions. Never ask for clarification. Just do the task.
 
-CRITICAL RULES:
-1. When user asks you to BUILD or CREATE something — BUILD IT IMMEDIATELY. Do not ask clarifying questions. Do not describe what you will do. Just do it. Show the code. Now.
+Rules:
+- Build requests: return complete code NOW, no preamble
+- Greetings: 1 sentence reply only
+- Questions: answer briefly, 2-3 sentences max
+- HTML/CSS/JS requests: single complete file starting with <!DOCTYPE html>
+- Presentation requests: return ONLY this JSON in a json code block:
+  {"type":"presentation","title":"...","slides":[{"title":"...","bullets":["...","..."]}]}
+- Document requests: return ONLY this JSON in a json code block:
+  {"type":"document","title":"...","content":[{"type":"heading","text":"..."},{"type":"paragraph","text":"..."}]}
 
-2. When user says "just do it" or "don't ask questions" — NEVER ask anything. Make reasonable decisions yourself. Deliver the result immediately.
-
-3. Keep explanations SHORT. 1-2 sentences max before the code. Let the code speak for itself.
-
-4. For ANY web/UI request — always return COMPLETE, RUNNABLE HTML in one code block. Include CSS and JS in the same file. Make it look modern and professional.
-
-5. For greetings — 1 short friendly sentence. No lists. No features. Just be human.
-
-6. For general questions — answer directly and concisely. No filler. No fluff.
-
-7. NEVER say: "I'll get started...", "Would you like me to...", "Here's a preview link: [insert link]", "I can definitely help...", "That's an interesting idea...", or any fake placeholder text.
-
-8. Response length guide:
-   Greeting: 1 sentence
-   General question: 2-4 sentences
-   Code request: minimal intro + full code
-   Complex explanation: clear and concise
-
-9. For ANY website, app, calculator, game, or UI request — ALWAYS return COMPLETE HTML in ONE \`\`\`html code block. Start with <!DOCTYPE html> and end with </html>. Include ALL CSS in <style> tags and ALL JavaScript in <script> tags. The code must be 100% complete, standalone, and runnable as a single file. NEVER split into multiple files for simple requests.
-
-Remember: DO THE WORK. Don't talk about doing the work. Just do it.`,
+No explanations before code. No questions ever. Just output the result directly.`,
 };
 
 function getPrompt(mode, language) {
@@ -325,17 +313,15 @@ async function runChain(text, prompt, type) {
   const EXTRA5_KEY     = process.env.EXTRA5_KEY;
   const EXTRA6_KEY     = process.env.EXTRA6_KEY;
 
-  // GLM is only used for writing/chat tasks, not code requests
   const isCodeRequest = type === "code_assistant" || type === "code_project";
 
-  // Ordered candidates — Groq MUST be first
-  const candidates = [
-    { name: "groq",       key: GROQ_KEY,       fn: () => callGroq(text, prompt, GROQ_KEY) },
+  // Code requests: quality-first (Gemini leads). Writing/chat: speed-first (Groq leads).
+  const candidates = isCodeRequest ? [
     { name: "gemini",     key: GEMINI_KEY,      fn: () => callGemini(text, prompt, GEMINI_KEY) },
     { name: "cerebras",   key: CEREBRAS_KEY,    fn: () => callCerebras(text, prompt, CEREBRAS_KEY) },
     { name: "openrouter", key: OPENROUTER_KEY,  fn: () => callOpenRouter(text, prompt, OPENROUTER_KEY) },
-    ...(!isCodeRequest && validKey(GLM_KEY) ? [{ name: "glm", key: GLM_KEY, fn: () => callGLM(text, prompt, GLM_KEY) }] : []),
     { name: "mistral",    key: MISTRAL_KEY,     fn: () => callMistral(text, prompt, MISTRAL_KEY) },
+    { name: "groq",       key: GROQ_KEY,        fn: () => callGroq(text, prompt, GROQ_KEY) },
     { name: "cloudflare", key: CF_KEY,          fn: () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT), extra: CF_ACCOUNT },
     { name: "extra1",     key: EXTRA1_KEY,      fn: () => callExtra(text, prompt, EXTRA1_KEY, "Extra1") },
     { name: "extra2",     key: EXTRA2_KEY,      fn: () => callExtra(text, prompt, EXTRA2_KEY, "Extra2") },
@@ -343,6 +329,20 @@ async function runChain(text, prompt, type) {
     { name: "extra4",     key: EXTRA4_KEY,      fn: () => callExtra(text, prompt, EXTRA4_KEY, "Extra4") },
     { name: "extra5",     key: EXTRA5_KEY,      fn: () => callExtra(text, prompt, EXTRA5_KEY, "Extra5") },
     { name: "extra6",     key: EXTRA6_KEY,      fn: () => callExtra(text, prompt, EXTRA6_KEY, "Extra6") },
+  ] : [
+    { name: "groq",       key: GROQ_KEY,        fn: () => callGroq(text, prompt, GROQ_KEY) },
+    { name: "gemini",     key: GEMINI_KEY,       fn: () => callGemini(text, prompt, GEMINI_KEY) },
+    { name: "cerebras",   key: CEREBRAS_KEY,     fn: () => callCerebras(text, prompt, CEREBRAS_KEY) },
+    { name: "openrouter", key: OPENROUTER_KEY,   fn: () => callOpenRouter(text, prompt, OPENROUTER_KEY) },
+    ...(validKey(GLM_KEY) ? [{ name: "glm", key: GLM_KEY, fn: () => callGLM(text, prompt, GLM_KEY) }] : []),
+    { name: "mistral",    key: MISTRAL_KEY,      fn: () => callMistral(text, prompt, MISTRAL_KEY) },
+    { name: "cloudflare", key: CF_KEY,           fn: () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT), extra: CF_ACCOUNT },
+    { name: "extra1",     key: EXTRA1_KEY,       fn: () => callExtra(text, prompt, EXTRA1_KEY, "Extra1") },
+    { name: "extra2",     key: EXTRA2_KEY,       fn: () => callExtra(text, prompt, EXTRA2_KEY, "Extra2") },
+    { name: "extra3",     key: EXTRA3_KEY,       fn: () => callExtra(text, prompt, EXTRA3_KEY, "Extra3") },
+    { name: "extra4",     key: EXTRA4_KEY,       fn: () => callExtra(text, prompt, EXTRA4_KEY, "Extra4") },
+    { name: "extra5",     key: EXTRA5_KEY,       fn: () => callExtra(text, prompt, EXTRA5_KEY, "Extra5") },
+    { name: "extra6",     key: EXTRA6_KEY,       fn: () => callExtra(text, prompt, EXTRA6_KEY, "Extra6") },
   ];
 
   // All start as skipped; updated as each candidate is tried

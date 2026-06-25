@@ -92,6 +92,10 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <!-- JSZip -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<!-- pptxgenjs -->
+<script src="https://unpkg.com/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<!-- docx -->
+<script src="https://unpkg.com/docx@8.5.0/build/index.js"></script>
 <!-- Fonts -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
@@ -1861,6 +1865,19 @@ function updateFilePills() {
 
 function removeFile(i) { attachedFiles.splice(i, 1); updateFilePills(); }
 
+// ── Message preprocessing ───────────────────────────────
+function preprocessMessage(message) {
+  const buildKw = ['create','build','make','generate','write','develop','design','code'];
+  const uiKw    = ['calculator','website','app','page','form','game','tool','dashboard',
+                   'landing','portfolio','timer','clock','todo','list','quiz','chat','ui',
+                   'interface','component','button','menu','navbar','login','signup','gallery'];
+  const m = message.toLowerCase();
+  if (buildKw.some(k => m.includes(k)) && uiKw.some(k => m.includes(k))) {
+    return message + '\n\nIMPORTANT: Return ONLY a complete single-file HTML with inline CSS and JS. Start with <!DOCTYPE html>. No explanations. No questions. Just code.';
+  }
+  return message;
+}
+
 // ── Send message ────────────────────────────────────────
 async function handleSend() {
   const message = chatInput.value.trim();
@@ -1881,7 +1898,8 @@ async function handleSend() {
   sendBtn.title = 'Stop generation';
 
   const thinkingId = showThinking();
-  const context = buildContext(message, filesToSend);
+  const processedMessage = preprocessMessage(message);
+  const context = buildContext(processedMessage, filesToSend);
   currentController = new AbortController();
 
   try {
@@ -1900,26 +1918,32 @@ async function handleSend() {
       if (conversationHistory.length > MAX_HISTORY * 2) {
         conversationHistory = conversationHistory.slice(-MAX_HISTORY * 2);
       }
-      const code = extractCode(data.result);
-      if (code) {
-        updatePreview(code);
-      } else if (/<(?:html|body|div|section|header|main|article|p|h[1-6]|button|form|ul|ol|table)/i.test(data.result)) {
-        updatePreview(data.result);
+      const pptxMatch = data.result.match(/```json\r?\n([\s\S]*?"type"\s*:\s*"presentation"[\s\S]*?)```/);
+      const docxMatch = data.result.match(/```json\r?\n([\s\S]*?"type"\s*:\s*"document"[\s\S]*?)```/);
+      if (pptxMatch) {
+        try { const sd = JSON.parse(pptxMatch[1]); await createPPTX(sd); renderSlidesPreview(sd); } catch(e) { console.error('PPTX:', e); }
+      } else if (docxMatch) {
+        try { const dd = JSON.parse(docxMatch[1]); await createDOCX(dd); } catch(e) { console.error('DOCX:', e); }
       } else {
-        setTimeout(() => {
-          const lastBubble = chatHistory.querySelector('.ai-msg:last-child .msg-bubble');
-          if (!lastBubble) return;
-          const blocks = lastBubble.querySelectorAll('pre code');
-          for (const block of blocks) {
-            const lang = (block.className.match(/language-(\w+)/) || [])[1] || '';
-            const text = block.textContent;
-            if (/^(html|jsx|tsx|vue|svelte|css|js|javascript|typescript|ts)$/.test(lang) ||
-                /<!DOCTYPE|<html|<div|<body|<style|<button|<input|<form/i.test(text)) {
-              updatePreview(text);
-              break;
+        const code = extractCode(data.result);
+        if (code) {
+          setTimeout(() => renderInPreview(code), 300);
+        } else {
+          setTimeout(() => {
+            const lastBubble = chatHistory.querySelector('.ai-msg:last-child .msg-bubble');
+            if (!lastBubble) return;
+            const blocks = lastBubble.querySelectorAll('pre code');
+            for (const block of blocks) {
+              const lang = (block.className.match(/language-(\w+)/) || [])[1] || '';
+              const txt = block.textContent;
+              if (/^(html|jsx|tsx|vue|svelte|css|js|javascript|typescript|ts)$/.test(lang) ||
+                  /<!DOCTYPE|<html|<div|<body|<style|<button|<input|<form/i.test(txt)) {
+                renderInPreview(txt);
+                break;
+              }
             }
-          }
-        }, 400);
+          }, 400);
+        }
       }
       if (data.usedApi) updateEngineStatus(data.usedApi);
     } else {
@@ -2156,14 +2180,25 @@ function retryLastMessage() {
 
 // ── Live preview ────────────────────────────────────────
 function extractCode(text) {
-  const htmlMatch = text.match(/```(?:html|jsx|vue|tsx|svelte)\n?([\s\S]*?)```/i);
-  if (htmlMatch) return htmlMatch[1].trim();
-  const jsMatch = text.match(/```(?:javascript|js|ts|typescript|css|scss)\n?([\s\S]*?)```/i);
-  if (jsMatch) return jsMatch[1].trim();
-  const anyMatch = text.match(/```\w*\n?([\s\S]*?)```/);
-  if (anyMatch) {
-    const inner = anyMatch[1].trim();
-    if (/<[a-z]/i.test(inner) || /\{[\s\S]*:[\s\S]*;/.test(inner)) return inner;
+  // Priority 1: Complete HTML document
+  const fullHtml = text.match(/<!DOCTYPE[\s\S]*?<\/html>/i);
+  if (fullHtml) return fullHtml[0];
+  // Priority 2: HTML/JSX/Vue/TSX fenced block
+  const htmlBlock = text.match(/```(?:html|jsx|tsx|vue|svelte)\r?\n([\s\S]*?)```/i);
+  if (htmlBlock) return htmlBlock[1].trim();
+  // Priority 3: Any fenced block containing HTML
+  const anyBlock = text.match(/```(?:\w+)?\r?\n([\s\S]*?)```/);
+  if (anyBlock) {
+    const inner = anyBlock[1].trim();
+    if (/<[a-z]/i.test(inner) || /\{[\s\S]*?:[\s\S]*?;/.test(inner)) return inner;
+  }
+  // Priority 4: JS/TS/CSS fenced block
+  const jsBlock = text.match(/```(?:javascript|js|typescript|ts|css|scss)\r?\n([\s\S]*?)```/i);
+  if (jsBlock) return jsBlock[1].trim();
+  // Priority 5: Raw HTML in response
+  if (/<!DOCTYPE|<html/i.test(text)) {
+    const start = text.search(/<!DOCTYPE|<html/i);
+    if (start !== -1) return text.slice(start);
   }
   return null;
 }
@@ -2223,6 +2258,32 @@ function updatePreview(code) {
   flashPreview();
 }
 
+function renderInPreview(code) {
+  let html = code;
+  if (!code.includes('<!DOCTYPE') && !code.includes('<html')) {
+    html = '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">' +
+      '\n<meta name="viewport" content="width=device-width">' +
+      '\n<style>body{font-family:-apple-system,sans-serif;margin:0;padding:16px;background:#f7f5f0;}</style>' +
+      '\n</head>\n<body>' + code + '\n</body>\n</html>';
+  }
+  const consolePatch =
+    '<sc' + 'ript>' +
+    'window.onerror=(m,s,l)=>{window.parent.postMessage({type:"console",level:"error",message:m+" (line "+l+")"},"*");return true};' +
+    '["log","warn","error","info"].forEach(lv=>{const o=console[lv];console[lv]=(...a)=>{window.parent.postMessage({type:"console",level:lv,message:a.join(" ")},"*");o.apply(console,a);}});' +
+    '<\/sc' + 'ript>';
+  html = html.indexOf('</body>') !== -1
+    ? html.replace('</body>', consolePatch + '</body>')
+    : html + consolePatch;
+  previewFrame.srcdoc = html;
+  previewEmpty.style.display = 'none';
+  previewFrame.style.display = 'block';
+  previewPanel.style.display = 'flex';
+  previewPanel.classList.add('has-content');
+  previewVisible = true;
+  document.getElementById('previewEditArea').style.display = 'block';
+  showToast('Preview ready ✓');
+}
+
 function flashPreview() {
   previewPanel.style.outline = '2px solid var(--accent)';
   showToast('Preview updated ✓');
@@ -2241,6 +2302,101 @@ function sendPreviewEdit() {
 document.getElementById('previewEditInput').addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendPreviewEdit(); }
 });
+
+// ── PPTX creation ────────────────────────────────────────
+async function createPPTX(data) {
+  if (!window.PptxGenJS) { showToast('PPTX library not loaded yet'); return; }
+  const pptx = new PptxGenJS();
+  pptx.layout = 'LAYOUT_16x9';
+  pptx.author = 'ParaFree AI';
+  pptx.title = data.title || 'Presentation';
+  const C = { bg:'F7F5F0', accent:'2D6A4F', text:'1A1814', light:'FFFFFF', sub:'A5D6A7' };
+  (data.slides || []).forEach((slide, i) => {
+    const s = pptx.addSlide();
+    s.background = { color: i === 0 ? C.accent : C.bg };
+    s.addText(slide.title || '', { x:0.5, y:0.3, w:9, h:1.2, fontSize: i===0?40:28, bold:true, color: i===0?C.light:C.accent, fontFace:'Calibri' });
+    if (slide.bullets && slide.bullets.length) {
+      s.addText(slide.bullets.map(b => ({ text:b, options:{bullet:true, fontSize:16, color:i===0?C.light:C.text, breakLine:true} })),
+        { x:0.5, y:1.8, w:9, h:4, fontFace:'Calibri', valign:'top' });
+    }
+    s.addText(String(i+1), { x:9, y:5.1, w:0.5, h:0.3, fontSize:10, color:i===0?C.sub:C.text, align:'right' });
+  });
+  const fileName = (data.title||'presentation').replace(/[^a-z0-9]/gi,'-').toLowerCase();
+  await pptx.writeFile({ fileName: fileName + '.pptx' });
+  showToast('PPTX downloaded!');
+  showDocumentButtons('pptx', data);
+}
+
+// ── DOCX creation ────────────────────────────────────────
+async function createDOCX(data) {
+  if (!window.docx) { showToast('DOCX library not loaded yet'); return; }
+  const { Document, Paragraph, TextRun, HeadingLevel, Packer, AlignmentType } = window.docx;
+  const children = [];
+  if (data.title) children.push(new Paragraph({ text:data.title, heading:HeadingLevel.TITLE, alignment:AlignmentType.CENTER }));
+  (data.content || []).forEach(item => {
+    if (item.type === 'heading')  children.push(new Paragraph({ text:item.text, heading:HeadingLevel.HEADING_1 }));
+    else if (item.type === 'heading2') children.push(new Paragraph({ text:item.text, heading:HeadingLevel.HEADING_2 }));
+    else if (item.type === 'bullet') children.push(new Paragraph({ text:item.text, bullet:{level:0} }));
+    else children.push(new Paragraph({ children:[new TextRun({ text:item.text, size:24 })] }));
+    children.push(new Paragraph({ text:'' }));
+  });
+  const doc = new Document({ sections:[{ properties:{}, children }] });
+  const blob = await Packer.toBlob(doc);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = (data.title||'document').replace(/[^a-z0-9]/gi,'-').toLowerCase() + '.docx';
+  a.click(); URL.revokeObjectURL(url);
+  showToast('DOCX downloaded!');
+  showDocumentButtons('docx', data);
+  renderDocPreview(data);
+}
+
+// ── Slide preview ─────────────────────────────────────────
+function renderSlidesPreview(data) {
+  const slidesHTML = (data.slides || []).map((slide, i) => `
+    <div style="width:100%;aspect-ratio:16/9;background:${i===0?'#2d6a4f':'#ffffff'};border-radius:8px;
+      padding:32px 40px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.1);position:relative;box-sizing:border-box;">
+      <h2 style="color:${i===0?'#ffffff':'#2d6a4f'};font-size:clamp(14px,2.5vw,24px);margin:0 0 16px;font-family:sans-serif;font-weight:700;">${slide.title||''}</h2>
+      <ul style="color:${i===0?'#e8f5e9':'#1a1814'};font-size:clamp(11px,1.8vw,16px);line-height:1.8;margin:0;padding-left:20px;font-family:sans-serif;">
+        ${(slide.bullets||[]).map(b=>`<li>${b}</li>`).join('')}
+      </ul>
+      <span style="position:absolute;bottom:12px;right:16px;color:${i===0?'#a5d6a7':'#9e9890'};font-size:11px;">${i+1}/${data.slides.length}</span>
+    </div>`).join('');
+  renderInPreview(`<html><head><meta charset="UTF-8"><style>body{margin:0;padding:16px;background:#e8e6e0;font-family:sans-serif;}
+    h1{color:#2d6a4f;font-size:16px;margin:0 0 12px;text-align:center;}</style></head>
+    <body><h1>${data.title||'Presentation'} — ${(data.slides||[]).length} slides</h1>${slidesHTML}</body></html>`);
+}
+
+// ── Document preview ──────────────────────────────────────
+function renderDocPreview(data) {
+  const contentHTML = (data.content||[]).map(item => {
+    if (item.type==='heading')  return `<h2>${item.text}</h2>`;
+    if (item.type==='heading2') return `<h3>${item.text}</h3>`;
+    if (item.type==='bullet')   return `<li>${item.text}</li>`;
+    return `<p>${item.text}</p>`;
+  }).join('\n');
+  renderInPreview(`<html><head><meta charset="UTF-8"><style>
+    body{margin:0;padding:40px;background:#f5f5f5;font-family:Georgia,serif;}
+    .doc{background:#fff;max-width:800px;margin:0 auto;padding:60px;box-shadow:0 2px 20px rgba(0,0,0,.1);}
+    h1{color:#2d6a4f;font-size:28px;border-bottom:2px solid #2d6a4f;padding-bottom:12px;}
+    h2{color:#1a1814;font-size:20px;margin-top:32px;} p,li{line-height:1.8;color:#333;}
+    ul{padding-left:24px;}</style></head>
+    <body><div class="doc"><h1>${data.title||'Document'}</h1>${contentHTML}</div></body></html>`);
+}
+
+// ── Document download buttons ─────────────────────────────
+function showDocumentButtons(type, data) {
+  window._lastDocData = data;
+  previewPanel.querySelectorAll('.doc-btn-row').forEach(el => el.remove());
+  const btnRow = document.createElement('div');
+  btnRow.className = 'doc-btn-row';
+  btnRow.style.cssText = 'display:flex;gap:8px;padding:12px;background:var(--bg);border-top:1px solid var(--border);flex-wrap:wrap;flex-shrink:0;';
+  const dlBtn = type === 'pptx'
+    ? `<button onclick="createPPTX(window._lastDocData)" style="padding:8px 16px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;">⬇ Download PPTX</button>`
+    : `<button onclick="createDOCX(window._lastDocData)" style="padding:8px 16px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;">⬇ Download DOCX</button>`;
+  btnRow.innerHTML = dlBtn;
+  previewPanel.appendChild(btnRow);
+}
 
 function setPreviewMode(mode) {
   currentPreviewMode = mode;
