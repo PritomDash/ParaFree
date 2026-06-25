@@ -295,6 +295,8 @@ CRITICAL RULES:
    Code request: minimal intro + full code
    Complex explanation: clear and concise
 
+9. For ANY website, app, calculator, game, or UI request — ALWAYS return COMPLETE HTML in ONE \`\`\`html code block. Start with <!DOCTYPE html> and end with </html>. Include ALL CSS in <style> tags and ALL JavaScript in <script> tags. The code must be 100% complete, standalone, and runnable as a single file. NEVER split into multiple files for simple requests.
+
 Remember: DO THE WORK. Don't talk about doing the work. Just do it.`,
 };
 

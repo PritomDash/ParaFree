@@ -923,8 +923,9 @@ footer p { margin: 0; font-size: 13px; color: #999; }
     flex: none;
     height: 50vh;
     min-height: 280px;
+    display: none;
   }
-  .preview-panel.hidden { display: none; }
+  .preview-panel.has-content { display: flex; }
   .engine-used-label { display: none; }
 }
 
@@ -1414,6 +1415,12 @@ footer p { margin: 0; font-size: 13px; color: #999; }
       </div>
     </div>
 
+    <!-- Preview edit area (shown when code is in preview) -->
+    <div id="previewEditArea" style="display:none; padding:10px 12px; border-top:1px solid var(--border); background:var(--surface); flex-shrink:0;">
+      <textarea id="previewEditInput" placeholder="Ask AI to modify this code..." style="width:100%; height:56px; padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-family:inherit; resize:none; font-size:13px; box-sizing:border-box; background:var(--bg); color:var(--text); outline:none;"></textarea>
+      <button onclick="sendPreviewEdit()" style="margin-top:6px; padding:7px 16px; background:var(--accent); color:white; border:none; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600;">Update Preview ↑</button>
+    </div>
+
   </div><!-- /preview-panel -->
 
 </div><!-- /code-app -->
@@ -1764,6 +1771,8 @@ document.getElementById('ctrlFullscreen').addEventListener('click', openFullscre
 document.getElementById('ctrlRefresh').addEventListener('click', refreshPreview);
 document.getElementById('ctrlClosePreview').addEventListener('click', () => {
   previewPanel.style.display = 'none';
+  previewPanel.classList.remove('has-content');
+  document.getElementById('previewEditArea').style.display = 'none';
   previewVisible = false;
   showToast('Preview hidden — click 👁 Preview to restore');
 });
@@ -1896,6 +1905,21 @@ async function handleSend() {
         updatePreview(code);
       } else if (/<(?:html|body|div|section|header|main|article|p|h[1-6]|button|form|ul|ol|table)/i.test(data.result)) {
         updatePreview(data.result);
+      } else {
+        setTimeout(() => {
+          const lastBubble = chatHistory.querySelector('.ai-msg:last-child .msg-bubble');
+          if (!lastBubble) return;
+          const blocks = lastBubble.querySelectorAll('pre code');
+          for (const block of blocks) {
+            const lang = (block.className.match(/language-(\w+)/) || [])[1] || '';
+            const text = block.textContent;
+            if (/^(html|jsx|tsx|vue|svelte|css|js|javascript|typescript|ts)$/.test(lang) ||
+                /<!DOCTYPE|<html|<div|<body|<style|<button|<input|<form/i.test(text)) {
+              updatePreview(text);
+              break;
+            }
+          }
+        }, 400);
       }
       if (data.usedApi) updateEngineStatus(data.usedApi);
     } else {
@@ -2193,7 +2217,9 @@ function updatePreview(code) {
   previewEmpty.style.display = 'none';
   previewFrame.style.display = 'block';
   previewPanel.style.display = 'flex';
+  previewPanel.classList.add('has-content');
   previewVisible = true;
+  document.getElementById('previewEditArea').style.display = 'block';
   flashPreview();
 }
 
@@ -2202,6 +2228,19 @@ function flashPreview() {
   showToast('Preview updated ✓');
   setTimeout(() => { previewPanel.style.outline = ''; }, 1200);
 }
+
+function sendPreviewEdit() {
+  const input = document.getElementById('previewEditInput');
+  const message = input.value.trim();
+  if (!message) return;
+  chatInput.value = 'Update the code in preview: ' + message;
+  input.value = '';
+  handleSend();
+}
+
+document.getElementById('previewEditInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendPreviewEdit(); }
+});
 
 function setPreviewMode(mode) {
   currentPreviewMode = mode;
