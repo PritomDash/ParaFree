@@ -1909,12 +1909,22 @@ function removeFile(i) { attachedFiles.splice(i, 1); updateFilePills(); }
 
 // ── Message preprocessing ───────────────────────────────
 function preprocessMessage(message) {
-  const buildKw = ['create','build','make','generate','write','develop','design','code'];
-  const uiKw    = ['calculator','website','app','page','form','game','tool','dashboard',
-                   'landing','portfolio','timer','clock','todo','list','quiz','chat','ui',
-                   'interface','component','button','menu','navbar','login','signup','gallery'];
   const m = message.toLowerCase();
-  if (buildKw.some(k => m.includes(k)) && uiKw.some(k => m.includes(k))) {
+  const buildKw = ['create','build','make','generate','write','develop','design','produce'];
+  const hasBuild = buildKw.some(k => m.includes(k));
+  const pptKw = ['ppt','pptx','powerpoint','presentation','slides','slide deck','slideshow'];
+  const docKw = ['doc','docx','word document','word doc','report','essay','proposal','letter','article','document'];
+  const webKw = ['website','app','page','form','game','tool','dashboard','landing','portfolio',
+                 'timer','clock','todo','list','quiz','calculator','ui','interface','component',
+                 'button','menu','navbar','login','signup','gallery','widget'];
+
+  if (hasBuild && pptKw.some(k => m.includes(k))) {
+    return message + '\n\nIMPORTANT: Return ONLY a JSON code block with this exact format:\n```json\n{"type":"presentation","title":"...","slides":[{"title":"...","bullets":["...","...","..."]}]}\n```\nCreate 6-8 slides. No text before or after the JSON.';
+  }
+  if (hasBuild && docKw.some(k => m.includes(k))) {
+    return message + '\n\nIMPORTANT: Return ONLY a JSON code block with this exact format:\n```json\n{"type":"document","title":"...","content":[{"type":"heading","text":"..."},{"type":"paragraph","text":"..."},{"type":"bullet","text":"..."}]}\n```\nNo text before or after the JSON.';
+  }
+  if (hasBuild && webKw.some(k => m.includes(k))) {
     return message + '\n\nIMPORTANT: Return ONLY a complete single-file HTML with inline CSS and JS. Start with <!DOCTYPE html>. No explanations. No questions. Just code.';
   }
   return message;
@@ -1948,7 +1958,7 @@ async function handleSend() {
     const resp = await fetch(API_URL, {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({text: context, prompt: 'Respond naturally and helpfully.', type: 'code_assistant'}),
+      body: JSON.stringify({text: context, prompt: '', type: 'code_assistant'}),
       signal: currentController.signal
     });
     const data = await resp.json();
@@ -1960,13 +1970,25 @@ async function handleSend() {
       if (conversationHistory.length > MAX_HISTORY * 2) {
         conversationHistory = conversationHistory.slice(-MAX_HISTORY * 2);
       }
-      const pptxMatch = data.result.match(/```json\r?\n([\s\S]*?"type"\s*:\s*"presentation"[\s\S]*?)```/);
-      const docxMatch = data.result.match(/```json\r?\n([\s\S]*?"type"\s*:\s*"document"[\s\S]*?)```/);
-      if (pptxMatch) {
-        try { const sd = JSON.parse(pptxMatch[1]); await createPPTX(sd); renderSlidesPreview(sd); } catch(e) { console.error('PPTX:', e); }
-      } else if (docxMatch) {
-        try { const dd = JSON.parse(docxMatch[1]); await createDOCX(dd); } catch(e) { console.error('DOCX:', e); }
-      } else {
+      const jsonBlocks = [...data.result.matchAll(/```(?:json)?\r?\n([\s\S]*?)```/g)].map(m => m[1].trim());
+      let handledAsDoc = false;
+      for (const raw of jsonBlocks) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed.type === 'presentation' && Array.isArray(parsed.slides)) {
+            showToast('Creating PowerPoint…');
+            await createPPTX(parsed);
+            renderSlidesPreview(parsed);
+            showPreviewPanel();
+            handledAsDoc = true; break;
+          } else if (parsed.type === 'document' && Array.isArray(parsed.content)) {
+            showToast('Creating Word document…');
+            await createDOCX(parsed);
+            handledAsDoc = true; break;
+          }
+        } catch(_) {}
+      }
+      if (!handledAsDoc) {
         const code = extractCode(data.result);
         if (code) {
           setTimeout(() => renderInPreview(code), 300);
@@ -2350,18 +2372,42 @@ async function createPPTX(data) {
   pptx.layout = 'LAYOUT_16x9';
   pptx.author = 'ParaFree AI';
   pptx.title = data.title || 'Presentation';
-  const C = { bg:'F7F5F0', accent:'2D6A4F', text:'1A1814', light:'FFFFFF', sub:'A5D6A7' };
-  (data.slides || []).forEach((slide, i) => {
+  const C = { bg:'F7F5F0', accent:'2D6A4F', accent2:'52B788', text:'1A1814', light:'FFFFFF', muted:'6B6660' };
+  const slides = data.slides || [];
+  const total = slides.length;
+  slides.forEach((slide, i) => {
     const s = pptx.addSlide();
-    s.background = { color: i === 0 ? C.accent : C.bg };
-    s.addText(slide.title || '', { x:0.5, y:0.3, w:9, h:1.2, fontSize: i===0?40:28, bold:true, color: i===0?C.light:C.accent, fontFace:'Calibri' });
-    if (slide.bullets && slide.bullets.length) {
-      s.addText(slide.bullets.map(b => ({ text:b, options:{bullet:true, fontSize:16, color:i===0?C.light:C.text, breakLine:true} })),
-        { x:0.5, y:1.8, w:9, h:4, fontFace:'Calibri', valign:'top' });
+    const isTitleSlide = i === 0;
+    s.background = { color: isTitleSlide ? C.accent : C.bg };
+    // green top bar on content slides
+    if (!isTitleSlide) {
+      s.addShape(pptx.ShapeType.rect, { x:0, y:0, w:'100%', h:0.08, fill:{ color:C.accent } });
     }
-    s.addText(String(i+1), { x:9, y:5.1, w:0.5, h:0.3, fontSize:10, color:i===0?C.sub:C.text, align:'right' });
+    // title
+    s.addText(slide.title || '', {
+      x:0.5, y: isTitleSlide ? 1.8 : 0.25, w:9, h: isTitleSlide ? 1.4 : 0.9,
+      fontSize: isTitleSlide ? 40 : 26, bold:true,
+      color: isTitleSlide ? C.light : C.accent, fontFace:'Calibri',
+      align: isTitleSlide ? 'center' : 'left'
+    });
+    if (isTitleSlide) {
+      // divider line
+      s.addShape(pptx.ShapeType.rect, { x:2.5, y:3.35, w:5, h:0.04, fill:{ color:C.accent2 } });
+      // subtitle: "Created by ParaFree AI"
+      s.addText('Created by ParaFree AI', { x:0.5, y:3.6, w:9, h:0.4, fontSize:14, color:C.accent2, fontFace:'Calibri', align:'center', italic:true });
+    }
+    if (slide.bullets && slide.bullets.length) {
+      s.addText(
+        slide.bullets.map(b => ({ text:b, options:{ bullet:true, fontSize:15, color: isTitleSlide ? C.light : C.text, breakLine:true, paraSpaceAfter:4 } })),
+        { x:0.5, y: isTitleSlide ? 4.2 : 1.35, w:9, h: isTitleSlide ? 1.4 : 3.8, fontFace:'Calibri', valign:'top' }
+      );
+    }
+    // slide number (skip title slide)
+    if (!isTitleSlide) {
+      s.addText(`${i} / ${total - 1}`, { x:8.2, y:5.1, w:1.3, h:0.3, fontSize:9, color:C.muted, align:'right', fontFace:'Calibri' });
+    }
   });
-  const fileName = (data.title||'presentation').replace(/[^a-z0-9]/gi,'-').toLowerCase();
+  const fileName = (data.title || 'presentation').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   await pptx.writeFile({ fileName: fileName + '.pptx' });
   showToast('PPTX downloaded!');
   showDocumentButtons('pptx', data);

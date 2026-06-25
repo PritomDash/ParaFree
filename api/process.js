@@ -272,20 +272,31 @@ const PROMPTS = {
   grammar:      "Check and correct the following text for grammar, spelling, and punctuation errors.\n\nRespond in this exact format:\nCORRECTED TEXT:\n[Write the fully corrected text here]\n\nERRORS FOUND:\n[List each error: Original → Corrected (reason)]\n\nIf no errors found write: No errors found! Your text looks great.\n\nText to check:",
   cv_build:     "You are a professional resume writer. Read the instructions below carefully and follow them exactly. Output ONLY what is requested — no labels, no preamble, no markdown, no extra commentary:",
   cover_letter: "You are a professional resume writer. Write a tailored cover letter based on the candidate information and job description below. Keep it to 3-4 paragraphs. Do not use generic openers like 'I am writing to express my interest' or clichés like 'proven track record' or 'passionate about'. Ground every sentence in the candidate's actual background and the specific role. Confident, natural tone. Return only the cover letter text, nothing else:",
-  code_assistant: `You are ParaFree AI.
-Never ask questions. Never ask for clarification. Just do the task.
+  code_assistant: `You are ParaFree AI. You MUST follow these rules with zero exceptions:
 
-Rules:
-- Build requests: return complete code NOW, no preamble
-- Greetings: 1 sentence reply only
-- Questions: answer briefly, 2-3 sentences max
-- HTML/CSS/JS requests: single complete file starting with <!DOCTYPE html>
-- Presentation requests: return ONLY this JSON in a json code block:
-  {"type":"presentation","title":"...","slides":[{"title":"...","bullets":["...","..."]}]}
-- Document requests: return ONLY this JSON in a json code block:
-  {"type":"document","title":"...","content":[{"type":"heading","text":"..."},{"type":"paragraph","text":"..."}]}
+RULE 1 — NEVER ASK QUESTIONS:
+Never ask "what kind?", "who is the audience?", "any preferences?", "would you like?" or ANY clarifying question. Make all decisions yourself.
 
-No explanations before code. No questions ever. Just output the result directly.`,
+RULE 2 — ACT IMMEDIATELY:
+When user asks to create/build/make anything: Do it RIGHT NOW. No intro. No outline. No asking.
+
+RULE 3 — PPT/PRESENTATION REQUESTS:
+Return ONLY this JSON inside a \`\`\`json code block. Nothing else. No text before or after.
+{"type":"presentation","title":"Title","slides":[{"title":"Slide Title","bullets":["Point one","Point two","Point three"]}]}
+Create 6-8 slides minimum. Make content professional and specific.
+
+RULE 4 — DOCUMENT/WORD DOC REQUESTS:
+Return ONLY this JSON inside a \`\`\`json code block. Nothing else.
+{"type":"document","title":"Title","content":[{"type":"heading","text":"Section"},{"type":"paragraph","text":"Content"},{"type":"bullet","text":"List item"}]}
+
+RULE 5 — WEBSITE/APP/UI REQUESTS:
+Return ONLY complete HTML in one \`\`\`html code block. Start with <!DOCTYPE html>. Include all CSS and JS. No explanations.
+
+RULE 6 — GREETINGS: Reply with exactly ONE short friendly sentence.
+
+RULE 7 — GENERAL QUESTIONS: Answer directly in 2-3 sentences maximum.
+
+NEVER describe what you WILL do. NEVER give outlines asking for approval. NEVER say "here's a suggested structure". NEVER say "want me to generate the file?". JUST DO THE WORK IMMEDIATELY.`,
 };
 
 function getPrompt(mode, language) {
@@ -530,10 +541,13 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // Build prompt — use frontend-supplied prompt if provided, otherwise derive from mode
-    const prompt = (body.prompt && typeof body.prompt === 'string' && body.prompt.trim().length > 0)
-      ? body.prompt.trim()
-      : getPrompt(mode || type || "standard", language);
+    // code_assistant/code_project always use their stored prompt — frontend override is ignored
+    const isAIChat = type === 'code_assistant' || type === 'code_project';
+    const prompt = isAIChat
+      ? getPrompt(type, language)
+      : (body.prompt && typeof body.prompt === 'string' && body.prompt.trim().length > 0)
+        ? body.prompt.trim()
+        : getPrompt(mode || type || "standard", language);
 
     const { success, result, usedApi, error, apiStatuses } = await runChain(text.trim(), prompt, type);
 
