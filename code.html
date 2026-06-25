@@ -1318,17 +1318,9 @@ footer p { margin: 0; font-size: 13px; color: #999; }
             <span class="msg-time">just now</span>
           </div>
           <div class="msg-bubble">
-            <p>👋 Hi! I'm ParaFree Code Assistant.</p>
-            <p>I can help you with:</p>
-            <ul>
-              <li>🐛 Debugging and fixing code</li>
-              <li>💡 Explaining how code works</li>
-              <li>⚡ Generating new code from descriptions</li>
-              <li>🔍 Code review and best practices</li>
-              <li>🔄 Converting between languages</li>
-              <li>📝 Writing documentation and README files</li>
-            </ul>
-            <p style="margin-top:8px;">Just paste your code, describe what you need, or upload files to get started. I support all major programming languages and can show you a live preview for HTML/CSS/JavaScript code!</p>
+            <p>Hey! 👋 I'm ParaFree Code — your free AI assistant for coding and beyond.</p>
+            <p>Ask me to debug your code, explain a concept, generate something from scratch, or just chat. I've got you.</p>
+            <p>Drop your code here, upload a file, or just say hi! 😊</p>
           </div>
         </div>
       </div>
@@ -1887,7 +1879,7 @@ async function handleSend() {
     const resp = await fetch(API_URL, {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({text: context, prompt: '', type: 'code_assistant'}),
+      body: JSON.stringify({text: context, prompt: 'Respond naturally and helpfully.', type: 'code_assistant'}),
       signal: currentController.signal
     });
     const data = await resp.json();
@@ -1918,24 +1910,28 @@ async function handleSend() {
 }
 
 function buildContext(message, files) {
-  let ctx = '';
+  let context = '';
+
   if (conversationHistory.length > 0) {
-    ctx += 'Previous conversation:\n';
+    context += 'You are continuing a conversation. Here is the FULL conversation so far — match the tone and remember everything discussed:\n\n';
     conversationHistory.forEach(h => {
-      ctx += (h.role === 'user' ? 'User' : 'Assistant') + ': ' + h.content + '\n\n';
+      const role = h.role === 'user' ? 'User' : 'Assistant';
+      context += role + ': ' + h.content + '\n\n';
     });
-    ctx += '---\n\n';
+    context += '---\nContinue naturally from where the conversation left off. Match the same tone and personality as the previous assistant messages above.\n\n';
   }
+
   if (files.length > 0) {
-    ctx += 'Attached files:\n\n';
+    context += 'Attached files:\n\n';
     files.forEach(f => {
-      if (f.type === 'code') ctx += 'FILE: ' + f.name + '\n```\n' + f.content + '\n```\n\n';
-      else ctx += 'IMAGE: ' + f.name + ' (image attached)\n\n';
+      if (f.type === 'code') context += 'FILE: ' + f.name + '\n```\n' + f.content + '\n```\n\n';
+      else context += 'IMAGE: ' + f.name + ' (image attached)\n\n';
     });
   }
-  ctx += 'User request: ' + message + '\n\n';
-  ctx += 'Instructions: Respond as a helpful coding assistant. Use markdown code blocks with language names (e.g. ```html, ```javascript, ```python). For web output (HTML/CSS/JS), provide complete runnable code.';
-  return ctx;
+
+  context += 'User: ' + message;
+
+  return context;
 }
 
 // ── Message rendering ───────────────────────────────────
