@@ -284,6 +284,30 @@
   }
   .home-chip:hover { background: var(--accent); color: white; border-color: var(--accent); }
 
+  /* AI Chat grid layout */
+  #aiChatLayout {
+    display: grid;
+    grid-template-columns: 1fr;
+    height: 70vh;
+    min-height: 500px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--surface);
+    transition: grid-template-columns 0.3s ease;
+  }
+  #aiChatLayout.preview-open { grid-template-columns: 55fr 45fr; }
+  #homeChatPanel { display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+  #homePreviewPanel { display: none; flex-direction: column; background: #0d1117; overflow: hidden; border-left: 1px solid var(--border); }
+  #homePreviewPanel.visible { display: flex; }
+  @media (max-width: 768px) {
+    #aiChatLayout.preview-open {
+      grid-template-columns: 1fr;
+      grid-template-rows: 1fr 50vh;
+    }
+    #homePreviewPanel { border-left: none; border-top: 1px solid var(--border); }
+  }
+
   @keyframes homeThinking {
     0%,60%,100% { transform:translateY(0);opacity:0.4; }
     30% { transform:translateY(-4px);opacity:1; }
@@ -1169,30 +1193,58 @@
 
 <!-- PARAFREE AI PANEL -->
 <div id="aiWrap" style="display:none; max-width:1100px; margin:0 auto 16px; padding:0 16px;">
-  <div style="display:flex;flex-direction:column;height:70vh;min-height:500px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--surface);">
+  <div id="aiChatLayout">
 
-    <!-- Chat History -->
-    <div id="homeChatHistory" style="flex:1;overflow-y:auto;padding:20px 24px;scroll-behavior:smooth;">
-      <!-- Welcome message -->
-      <div style="display:flex;gap:12px;margin-bottom:20px;">
-        <div style="width:32px;height:32px;border-radius:50%;background:var(--accent);color:white;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">✦</div>
-        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:18px;border-bottom-left-radius:4px;padding:14px 18px;max-width:85%;line-height:1.6;font-size:15px;color:var(--text);">
-          <p style="margin:0 0 8px;">Hey! I'm <strong>ParaFree AI</strong> — your free assistant for everything.</p>
-          <p style="margin:0 0 14px;color:var(--text2);font-size:13px;">Build websites, create PPT presentations, write Word docs, generate PDFs, debug code, answer any question.</p>
-          <div style="display:flex;flex-wrap:wrap;gap:6px;">
-            <button onclick="homeChipClick('Create a 5-slide presentation')" class="home-chip">📊 Make a presentation</button>
-            <button onclick="homeChipClick('Write a professional document')" class="home-chip">📄 Write a document</button>
-            <button onclick="homeChipClick('Build a website')" class="home-chip">💻 Build a website</button>
-            <button onclick="homeChipClick('Generate a PDF report')" class="home-chip">📈 Generate a PDF</button>
-            <button onclick="homeChipClick('Debug my code')" class="home-chip">🐛 Debug code</button>
-            <button onclick="homeChipClick('Research a topic')" class="home-chip">🔍 Research a topic</button>
+    <!-- LEFT: Chat Panel -->
+    <div id="homeChatPanel">
+
+      <!-- Chat History -->
+      <div id="homeChatHistory" style="flex:1;overflow-y:auto;padding:20px 24px;scroll-behavior:smooth;">
+        <!-- Welcome message -->
+        <div style="display:flex;gap:12px;margin-bottom:20px;">
+          <div style="width:32px;height:32px;border-radius:50%;background:var(--accent);color:white;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">✦</div>
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:18px;border-bottom-left-radius:4px;padding:14px 18px;max-width:85%;line-height:1.6;font-size:15px;color:var(--text);">
+            <p style="margin:0 0 8px;">Hey! I'm <strong>ParaFree AI</strong> — your free assistant for everything.</p>
+            <p style="margin:0 0 14px;color:var(--text2);font-size:13px;">Build websites, create PPT presentations, write Word docs, generate PDFs, debug code, answer any question.</p>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+              <button onclick="homeChipClick('Create a 5-slide presentation')" class="home-chip">📊 Make a presentation</button>
+              <button onclick="homeChipClick('Write a professional document')" class="home-chip">📄 Write a document</button>
+              <button onclick="homeChipClick('Build a website')" class="home-chip">💻 Build a website</button>
+              <button onclick="homeChipClick('Generate a PDF report')" class="home-chip">📈 Generate a PDF</button>
+              <button onclick="homeChipClick('Debug my code')" class="home-chip">🐛 Debug code</button>
+              <button onclick="homeChipClick('Find developer jobs')" class="home-chip">🔍 Find jobs</button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Live Preview panel (hidden by default) -->
-    <div id="homePreviewPanel" style="display:none;flex-direction:column;border-top:1px solid var(--border);height:340px;background:#0d1117;flex-shrink:0;">
+      <!-- File strip -->
+      <div id="homeAttachedFiles" style="display:none;flex-wrap:wrap;gap:6px;padding:8px 16px;border-top:1px solid var(--border);background:var(--surface2);flex-shrink:0;"></div>
+
+      <!-- Input -->
+      <div style="border-top:1px solid var(--border);padding:12px 16px;background:var(--surface);flex-shrink:0;">
+        <div style="max-width:760px;margin:0 auto;">
+          <div id="homeInputBox" style="display:flex;align-items:flex-end;gap:10px;background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:10px 14px;transition:border-color 0.2s;" onfocusin="this.style.borderColor='var(--accent)'" onfocusout="this.style.borderColor='var(--border)'">
+            <button onclick="homeAttachClick()" title="Attach files" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:18px;padding:4px;flex-shrink:0;">📎</button>
+            <input type="file" id="homeFileInput" multiple accept="*/*" style="display:none" onchange="homeHandleFiles(Array.from(this.files));this.value=''">
+            <textarea id="homeChatInput" placeholder="Message ParaFree AI..." rows="1" style="flex:1;border:none;outline:none;resize:none;font-family:'DM Sans',sans-serif;font-size:15px;line-height:1.5;background:transparent;color:var(--text);min-height:24px;max-height:150px;overflow-y:auto;" oninput="homeAutoResize(this)" onkeydown="homeKeydown(event)"></textarea>
+            <button id="homeSendBtn" onclick="homeToggleSend()" style="width:36px;height:36px;border-radius:50%;border:none;background:var(--accent);color:white;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">↑</button>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;padding:0 4px;">
+            <div style="display:flex;gap:6px;">
+              <button onclick="homeTogglePreview()" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:12px;padding:4px 8px;border-radius:6px;" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='none'">👁 Preview</button>
+              <button onclick="homeClearChat()" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:12px;padding:4px 8px;border-radius:6px;" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='none'">🗑 Clear</button>
+              <a href="/code.html" style="color:var(--accent);font-size:12px;padding:4px 8px;border-radius:6px;text-decoration:none;" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='none'">↗ Full page</a>
+            </div>
+            <span style="font-size:11px;color:var(--text3);">Shift+Enter for new line</span>
+          </div>
+        </div><!-- /max-width wrapper -->
+      </div><!-- /input area -->
+
+    </div><!-- /homeChatPanel -->
+
+    <!-- RIGHT: Preview Panel (sibling to chat) -->
+    <div id="homePreviewPanel">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 14px;background:#161b22;border-bottom:1px solid #30363d;flex-shrink:0;">
         <span style="color:#e6edf3;font-size:12px;font-family:'Syne',sans-serif;font-weight:600;">⚡ Live Preview</span>
         <div style="display:flex;gap:6px;">
@@ -1201,34 +1253,11 @@
           <button onclick="homeHidePreview()" style="background:rgba(255,255,255,0.08);border:none;color:#8b949e;padding:3px 9px;border-radius:4px;cursor:pointer;font-size:11px;">×</button>
         </div>
       </div>
-      <iframe id="homePreviewFrame" style="flex:1;border:none;background:white;width:100%;" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
-    </div>
+      <iframe id="homePreviewFrame" style="flex:1;border:none;background:white;width:100%;height:100%;" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
+    </div><!-- /homePreviewPanel -->
 
-    <!-- File strip -->
-    <div id="homeAttachedFiles" style="display:none;flex-wrap:wrap;gap:6px;padding:8px 16px;border-top:1px solid var(--border);background:var(--surface2);flex-shrink:0;"></div>
-
-    <!-- Input -->
-    <div style="border-top:1px solid var(--border);padding:12px 16px;background:var(--surface);flex-shrink:0;">
-      <div style="max-width:760px;margin:0 auto;">
-        <div id="homeInputBox" style="display:flex;align-items:flex-end;gap:10px;background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:10px 14px;transition:border-color 0.2s;" onfocusin="this.style.borderColor='var(--accent)'" onfocusout="this.style.borderColor='var(--border)'">
-          <button onclick="homeAttachClick()" title="Attach files" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:18px;padding:4px;flex-shrink:0;">📎</button>
-          <input type="file" id="homeFileInput" multiple accept="*/*" style="display:none" onchange="homeHandleFiles(Array.from(this.files));this.value=''">
-          <textarea id="homeChatInput" placeholder="Message ParaFree AI..." rows="1" style="flex:1;border:none;outline:none;resize:none;font-family:'DM Sans',sans-serif;font-size:15px;line-height:1.5;background:transparent;color:var(--text);min-height:24px;max-height:150px;overflow-y:auto;" oninput="homeAutoResize(this)" onkeydown="homeKeydown(event)"></textarea>
-          <button id="homeSendBtn" onclick="homeToggleSend()" style="width:36px;height:36px;border-radius:50%;border:none;background:var(--accent);color:white;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">↑</button>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;padding:0 4px;">
-          <div style="display:flex;gap:6px;">
-            <button onclick="homeTogglePreview()" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:12px;padding:4px 8px;border-radius:6px;" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='none'">👁 Preview</button>
-            <button onclick="homeClearChat()" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:12px;padding:4px 8px;border-radius:6px;" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='none'">🗑 Clear</button>
-            <a href="/code.html" style="color:var(--accent);font-size:12px;padding:4px 8px;border-radius:6px;text-decoration:none;" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='none'">↗ Full page</a>
-          </div>
-          <span style="font-size:11px;color:var(--text3);">Shift+Enter for new line</span>
-        </div>
-      </div>
-    </div>
-
-  </div>
-</div>
+  </div><!-- /aiChatLayout -->
+</div><!-- /aiWrap -->
 
 <!-- AI PROMO BANNER (shown after first result) -->
 <div id="aiPromoBanner" style="display:none; max-width:1100px; margin:0 auto 12px; padding:0 16px;">
@@ -4034,13 +4063,21 @@ async function homeHandleOutput(result) {
 }
 
 function homeShowPreview() {
-  const p = document.getElementById('homePreviewPanel'); if (p) p.style.display = 'flex';
+  const p = document.getElementById('homePreviewPanel');
+  const l = document.getElementById('aiChatLayout');
+  if (p) p.classList.add('visible');
+  if (l) l.classList.add('preview-open');
 }
 function homeHidePreview() {
-  const p = document.getElementById('homePreviewPanel'); if (p) p.style.display = 'none';
+  const p = document.getElementById('homePreviewPanel');
+  const l = document.getElementById('aiChatLayout');
+  if (p) p.classList.remove('visible');
+  if (l) l.classList.remove('preview-open');
 }
 function homeTogglePreview() {
-  const p = document.getElementById('homePreviewPanel'); if (p) p.style.display = p.style.display==='none'?'flex':'none';
+  const p = document.getElementById('homePreviewPanel');
+  if (!p) return;
+  if (p.classList.contains('visible')) homeHidePreview(); else homeShowPreview();
 }
 function homeRenderHTMLPreview(html) {
   const f = document.getElementById('homePreviewFrame'); if (f) f.srcdoc = html;

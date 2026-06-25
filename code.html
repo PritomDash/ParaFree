@@ -2397,119 +2397,176 @@ async function createPPTX(data) {
     dark: '0D1B2A',
     accent: '2D6A4F',
     accent2: '52B788',
-    light: 'F7F5F0',
-    white: 'FFFFFF',
-    gray: '6B7280',
-    lightGray: 'E5E7EB',
     gold: 'F59E0B',
-    text: '1F2937'
+    red: 'EF4444',
+    blue: '3B82F6',
+    white: 'FFFFFF',
+    light: 'F7F5F0',
+    gray: '6B7280',
+    text: '1F2937',
+    lightGreen: 'D1FAE5'
+  };
+
+  const addTag = (s, label, x, y) => {
+    s.addShape(pptx.ShapeType.rect, { x, y, w:1.4, h:0.28, fill:{ color:THEME.accent2 }, line:{ color:THEME.accent2 } });
+    s.addText(label, { x, y, w:1.4, h:0.28, fontSize:8, bold:true, color:THEME.dark, align:'center', valign:'middle' });
   };
 
   data.slides.forEach((slide, i) => {
     const s = pptx.addSlide();
 
     if (i === 0) {
-      // TITLE SLIDE — dark with decorative shapes
+      // LAYOUT 0: Cinematic title slide
       s.background = { color: THEME.dark };
 
-      s.addShape(pptx.ShapeType.rect, { x:0, y:0, w:0.08, h:7.5, fill:{ color:THEME.accent2 }, line:{ color:THEME.accent2 } });
+      s.addShape(pptx.ShapeType.ellipse, { x:6.2, y:-1.2, w:5.5, h:5.5, fill:{ type:'solid', color:THEME.accent, alpha:82 }, line:{ color:THEME.accent } });
+      s.addShape(pptx.ShapeType.ellipse, { x:8.2, y:4.8, w:2.8, h:2.8, fill:{ type:'solid', color:THEME.accent2, alpha:88 }, line:{ color:THEME.accent2 } });
+      s.addShape(pptx.ShapeType.ellipse, { x:-0.5, y:5.5, w:2, h:2, fill:{ type:'solid', color:THEME.accent2, alpha:85 }, line:{ color:THEME.accent2 } });
+      s.addShape(pptx.ShapeType.rect, { x:0, y:1.2, w:0.12, h:4.2, fill:{ color:THEME.accent2 }, line:{ color:THEME.accent2 } });
+
+      s.addText(data.title || 'Presentation', { x:0.5, y:1.5, w:7.2, h:2.2, fontSize:44, bold:true, color:THEME.white, fontFace:'Calibri', align:'left', wrap:true });
+      s.addText(slide.title || 'A Professional Presentation', { x:0.5, y:3.9, w:6.5, h:0.65, fontSize:17, color:THEME.accent2, fontFace:'Calibri', align:'left', italic:true });
+      addTag(s, 'PARAFREE AI', 0.5, 4.75);
+
       s.addShape(pptx.ShapeType.rect, { x:0, y:6.8, w:10, h:0.7, fill:{ color:THEME.accent }, line:{ color:THEME.accent } });
-      s.addShape(pptx.ShapeType.ellipse, { x:7.5, y:-1.5, w:4, h:4, fill:{ type:'solid', color:THEME.accent, alpha:80 }, line:{ color:THEME.accent, alpha:80 } });
-      s.addShape(pptx.ShapeType.ellipse, { x:8.5, y:4.5, w:2, h:2, fill:{ type:'solid', color:THEME.accent2, alpha:85 }, line:{ color:THEME.accent2 } });
+      s.addText('parafree.app', { x:0.3, y:6.85, w:4, h:0.5, fontSize:10, color:THEME.white, fontFace:'Calibri', valign:'middle' });
+      s.addText(new Date().getFullYear().toString(), { x:7, y:6.85, w:2.7, h:0.5, fontSize:10, color:THEME.white, fontFace:'Calibri', align:'right', valign:'middle' });
 
-      s.addText(data.title || 'Presentation', { x:0.5, y:1.8, w:7.5, h:1.8, fontSize:42, bold:true, color:THEME.white, fontFace:'Calibri', align:'left', wrap:true });
-      s.addText(slide.title || 'Professional Presentation', { x:0.5, y:3.8, w:7.5, h:0.7, fontSize:18, color:THEME.accent2, fontFace:'Calibri', align:'left' });
-      s.addText('✦ Created with ParaFree AI', { x:0.5, y:6.9, w:5, h:0.4, fontSize:10, color:THEME.white, fontFace:'Calibri' });
+    } else if (i % 4 === 1) {
+      // LAYOUT 1: Dark sidebar with numbered content cards
+      s.background = { color: THEME.light };
 
-    } else if (i % 3 === 1) {
-      // LAYOUT 1: Green top bar + left accent sidebar
-      s.background = { color: THEME.white };
-
-      s.addShape(pptx.ShapeType.rect, { x:0, y:0, w:10, h:1.1, fill:{ color:THEME.accent }, line:{ color:THEME.accent } });
-      s.addShape(pptx.ShapeType.ellipse, { x:8.8, y:0.1, w:0.9, h:0.9, fill:{ color:THEME.accent2 }, line:{ color:THEME.accent2 } });
-      s.addShape(pptx.ShapeType.rect, { x:0.3, y:0.25, w:0.5, h:0.5, fill:{ color:THEME.white }, line:{ color:THEME.white } });
-      s.addText(`${i}`, { x:0.3, y:0.25, w:0.5, h:0.5, fontSize:14, bold:true, color:THEME.accent, align:'center', valign:'middle' });
-      s.addText(slide.title || '', { x:1, y:0.15, w:7.5, h:0.8, fontSize:22, bold:true, color:THEME.white, fontFace:'Calibri', valign:'middle' });
-
-      s.addShape(pptx.ShapeType.rect, { x:0, y:1.1, w:0.15, h:5.7, fill:{ color:THEME.accent2 }, line:{ color:THEME.accent2 } });
+      s.addShape(pptx.ShapeType.rect, { x:0, y:0, w:2.8, h:7.5, fill:{ color:THEME.dark }, line:{ color:THEME.dark } });
+      s.addShape(pptx.ShapeType.rect, { x:2.8, y:0, w:0.06, h:7.5, fill:{ color:THEME.accent2 }, line:{ color:THEME.accent2 } });
+      s.addText(`${String(i).padStart(2,'0')}`, { x:0.1, y:0.4, w:2.5, h:1.4, fontSize:64, bold:true, color:THEME.accent2, fontFace:'Calibri', align:'center' });
+      s.addText(slide.title || '', { x:0.15, y:2.0, w:2.5, h:4.2, fontSize:15, bold:true, color:THEME.white, fontFace:'Calibri', align:'center', valign:'top', wrap:true });
+      s.addText('parafree.app', { x:0.1, y:7.0, w:2.6, h:0.3, fontSize:8, color:THEME.accent2, align:'center' });
 
       if (slide.bullets && slide.bullets.length > 0) {
-        slide.bullets.forEach((bullet, bi) => {
-          const yPos = 1.4 + (bi * 0.85);
-          if (yPos > 6.2) return;
-          s.addShape(pptx.ShapeType.ellipse, { x:0.35, y:yPos + 0.12, w:0.18, h:0.18, fill:{ color:THEME.accent }, line:{ color:THEME.accent } });
-          s.addText(bullet, { x:0.7, y:yPos, w:8.8, h:0.7, fontSize:15, color:THEME.text, fontFace:'Calibri', wrap:true });
+        slide.bullets.slice(0, 5).forEach((bullet, bi) => {
+          const yPos = 0.3 + (bi * 1.28);
+          s.addShape(pptx.ShapeType.rect, { x:3.1, y:yPos, w:6.5, h:1.08, fill:{ color:THEME.white }, line:{ color:'E2E8F0', width:0.5 } });
+          s.addShape(pptx.ShapeType.ellipse, { x:3.2, y:yPos + 0.2, w:0.55, h:0.55, fill:{ color:THEME.accent }, line:{ color:THEME.accent } });
+          s.addText(`${bi + 1}`, { x:3.2, y:yPos + 0.2, w:0.55, h:0.55, fontSize:12, bold:true, color:THEME.white, align:'center', valign:'middle' });
+          s.addText(bullet, { x:3.88, y:yPos + 0.08, w:5.6, h:0.9, fontSize:13, color:THEME.text, fontFace:'Calibri', valign:'middle', wrap:true });
         });
       }
 
-      s.addShape(pptx.ShapeType.rect, { x:0, y:6.9, w:10, h:0.6, fill:{ color:THEME.lightGray }, line:{ color:THEME.lightGray } });
+    } else if (i % 4 === 2) {
+      // LAYOUT 2: Chart + key insights panel
+      s.background = { color: THEME.white };
+
+      s.addShape(pptx.ShapeType.rect, { x:0, y:0, w:10, h:1.0, fill:{ color:THEME.accent }, line:{ color:THEME.accent } });
+      s.addText(slide.title || '', { x:0.4, y:0.1, w:7.5, h:0.8, fontSize:22, bold:true, color:THEME.white, fontFace:'Calibri', valign:'middle' });
+      s.addText(`${String(i).padStart(2,'0')}`, { x:9.0, y:0.1, w:0.8, h:0.8, fontSize:22, bold:true, color:THEME.accent2, align:'right', valign:'middle' });
+
+      const bullets = slide.bullets || [];
+      const chartLabels = bullets.slice(0, 6).map((b, idx) => `Item ${idx + 1}`);
+      const chartVals = bullets.slice(0, 6).map((_, idx) => Math.round(30 + (idx + 1) * 9));
+
+      try {
+        const chartData = [{ name: slide.title || 'Data', labels: chartLabels, values: chartVals }];
+        s.addChart(pptx.ChartType.bar, chartData, {
+          x: 0.3, y: 1.15, w: 5.8, h: 4.8,
+          barDir: 'col',
+          chartColors: [THEME.accent, THEME.accent2, THEME.gold, THEME.blue, THEME.red, '8B5CF6'],
+          showLegend: false,
+          showTitle: false,
+          valAxisLabelFontSize: 9,
+          catAxisLabelFontSize: 9,
+          dataLabelFontSize: 8,
+          showValue: true
+        });
+      } catch(chartErr) {
+        chartVals.forEach((val, ci) => {
+          const barH = (val / 100) * 3.5;
+          const xPos = 0.5 + ci * 0.9;
+          const yPos = 5.5 - barH;
+          const colors = [THEME.accent, THEME.accent2, THEME.gold, THEME.blue, THEME.red, '8B5CF6'];
+          s.addShape(pptx.ShapeType.rect, { x:xPos, y:yPos, w:0.65, h:barH, fill:{ color:colors[ci % colors.length] }, line:{ color:colors[ci % colors.length] } });
+          s.addText(`${val}`, { x:xPos, y:yPos - 0.25, w:0.65, h:0.22, fontSize:8, color:THEME.text, align:'center' });
+        });
+        s.addShape(pptx.ShapeType.rect, { x:0.3, y:5.5, w:5.8, h:0.03, fill:{ color:THEME.text }, line:{ color:THEME.text } });
+      }
+
+      s.addShape(pptx.ShapeType.rect, { x:6.4, y:1.15, w:3.3, h:5.5, fill:{ color:THEME.lightGreen }, line:{ color:THEME.accent2, width:0.75 } });
+      s.addText('KEY INSIGHTS', { x:6.55, y:1.28, w:3.0, h:0.35, fontSize:9, bold:true, color:THEME.accent, fontFace:'Calibri' });
+      s.addShape(pptx.ShapeType.rect, { x:6.55, y:1.65, w:2.8, h:0.03, fill:{ color:THEME.accent2 }, line:{ color:THEME.accent2 } });
+
+      bullets.slice(0, 5).forEach((ins, ii) => {
+        const yp = 1.82 + ii * 0.95;
+        s.addShape(pptx.ShapeType.ellipse, { x:6.58, y:yp, w:0.22, h:0.22, fill:{ color:THEME.accent }, line:{ color:THEME.accent } });
+        s.addText(ins.slice(0, 80), { x:6.88, y:yp - 0.04, w:2.65, h:0.82, fontSize:10, color:THEME.text, fontFace:'Calibri', valign:'top', wrap:true });
+      });
+
+      s.addShape(pptx.ShapeType.rect, { x:0, y:6.9, w:10, h:0.6, fill:{ color:'F1F5F9' }, line:{ color:'E2E8F0' } });
       s.addText('parafree.app', { x:0.3, y:6.95, w:3, h:0.4, fontSize:9, color:THEME.gray });
-      s.addText(`${i} of ${data.slides.length - 1}`, { x:7, y:6.95, w:2.7, h:0.4, fontSize:9, color:THEME.gray, align:'right' });
+      s.addText(`${i} / ${data.slides.length - 1}`, { x:7, y:6.95, w:2.7, h:0.4, fontSize:9, color:THEME.gray, align:'right' });
 
-    } else if (i % 3 === 2) {
-      // LAYOUT 2: Split — green left panel + card bullets
-      s.background = { color: 'F8F9FA' };
+    } else if (i % 4 === 3) {
+      // LAYOUT 3: Icon grid — dark bg, green header, circle-number boxes
+      s.background = { color: THEME.dark };
 
-      s.addShape(pptx.ShapeType.rect, { x:0, y:0, w:3.5, h:7.5, fill:{ color:THEME.accent }, line:{ color:THEME.accent } });
-      s.addShape(pptx.ShapeType.ellipse, { x:-0.8, y:5, w:3, h:3, fill:{ type:'solid', color:THEME.dark, alpha:70 }, line:{ color:THEME.dark } });
-      s.addShape(pptx.ShapeType.ellipse, { x:1.5, y:-0.5, w:2, h:2, fill:{ type:'solid', color:THEME.accent2, alpha:60 }, line:{ color:THEME.accent2 } });
-
-      s.addText(`0${i}`, { x:0.2, y:0.3, w:3, h:1, fontSize:48, bold:true, color:THEME.white, fontFace:'Calibri', align:'center' });
-      s.addText(slide.title || '', { x:0.2, y:1.5, w:3, h:3.5, fontSize:18, bold:true, color:THEME.white, fontFace:'Calibri', align:'center', valign:'middle', wrap:true });
-
-      if (slide.bullets && slide.bullets.length > 0) {
-        slide.bullets.forEach((bullet, bi) => {
-          const yPos = 0.6 + (bi * 1.0);
-          if (yPos > 6.5) return;
-          s.addShape(pptx.ShapeType.rect, {
-            x:3.8, y:yPos, w:5.8, h:0.75,
-            fill:{ color:THEME.white },
-            line:{ color:THEME.lightGray, width:0.5 },
-            shadow:{ type:'outer', color:'000000', opacity:0.08, blur:3, offset:1, angle:45 }
-          });
-          s.addShape(pptx.ShapeType.rect, { x:3.8, y:yPos, w:0.08, h:0.75, fill:{ color:THEME.accent2 }, line:{ color:THEME.accent2 } });
-          s.addText(bullet, { x:4.05, y:yPos + 0.05, w:5.4, h:0.65, fontSize:13, color:THEME.text, fontFace:'Calibri', valign:'middle', wrap:true });
-        });
-      }
-
-    } else {
-      // LAYOUT 3: Dark header + numbered green boxes
-      s.background = { color: THEME.white };
-
-      s.addShape(pptx.ShapeType.rect, { x:0, y:0, w:10, h:1.4, fill:{ color:THEME.dark }, line:{ color:THEME.dark } });
-      s.addShape(pptx.ShapeType.rect, { x:0, y:1.4, w:10, h:0.08, fill:{ color:THEME.accent2 }, line:{ color:THEME.accent2 } });
-      s.addText(slide.title || '', { x:0.5, y:0.2, w:8.5, h:1, fontSize:24, bold:true, color:THEME.white, fontFace:'Calibri', valign:'middle' });
-      s.addShape(pptx.ShapeType.rect, { x:9.2, y:0, w:0.8, h:1.4, fill:{ color:THEME.accent }, line:{ color:THEME.accent } });
+      s.addShape(pptx.ShapeType.rect, { x:0, y:0, w:10, h:1.2, fill:{ color:THEME.accent }, line:{ color:THEME.accent } });
+      s.addText(slide.title || '', { x:0.4, y:0.1, w:8.5, h:1.0, fontSize:24, bold:true, color:THEME.white, fontFace:'Calibri', valign:'middle' });
+      s.addShape(pptx.ShapeType.rect, { x:9.3, y:0.25, w:0.5, h:0.7, fill:{ color:THEME.accent2 }, line:{ color:THEME.accent2 } });
 
       if (slide.bullets && slide.bullets.length > 0) {
         const cols = slide.bullets.length <= 3 ? 1 : 2;
-        const colWidth = cols === 1 ? 9 : 4.4;
-        slide.bullets.forEach((bullet, bi) => {
+        const colW = cols === 1 ? 8.6 : 4.1;
+
+        slide.bullets.slice(0, 6).forEach((bullet, bi) => {
           const col = bi % cols;
           const row = Math.floor(bi / cols);
-          const xPos = cols === 1 ? 0.5 : 0.5 + (col * 4.7);
-          const yPos = 1.7 + (row * 1.3);
+          const xPos = cols === 1 ? 0.7 : 0.35 + col * 4.75;
+          const yPos = 1.45 + row * 1.5;
           if (yPos > 6.5) return;
 
-          s.addShape(pptx.ShapeType.rect, { x:xPos, y:yPos, w:colWidth, h:1.1, fill:{ color:'F0FDF4' }, line:{ color:THEME.accent2, width:0.75 } });
-          s.addShape(pptx.ShapeType.rect, { x:xPos, y:yPos, w:0.5, h:1.1, fill:{ color:THEME.accent }, line:{ color:THEME.accent } });
-          s.addText(`${bi + 1}`, { x:xPos, y:yPos, w:0.5, h:1.1, fontSize:14, bold:true, color:THEME.white, align:'center', valign:'middle' });
-          s.addText(bullet, { x:xPos + 0.6, y:yPos + 0.05, w:colWidth - 0.7, h:1.0, fontSize:13, color:THEME.text, fontFace:'Calibri', valign:'middle', wrap:true });
+          s.addShape(pptx.ShapeType.rect, { x:xPos, y:yPos, w:colW, h:1.25, fill:{ color:'162435' }, line:{ color:THEME.accent2, width:0.5 } });
+          s.addShape(pptx.ShapeType.ellipse, { x:xPos + 0.12, y:yPos + 0.32, w:0.55, h:0.55, fill:{ color:THEME.accent2 }, line:{ color:THEME.accent2 } });
+          s.addText(`${bi + 1}`, { x:xPos + 0.12, y:yPos + 0.32, w:0.55, h:0.55, fontSize:13, bold:true, color:THEME.dark, align:'center', valign:'middle' });
+          s.addText(bullet, { x:xPos + 0.82, y:yPos + 0.1, w:colW - 0.95, h:1.05, fontSize:13, color:THEME.white, fontFace:'Calibri', valign:'middle', wrap:true });
         });
       }
 
-      s.addShape(pptx.ShapeType.rect, { x:0, y:6.9, w:10, h:0.6, fill:{ color:THEME.dark }, line:{ color:THEME.dark } });
-      s.addText('parafree.app', { x:0.3, y:6.95, w:3, h:0.4, fontSize:9, color:THEME.accent2 });
-      s.addText(`${i} / ${data.slides.length - 1}`, { x:7, y:6.95, w:2.7, h:0.4, fontSize:9, color:THEME.gray, align:'right' });
+      s.addText('parafree.app', { x:0.3, y:7.05, w:9.4, h:0.3, fontSize:8, color:THEME.accent2, align:'center' });
+
+    } else {
+      // DEFAULT: Clean light — two-tone header + alternating card colors
+      s.background = { color: THEME.white };
+
+      s.addShape(pptx.ShapeType.rect, { x:0, y:0, w:10, h:1.35, fill:{ color:THEME.dark }, line:{ color:THEME.dark } });
+      s.addShape(pptx.ShapeType.rect, { x:0, y:1.35, w:10, h:0.1, fill:{ color:THEME.accent2 }, line:{ color:THEME.accent2 } });
+      s.addText(slide.title || '', { x:0.4, y:0.15, w:8.8, h:1.05, fontSize:24, bold:true, color:THEME.white, fontFace:'Calibri', valign:'middle' });
+      addTag(s, `SLIDE ${i}`, 8.2, 0.48);
+
+      if (slide.bullets && slide.bullets.length > 0) {
+        const cardColors = [THEME.lightGreen, 'EFF6FF', 'FEF3C7', 'FEE2E2', 'F3E8FF'];
+        const accentColors = [THEME.accent, THEME.blue, THEME.gold, THEME.red, '7C3AED'];
+        slide.bullets.slice(0, 5).forEach((bullet, bi) => {
+          const yPos = 1.65 + bi * 1.02;
+          if (yPos > 6.8) return;
+          s.addShape(pptx.ShapeType.rect, { x:0.4, y:yPos, w:9.2, h:0.87, fill:{ color:cardColors[bi % cardColors.length] }, line:{ color:'E2E8F0', width:0.5 } });
+          s.addShape(pptx.ShapeType.rect, { x:0.4, y:yPos, w:0.1, h:0.87, fill:{ color:accentColors[bi % accentColors.length] }, line:{ color:accentColors[bi % accentColors.length] } });
+          s.addText(bullet, { x:0.65, y:yPos + 0.1, w:8.8, h:0.68, fontSize:13, color:THEME.text, fontFace:'Calibri', valign:'middle', wrap:true });
+        });
+      }
+
+      s.addShape(pptx.ShapeType.rect, { x:0, y:7.0, w:10, h:0.5, fill:{ color:'F1F5F9' }, line:{ color:'E2E8F0' } });
+      s.addText('parafree.app', { x:0.3, y:7.05, w:3, h:0.35, fontSize:8, color:THEME.gray });
+      s.addText(`${i} / ${data.slides.length - 1}`, { x:7, y:7.05, w:2.7, h:0.35, fontSize:8, color:THEME.gray, align:'right' });
     }
   });
 
-  // Final thank-you slide
+  // Thank you slide
   const finalSlide = pptx.addSlide();
   finalSlide.background = { color: THEME.dark };
-  finalSlide.addShape(pptx.ShapeType.ellipse, { x:3, y:1, w:4, h:4, fill:{ type:'solid', color:THEME.accent, alpha:70 }, line:{ color:THEME.accent } });
-  finalSlide.addText('Thank You', { x:0.5, y:2.2, w:9, h:1.5, fontSize:48, bold:true, color:THEME.white, fontFace:'Calibri', align:'center' });
-  finalSlide.addText('Created with ParaFree AI — parafree.app', { x:0.5, y:4, w:9, h:0.6, fontSize:14, color:THEME.accent2, fontFace:'Calibri', align:'center' });
+  finalSlide.addShape(pptx.ShapeType.ellipse, { x:2.5, y:0.5, w:5, h:5, fill:{ type:'solid', color:THEME.accent, alpha:80 }, line:{ color:THEME.accent } });
+  finalSlide.addShape(pptx.ShapeType.ellipse, { x:7.5, y:4.5, w:3, h:3, fill:{ type:'solid', color:THEME.accent2, alpha:85 }, line:{ color:THEME.accent2 } });
+  finalSlide.addShape(pptx.ShapeType.ellipse, { x:-0.5, y:3.5, w:2.5, h:2.5, fill:{ type:'solid', color:THEME.gold, alpha:85 }, line:{ color:THEME.gold } });
+  finalSlide.addText('Thank You', { x:0.5, y:2.0, w:9, h:1.8, fontSize:54, bold:true, color:THEME.white, fontFace:'Calibri', align:'center' });
+  finalSlide.addText('Created with ParaFree AI', { x:0.5, y:4.0, w:9, h:0.5, fontSize:15, color:THEME.accent2, fontFace:'Calibri', align:'center' });
+  finalSlide.addText('parafree.app', { x:0.5, y:4.55, w:9, h:0.4, fontSize:12, color:THEME.white, fontFace:'Calibri', align:'center' });
 
   const fileName = (data.title || 'presentation')
     .replace(/[^a-z0-9\s]/gi, '')
