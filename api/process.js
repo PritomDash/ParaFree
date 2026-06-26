@@ -363,7 +363,14 @@ DOCUMENT JSON format:
 \`\`\`
 Create minimum 8-10 content items. Make paragraphs detailed (2-4 sentences each).
 
-WEBSITE/APP: Return ONLY complete HTML in one \`\`\`html code block. Start with <!DOCTYPE html>. Include all CSS and JS. No explanations.`,
+WEBSITE/APP: Return ONLY complete HTML in one \`\`\`html code block. Start with <!DOCTYPE html>. Include all CSS and JS. No explanations.
+
+IMPORTANT CONTEXT RULES:
+- When user mentions an AI model name (Mistral, GPT, ChatGPT, Claude, Gemini, Groq, Llama, Deepseek): They want to SWITCH to that AI model. Respond: "Switching to [model name] for this conversation." Then continue normally.
+- Never interpret AI model names as fonts, topics, tools, or anything else.
+- When user says "make it look good" or "improve the design" about a website: Improve the CSS/design of the last HTML you provided. Return new complete improved HTML.
+- When user says "preview not fully visible", "can't see it", or similar: Acknowledge and explain they can click the ↗ icon at the top-right of the preview to open it fullscreen.
+- When user asks for changes to the last output: Apply the changes and return the full updated version — not just the diff.`,
 };
 
 function getPrompt(mode, language) {
@@ -391,38 +398,43 @@ async function runChain(text, prompt, type) {
   const EXTRA5_KEY     = process.env.EXTRA5_KEY;
   const EXTRA6_KEY     = process.env.EXTRA6_KEY;
 
-  const isCodeRequest = type === "code_assistant" || type === "code_project";
+  const isAIChat = type === "code_assistant" || type === "code_project";
 
-  // Code requests: Gemini first (best JSON/structured output), then capable fallbacks.
-  // Writing/chat: speed-first (Groq leads).
-  const candidates = isCodeRequest ? [
-    { name: "gemini",        key: GEMINI_KEY,      fn: () => callGemini(text, prompt, GEMINI_KEY) },
-    { name: "deepseek-coder",key: OPENROUTER_KEY,  fn: () => callOpenRouterModel(text, prompt, OPENROUTER_KEY, "deepseek/deepseek-coder-v2-instruct:free") },
-    { name: "qwen-coder",    key: OPENROUTER_KEY,  fn: () => callOpenRouterModel(text, prompt, OPENROUTER_KEY, "qwen/qwen-2.5-coder-32b-instruct:free") },
-    { name: "groq-70b",      key: GROQ_KEY,        fn: () => callGroqModel(text, prompt, GROQ_KEY, "llama-3.3-70b-versatile") },
-    { name: "cerebras",      key: CEREBRAS_KEY,    fn: () => callCerebras(text, prompt, CEREBRAS_KEY) },
-    { name: "cloudflare",    key: CF_KEY,          fn: () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT), extra: CF_ACCOUNT },
-    { name: "extra1",        key: EXTRA1_KEY,      fn: () => callExtra(text, prompt, EXTRA1_KEY, "Extra1") },
-    { name: "extra2",        key: EXTRA2_KEY,      fn: () => callExtra(text, prompt, EXTRA2_KEY, "Extra2") },
-    { name: "extra3",        key: EXTRA3_KEY,      fn: () => callExtra(text, prompt, EXTRA3_KEY, "Extra3") },
-    { name: "extra4",        key: EXTRA4_KEY,      fn: () => callExtra(text, prompt, EXTRA4_KEY, "Extra4") },
-    { name: "extra5",        key: EXTRA5_KEY,      fn: () => callExtra(text, prompt, EXTRA5_KEY, "Extra5") },
-    { name: "extra6",        key: EXTRA6_KEY,      fn: () => callExtra(text, prompt, EXTRA6_KEY, "Extra6") },
-  ] : [
-    { name: "groq",       key: GROQ_KEY,        fn: () => callGroq(text, prompt, GROQ_KEY) },
-    { name: "gemini",     key: GEMINI_KEY,       fn: () => callGemini(text, prompt, GEMINI_KEY) },
-    { name: "cerebras",   key: CEREBRAS_KEY,     fn: () => callCerebras(text, prompt, CEREBRAS_KEY) },
-    { name: "openrouter", key: OPENROUTER_KEY,   fn: () => callOpenRouter(text, prompt, OPENROUTER_KEY) },
-    ...(validKey(GLM_KEY) ? [{ name: "glm", key: GLM_KEY, fn: () => callGLM(text, prompt, GLM_KEY) }] : []),
-    { name: "mistral",    key: MISTRAL_KEY,      fn: () => callMistral(text, prompt, MISTRAL_KEY) },
-    { name: "cloudflare", key: CF_KEY,           fn: () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT), extra: CF_ACCOUNT },
-    { name: "extra1",     key: EXTRA1_KEY,       fn: () => callExtra(text, prompt, EXTRA1_KEY, "Extra1") },
-    { name: "extra2",     key: EXTRA2_KEY,       fn: () => callExtra(text, prompt, EXTRA2_KEY, "Extra2") },
-    { name: "extra3",     key: EXTRA3_KEY,       fn: () => callExtra(text, prompt, EXTRA3_KEY, "Extra3") },
-    { name: "extra4",     key: EXTRA4_KEY,       fn: () => callExtra(text, prompt, EXTRA4_KEY, "Extra4") },
-    { name: "extra5",     key: EXTRA5_KEY,       fn: () => callExtra(text, prompt, EXTRA5_KEY, "Extra5") },
-    { name: "extra6",     key: EXTRA6_KEY,       fn: () => callExtra(text, prompt, EXTRA6_KEY, "Extra6") },
-  ];
+  // Build candidate list with explicit key-checking so only keys that exist are attempted.
+  // AI chat: Gemini first (best at JSON/structured output), then capable fallbacks.
+  // Writing: Groq first (fastest).
+  let candidates;
+  if (isAIChat) {
+    candidates = [];
+    if (validKey(GEMINI_KEY))     candidates.push({ name: "gemini",         key: GEMINI_KEY,     fn: () => callGemini(text, prompt, GEMINI_KEY) });
+    if (validKey(OPENROUTER_KEY)) candidates.push({ name: "deepseek-coder", key: OPENROUTER_KEY, fn: () => callOpenRouterModel(text, prompt, OPENROUTER_KEY, "deepseek/deepseek-coder-v2-instruct:free") });
+    if (validKey(OPENROUTER_KEY)) candidates.push({ name: "qwen-coder",     key: OPENROUTER_KEY, fn: () => callOpenRouterModel(text, prompt, OPENROUTER_KEY, "qwen/qwen-2.5-coder-32b-instruct:free") });
+    if (validKey(GROQ_KEY))       candidates.push({ name: "groq-70b",       key: GROQ_KEY,       fn: () => callGroqModel(text, prompt, GROQ_KEY, "llama-3.1-70b-versatile") });
+    if (validKey(CEREBRAS_KEY))   candidates.push({ name: "cerebras",       key: CEREBRAS_KEY,   fn: () => callCerebras(text, prompt, CEREBRAS_KEY) });
+    if (validKey(CF_KEY))         candidates.push({ name: "cloudflare",     key: CF_KEY,         fn: () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT), extra: CF_ACCOUNT });
+    if (validKey(EXTRA1_KEY))     candidates.push({ name: "extra1",         key: EXTRA1_KEY,     fn: () => callExtra(text, prompt, EXTRA1_KEY, "Extra1") });
+    if (validKey(EXTRA2_KEY))     candidates.push({ name: "extra2",         key: EXTRA2_KEY,     fn: () => callExtra(text, prompt, EXTRA2_KEY, "Extra2") });
+    if (validKey(EXTRA3_KEY))     candidates.push({ name: "extra3",         key: EXTRA3_KEY,     fn: () => callExtra(text, prompt, EXTRA3_KEY, "Extra3") });
+    if (validKey(EXTRA4_KEY))     candidates.push({ name: "extra4",         key: EXTRA4_KEY,     fn: () => callExtra(text, prompt, EXTRA4_KEY, "Extra4") });
+    if (validKey(EXTRA5_KEY))     candidates.push({ name: "extra5",         key: EXTRA5_KEY,     fn: () => callExtra(text, prompt, EXTRA5_KEY, "Extra5") });
+    if (validKey(EXTRA6_KEY))     candidates.push({ name: "extra6",         key: EXTRA6_KEY,     fn: () => callExtra(text, prompt, EXTRA6_KEY, "Extra6") });
+  } else {
+    candidates = [
+      { name: "groq",       key: GROQ_KEY,       fn: () => callGroq(text, prompt, GROQ_KEY) },
+      { name: "gemini",     key: GEMINI_KEY,      fn: () => callGemini(text, prompt, GEMINI_KEY) },
+      { name: "cerebras",   key: CEREBRAS_KEY,    fn: () => callCerebras(text, prompt, CEREBRAS_KEY) },
+      { name: "openrouter", key: OPENROUTER_KEY,  fn: () => callOpenRouter(text, prompt, OPENROUTER_KEY) },
+      ...(validKey(GLM_KEY) ? [{ name: "glm", key: GLM_KEY, fn: () => callGLM(text, prompt, GLM_KEY) }] : []),
+      { name: "mistral",    key: MISTRAL_KEY,     fn: () => callMistral(text, prompt, MISTRAL_KEY) },
+      { name: "cloudflare", key: CF_KEY,          fn: () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT), extra: CF_ACCOUNT },
+      { name: "extra1",     key: EXTRA1_KEY,      fn: () => callExtra(text, prompt, EXTRA1_KEY, "Extra1") },
+      { name: "extra2",     key: EXTRA2_KEY,      fn: () => callExtra(text, prompt, EXTRA2_KEY, "Extra2") },
+      { name: "extra3",     key: EXTRA3_KEY,      fn: () => callExtra(text, prompt, EXTRA3_KEY, "Extra3") },
+      { name: "extra4",     key: EXTRA4_KEY,      fn: () => callExtra(text, prompt, EXTRA4_KEY, "Extra4") },
+      { name: "extra5",     key: EXTRA5_KEY,      fn: () => callExtra(text, prompt, EXTRA5_KEY, "Extra5") },
+      { name: "extra6",     key: EXTRA6_KEY,      fn: () => callExtra(text, prompt, EXTRA6_KEY, "Extra6") },
+    ];
+  }
 
   // All start as skipped; updated as each candidate is tried
   const apiStatuses = {};

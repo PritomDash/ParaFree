@@ -290,14 +290,15 @@
   #aiChatLayout {
     display: grid;
     grid-template-columns: 1fr;
-    height: 70vh;
-    min-height: 500px;
+    height: 75vh;
+    min-height: 550px;
     border: 1px solid var(--border);
     border-radius: var(--radius);
     overflow: hidden;
     background: var(--surface);
     transition: grid-template-columns 0.3s ease;
   }
+  #homePreviewFrame { flex: 1 !important; min-height: 0 !important; width: 100% !important; height: 100% !important; border: none !important; display: block !important; }
   #aiChatLayout.preview-open { grid-template-columns: 55fr 45fr; }
   /* Home chat typography — Claude-style */
   #homeChatHistory { font-size: 15px; line-height: 1.75; font-family: 'DM Sans', sans-serif; }
@@ -4095,6 +4096,7 @@ function homeShowPreview() {
   const l = document.getElementById('aiChatLayout');
   if (p) p.style.display = 'flex';
   if (l) l.style.gridTemplateColumns = '55fr 45fr';
+  document.getElementById('homePreviewFrame')?.scrollIntoView({behavior:'smooth', block:'nearest'});
 }
 function homeHidePreview() {
   const p = document.getElementById('homePreviewPanel');
@@ -4151,21 +4153,23 @@ function homeAddUserMessage(msg, files) {
 }
 
 function homeAddAIMessage(content, usedApi) {
-  let displayContent = content;
+  // Smart detection — catches raw JSON without code fences too
+  const isPPT = content.includes('"type":"presentation"') || content.includes('"type": "presentation"');
+  const isDoc = content.includes('"type":"document"') || content.includes('"type": "document"');
+  const isHTML = /<!DOCTYPE html/i.test(content) || (content.includes('```html') && content.length > 300);
 
-  // Simplify chat display for large code/JSON responses — show in preview instead
-  if (/<!DOCTYPE html/i.test(content) || (/```html/i.test(content) && content.length > 400)) {
+  let displayContent = content;
+  if (isPPT) {
+    displayContent = '✅ Presentation created! See the preview panel →';
+  } else if (isDoc) {
+    displayContent = '✅ Document created! See the preview panel →';
+  } else if (isHTML) {
     const textBefore = content.split('```')[0].trim();
     displayContent = textBefore || '✅ Done! See preview on the right →';
-  } else if (/```json[\s\S]*?"type"\s*:\s*"presentation"/.test(content)) {
-    displayContent = '✅ Presentation created! Download buttons appear in preview →';
-  } else if (/```json[\s\S]*?"type"\s*:\s*"document"/.test(content)) {
-    displayContent = '✅ Document created! Download buttons appear in preview →';
   }
 
-  // Full markdown rendering with links
+  // Markdown rendering
   let rendered = displayContent;
-  // Code blocks first (protect from other replacements)
   rendered = rendered.replace(/```(\w+)?\n?([\s\S]*?)```/g, (m,lang,code)=>
     `<div style="margin:8px 0;border-radius:8px;overflow:hidden;border:1px solid #333;background:#1a1814;">
       <div style="background:#252320;padding:5px 12px;display:flex;justify-content:space-between;align-items:center;">
@@ -4174,25 +4178,17 @@ function homeAddAIMessage(content, usedApi) {
       </div>
       <pre style="margin:0;padding:12px;overflow-x:auto;font-size:12px;line-height:1.5;color:#e8e6e0;font-family:monospace;max-height:260px;overflow-y:auto;"><code>${code.trim().replace(/</g,'&lt;').replace(/>/g,'&gt;')}</code></pre>
     </div>`);
-  // Markdown links [text](url)
   rendered = rendered.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
     '<a href="$2" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline;text-underline-offset:2px;">$1</a>');
-  // Bare URLs
   rendered = rendered.replace(/(?<!href=["'])(https?:\/\/[^\s<)"']+)/g,
     '<a href="$1" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline;word-break:break-all;">$1</a>');
-  // Bold
   rendered = rendered.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
-  // Inline code
   rendered = rendered.replace(/`([^`\n]+)`/g,'<code style="background:rgba(45,106,79,0.1);padding:1px 5px;border-radius:3px;font-family:monospace;font-size:13px;">$1</code>');
-  // Headers
   rendered = rendered.replace(/^### (.+)$/gm,'<h3 style="font-size:15px;font-weight:700;margin:14px 0 6px;font-family:\'Syne\',sans-serif;">$1</h3>');
   rendered = rendered.replace(/^## (.+)$/gm,'<h2 style="font-size:17px;font-weight:700;margin:16px 0 8px;font-family:\'Syne\',sans-serif;">$1</h2>');
-  // Bullets
   rendered = rendered.replace(/^[•\-\*] (.+)$/gm,'<li style="margin-bottom:5px;">$1</li>');
   rendered = rendered.replace(/(<li[^>]*>[\s\S]*?<\/li>\n?)+/g, m=>`<ul style="padding-left:20px;margin:8px 0;">${m}</ul>`);
-  // Numbered lists
   rendered = rendered.replace(/^\d+\. (.+)$/gm,'<li style="margin-bottom:5px;">$1</li>');
-  // Paragraphs
   rendered = rendered.replace(/\n\n/g,'</p><p style="margin:0 0 10px;">');
   rendered = rendered.replace(/\n/g,'<br>');
   rendered = '<p style="margin:0 0 10px;">' + rendered + '</p>';
@@ -4206,12 +4202,16 @@ function homeAddAIMessage(content, usedApi) {
       <div style="font-size:15px;line-height:1.75;color:var(--text);font-family:'DM Sans',sans-serif;">${rendered}</div>
       <div style="display:flex;gap:12px;align-items:center;margin-top:6px;">
         <span style="font-size:11px;color:var(--text3);">${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}${usedApi?` · via ${usedApi}`:''}</span>
-        <button onclick="navigator.clipboard.writeText(this.dataset.text);this.textContent='✓ Copied';setTimeout(()=>this.textContent='Copy',2000)"
-          data-text="${content.replace(/"/g,'&quot;').replace(/'/g,'&#39;')}"
-          style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;padding:0;transition:color 0.2s;"
-          onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text3)'">Copy</button>
+        <button class="home-copy-btn" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;padding:0;transition:color 0.2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text3)'">Copy</button>
       </div>
     </div>`;
+  // Use closure so raw content is never HTML-escaped in an attribute
+  const copyBtn = div.querySelector('.home-copy-btn');
+  if (copyBtn) copyBtn.addEventListener('click', () => {
+    navigator.clipboard.writeText(content);
+    copyBtn.textContent = '✓ Copied';
+    setTimeout(() => copyBtn.textContent = 'Copy', 2000);
+  });
   document.getElementById('homeChatHistory')?.appendChild(div);
   homeScrollBottom();
 }
