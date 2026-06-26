@@ -101,12 +101,12 @@ function getAdminPassword() {
 
 // ── API CALLERS ──
 async function callGroq(text, prompt, key) {
-  console.log("Attempting API: Groq");
+  console.log("[ParaFree] Trying: groq");
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
     body: JSON.stringify({
-      model: "llama-3.1-8b-instant",
+      model: "llama-3.3-70b-versatile",
       messages: [{ role: "user", content: prompt + "\n\n" + text }],
       temperature: 0.7,
       max_tokens: 2048
@@ -119,7 +119,7 @@ async function callGroq(text, prompt, key) {
 }
 
 async function callGemini(text, prompt, key) {
-  console.log("Attempting API: Gemini");
+  console.log("[ParaFree] Trying: gemini");
   const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + key;
   const res = await fetch(url, {
     method: "POST",
@@ -137,12 +137,12 @@ async function callGemini(text, prompt, key) {
 }
 
 async function callCerebras(text, prompt, key) {
-  console.log("Attempting API: Cerebras");
+  console.log("[ParaFree] Trying: cerebras");
   const res = await fetch("https://api.cerebras.ai/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
     body: JSON.stringify({
-      model: "llama3.1-8b",
+      model: "llama-3.3-70b",
       messages: [{ role: "user", content: prompt + "\n\n" + text }],
       temperature: 0.7,
       max_tokens: 2048
@@ -155,7 +155,7 @@ async function callCerebras(text, prompt, key) {
 }
 
 async function callOpenRouter(text, prompt, key) {
-  console.log("Attempting API: OpenRouter");
+  console.log("[ParaFree] Trying: openrouter");
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -179,7 +179,7 @@ async function callOpenRouter(text, prompt, key) {
 }
 
 async function callOpenRouterModel(text, prompt, key, model) {
-  console.log("Attempting API: OpenRouter/" + model);
+  console.log("[ParaFree] Trying: openrouter/" + model);
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key, "HTTP-Referer": "https://parafree.app", "X-Title": "ParaFree" },
@@ -192,7 +192,7 @@ async function callOpenRouterModel(text, prompt, key, model) {
 }
 
 async function callGroqModel(text, prompt, key, model) {
-  console.log("Attempting API: Groq/" + model);
+  console.log("[ParaFree] Trying: groq/" + model);
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
@@ -205,7 +205,7 @@ async function callGroqModel(text, prompt, key, model) {
 }
 
 async function callMistral(text, prompt, key) {
-  console.log("Attempting API: Mistral");
+  console.log("[ParaFree] Trying: mistral");
   const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
@@ -223,7 +223,7 @@ async function callMistral(text, prompt, key) {
 }
 
 async function callCloudflare(text, prompt, key, account) {
-  console.log("Attempting API: Cloudflare");
+  console.log("[ParaFree] Trying: cloudflare");
   const res = await fetch(
     "https://api.cloudflare.com/client/v4/accounts/" + account + "/ai/run/@cf/meta/llama-3.1-8b-instruct",
     {
@@ -239,7 +239,7 @@ async function callCloudflare(text, prompt, key, account) {
 }
 
 async function callGLM(text, prompt, key) {
-  console.log("Attempting API: GLM");
+  console.log("[ParaFree] Trying: glm");
   const res = await fetch("https://open.bigmodel.cn/api/paas/v4/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
@@ -261,7 +261,7 @@ async function callGLM(text, prompt, key) {
 }
 
 async function callExtra(text, prompt, key, label) {
-  console.log("Attempting API:", label);
+  console.log("[ParaFree] Trying:", label);
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -381,7 +381,8 @@ function getPrompt(mode, language) {
 }
 
 // ── MAIN API CHAIN ──
-// Order is STRICT: Groq → Gemini → Cerebras → OpenRouter → Mistral → Cloudflare → Extra1-6
+// AI chat:  Gemini → Cerebras → Groq-70b → DeepSeek → Qwen → Mistral → Cloudflare → Extras
+// Writing:  Cerebras → Gemini → Groq → Mistral → Cloudflare → OpenRouter → GLM → Extras
 async function runChain(text, prompt, type) {
   const GROQ_KEY       = process.env.GROQ_KEY;
   const GEMINI_KEY     = process.env.GEMINI_KEY;
@@ -400,68 +401,65 @@ async function runChain(text, prompt, type) {
 
   const isAIChat = type === "code_assistant" || type === "code_project";
 
-  // Build candidate list with explicit key-checking so only keys that exist are attempted.
-  // AI chat: Gemini first (best at JSON/structured output), then capable fallbacks.
-  // Writing: Groq first (fastest).
+  // Build candidate list with explicit key-checking — only include providers whose keys exist.
+  // Cloudflare requires both CF_KEY and CF_ACCOUNT; skip entirely if account is missing.
+  // AI chat:  Gemini → Cerebras → Groq-70b → DeepSeek → Qwen → Mistral → Cloudflare → Extras
+  // Writing:  Cerebras → Gemini → Groq → Mistral → Cloudflare → OpenRouter → GLM → Extras
+  const cfOk = validKey(CF_KEY) && validKey(CF_ACCOUNT);
+
   let candidates;
   if (isAIChat) {
     candidates = [];
-    if (validKey(GEMINI_KEY))     candidates.push({ name: "gemini",         key: GEMINI_KEY,     fn: () => callGemini(text, prompt, GEMINI_KEY) });
-    if (validKey(OPENROUTER_KEY)) candidates.push({ name: "deepseek-coder", key: OPENROUTER_KEY, fn: () => callOpenRouterModel(text, prompt, OPENROUTER_KEY, "deepseek/deepseek-coder-v2-instruct:free") });
-    if (validKey(OPENROUTER_KEY)) candidates.push({ name: "qwen-coder",     key: OPENROUTER_KEY, fn: () => callOpenRouterModel(text, prompt, OPENROUTER_KEY, "qwen/qwen-2.5-coder-32b-instruct:free") });
-    if (validKey(GROQ_KEY))       candidates.push({ name: "groq-70b",       key: GROQ_KEY,       fn: () => callGroqModel(text, prompt, GROQ_KEY, "llama-3.1-70b-versatile") });
-    if (validKey(CEREBRAS_KEY))   candidates.push({ name: "cerebras",       key: CEREBRAS_KEY,   fn: () => callCerebras(text, prompt, CEREBRAS_KEY) });
-    if (validKey(CF_KEY))         candidates.push({ name: "cloudflare",     key: CF_KEY,         fn: () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT), extra: CF_ACCOUNT });
-    if (validKey(EXTRA1_KEY))     candidates.push({ name: "extra1",         key: EXTRA1_KEY,     fn: () => callExtra(text, prompt, EXTRA1_KEY, "Extra1") });
-    if (validKey(EXTRA2_KEY))     candidates.push({ name: "extra2",         key: EXTRA2_KEY,     fn: () => callExtra(text, prompt, EXTRA2_KEY, "Extra2") });
-    if (validKey(EXTRA3_KEY))     candidates.push({ name: "extra3",         key: EXTRA3_KEY,     fn: () => callExtra(text, prompt, EXTRA3_KEY, "Extra3") });
-    if (validKey(EXTRA4_KEY))     candidates.push({ name: "extra4",         key: EXTRA4_KEY,     fn: () => callExtra(text, prompt, EXTRA4_KEY, "Extra4") });
-    if (validKey(EXTRA5_KEY))     candidates.push({ name: "extra5",         key: EXTRA5_KEY,     fn: () => callExtra(text, prompt, EXTRA5_KEY, "Extra5") });
-    if (validKey(EXTRA6_KEY))     candidates.push({ name: "extra6",         key: EXTRA6_KEY,     fn: () => callExtra(text, prompt, EXTRA6_KEY, "Extra6") });
+    if (validKey(GEMINI_KEY))     candidates.push({ name: "gemini",         fn: () => callGemini(text, prompt, GEMINI_KEY) });
+    if (validKey(CEREBRAS_KEY))   candidates.push({ name: "cerebras",       fn: () => callCerebras(text, prompt, CEREBRAS_KEY) });
+    if (validKey(GROQ_KEY))       candidates.push({ name: "groq-70b",       fn: () => callGroqModel(text, prompt, GROQ_KEY, "llama-3.3-70b-versatile") });
+    if (validKey(OPENROUTER_KEY)) candidates.push({ name: "deepseek-coder", fn: () => callOpenRouterModel(text, prompt, OPENROUTER_KEY, "deepseek/deepseek-coder-v2-instruct:free") });
+    if (validKey(OPENROUTER_KEY)) candidates.push({ name: "qwen-coder",     fn: () => callOpenRouterModel(text, prompt, OPENROUTER_KEY, "qwen/qwen-2.5-coder-32b-instruct:free") });
+    if (validKey(MISTRAL_KEY))    candidates.push({ name: "mistral",        fn: () => callMistral(text, prompt, MISTRAL_KEY) });
+    if (cfOk)                     candidates.push({ name: "cloudflare",     fn: () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT) });
+    if (validKey(EXTRA1_KEY))     candidates.push({ name: "extra1",         fn: () => callExtra(text, prompt, EXTRA1_KEY, "Extra1") });
+    if (validKey(EXTRA2_KEY))     candidates.push({ name: "extra2",         fn: () => callExtra(text, prompt, EXTRA2_KEY, "Extra2") });
+    if (validKey(EXTRA3_KEY))     candidates.push({ name: "extra3",         fn: () => callExtra(text, prompt, EXTRA3_KEY, "Extra3") });
+    if (validKey(EXTRA4_KEY))     candidates.push({ name: "extra4",         fn: () => callExtra(text, prompt, EXTRA4_KEY, "Extra4") });
+    if (validKey(EXTRA5_KEY))     candidates.push({ name: "extra5",         fn: () => callExtra(text, prompt, EXTRA5_KEY, "Extra5") });
+    if (validKey(EXTRA6_KEY))     candidates.push({ name: "extra6",         fn: () => callExtra(text, prompt, EXTRA6_KEY, "Extra6") });
   } else {
-    candidates = [
-      { name: "groq",       key: GROQ_KEY,       fn: () => callGroq(text, prompt, GROQ_KEY) },
-      { name: "gemini",     key: GEMINI_KEY,      fn: () => callGemini(text, prompt, GEMINI_KEY) },
-      { name: "cerebras",   key: CEREBRAS_KEY,    fn: () => callCerebras(text, prompt, CEREBRAS_KEY) },
-      { name: "openrouter", key: OPENROUTER_KEY,  fn: () => callOpenRouter(text, prompt, OPENROUTER_KEY) },
-      ...(validKey(GLM_KEY) ? [{ name: "glm", key: GLM_KEY, fn: () => callGLM(text, prompt, GLM_KEY) }] : []),
-      { name: "mistral",    key: MISTRAL_KEY,     fn: () => callMistral(text, prompt, MISTRAL_KEY) },
-      { name: "cloudflare", key: CF_KEY,          fn: () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT), extra: CF_ACCOUNT },
-      { name: "extra1",     key: EXTRA1_KEY,      fn: () => callExtra(text, prompt, EXTRA1_KEY, "Extra1") },
-      { name: "extra2",     key: EXTRA2_KEY,      fn: () => callExtra(text, prompt, EXTRA2_KEY, "Extra2") },
-      { name: "extra3",     key: EXTRA3_KEY,      fn: () => callExtra(text, prompt, EXTRA3_KEY, "Extra3") },
-      { name: "extra4",     key: EXTRA4_KEY,      fn: () => callExtra(text, prompt, EXTRA4_KEY, "Extra4") },
-      { name: "extra5",     key: EXTRA5_KEY,      fn: () => callExtra(text, prompt, EXTRA5_KEY, "Extra5") },
-      { name: "extra6",     key: EXTRA6_KEY,      fn: () => callExtra(text, prompt, EXTRA6_KEY, "Extra6") },
-    ];
+    candidates = [];
+    if (validKey(CEREBRAS_KEY))   candidates.push({ name: "cerebras",       fn: () => callCerebras(text, prompt, CEREBRAS_KEY) });
+    if (validKey(GEMINI_KEY))     candidates.push({ name: "gemini",         fn: () => callGemini(text, prompt, GEMINI_KEY) });
+    if (validKey(GROQ_KEY))       candidates.push({ name: "groq",           fn: () => callGroq(text, prompt, GROQ_KEY) });
+    if (validKey(MISTRAL_KEY))    candidates.push({ name: "mistral",        fn: () => callMistral(text, prompt, MISTRAL_KEY) });
+    if (cfOk)                     candidates.push({ name: "cloudflare",     fn: () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT) });
+    if (validKey(OPENROUTER_KEY)) candidates.push({ name: "openrouter",     fn: () => callOpenRouter(text, prompt, OPENROUTER_KEY) });
+    if (validKey(GLM_KEY))        candidates.push({ name: "glm",            fn: () => callGLM(text, prompt, GLM_KEY) });
+    if (validKey(EXTRA1_KEY))     candidates.push({ name: "extra1",         fn: () => callExtra(text, prompt, EXTRA1_KEY, "Extra1") });
+    if (validKey(EXTRA2_KEY))     candidates.push({ name: "extra2",         fn: () => callExtra(text, prompt, EXTRA2_KEY, "Extra2") });
+    if (validKey(EXTRA3_KEY))     candidates.push({ name: "extra3",         fn: () => callExtra(text, prompt, EXTRA3_KEY, "Extra3") });
+    if (validKey(EXTRA4_KEY))     candidates.push({ name: "extra4",         fn: () => callExtra(text, prompt, EXTRA4_KEY, "Extra4") });
+    if (validKey(EXTRA5_KEY))     candidates.push({ name: "extra5",         fn: () => callExtra(text, prompt, EXTRA5_KEY, "Extra5") });
+    if (validKey(EXTRA6_KEY))     candidates.push({ name: "extra6",         fn: () => callExtra(text, prompt, EXTRA6_KEY, "Extra6") });
   }
 
-  // All start as skipped; updated as each candidate is tried
+  console.log(`[ParaFree] Chain (${isAIChat ? 'AI' : 'writing'}): ${candidates.map(c => c.name).join(' → ') || 'EMPTY — no keys set'}`);
+
+  if (candidates.length === 0) {
+    console.error("[ParaFree] ❌ No valid API keys found — check Vercel environment variables");
+    return { success: false, error: "No API keys configured", apiStatuses: {} };
+  }
+
   const apiStatuses = {};
   candidates.forEach(c => { apiStatuses[c.name] = "skipped"; });
 
-  let anyKeyFound = false;
-
   for (const c of candidates) {
-    const keyOk  = c.key && c.key.length > 10;
-    const extraOk = c.extra !== undefined ? (c.extra && c.extra.length > 10) : true;
-
-    if (!keyOk || !extraOk) {
-      console.log("Skipping", c.name, "- key missing or empty");
-      // already "skipped" in apiStatuses
-      continue;
-    }
-
-    anyKeyFound = true;
-
+    apiStatuses[c.name] = "trying";
     try {
       const result = await c.fn();
-      if (result && result.trim().length > 10) {
-        console.log("[ParaFree] Success:", c.name);
+      if (result && result.trim().length > 5) {
+        console.log(`[ParaFree] ✅ Success: ${c.name}`);
         apiStatuses[c.name] = "success";
         return { success: true, result: result.trim(), usedApi: c.name, apiStatuses };
       }
-      console.warn("[ParaFree]", c.name, "returned empty/short result — trying next");
+      console.warn(`[ParaFree] ⚠️ ${c.name} returned empty/short result — trying next`);
       apiStatuses[c.name] = "failed";
     } catch (e) {
       const msg = e.message || "";
@@ -472,14 +470,11 @@ async function runChain(text, prompt, type) {
       } else {
         apiStatuses[c.name] = "failed";
       }
-      console.warn("[ParaFree]", c.name, "failed:", msg, "— trying next");
+      console.log(`[ParaFree] ❌ Failed: ${c.name} — ${msg}`);
     }
   }
 
-  if (!anyKeyFound) {
-    console.error("[ParaFree] No valid API keys found — check Vercel environment variables");
-    return { success: false, error: "No API keys configured", apiStatuses };
-  }
+  console.error("[ParaFree] ❌ ALL providers failed — statuses:", JSON.stringify(apiStatuses));
 
   return { success: false, error: "All APIs failed", apiStatuses };
 }
@@ -494,74 +489,42 @@ async function handleTestKeys(body) {
   const testText = "say hi";
   const testPrompt = "Say hi and nothing else:";
 
+  const cfAccount = process.env.CF_ACCOUNT;
+
   const tests = [
-    {
-      name: "groq",
-      model: "llama-3.1-8b-instant",
-      key: process.env.GROQ_KEY,
-      fn: (k) => callGroq(testText, testPrompt, k),
-    },
-    {
-      name: "gemini",
-      model: "gemini-2.0-flash",
-      key: process.env.GEMINI_KEY,
-      fn: (k) => callGemini(testText, testPrompt, k),
-    },
-    {
-      name: "cerebras",
-      model: "llama3.1-8b",
-      key: process.env.CEREBRAS_KEY,
-      fn: (k) => callCerebras(testText, testPrompt, k),
-    },
-    {
-      name: "openrouter",
-      model: "llama-3.1-8b-instruct:free",
-      key: process.env.OPENROUTER_KEY,
-      fn: (k) => callOpenRouter(testText, testPrompt, k),
-    },
-    {
-      name: "mistral",
-      model: "mistral-small-latest",
-      key: process.env.MISTRAL_KEY,
-      fn: (k) => callMistral(testText, testPrompt, k),
-    },
-    {
-      name: "cloudflare",
-      model: "llama-3.1-8b-instruct",
-      key: process.env.CF_KEY,
-      account: process.env.CF_ACCOUNT,
-      fn: (k) => callCloudflare(testText, testPrompt, k, process.env.CF_ACCOUNT),
-    },
+    { name: "groq",       model: "llama-3.3-70b-versatile", key: process.env.GROQ_KEY,       fn: (k) => callGroq(testText, testPrompt, k) },
+    { name: "gemini",     model: "gemini-2.0-flash",        key: process.env.GEMINI_KEY,     fn: (k) => callGemini(testText, testPrompt, k) },
+    { name: "cerebras",   model: "llama-3.3-70b",           key: process.env.CEREBRAS_KEY,   fn: (k) => callCerebras(testText, testPrompt, k) },
+    { name: "openrouter", model: "llama-3.1-8b-instruct:free", key: process.env.OPENROUTER_KEY, fn: (k) => callOpenRouter(testText, testPrompt, k) },
+    { name: "mistral",    model: "mistral-small-latest",    key: process.env.MISTRAL_KEY,    fn: (k) => callMistral(testText, testPrompt, k) },
+    { name: "cloudflare", model: "@cf/meta/llama-3.1-8b-instruct", key: process.env.CF_KEY, account: cfAccount, fn: (k) => callCloudflare(testText, testPrompt, k, cfAccount) },
+    { name: "glm",        model: "glm-4-flash",             key: process.env.GLM_KEY,        fn: (k) => callGLM(testText, testPrompt, k) },
   ];
 
   const results = {};
 
   await Promise.all(tests.map(async (t) => {
-    const keyMissing = !t.key || t.key.length <= 10;
-    const accountMissing = t.account !== undefined && (!t.account || t.account.length <= 5);
-
-    if (keyMissing) {
+    if (!t.key || t.key.length <= 10) {
       results[t.name] = { status: "⚠️ no key", error: "Key not set in Vercel environment variables" };
       return;
     }
-    if (accountMissing) {
-      results[t.name] = { status: "⚠️ no key", error: "CF_ACCOUNT not set in Vercel environment variables" };
+    if (t.account !== undefined && (!t.account || t.account.length <= 5)) {
+      results[t.name] = { status: "⚠️ no key", error: "CF_ACCOUNT not set — add it to Vercel environment variables" };
       return;
     }
-
     try {
       const response = await t.fn(t.key);
       if (!response || response.trim().length === 0) {
-        results[t.name] = { status: "❌ failed", error: "Empty response from API" };
+        results[t.name] = { status: "❌ failed", error: "Empty response" };
       } else {
-        results[t.name] = { status: "✅ working", model: t.model };
+        results[t.name] = { status: "✅ working", model: t.model, response: response.trim().slice(0, 60) };
       }
     } catch (e) {
       results[t.name] = { status: "❌ failed", error: e.message };
     }
   }));
 
-  return { success: true, results };
+  return { success: true, results, note: "CF_ACCOUNT " + (cfAccount ? "is set" : "NOT SET — add to Vercel env vars") };
 }
 
 // ── MAIN HANDLER ──
