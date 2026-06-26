@@ -142,7 +142,7 @@ async function callCerebras(text, prompt, key) {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
     body: JSON.stringify({
-      model: "llama3.1-8b",
+      model: "gpt-oss-120b",
       messages: [{ role: "user", content: prompt + "\n\n" + text }],
       temperature: 0.7,
       max_tokens: 2048
@@ -500,7 +500,7 @@ async function handleTestKeys(body) {
   const tests = [
     { name: "groq",       model: "llama-3.3-70b-versatile", key: process.env.GROQ_KEY,       fn: (k) => callGroq(testText, testPrompt, k) },
     { name: "gemini",     model: "gemini-2.0-flash",        key: process.env.GEMINI_KEY,     fn: (k) => callGemini(testText, testPrompt, k) },
-    { name: "cerebras",   model: "llama3.1-8b",             key: process.env.CEREBRAS_KEY,   fn: (k) => callCerebras(testText, testPrompt, k) },
+    { name: "cerebras",   model: "gpt-oss-120b",            key: process.env.CEREBRAS_KEY,   fn: (k) => callCerebras(testText, testPrompt, k) },
     { name: "openrouter", model: "llama-3.1-8b-instruct:free", key: process.env.OPENROUTER_KEY, fn: (k) => callOpenRouter(testText, testPrompt, k) },
     { name: "mistral",    model: "mistral-small-latest",    key: process.env.MISTRAL_KEY,    fn: (k) => callMistral(testText, testPrompt, k) },
     { name: "cloudflare", model: "@cf/meta/llama-3.1-8b-instruct", key: process.env.CF_KEY, account: cfAccount, fn: (k) => callCloudflare(testText, testPrompt, k, cfAccount) },
