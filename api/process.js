@@ -148,7 +148,11 @@ async function callCerebras(text, prompt, key) {
       max_tokens: 2048
     })
   });
-  if (!res.ok) throw new Error("Cerebras:" + res.status);
+  if (!res.ok) {
+    let errBody = "";
+    try { errBody = await res.text(); } catch(_) {}
+    throw new Error("Cerebras:" + res.status + " " + errBody.slice(0, 100));
+  }
   const data = await res.json();
   if (!data.choices || !data.choices[0]) throw new Error("Cerebras: no response");
   return data.choices[0].message.content;
@@ -467,6 +471,8 @@ async function runChain(text, prompt, type) {
         apiStatuses[c.name] = "expired";
       } else if (msg.includes(":429")) {
         apiStatuses[c.name] = "limit";
+      } else if (msg.includes(":404")) {
+        apiStatuses[c.name] = "model_not_found";
       } else {
         apiStatuses[c.name] = "failed";
       }
