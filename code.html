@@ -94,13 +94,21 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <!-- pptxgenjs -->
 <script src="https://unpkg.com/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
-<!-- docx: preload early so it's ready before first createDOCX() call -->
+<!-- docx: preload with fallback CDN -->
 <script>
-(function(){
-  window._docxLoaded = false;
+(function() {
+  window._docxReady = false;
   var s = document.createElement('script');
   s.src = 'https://unpkg.com/docx@8.5.0/build/index.js';
-  s.onload = function(){ window._docxLoaded = true; console.log('[ParaFree] docx library loaded ✓'); };
+  s.async = false;
+  s.onload = function() { window._docxReady = true; console.log('[ParaFree] docx loaded ✓'); };
+  s.onerror = function() {
+    var s2 = document.createElement('script');
+    s2.src = 'https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js';
+    s2.async = false;
+    s2.onload = function() { window._docxReady = true; console.log('[ParaFree] docx loaded from fallback ✓'); };
+    document.head.appendChild(s2);
+  };
   document.head.appendChild(s);
 })();
 </script>
@@ -2683,15 +2691,38 @@ async function createPPTX(data) {
 // ── DOCX creation ────────────────────────────────────────
 async function createDOCX(data) {
   try {
-    showToast('⏳ Creating document...');
+    showToast('⏳ Creating Word document...');
 
-    // Wait for docx library (up to 6s)
-    let attempts = 0;
-    while (!window.docx && attempts < 20) {
-      await new Promise(r => setTimeout(r, 300));
-      attempts++;
+    // Wait up to 10s for library already in flight
+    let waited = 0;
+    while (!window.docx && waited < 100) {
+      await new Promise(r => setTimeout(r, 100));
+      waited++;
     }
-    if (!window.docx) { showToast('❌ Could not load Word library'); return; }
+
+    // Dynamic fallback load if still missing
+    if (!window.docx) {
+      showToast('⏳ Loading library...');
+      await new Promise((resolve, reject) => {
+        const urls = [
+          'https://unpkg.com/docx@8.5.0/build/index.js',
+          'https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js'
+        ];
+        let tried = 0;
+        function tryNext() {
+          if (tried >= urls.length) { reject(new Error('All CDNs failed')); return; }
+          const s = document.createElement('script');
+          s.src = urls[tried++];
+          s.onload = () => resolve();
+          s.onerror = () => tryNext();
+          document.head.appendChild(s);
+        }
+        tryNext();
+      });
+      await new Promise(r => setTimeout(r, 800));
+    }
+
+    if (!window.docx) { showToast('❌ Word library unavailable. Try refreshing page.'); return; }
 
     const { Document, Paragraph, TextRun, Packer, AlignmentType, BorderStyle } = window.docx;
     const children = [];
