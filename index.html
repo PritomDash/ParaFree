@@ -102,7 +102,16 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://unpkg.com/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
-<script src="https://unpkg.com/docx@8.5.0/build/index.js"></script>
+<!-- docx: preload early so it's ready before first createDOCX() call -->
+<script>
+(function(){
+  window._docxLoaded = false;
+  var s = document.createElement('script');
+  s.src = 'https://unpkg.com/docx@8.5.0/build/index.js';
+  s.onload = function(){ window._docxLoaded = true; console.log('[ParaFree] docx library loaded ✓'); };
+  document.head.appendChild(s);
+})();
+</script>
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8692254823531289" crossorigin="anonymous"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
@@ -4334,12 +4343,11 @@ function homeShowDownloadBtn(type, data) {
   bar.style.cssText = 'display:flex;gap:8px;padding:10px 14px;background:#252320;border-top:1px solid #333;flex-wrap:wrap;flex-shrink:0;';
   if (type === 'pptx') {
     bar.innerHTML = `
-      <button onclick="homeCreatePPTX(window._homeLastDoc)" style="padding:7px 14px;background:#2d6a4f;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">⬇️ Download PPTX</button>
-      <button onclick="homeCreatePDF(window._homeLastDoc)" style="padding:7px 14px;background:#1565c0;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;">⬇️ Download PDF</button>`;
+      <button onclick="homeCreatePPTX(window._homeLastDoc)" style="padding:7px 14px;background:#2d6a4f;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">⬇️ Download PPTX</button>`;
   } else {
     bar.innerHTML = `
-      <button onclick="homeCreateDOCX(window._homeLastDoc)" style="padding:7px 14px;background:#2d6a4f;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">⬇️ Download DOCX</button>
-      <button onclick="homeCreatePDF(window._homeLastDoc)" style="padding:7px 14px;background:#1565c0;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;">⬇️ Download PDF</button>`;
+      <button onclick="homeCreateDOCX(window._homeLastDoc)" style="padding:7px 14px;background:#2d6a4f;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">⬇️ Download Word (.docx)</button>
+      <button onclick="(function(){var d=window._homeLastDoc;var txt=(d&&d.title?d.title+'\\n\\n':'')+(d&&d.content?d.content.map(function(i){return i.text||'';}).join('\\n'):'');navigator.clipboard.writeText(txt).then(function(){homeShowToast('✓ Copied!');});})()" style="padding:7px 14px;background:#52b788;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;">📋 Copy Text</button>`;
   }
   panel.appendChild(bar);
   window._homeLastDoc = data;
@@ -4422,67 +4430,102 @@ async function homeCreatePPTX(data) {
 
 async function homeCreateDOCX(data) {
   try {
-    if (typeof docx === 'undefined') {
-      homeShowToast('⏳ Loading DOCX library...');
-      await new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = 'https://unpkg.com/docx@8.5.0/build/index.js';
-        s.onload = resolve; s.onerror = reject;
-        document.head.appendChild(s);
-      });
-      await new Promise(r => setTimeout(r, 500));
-    }
-    if (typeof docx === 'undefined') { homeShowToast('❌ Could not load DOCX library'); return; }
+    homeShowToast('⏳ Creating document...');
 
-    const {Document, Paragraph, TextRun, Packer, AlignmentType, BorderStyle} = docx;
+    // Wait for docx library (up to 6s)
+    let attempts = 0;
+    while (!window.docx && attempts < 20) {
+      await new Promise(r => setTimeout(r, 300));
+      attempts++;
+    }
+    if (!window.docx) { homeShowToast('❌ Could not load Word library'); return; }
+
+    const { Document, Paragraph, TextRun, Packer, AlignmentType, BorderStyle } = window.docx;
     const children = [];
 
     if (data.title) {
       children.push(new Paragraph({
-        children: [new TextRun({text: data.title, bold: true, size: 52, color: '2D6A4F', font: 'Calibri'})],
-        spacing: {after: 400},
-        border: {bottom: {color: '2D6A4F', space: 4, style: BorderStyle.SINGLE, size: 12}}
+        children: [new TextRun({ text: data.title, bold: true, size: 48, color: '1A3A2A', font: 'Calibri' })],
+        spacing: { after: 200, before: 100 },
+        border: { bottom: { color: '2D6A4F', space: 4, style: BorderStyle.SINGLE, size: 8 } }
       }));
+      children.push(new Paragraph({ children: [new TextRun({ text: '' })], spacing: { after: 200 } }));
     }
 
-    (data.content || []).forEach(item => {
-      if (!item?.text) return;
-      if (item.type === 'heading' || item.type === 'h1') {
+    const contentItems = data.content || [];
+    console.log('[ParaFree] Processing DOCX items:', contentItems.length);
+
+    for (const item of contentItems) {
+      if (!item) continue;
+      const text = item.text || '';
+      const type = item.type || 'paragraph';
+
+      if (type === 'heading' || type === 'h1') {
         children.push(new Paragraph({
-          children: [new TextRun({text: item.text, bold: true, size: 32, color: '1A3A2A', font: 'Calibri'})],
-          spacing: {before: 400, after: 120},
-          border: {left: {color: '2D6A4F', space: 8, style: BorderStyle.SINGLE, size: 24}},
-          indent: {left: 240}
+          children: [new TextRun({ text, bold: true, size: 28, color: '2D6A4F', font: 'Calibri' })],
+          spacing: { before: 360, after: 120 }
         }));
-      } else if (item.type === 'bullet' || item.type === 'list') {
         children.push(new Paragraph({
-          children: [new TextRun({text: item.text, size: 24, font: 'Calibri'})],
-          bullet: {level: 0}, spacing: {after: 100}
+          children: [new TextRun({ text: '', size: 4 })],
+          border: { bottom: { color: '52B788', style: BorderStyle.SINGLE, size: 4, space: 2 } },
+          spacing: { after: 160 }
+        }));
+      } else if (type === 'heading2' || type === 'h2') {
+        children.push(new Paragraph({
+          children: [new TextRun({ text, bold: true, size: 24, color: '1A3A2A', font: 'Calibri' })],
+          spacing: { before: 280, after: 100 }
+        }));
+      } else if (type === 'bullet' || type === 'list') {
+        children.push(new Paragraph({
+          children: [new TextRun({ text, size: 22, color: '374151', font: 'Calibri' })],
+          bullet: { level: 0 },
+          spacing: { after: 80 },
+          indent: { left: 360, hanging: 360 }
+        }));
+      } else if (type === 'quote') {
+        children.push(new Paragraph({
+          children: [new TextRun({ text, italics: true, size: 22, color: '4B5563', font: 'Calibri' })],
+          indent: { left: 720 },
+          spacing: { before: 160, after: 160 },
+          border: { left: { color: '52B788', style: BorderStyle.SINGLE, size: 12, space: 8 } }
         }));
       } else {
-        children.push(new Paragraph({
-          children: [new TextRun({text: item.text, size: 24, font: 'Calibri'})],
-          spacing: {after: 160}, alignment: AlignmentType.JUSTIFIED
-        }));
+        if (text.trim()) {
+          children.push(new Paragraph({
+            children: [new TextRun({ text, size: 22, color: '374151', font: 'Calibri' })],
+            spacing: { after: 160 },
+            alignment: AlignmentType.JUSTIFIED
+          }));
+        }
       }
-    });
+    }
 
+    if (children.length <= 1) { homeShowToast('❌ No content to create document'); return; }
+
+    console.log('[ParaFree] Creating doc with', children.length, 'paragraphs');
     const doc = new Document({
-      creator: '', title: data.title || '',
-      sections: [{properties: {page: {margin: {top:1440, right:1440, bottom:1440, left:1440}}}, children}]
+      creator: '',
+      title: data.title || '',
+      description: '',
+      styles: { default: { document: { run: { font: 'Calibri', size: 22, color: '374151' }, paragraph: { spacing: { line: 340, lineRule: 'auto' } } } } },
+      sections: [{ properties: { page: { margin: { top: 1440, right: 1260, bottom: 1440, left: 1260 } } }, children }]
     });
 
     const blob = await Packer.toBlob(doc);
+    console.log('[ParaFree] DOCX blob size:', blob.size);
+    if (blob.size < 100) { homeShowToast('❌ Document appears empty'); return; }
+
+    const fileName = (data.title || 'document').replace(/[^a-z0-9\s]/gi, '').replace(/\s+/g, '-').toLowerCase().slice(0, 40) || 'document';
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    const fileName = (data.title || 'document').replace(/[^a-z0-9\s]/gi,'').replace(/\s+/g,'-').toLowerCase().slice(0,40);
     a.href = url; a.download = fileName + '.docx';
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+
     window._homeLastDoc = data;
     homeShowToast('✓ Word document downloaded!');
   } catch(err) {
-    console.error('DOCX error:', err);
+    console.error('[ParaFree] DOCX error:', err);
     homeShowToast('❌ Error: ' + err.message);
   }
 }
