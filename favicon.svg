@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 48 48"
+  width="48" height="48">
+
+  <!-- Dark circle background -->
+  <circle cx="24" cy="24" r="24"
+    fill="#1a3a2a"/>
+
+  <!-- Inner green circle -->
+  <circle cx="24" cy="24" r="18"
+    fill="#2d6a4f"/>
+
+  <!-- P letterform -->
+  <rect x="16" y="14" width="4"
+    height="20" rx="2" fill="white"/>
+  <rect x="16" y="14" width="12"
+    height="4" rx="2" fill="white"/>
+  <rect x="16" y="22" width="12"
+    height="4" rx="2" fill="white"/>
+  <rect x="24" y="14" width="4"
+    height="12" rx="2" fill="white"/>
+
+  <!-- Accent dot -->
+  <circle cx="34" cy="34" r="3"
+    fill="#52b788"/>
+
+</svg>
