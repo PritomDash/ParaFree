@@ -2405,7 +2405,7 @@ async function createPPTX(data) {
   if (!window.PptxGenJS) { showToast('PPTX library not loaded yet'); return; }
   const pptx = new PptxGenJS();
   pptx.layout = 'LAYOUT_16x9';
-  pptx.author = 'ParaFree AI';
+  pptx.author = '';
   pptx.title = data.title || 'Presentation';
 
   const THEME = {
@@ -2429,8 +2429,7 @@ async function createPPTX(data) {
 
   const addFooter = (s, i, total, title) => {
     s.addShape('rect', { x:0, y:7.0, w:10, h:0.5, fill:{ color:'F0FDF4' }, line:{ color:'D1FAE5', width:0.3 } });
-    s.addText('✦ ParaFree AI', { x:0.3, y:7.05, w:3, h:0.4, fontSize:9, color:'2D6A4F', bold:true });
-    s.addText(title || '', { x:3, y:7.05, w:4, h:0.4, fontSize:8, color:'6B7280', align:'center' });
+    s.addText(title || '', { x:0.3, y:7.05, w:7, h:0.4, fontSize:8, color:'6B7280' });
     s.addText(`${i} / ${total}`, { x:7, y:7.05, w:2.7, h:0.4, fontSize:9, color:'6B7280', align:'right' });
   };
 
@@ -2457,10 +2456,8 @@ async function createPPTX(data) {
 
       s.addText(data.title || 'Presentation', { x:0.5, y:1.5, w:7.2, h:2.2, fontSize:44, bold:true, color:THEME.white, fontFace:'Calibri', align:'left', wrap:true });
       s.addText(slide.title || 'A Professional Presentation', { x:0.5, y:3.9, w:6.5, h:0.65, fontSize:17, color:THEME.accent2, fontFace:'Calibri', align:'left', italic:true });
-      addTag(s, 'PARAFREE AI', 0.5, 4.75);
-
       s.addShape('rect', { x:0, y:6.8, w:10, h:0.7, fill:{ color:THEME.accent }, line:{ color:THEME.accent } });
-      s.addText('parafree.app', { x:0.3, y:6.85, w:4, h:0.5, fontSize:10, color:THEME.white, fontFace:'Calibri', valign:'middle' });
+      s.addText(data.title || '', { x:0.3, y:6.85, w:7, h:0.5, fontSize:10, color:THEME.white, fontFace:'Calibri', valign:'middle' });
       s.addText(new Date().getFullYear().toString(), { x:7, y:6.85, w:2.7, h:0.5, fontSize:10, color:THEME.white, fontFace:'Calibri', align:'right', valign:'middle' });
 
     } else if (i % 5 === 0) {
@@ -2632,9 +2629,8 @@ async function createPPTX(data) {
   finalSlide.addShape('ellipse', { x:2.5, y:0.5, w:5, h:5, fill:{ type:'solid', color:THEME.accent, alpha:80 }, line:{ color:THEME.accent } });
   finalSlide.addShape('ellipse', { x:7.5, y:4.5, w:3, h:3, fill:{ type:'solid', color:THEME.accent2, alpha:85 }, line:{ color:THEME.accent2 } });
   finalSlide.addShape('ellipse', { x:-0.5, y:3.5, w:2.5, h:2.5, fill:{ type:'solid', color:THEME.gold, alpha:85 }, line:{ color:THEME.gold } });
-  finalSlide.addText('Thank You', { x:0.5, y:2.0, w:9, h:1.8, fontSize:54, bold:true, color:THEME.white, fontFace:'Calibri', align:'center' });
-  finalSlide.addText('Created with ParaFree AI', { x:0.5, y:4.0, w:9, h:0.5, fontSize:15, color:THEME.accent2, fontFace:'Calibri', align:'center' });
-  finalSlide.addText('parafree.app', { x:0.5, y:4.55, w:9, h:0.4, fontSize:12, color:THEME.white, fontFace:'Calibri', align:'center' });
+  finalSlide.addText('Thank You', { x:0.5, y:2.5, w:9, h:1.8, fontSize:54, bold:true, color:THEME.white, fontFace:'Calibri', align:'center' });
+  finalSlide.addText(data.title || '', { x:0.5, y:4.4, w:9, h:0.5, fontSize:15, color:THEME.accent2, fontFace:'Calibri', align:'center' });
 
   const fileName = (data.title || 'presentation')
     .replace(/[^a-z0-9\s]/gi, '')
@@ -2667,10 +2663,7 @@ async function createDOCX(data) {
         spacing: { after:400, before:200 },
         border: { bottom: { color:'2D6A4F', space:4, style:BorderStyle.SINGLE, size:12 } }
       }));
-      children.push(new Paragraph({
-        children: [new TextRun({ text:'Created with ParaFree AI — parafree.app', size:18, color:'9E9890', italics:true, font:'Calibri' })],
-        spacing: { after:600 }
-      }));
+      children.push(new Paragraph({ spacing: { after:600 } }));
     }
 
     (data.content || []).forEach(item => {
@@ -2733,80 +2726,71 @@ async function createDOCX(data) {
 // ── PDF creation ──────────────────────────────────────────
 async function createPDF(data) {
   try {
-    if (!window.jspdf || !window.jspdf.jsPDF) { showToast('PDF library not loaded'); return; }
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
-    const pageW = 210, pageH = 297, margin = 20, contentW = pageW - margin * 2;
-    let yPos = margin;
-
-    function checkPageBreak(needed = 10) {
-      if (yPos + needed > pageH - margin) {
-        doc.addPage(); yPos = margin; drawPageHeader(); yPos += 15;
-      }
+    const jsPDFLib = window.jspdf || window.jsPDF;
+    let PDFClass = jsPDFLib?.jsPDF || jsPDFLib;
+    if (!PDFClass) {
+      await new Promise((resolve, reject) => {
+        if (document.querySelector('script[src*="jspdf"]')) { resolve(); return; }
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        s.onload = resolve; s.onerror = reject;
+        document.head.appendChild(s);
+      });
+      await new Promise(r => setTimeout(r, 500));
+      PDFClass = window.jspdf?.jsPDF || window.jsPDF;
     }
-    function drawPageHeader() {
-      doc.setFillColor(45,106,79); doc.rect(0,0,pageW,8,'F');
-      doc.setFontSize(8); doc.setTextColor(255,255,255);
-      doc.text('parafree.app', margin, 5.5);
-      doc.text(data.title||'Document', pageW/2, 5.5, { align:'center' });
-    }
+    if (!PDFClass) { showToast('❌ PDF library failed to load'); return; }
 
-    drawPageHeader(); yPos = 20;
-    doc.setFillColor(26,58,42); doc.rect(margin-5, yPos-5, contentW+10, 25, 'F');
-    doc.setFontSize(24); doc.setTextColor(255,255,255); doc.setFont('helvetica','bold');
-    const titleLines = doc.splitTextToSize(data.title||'Document', contentW-10);
-    doc.text(titleLines, margin, yPos+8); yPos += 30;
-    doc.setFontSize(9); doc.setTextColor(158,152,144); doc.setFont('helvetica','italic');
-    doc.text('Created with ParaFree AI — parafree.app', margin, yPos); yPos += 12;
-    doc.setDrawColor(45,106,79); doc.setLineWidth(0.5); doc.line(margin, yPos, pageW-margin, yPos); yPos += 8;
+    const doc = new PDFClass({ orientation:'portrait', unit:'mm', format:'a4' });
+    const pageW = 210, margin = 20, contentW = pageW - margin * 2;
+    let y = margin;
 
-    (data.content||[]).forEach(item => {
-      if (!item||!item.text) return;
-      checkPageBreak(15);
-      switch(item.type) {
-        case 'heading': case 'h1':
-          yPos += 4;
-          doc.setFillColor(240,253,244); doc.rect(margin-3,yPos-4,contentW+6,12,'F');
-          doc.setFillColor(45,106,79); doc.rect(margin-3,yPos-4,2,12,'F');
-          doc.setFontSize(14); doc.setTextColor(26,58,42); doc.setFont('helvetica','bold');
-          const h1l = doc.splitTextToSize(item.text, contentW-10);
-          doc.text(h1l, margin+4, yPos+4); yPos += (h1l.length*6)+8; break;
-        case 'heading2': case 'h2':
-          yPos += 3;
-          doc.setFontSize(12); doc.setTextColor(45,106,79); doc.setFont('helvetica','bold');
-          const h2l = doc.splitTextToSize(item.text, contentW);
-          doc.text(h2l, margin, yPos); yPos += (h2l.length*6)+4;
-          doc.setDrawColor(82,183,136); doc.setLineWidth(0.3); doc.line(margin, yPos-2, margin+40, yPos-2); yPos += 2; break;
-        case 'bullet': case 'list':
-          doc.setFontSize(10); doc.setTextColor(31,41,55); doc.setFont('helvetica','normal');
-          doc.setFillColor(45,106,79); doc.circle(margin+2, yPos-1.5, 1, 'F');
-          const bl = doc.splitTextToSize(item.text, contentW-8);
-          doc.text(bl, margin+6, yPos); yPos += (bl.length*5.5)+2; break;
-        case 'quote':
-          yPos += 3;
-          doc.setFillColor(248,250,252); doc.rect(margin,yPos-3,contentW,14,'F');
-          doc.setFillColor(82,183,136); doc.rect(margin,yPos-3,2,14,'F');
-          doc.setFontSize(10); doc.setTextColor(75,85,99); doc.setFont('helvetica','italic');
-          const ql = doc.splitTextToSize(item.text, contentW-10);
-          doc.text(ql, margin+6, yPos+4); yPos += (ql.length*5.5)+8; break;
-        default:
-          doc.setFontSize(10); doc.setTextColor(31,41,55); doc.setFont('helvetica','normal');
-          const pl = doc.splitTextToSize(item.text||'', contentW);
-          pl.forEach(line => { checkPageBreak(6); doc.text(line, margin, yPos); yPos += 5.5; });
-          yPos += 3;
+    const checkPage = (need = 15) => { if (y + need > 270) { doc.addPage(); y = margin; } };
+
+    // Title header
+    doc.setFillColor(26, 58, 42);
+    doc.rect(0, 0, pageW, 35, 'F');
+    doc.setFontSize(20); doc.setTextColor(255,255,255); doc.setFont('helvetica','bold');
+    const titleLines = doc.splitTextToSize(data.title || 'Document', contentW);
+    doc.text(titleLines, margin, 20);
+    y = 45;
+
+    // Content
+    (data.content || []).forEach(item => {
+      if (!item?.text) return;
+      checkPage(20);
+      if (item.type === 'heading' || item.type === 'h1') {
+        y += 6;
+        doc.setFillColor(240,253,244); doc.rect(margin-2, y-5, contentW+4, 12, 'F');
+        doc.setFillColor(45,106,79);   doc.rect(margin-2, y-5, 3, 12, 'F');
+        doc.setFontSize(13); doc.setTextColor(26,58,42); doc.setFont('helvetica','bold');
+        const ls = doc.splitTextToSize(item.text, contentW-8);
+        doc.text(ls, margin+5, y+3); y += (ls.length*6)+8;
+      } else if (item.type === 'bullet' || item.type === 'list') {
+        doc.setFillColor(45,106,79); doc.circle(margin+2, y-1, 1.2, 'F');
+        doc.setFontSize(10); doc.setTextColor(55,65,81); doc.setFont('helvetica','normal');
+        const ls = doc.splitTextToSize(item.text, contentW-10);
+        doc.text(ls, margin+7, y); y += (ls.length*5)+3; checkPage();
+      } else {
+        doc.setFontSize(10); doc.setTextColor(55,65,81); doc.setFont('helvetica','normal');
+        const ls = doc.splitTextToSize(item.text, contentW);
+        doc.text(ls, margin, y); y += (ls.length*5.5)+4; checkPage();
       }
     });
 
+    // Page numbers only
     const total = doc.getNumberOfPages();
     for (let p = 1; p <= total; p++) {
       doc.setPage(p);
-      doc.setFontSize(8); doc.setTextColor(150,150,150); doc.setFont('helvetica','normal');
-      doc.text(`Page ${p} of ${total}`, pageW-margin, pageH-6, { align:'right' });
+      doc.setFontSize(8); doc.setTextColor(180,180,180); doc.setFont('helvetica','normal');
+      doc.text(`${p} / ${total}`, pageW-margin, 287, { align:'right' });
     }
 
     const fileName = (data.title||'document').replace(/[^a-z0-9\s]/gi,'').replace(/\s+/g,'-').toLowerCase().slice(0,40);
     doc.save(fileName + '.pdf');
     window._lastDocData = data; window._lastDocType = 'pdf';
+    renderDocPreview(data);
+    showPreviewPanel();
     showDocumentButtons('pdf', data);
     showToast('✓ PDF downloaded!');
   } catch(err) {
@@ -2817,18 +2801,72 @@ async function createPDF(data) {
 
 // ── Slide preview ─────────────────────────────────────────
 function renderSlidesPreview(data) {
-  const slidesHTML = (data.slides || []).map((slide, i) => `
-    <div style="width:100%;aspect-ratio:16/9;background:${i===0?'#2d6a4f':'#ffffff'};border-radius:8px;
-      padding:32px 40px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.1);position:relative;box-sizing:border-box;">
-      <h2 style="color:${i===0?'#ffffff':'#2d6a4f'};font-size:clamp(14px,2.5vw,24px);margin:0 0 16px;font-family:sans-serif;font-weight:700;">${slide.title||''}</h2>
-      <ul style="color:${i===0?'#e8f5e9':'#1a1814'};font-size:clamp(11px,1.8vw,16px);line-height:1.8;margin:0;padding-left:20px;font-family:sans-serif;">
-        ${(slide.bullets||[]).map(b=>`<li>${b}</li>`).join('')}
-      </ul>
-      <span style="position:absolute;bottom:12px;right:16px;color:${i===0?'#a5d6a7':'#9e9890'};font-size:11px;">${i+1}/${data.slides.length}</span>
-    </div>`).join('');
-  renderInPreview(`<html><head><meta charset="UTF-8"><style>body{margin:0;padding:16px;background:#e8e6e0;font-family:sans-serif;}
-    h1{color:#2d6a4f;font-size:16px;margin:0 0 12px;text-align:center;}</style></head>
-    <body><h1>${data.title||'Presentation'} — ${(data.slides||[]).length} slides</h1>${slidesHTML}</body></html>`);
+  const slides = data.slides || [];
+  const title = data.title || 'Presentation';
+
+  const slidesHTML = slides.map((slide, i) => {
+    if (i === 0) {
+      return `<div style="width:100%;aspect-ratio:16/9;background:linear-gradient(135deg,#0d1b2a,#1a3a2a);border-radius:8px;padding:40px 48px;margin-bottom:12px;box-shadow:0 4px 20px rgba(0,0,0,.3);box-sizing:border-box;position:relative;overflow:hidden;">
+        <div style="position:absolute;right:-60px;top:-60px;width:220px;height:220px;border-radius:50%;background:rgba(45,106,79,0.4);"></div>
+        <div style="position:absolute;right:20px;bottom:-40px;width:120px;height:120px;border-radius:50%;background:rgba(82,183,136,0.3);"></div>
+        <div style="position:absolute;bottom:0;left:0;right:0;height:4px;background:#52b788;"></div>
+        <div style="position:relative;z-index:1;">
+          <p style="color:#52b788;font-size:clamp(10px,1.5vw,13px);font-family:sans-serif;letter-spacing:3px;text-transform:uppercase;margin:0 0 16px;">PRESENTATION</p>
+          <h1 style="color:white;font-size:clamp(18px,3.5vw,36px);font-weight:800;font-family:sans-serif;margin:0 0 16px;line-height:1.2;max-width:70%;">${title}</h1>
+          <p style="color:#52b788;font-size:clamp(10px,1.8vw,16px);font-family:sans-serif;margin:0;">${slide.title||''}</p>
+        </div>
+        <div style="position:absolute;bottom:16px;right:20px;color:rgba(255,255,255,0.3);font-size:10px;font-family:sans-serif;">1 / ${slides.length}</div>
+      </div>`;
+    }
+    const layout = i % 3;
+    if (layout === 1) {
+      return `<div style="width:100%;aspect-ratio:16/9;background:#f7f5f0;border-radius:8px;margin-bottom:12px;box-shadow:0 4px 20px rgba(0,0,0,.1);box-sizing:border-box;display:flex;overflow:hidden;position:relative;">
+        <div style="width:32%;background:#0d1b2a;padding:24px 20px;display:flex;flex-direction:column;justify-content:space-between;flex-shrink:0;">
+          <div>
+            <div style="font-size:clamp(20px,4vw,42px);font-weight:800;color:#52b788;font-family:sans-serif;line-height:1;">${String(i).padStart(2,'0')}</div>
+            <h2 style="color:white;font-size:clamp(10px,1.5vw,16px);font-weight:700;font-family:sans-serif;margin:12px 0 0;line-height:1.3;">${slide.title||''}</h2>
+          </div>
+          <div style="color:rgba(255,255,255,0.3);font-size:9px;font-family:sans-serif;">${i} / ${slides.length-1}</div>
+        </div>
+        <div style="flex:1;padding:20px 24px;display:flex;flex-direction:column;justify-content:center;">
+          ${(slide.bullets||[]).slice(0,4).map((b,bi)=>`<div style="display:flex;gap:10px;margin-bottom:10px;background:white;border-radius:6px;padding:8px 12px;border-left:3px solid #2d6a4f;box-shadow:0 1px 4px rgba(0,0,0,.06);"><span style="color:#2d6a4f;font-weight:700;font-size:clamp(9px,1.4vw,13px);flex-shrink:0;font-family:sans-serif;">${bi+1}.</span><p style="margin:0;color:#1f2937;font-size:clamp(9px,1.3vw,13px);line-height:1.4;font-family:sans-serif;">${b}</p></div>`).join('')}
+        </div>
+      </div>`;
+    }
+    if (layout === 2) {
+      return `<div style="width:100%;aspect-ratio:16/9;border-radius:8px;margin-bottom:12px;box-shadow:0 4px 20px rgba(0,0,0,.1);box-sizing:border-box;display:flex;overflow:hidden;">
+        <div style="width:38%;background:#2d6a4f;padding:24px 20px;display:flex;flex-direction:column;justify-content:center;position:relative;overflow:hidden;">
+          <div style="position:absolute;bottom:-30px;left:-30px;width:120px;height:120px;border-radius:50%;background:rgba(0,0,0,0.2);"></div>
+          <h2 style="color:white;font-size:clamp(11px,1.8vw,18px);font-weight:800;font-family:sans-serif;margin:0;line-height:1.3;position:relative;z-index:1;">${slide.title||''}</h2>
+          <div style="width:40px;height:3px;background:#52b788;margin-top:12px;"></div>
+        </div>
+        <div style="flex:1;background:#f8fafb;padding:20px 24px;display:flex;flex-direction:column;justify-content:center;">
+          ${(slide.bullets||[]).slice(0,5).map((b,bi)=>`<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;"><div style="width:20px;height:20px;border-radius:50%;background:#2d6a4f;color:white;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:sans-serif;margin-top:1px;">${bi+1}</div><p style="margin:0;color:#374151;font-size:clamp(8px,1.2vw,12px);line-height:1.5;font-family:sans-serif;">${b}</p></div>`).join('')}
+        </div>
+      </div>`;
+    }
+    return `<div style="width:100%;aspect-ratio:16/9;background:white;border-radius:8px;margin-bottom:12px;box-shadow:0 4px 20px rgba(0,0,0,.1);box-sizing:border-box;overflow:hidden;">
+      <div style="background:#0d1b2a;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;">
+        <h2 style="color:white;font-size:clamp(11px,1.8vw,18px);font-weight:700;font-family:sans-serif;margin:0;">${slide.title||''}</h2>
+        <span style="background:#2d6a4f;color:white;font-size:9px;padding:3px 8px;border-radius:10px;font-family:sans-serif;">${i} / ${slides.length-1}</span>
+      </div>
+      <div style="height:3px;background:#52b788;"></div>
+      <div style="padding:16px 20px;display:grid;grid-template-columns:${(slide.bullets||[]).length>3?'1fr 1fr':'1fr'};gap:8px;">
+        ${(slide.bullets||[]).slice(0,6).map((b,bi)=>`<div style="background:#f0fdf4;border-radius:6px;padding:8px 12px;border-left:3px solid #52b788;display:flex;gap:8px;"><span style="color:#2d6a4f;font-weight:700;font-size:clamp(9px,1.3vw,12px);flex-shrink:0;font-family:sans-serif;">✦</span><p style="margin:0;color:#1f2937;font-size:clamp(8px,1.2vw,12px);line-height:1.4;font-family:sans-serif;">${b}</p></div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+
+  const thankYou = `<div style="width:100%;aspect-ratio:16/9;background:linear-gradient(135deg,#0d1b2a,#1a3a2a);border-radius:8px;margin-bottom:12px;box-shadow:0 4px 20px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;">
+    <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:300px;height:300px;border-radius:50%;background:rgba(45,106,79,0.3);"></div>
+    <div style="text-align:center;position:relative;z-index:1;">
+      <h1 style="color:white;font-size:clamp(24px,5vw,48px);font-weight:800;font-family:sans-serif;margin:0 0 8px;">Thank You</h1>
+      <p style="color:#52b788;font-size:clamp(10px,1.5vw,14px);font-family:sans-serif;margin:0;">${title}</p>
+    </div>
+  </div>`;
+
+  renderInPreview(`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#e8e6e0;padding:20px;font-family:sans-serif;}.ppt-title{text-align:center;color:#2d6a4f;font-size:14px;font-weight:700;margin-bottom:16px;letter-spacing:1px;text-transform:uppercase;}</style></head><body><p class="ppt-title">${title} — ${slides.length} slides</p>${slidesHTML}${thankYou}</body></html>`);
+  showPreviewPanel();
 }
 
 // ── Document preview ──────────────────────────────────────
@@ -2863,9 +2901,8 @@ body{font-family:-apple-system,'Segoe UI',Calibri,sans-serif;background:#f0ede6;
 .doc-footer{background:#1a3a2a;padding:10px 40px;color:#52b788;font-size:11px;text-align:center;}
 </style></head>
 <body><div class="doc-page">
-<div class="doc-header"><h1>${title.replace(/</g,'&lt;')}</h1><p>Created with ParaFree AI — parafree.app</p></div>
+<div class="doc-header"><h1>${title.replace(/</g,'&lt;')}</h1></div>
 <div class="doc-content">${contentHTML}</div>
-<div class="doc-footer">ParaFree AI — Free AI Suite — parafree.app</div>
 </div></body></html>`);
 }
 

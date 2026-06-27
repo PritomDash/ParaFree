@@ -4120,12 +4120,71 @@ function homeOpenFullscreen() {
 }
 
 function homeRenderSlidesPreview(data) {
-  const html = data.slides.map((slide,i)=>`
-    <div style="width:100%;aspect-ratio:16/9;background:${i===0?'#2d6a4f':'#fff'};border-radius:8px;padding:24px 32px;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,.1);box-sizing:border-box;">
-      <h2 style="color:${i===0?'#fff':'#2d6a4f'};font-size:clamp(12px,2vw,20px);margin:0 0 12px;font-family:sans-serif;font-weight:700;">${slide.title||''}</h2>
-      <ul style="color:${i===0?'#e8f5e9':'#1a1814'};font-size:clamp(10px,1.5vw,14px);line-height:1.8;margin:0;padding-left:16px;font-family:sans-serif;">${(slide.bullets||[]).map(b=>`<li>${b}</li>`).join('')}</ul>
-    </div>`).join('');
-  homeRenderHTMLPreview(`<html><head><meta charset="UTF-8"><style>body{margin:0;padding:12px;background:#e8e6e0;}</style></head><body>${html}</body></html>`);
+  const slides = data.slides || [];
+  const title = data.title || 'Presentation';
+
+  const slidesHTML = slides.map((slide, i) => {
+    if (i === 0) {
+      return `<div style="width:100%;aspect-ratio:16/9;background:linear-gradient(135deg,#0d1b2a,#1a3a2a);border-radius:8px;padding:40px 48px;margin-bottom:12px;box-shadow:0 4px 20px rgba(0,0,0,.3);box-sizing:border-box;position:relative;overflow:hidden;">
+        <div style="position:absolute;right:-60px;top:-60px;width:220px;height:220px;border-radius:50%;background:rgba(45,106,79,0.4);"></div>
+        <div style="position:absolute;right:20px;bottom:-40px;width:120px;height:120px;border-radius:50%;background:rgba(82,183,136,0.3);"></div>
+        <div style="position:absolute;bottom:0;left:0;right:0;height:4px;background:#52b788;"></div>
+        <div style="position:relative;z-index:1;">
+          <p style="color:#52b788;font-size:clamp(10px,1.5vw,13px);font-family:sans-serif;letter-spacing:3px;text-transform:uppercase;margin:0 0 16px;">PRESENTATION</p>
+          <h1 style="color:white;font-size:clamp(18px,3.5vw,36px);font-weight:800;font-family:sans-serif;margin:0 0 16px;line-height:1.2;max-width:70%;">${title}</h1>
+          <p style="color:#52b788;font-size:clamp(10px,1.8vw,16px);font-family:sans-serif;margin:0;">${slide.title||''}</p>
+        </div>
+        <div style="position:absolute;bottom:16px;right:20px;color:rgba(255,255,255,0.3);font-size:10px;font-family:sans-serif;">1 / ${slides.length}</div>
+      </div>`;
+    }
+    const layout = i % 3;
+    if (layout === 1) {
+      return `<div style="width:100%;aspect-ratio:16/9;background:#f7f5f0;border-radius:8px;margin-bottom:12px;box-shadow:0 4px 20px rgba(0,0,0,.1);box-sizing:border-box;display:flex;overflow:hidden;">
+        <div style="width:32%;background:#0d1b2a;padding:24px 20px;display:flex;flex-direction:column;justify-content:space-between;flex-shrink:0;">
+          <div>
+            <div style="font-size:clamp(20px,4vw,42px);font-weight:800;color:#52b788;font-family:sans-serif;line-height:1;">${String(i).padStart(2,'0')}</div>
+            <h2 style="color:white;font-size:clamp(10px,1.5vw,16px);font-weight:700;font-family:sans-serif;margin:12px 0 0;line-height:1.3;">${slide.title||''}</h2>
+          </div>
+          <div style="color:rgba(255,255,255,0.3);font-size:9px;font-family:sans-serif;">${i} / ${slides.length-1}</div>
+        </div>
+        <div style="flex:1;padding:20px 24px;display:flex;flex-direction:column;justify-content:center;">
+          ${(slide.bullets||[]).slice(0,4).map((b,bi)=>`<div style="display:flex;gap:10px;margin-bottom:10px;background:white;border-radius:6px;padding:8px 12px;border-left:3px solid #2d6a4f;box-shadow:0 1px 4px rgba(0,0,0,.06);"><span style="color:#2d6a4f;font-weight:700;font-size:clamp(9px,1.4vw,13px);flex-shrink:0;font-family:sans-serif;">${bi+1}.</span><p style="margin:0;color:#1f2937;font-size:clamp(9px,1.3vw,13px);line-height:1.4;font-family:sans-serif;">${b}</p></div>`).join('')}
+        </div>
+      </div>`;
+    }
+    if (layout === 2) {
+      return `<div style="width:100%;aspect-ratio:16/9;border-radius:8px;margin-bottom:12px;box-shadow:0 4px 20px rgba(0,0,0,.1);box-sizing:border-box;display:flex;overflow:hidden;">
+        <div style="width:38%;background:#2d6a4f;padding:24px 20px;display:flex;flex-direction:column;justify-content:center;position:relative;overflow:hidden;">
+          <div style="position:absolute;bottom:-30px;left:-30px;width:120px;height:120px;border-radius:50%;background:rgba(0,0,0,0.2);"></div>
+          <h2 style="color:white;font-size:clamp(11px,1.8vw,18px);font-weight:800;font-family:sans-serif;margin:0;line-height:1.3;position:relative;z-index:1;">${slide.title||''}</h2>
+          <div style="width:40px;height:3px;background:#52b788;margin-top:12px;"></div>
+        </div>
+        <div style="flex:1;background:#f8fafb;padding:20px 24px;display:flex;flex-direction:column;justify-content:center;">
+          ${(slide.bullets||[]).slice(0,5).map((b,bi)=>`<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;"><div style="width:20px;height:20px;border-radius:50%;background:#2d6a4f;color:white;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:sans-serif;margin-top:1px;">${bi+1}</div><p style="margin:0;color:#374151;font-size:clamp(8px,1.2vw,12px);line-height:1.5;font-family:sans-serif;">${b}</p></div>`).join('')}
+        </div>
+      </div>`;
+    }
+    return `<div style="width:100%;aspect-ratio:16/9;background:white;border-radius:8px;margin-bottom:12px;box-shadow:0 4px 20px rgba(0,0,0,.1);box-sizing:border-box;overflow:hidden;">
+      <div style="background:#0d1b2a;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;">
+        <h2 style="color:white;font-size:clamp(11px,1.8vw,18px);font-weight:700;font-family:sans-serif;margin:0;">${slide.title||''}</h2>
+        <span style="background:#2d6a4f;color:white;font-size:9px;padding:3px 8px;border-radius:10px;font-family:sans-serif;">${i} / ${slides.length-1}</span>
+      </div>
+      <div style="height:3px;background:#52b788;"></div>
+      <div style="padding:16px 20px;display:grid;grid-template-columns:${(slide.bullets||[]).length>3?'1fr 1fr':'1fr'};gap:8px;">
+        ${(slide.bullets||[]).slice(0,6).map((b,bi)=>`<div style="background:#f0fdf4;border-radius:6px;padding:8px 12px;border-left:3px solid #52b788;display:flex;gap:8px;"><span style="color:#2d6a4f;font-weight:700;font-size:clamp(9px,1.3vw,12px);flex-shrink:0;font-family:sans-serif;">✦</span><p style="margin:0;color:#1f2937;font-size:clamp(8px,1.2vw,12px);line-height:1.4;font-family:sans-serif;">${b}</p></div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+
+  const thankYou = `<div style="width:100%;aspect-ratio:16/9;background:linear-gradient(135deg,#0d1b2a,#1a3a2a);border-radius:8px;margin-bottom:12px;box-shadow:0 4px 20px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;">
+    <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:300px;height:300px;border-radius:50%;background:rgba(45,106,79,0.3);"></div>
+    <div style="text-align:center;position:relative;z-index:1;">
+      <h1 style="color:white;font-size:clamp(24px,5vw,48px);font-weight:800;font-family:sans-serif;margin:0 0 8px;">Thank You</h1>
+      <p style="color:#52b788;font-size:clamp(10px,1.5vw,14px);font-family:sans-serif;margin:0;">${title}</p>
+    </div>
+  </div>`;
+
+  homeRenderHTMLPreview(`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#e8e6e0;padding:20px;font-family:sans-serif;}.ppt-title{text-align:center;color:#2d6a4f;font-size:14px;font-weight:700;margin-bottom:16px;letter-spacing:1px;text-transform:uppercase;}</style></head><body><p class="ppt-title">${title} — ${slides.length} slides</p>${slidesHTML}${thankYou}</body></html>`);
 }
 
 function homeRenderDocPreview(data) {
@@ -4136,7 +4195,7 @@ function homeRenderDocPreview(data) {
     if (item.type==='bullet'||item.type==='list') return `<div style="display:flex;gap:8px;margin:5px 0;"><span style="color:#2d6a4f;">●</span><p style="margin:0;color:#374151;font-size:13px;line-height:1.7;">${t}</p></div>`;
     return `<p style="color:#374151;line-height:1.8;font-size:13px;margin:6px 0;">${t}</p>`;
   }).join('');
-  homeRenderHTMLPreview(`<html><head><meta charset="UTF-8"><style>body{margin:0;padding:16px;background:#f0ede6;font-family:-apple-system,sans-serif;}.d{background:#fff;max-width:600px;margin:0 auto;border-radius:4px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.1);}.dh{background:#1a3a2a;padding:20px 24px;}.dh h1{color:#fff;font-size:18px;margin:0 0 4px;font-weight:700;}.dh p{color:#52b788;font-size:11px;margin:0;}.dc{padding:20px 24px;}.df{background:#1a3a2a;padding:8px 24px;color:#52b788;font-size:10px;text-align:center;}</style></head><body><div class="d"><div class="dh"><h1>${(data.title||'Document').replace(/</g,'&lt;')}</h1><p>Created with ParaFree AI</p></div><div class="dc">${body}</div><div class="df">parafree.app</div></div></body></html>`);
+  homeRenderHTMLPreview(`<html><head><meta charset="UTF-8"><style>body{margin:0;padding:16px;background:#f0ede6;font-family:-apple-system,sans-serif;}.d{background:#fff;max-width:600px;margin:0 auto;border-radius:4px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.1);}.dh{background:#1a3a2a;padding:20px 24px;}.dh h1{color:#fff;font-size:18px;margin:0;font-weight:700;}.dc{padding:20px 24px;}</style></head><body><div class="d"><div class="dh"><h1>${(data.title||'Document').replace(/</g,'&lt;')}</h1></div><div class="dc">${body}</div></div></body></html>`);
 }
 
 function homeAddUserMessage(msg, files) {
@@ -4409,42 +4468,70 @@ async function homeCreateDOCX(data) {
 
 async function homeCreatePDF(data) {
   try {
-    if (!window.jspdf||!window.jspdf.jsPDF) { homeShowToast('PDF library not loaded'); return; }
-    const {jsPDF}=window.jspdf;
-    const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-    const pageW=210,pageH=297,margin=20,contentW=pageW-margin*2; let yPos=margin;
-    function checkPageBreak(n=10){if(yPos+n>pageH-margin){doc.addPage();yPos=margin;drawHdr();yPos+=15;}}
-    function drawHdr(){doc.setFillColor(45,106,79);doc.rect(0,0,pageW,8,'F');doc.setFontSize(8);doc.setTextColor(255,255,255);doc.text('parafree.app',margin,5.5);doc.text(data.title||'',pageW/2,5.5,{align:'center'});}
-    drawHdr(); yPos=20;
-    doc.setFillColor(26,58,42);doc.rect(margin-5,yPos-5,contentW+10,25,'F');
-    doc.setFontSize(24);doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');
-    doc.text(doc.splitTextToSize(data.title||'Document',contentW-10),margin,yPos+8); yPos+=32;
-    doc.setFontSize(9);doc.setTextColor(158,152,144);doc.setFont('helvetica','italic');
-    doc.text('Created with ParaFree AI — parafree.app',margin,yPos); yPos+=12;
-    doc.setDrawColor(45,106,79);doc.setLineWidth(0.5);doc.line(margin,yPos,pageW-margin,yPos); yPos+=8;
-    (data.content||[]).forEach(item=>{
-      if(!item||!item.text) return; checkPageBreak(15);
-      switch(item.type){
-        case 'heading': case 'h1':
-          yPos+=4; doc.setFillColor(240,253,244);doc.rect(margin-3,yPos-4,contentW+6,12,'F');
-          doc.setFillColor(45,106,79);doc.rect(margin-3,yPos-4,2,12,'F');
-          doc.setFontSize(14);doc.setTextColor(26,58,42);doc.setFont('helvetica','bold');
-          const hl=doc.splitTextToSize(item.text,contentW-10); doc.text(hl,margin+4,yPos+4); yPos+=(hl.length*6)+8; break;
-        case 'bullet': case 'list':
-          doc.setFontSize(10);doc.setTextColor(31,41,55);doc.setFont('helvetica','normal');
-          doc.setFillColor(45,106,79);doc.circle(margin+2,yPos-1.5,1,'F');
-          const bl=doc.splitTextToSize(item.text,contentW-8); doc.text(bl,margin+6,yPos); yPos+=(bl.length*5.5)+2; break;
-        default:
-          doc.setFontSize(10);doc.setTextColor(31,41,55);doc.setFont('helvetica','normal');
-          const pl=doc.splitTextToSize(item.text||'',contentW);
-          pl.forEach(line=>{checkPageBreak(6);doc.text(line,margin,yPos);yPos+=5.5;}); yPos+=3;
+    const jsPDFLib = window.jspdf || window.jsPDF;
+    let PDFClass = jsPDFLib?.jsPDF || jsPDFLib;
+    if (!PDFClass) {
+      homeShowToast('⏳ Loading PDF library...');
+      await new Promise((resolve, reject) => {
+        if (document.querySelector('script[src*="jspdf"]')) { resolve(); return; }
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        s.onload = resolve; s.onerror = reject;
+        document.head.appendChild(s);
+      });
+      await new Promise(r => setTimeout(r, 500));
+      PDFClass = window.jspdf?.jsPDF || window.jsPDF;
+    }
+    if (!PDFClass) { homeShowToast('❌ PDF library failed to load'); return; }
+
+    const doc = new PDFClass({ orientation:'portrait', unit:'mm', format:'a4' });
+    const pageW = 210, margin = 20, contentW = pageW - margin * 2;
+    let y = margin;
+
+    const checkPage = (need = 15) => { if (y + need > 270) { doc.addPage(); y = margin; } };
+
+    // Title header
+    doc.setFillColor(26, 58, 42);
+    doc.rect(0, 0, pageW, 35, 'F');
+    doc.setFontSize(20); doc.setTextColor(255,255,255); doc.setFont('helvetica','bold');
+    const titleLines = doc.splitTextToSize(data.title || 'Document', contentW);
+    doc.text(titleLines, margin, 20);
+    y = 45;
+
+    // Content
+    (data.content || []).forEach(item => {
+      if (!item?.text) return;
+      checkPage(20);
+      if (item.type === 'heading' || item.type === 'h1') {
+        y += 6;
+        doc.setFillColor(240,253,244); doc.rect(margin-2, y-5, contentW+4, 12, 'F');
+        doc.setFillColor(45,106,79);   doc.rect(margin-2, y-5, 3, 12, 'F');
+        doc.setFontSize(13); doc.setTextColor(26,58,42); doc.setFont('helvetica','bold');
+        const ls = doc.splitTextToSize(item.text, contentW-8);
+        doc.text(ls, margin+5, y+3); y += (ls.length*6)+8;
+      } else if (item.type === 'bullet' || item.type === 'list') {
+        doc.setFillColor(45,106,79); doc.circle(margin+2, y-1, 1.2, 'F');
+        doc.setFontSize(10); doc.setTextColor(55,65,81); doc.setFont('helvetica','normal');
+        const ls = doc.splitTextToSize(item.text, contentW-10);
+        doc.text(ls, margin+7, y); y += (ls.length*5)+3; checkPage();
+      } else {
+        doc.setFontSize(10); doc.setTextColor(55,65,81); doc.setFont('helvetica','normal');
+        const ls = doc.splitTextToSize(item.text, contentW);
+        doc.text(ls, margin, y); y += (ls.length*5.5)+4; checkPage();
       }
     });
-    const total=doc.getNumberOfPages();
-    for(let p=1;p<=total;p++){doc.setPage(p);doc.setFontSize(8);doc.setTextColor(150,150,150);doc.setFont('helvetica','normal');doc.text(`Page ${p} of ${total}`,pageW-margin,pageH-6,{align:'right'});}
+
+    // Page numbers only
+    const total = doc.getNumberOfPages();
+    for (let p = 1; p <= total; p++) {
+      doc.setPage(p);
+      doc.setFontSize(8); doc.setTextColor(180,180,180); doc.setFont('helvetica','normal');
+      doc.text(`${p} / ${total}`, pageW-margin, 287, { align:'right' });
+    }
+
     doc.save((data.title||'document').replace(/[^a-z0-9\s]/gi,'').replace(/\s+/g,'-').toLowerCase().slice(0,40)+'.pdf');
     homeShowToast('✓ PDF downloaded!');
-  } catch(err) { homeShowToast('PDF error: '+err.message); }
+  } catch(err) { homeShowToast('❌ PDF error: '+err.message); }
 }
 
 function homeRemoveThinking(id) { document.getElementById(id)?.remove(); }
