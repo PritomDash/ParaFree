@@ -2037,17 +2037,24 @@ async function handleSend() {
             await createPPTX(parsed);
             renderSlidesPreview(parsed);
             showPreviewPanel();
+            showCodeDownloadBar('pptx', parsed);
             jsonHandled = true; break;
           } else if (parsed.type === 'document' && Array.isArray(parsed.content)) {
             await createDOCX(parsed);
+            showCodeDownloadBar('docx', parsed);
             jsonHandled = true; break;
           }
         } catch(e) { continue; }
       }
       if (!jsonHandled) {
         const code = extractCode(data.result);
+        const codeLangMatch = data.result.match(/```(\w+)/);
+        const codeLang = codeLangMatch ? codeLangMatch[1].toLowerCase() : 'html';
         if (code) {
-          setTimeout(() => renderInPreview(code), 300);
+          setTimeout(() => {
+            renderInPreview(code);
+            showCodeDownloadBar('code', { code, lang: codeLang, title: 'Generated Code' });
+          }, 300);
         } else {
           setTimeout(() => {
             const lastBubble = chatHistory.querySelector('.ai-msg:last-child .msg-bubble');
@@ -2059,6 +2066,7 @@ async function handleSend() {
               if (/^(html|jsx|tsx|vue|svelte|css|js|javascript|typescript|ts)$/.test(lang) ||
                   /<!DOCTYPE|<html|<div|<body|<style|<button|<input|<form/i.test(txt)) {
                 renderInPreview(txt);
+                showCodeDownloadBar('code', { code: txt, lang, title: 'Generated Code' });
                 break;
               }
             }
@@ -3041,6 +3049,43 @@ function showDocumentButtons(type, data) {
       <button onclick="(function(){var d=window._lastDocData;var txt=(d&&d.title?d.title+'\\n\\n':'')+(d&&d.content?d.content.map(function(i){return i.text||'';}).join('\\n'):'');navigator.clipboard.writeText(txt).then(function(){showToast('✓ Copied!');});})()" style="${s}background:#52b788;">📋 Copy Text</button>`;
   }
   previewPanel.appendChild(btnRow);
+}
+
+function showCodeDownloadBar(type, data) {
+  document.querySelectorAll('.code-dl-bar').forEach(el => el.remove());
+  const history = document.getElementById('chatHistory');
+  if (!history) return;
+  window._lastCodeData = data;
+
+  const bar = document.createElement('div');
+  bar.className = 'code-dl-bar';
+  bar.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;padding:12px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);margin:8px 0 16px;align-items:center;';
+
+  const bS = 'padding:7px 16px;background:var(--accent);color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;font-family:"DM Sans",sans-serif;';
+  const oS = 'padding:7px 16px;background:none;color:var(--accent);border:1px solid var(--accent);border-radius:8px;cursor:pointer;font-size:13px;font-family:"DM Sans",sans-serif;';
+  const gS = 'padding:7px 16px;background:none;color:var(--text2);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:13px;font-family:"DM Sans",sans-serif;';
+  const lS = 'font-size:12px;color:var(--text2);font-family:"DM Sans",sans-serif;margin-right:4px;';
+
+  if (type === 'pptx') {
+    bar.innerHTML = `<span style="${lS}">📊 Presentation ready:</span>
+      <button onclick="createPPTX(window._lastDocData)" style="${bS}">⬇️ Download PPTX</button>
+      <button onclick="createPDF(window._lastDocData)" style="${bS}background:#1565c0;">⬇️ Download PDF</button>
+      <button onclick="renderSlidesPreview(window._lastDocData);showPreviewPanel()" style="${oS}">👁 Preview Slides</button>`;
+  } else if (type === 'docx') {
+    bar.innerHTML = `<span style="${lS}">📄 Document ready:</span>
+      <button onclick="createDOCX(window._lastDocData)" style="${bS}">⬇️ Download Word</button>
+      <button onclick="renderDocPreview(window._lastDocData);showPreviewPanel()" style="${oS}">👁 Preview Document</button>`;
+  } else if (type === 'code') {
+    const extMap = {html:'.html',css:'.css',javascript:'.js',js:'.js',python:'.py',typescript:'.ts',ts:'.ts',jsx:'.jsx',vue:'.vue',java:'.java',php:'.php',sql:'.sql',bash:'.sh',sh:'.sh'};
+    const ext = extMap[(data.lang||'').toLowerCase()] || '.txt';
+    bar.innerHTML = `<span style="${lS}">💻 Code ready:</span>
+      <button onclick="(function(){var d=window._lastCodeData;var b=new Blob([d.code],{type:'text/plain'});var u=URL.createObjectURL(b);var a=document.createElement('a');a.href=u;a.download='parafree-code${ext}';a.click();URL.revokeObjectURL(u);showToast('Downloaded!');})();" style="${bS}">⬇️ Download ${ext}</button>
+      <button onclick="navigator.clipboard.writeText(window._lastCodeData.code).then(function(){showToast('✓ Copied!');});" style="${oS}">📋 Copy Code</button>
+      <button onclick="renderInPreview(window._lastCodeData.code);showPreviewPanel();" style="${gS}">👁 Preview</button>`;
+  }
+
+  history.appendChild(bar);
+  history.scrollTop = history.scrollHeight;
 }
 
 function setPreviewMode(mode) {
