@@ -87,9 +87,28 @@
   #pf-scroll-top:hover { background:#245a41; }
   @media (prefers-reduced-motion: reduce) { *,*::before,*::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } .pf-reveal { opacity: 1 !important; transform: none !important; } }
   @media print { nav, footer, #pf-scroll-top { display: none !important; } }
+  @media (max-width:768px) {
+    nav > div:not(#mobileMenu) { display: none !important; }
+    #menuToggle { display: flex !important; }
+    body { overflow-x: hidden; }
+    h1 { font-size: 26px !important; }
+  }
 </style>
 </head>
 <body>
+<div id="mobileMenu" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9998;" onclick="if(event.target===this)toggleMenu()">
+  <div style="position:absolute;top:0;right:0;width:260px;height:100%;background:#1a3a2a;padding:20px;display:flex;flex-direction:column;overflow-y:auto;">
+    <button onclick="toggleMenu()" aria-label="Close menu" style="align-self:flex-end;background:none;border:none;font-size:28px;cursor:pointer;color:#aaa;line-height:1;padding:0 4px;margin-bottom:16px;">×</button>
+    <a href="/" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;">Home</a>
+    <a href="/cv-builder.html" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;">CV Builder</a>
+    <a href="/code.html" style="color:#52b788;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;font-weight:600;">✨ ParaFree AI</a>
+    <a href="/blog.html" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;">Blog</a>
+    <a href="/about.html" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;">About</a>
+    <a href="/faq.html" style="color:#52b788;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;font-weight:600;">FAQ</a>
+    <a href="/contact.html" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;">Contact</a>
+    <a href="/privacy.html" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;display:block;">Privacy</a>
+  </div>
+</div>
 <nav>
   <a href="/" class="logo">ParaFree</a>
   <div>
@@ -102,6 +121,11 @@
     <a href="/contact.html">Contact</a>
     <a href="/privacy.html">Privacy</a>
   </div>
+  <button id="menuToggle" aria-label="Open menu" onclick="toggleMenu()" style="display:none;background:none;border:none;cursor:pointer;padding:8px;flex-direction:column;gap:5px;align-items:center;justify-content:center;min-width:44px;min-height:44px;">
+    <span style="display:block;width:22px;height:2px;background:#ccc;border-radius:2px;"></span>
+    <span style="display:block;width:22px;height:2px;background:#ccc;border-radius:2px;"></span>
+    <span style="display:block;width:22px;height:2px;background:#ccc;border-radius:2px;"></span>
+  </button>
 </nav>
 
 <div class="container">
@@ -217,6 +241,7 @@
 {"@context":"https://schema.org","@type":"Organization","name":"ParaFree","url":"https://parafree.app","logo":"https://parafree.app/logo.png","description":"Free AI writing suite — paraphraser, humanizer, CV builder, grammar checker, summarizer and AI detector. No signup, no word limits, always free.","foundingDate":"2026","contactPoint":{"@type":"ContactPoint","email":"parafree.tool@gmail.com","contactType":"customer support"},"sameAs":["https://parafree.app","https://threads.net/@parafree"],"areaServed":["AU","US","GB","BD","IN","SG","CA","NZ"],"serviceType":["Paraphrasing Tool","AI Humanizer","CV Builder","Grammar Checker","AI Detector","Text Summarizer"]}
 </script>
 <script>
+function toggleMenu(){var m=document.getElementById('mobileMenu');if(!m)return;m.style.display=m.style.display==='flex'?'none':'flex';}
 (function(){var b=document.getElementById('pf-scroll-top');if(b){window.addEventListener('scroll',function(){b.classList.toggle('visible',window.scrollY>300);},{passive:true});b.addEventListener('click',function(){window.scrollTo({top:0,behavior:'smooth'});});}if(!('IntersectionObserver' in window))return;var els=document.querySelectorAll('.faq-item');if(!els.length)return;var obs=new IntersectionObserver(function(en){en.forEach(function(e){if(e.isIntersecting){e.target.classList.add('is-visible');obs.unobserve(e.target);}});},{threshold:0.08});els.forEach(function(el,i){el.classList.add('pf-reveal');el.style.transitionDelay=(i%5*0.07)+'s';obs.observe(el);});})();
 </script>
 </body>

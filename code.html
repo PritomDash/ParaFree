@@ -977,6 +977,11 @@ footer p { margin: 0; font-size: 13px; color: #999; }
   .engine-used-label { display: none; }
 }
 
+@media (max-width: 768px) {
+  nav .nav-links { display: none !important; }
+  #menuToggle { display: flex !important; }
+  body { overflow-x: hidden; }
+}
 @media (max-width: 600px) {
   .code-hero { padding: 28px 16px 22px; }
   .chat-history { padding: 14px 14px 8px; }
@@ -984,10 +989,10 @@ footer p { margin: 0; font-size: 13px; color: #999; }
   .msg-bubble-wrap { max-width: 92%; }
   .preview-ctrl { padding: 3px 4px; font-size: 12px; }
   nav { padding: 8px 14px; }
-  nav .nav-links { gap: 12px; }
-  nav .nav-links a { font-size: 13px; }
   .engine-bar { padding: 6px 14px; gap: 10px; }
   .tool-btn { font-size: 11px; padding: 3px 7px; }
+  pre, code { overflow-x: auto; max-width: 100%; }
+  .hero-badges { flex-wrap: wrap; justify-content: center; gap: 6px; }
 }
 
 /* ── Reduced motion ── */
@@ -1308,6 +1313,19 @@ footer p { margin: 0; font-size: 13px; color: #999; }
 </style>
 </head>
 <body>
+<div id="mobileMenu" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9998;" onclick="if(event.target===this)toggleMenu()">
+  <div style="position:absolute;top:0;right:0;width:260px;height:100%;background:#1a3a2a;padding:20px;display:flex;flex-direction:column;overflow-y:auto;">
+    <button onclick="toggleMenu()" aria-label="Close menu" style="align-self:flex-end;background:none;border:none;font-size:28px;cursor:pointer;color:#aaa;line-height:1;padding:0 4px;margin-bottom:16px;">×</button>
+    <a href="/" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;">Home</a>
+    <a href="/cv-builder.html" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;">CV Builder</a>
+    <a href="/code.html" style="color:#52b788;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;font-weight:600;">✨ ParaFree AI</a>
+    <a href="/blog.html" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;">Blog</a>
+    <a href="/about.html" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;">About</a>
+    <a href="/faq.html" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;">FAQ</a>
+    <a href="/contact.html" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;">Contact</a>
+    <a href="/privacy.html" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;display:block;">Privacy</a>
+  </div>
+</div>
 
 <!-- Navigation -->
 <nav>
@@ -1322,6 +1340,11 @@ footer p { margin: 0; font-size: 13px; color: #999; }
     <a href="/contact.html">Contact</a>
     <a href="/privacy.html">Privacy</a>
   </div>
+  <button id="menuToggle" aria-label="Open menu" onclick="toggleMenu()" style="display:none;background:none;border:none;cursor:pointer;padding:8px;flex-direction:column;gap:5px;align-items:center;justify-content:center;min-width:44px;min-height:44px;">
+    <span style="display:block;width:22px;height:2px;background:#ccc;border-radius:2px;"></span>
+    <span style="display:block;width:22px;height:2px;background:#ccc;border-radius:2px;"></span>
+    <span style="display:block;width:22px;height:2px;background:#ccc;border-radius:2px;"></span>
+  </button>
 </nav>
 
 <!-- Hero -->
@@ -3246,6 +3269,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (shared) { chatInput.value = atob(shared); showToast('Shared code loaded!'); }
   } catch(e) {}
 });
+function toggleMenu(){var m=document.getElementById('mobileMenu');if(!m)return;m.style.display=m.style.display==='flex'?'none':'flex';}
 </script>
 
 </body>

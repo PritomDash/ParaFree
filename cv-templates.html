@@ -34,6 +34,13 @@ nav .nav-links { display: flex; gap: 16px; flex-wrap: wrap; }
 nav .nav-links a { color: #ccc; text-decoration: none; font-size: 14px; }
 nav .nav-links a:hover { color: #fff; }
 nav .nav-links a.active { color: #52b788; font-weight: 600; }
+@media (max-width:768px) {
+  nav .nav-links { display: none !important; }
+  #menuToggle { display: flex !important; }
+  body { overflow-x: hidden; }
+  .hero h1 { font-size: 24px !important; }
+  .grid { grid-template-columns: 1fr !important; }
+}
 .hero { background: linear-gradient(135deg, #1a3a2a 0%, #2d6a4f 100%); color: white; padding: 48px 24px; text-align: center; }
 .hero h1 { font-family: 'Syne', sans-serif; font-size: 32px; font-weight: 800; margin-bottom: 10px; }
 .hero p { opacity: 0.85; max-width: 560px; margin: 0 auto; }
@@ -182,6 +189,19 @@ nav div a:hover::after { width: 100%; }
 </style>
 </head>
 <body>
+<div id="mobileMenu" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9998;" onclick="if(event.target===this)toggleMenu()">
+  <div style="position:absolute;top:0;right:0;width:260px;height:100%;background:#1a3a2a;padding:20px;display:flex;flex-direction:column;overflow-y:auto;">
+    <button onclick="toggleMenu()" aria-label="Close menu" style="align-self:flex-end;background:none;border:none;font-size:28px;cursor:pointer;color:#aaa;line-height:1;padding:0 4px;margin-bottom:16px;">×</button>
+    <a href="/" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;">Home</a>
+    <a href="/cv-builder.html" style="color:#52b788;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;font-weight:600;">CV Builder</a>
+    <a href="/code.html" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;">✨ ParaFree AI</a>
+    <a href="/blog.html" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;">Blog</a>
+    <a href="/about.html" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;">About</a>
+    <a href="/faq.html" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;">FAQ</a>
+    <a href="/contact.html" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;">Contact</a>
+    <a href="/privacy.html" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;display:block;">Privacy</a>
+  </div>
+</div>
 <nav>
   <a href="/" class="logo">ParaFree</a>
   <div class="nav-links">
@@ -194,6 +214,11 @@ nav div a:hover::after { width: 100%; }
     <a href="/contact.html">Contact</a>
     <a href="/privacy.html">Privacy</a>
   </div>
+  <button id="menuToggle" aria-label="Open menu" onclick="toggleMenu()" style="display:none;background:none;border:none;cursor:pointer;padding:8px;flex-direction:column;gap:5px;align-items:center;justify-content:center;min-width:44px;min-height:44px;">
+    <span style="display:block;width:22px;height:2px;background:#ccc;border-radius:2px;"></span>
+    <span style="display:block;width:22px;height:2px;background:#ccc;border-radius:2px;"></span>
+    <span style="display:block;width:22px;height:2px;background:#ccc;border-radius:2px;"></span>
+  </button>
 </nav>
 
 <div class="hero">
@@ -743,6 +768,7 @@ if (tpl) sessionStorage.setItem('cvTemplate', tpl);
 {"@context":"https://schema.org","@type":"Organization","name":"ParaFree","url":"https://parafree.app","logo":"https://parafree.app/logo.png","description":"Free AI writing suite — paraphraser, humanizer, CV builder, grammar checker, summarizer and AI detector. No signup, no word limits, always free.","foundingDate":"2026","contactPoint":{"@type":"ContactPoint","email":"parafree.tool@gmail.com","contactType":"customer support"},"sameAs":["https://parafree.app","https://threads.net/@parafree"],"areaServed":["AU","US","GB","BD","IN","SG","CA","NZ"],"serviceType":["Paraphrasing Tool","AI Humanizer","CV Builder","Grammar Checker","AI Detector","Text Summarizer"]}
 </script>
 <script>
+function toggleMenu(){var m=document.getElementById('mobileMenu');if(!m)return;m.style.display=m.style.display==='flex'?'none':'flex';}
 (function(){var b=document.getElementById('pf-scroll-top');if(b){window.addEventListener('scroll',function(){b.classList.toggle('visible',window.scrollY>300);},{passive:true});b.addEventListener('click',function(){window.scrollTo({top:0,behavior:'smooth'});});}var h=document.querySelector('.hero,.page-hero,.cv-hero');if(h)h.classList.add('pf-hero-animate');if(!('IntersectionObserver' in window))return;var els=document.querySelectorAll('.tpl-card');if(!els.length)return;var obs=new IntersectionObserver(function(en){en.forEach(function(e){if(e.isIntersecting){e.target.classList.add('is-visible');obs.unobserve(e.target);}});},{threshold:0.08});els.forEach(function(el,i){el.classList.add('pf-reveal');el.style.transitionDelay=(i%5*0.07)+'s';obs.observe(el);});})();
 </script>
 </body>
