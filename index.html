@@ -1887,24 +1887,18 @@ function langSuffix() {
 // ════════════════════════════════════════════
 // MODE PROMPTS
 // ════════════════════════════════════════════
-const _PARA_RULES = `You are paraphrasing a document. Keep the EXACT SAME structure as the input.
+const _PARA_RULES = `You are paraphrasing a document.
 
-CRITICAL STRUCTURE RULES:
-- Same number of paragraphs as input
-- Same paragraph order
-- Same heading positions
-- Same bullet point positions
-- Same table positions
+STRICT RULES:
+1. Return EXACTLY the same number of paragraphs as the input
+2. Each output paragraph corresponds to the same input paragraph
+3. Keep paragraph order identical
+4. Use plain text only — NO markdown
+5. No ** bold markers. No ## heading markers. No * bullet markers.
+6. Keep ALL of these UNCHANGED: names, numbers, dates, technical terms, addresses, passport numbers, amounts, university names, company names, country names
+7. Only rephrase the sentence structure and word choice
 
-OUTPUT FORMAT RULES — follow exactly:
-- Plain text ONLY. Zero markdown symbols.
-- No hashtags (#, ##, ###) ever. No asterisks (**, *) ever.
-- No underscores (__) ever. No backticks. No horizontal rules (---, ===) ever.
-
-CONTENT RULES:
-- Do NOT change: names, dates, numbers, addresses, passport numbers, amounts, university names, course names, company names, country names
-- DO change: sentence structure, word choice, phrasing only
-- Keep the exact same meaning`;
+Output must have same paragraph count as input. This is critical.`;
 
 const MODE_PROMPTS = {
   standard: _PARA_RULES + "\n\nNow paraphrase the following text, following ALL rules above exactly:",
@@ -4114,16 +4108,16 @@ async function downloadAsDOCX() {
 
 async function downloadDocxInPlace(originalFile, originalName, newText) {
   try {
-    console.log('[ParaFree] DOCX in-place replace — file:', originalName);
-    console.log('[ParaFree] New text length:', newText.length);
-    console.log('[ParaFree] New text preview:', newText.slice(0, 150));
     showStatus('⏳ Rebuilding document...', 'info');
     const arrayBuffer = await originalFile.arrayBuffer();
     const zip = await JSZip.loadAsync(arrayBuffer);
     const docXmlFile = zip.file('word/document.xml');
     if (!docXmlFile) { showStatus('❌ Invalid DOCX file', 'error'); return; }
     const originalDocXml = await docXmlFile.async('string');
-    console.log('[ParaFree] Original XML length:', originalDocXml.length);
+    const origParaCount = (originalDocXml.match(/<w:p[ >]/g) || []).length;
+    const newParaCount = newText.split(/\n\n+/).filter(p => p.trim().length > 0).length;
+    console.log('[ParaFree] Original XML paras:', origParaCount, '| New text paras:', newParaCount);
+    console.log('[ParaFree] New text preview:', newText.slice(0, 150));
     const updatedDocXml = replaceDocxText(originalDocXml, newText);
     zip.file('word/document.xml', updatedDocXml);
     const blob = await zip.generateAsync({
@@ -4149,71 +4143,82 @@ function escapeXmlChars(str) {
   return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
 }
 
-function replaceParaText(paraXml, newText) {
-  const words = newText.split(' ').filter(w => w.length > 0);
-  if (!words.length) return paraXml;
-  const runs = [];
+function smartReplaceParaText(paraXml, newText) {
   const runRegex = /<w:r[ >][\s\S]*?<\/w:r>/g;
-  let runMatch;
-  while ((runMatch = runRegex.exec(paraXml)) !== null) {
-    runs.push({ xml: runMatch[0], hasText: /<w:t/.test(runMatch[0]) });
+  const runs = [];
+  let rm;
+  while ((rm = runRegex.exec(paraXml)) !== null) {
+    const tMatch = rm[0].match(/<w:t[^>]*>([\s\S]*?)<\/w:t>/);
+    runs.push({ xml: rm[0], text: tMatch ? tMatch[1] : '', hasText: !!tMatch && tMatch[1].length >= 0 && /<w:t/.test(rm[0]) });
   }
   const textRuns = runs.filter(r => r.hasText);
   if (textRuns.length === 0) return paraXml;
-  const wordsPerRun = Math.ceil(words.length / textRuns.length);
+
   let result = paraXml;
-  let runWordIdx = 0;
   textRuns.forEach((run, i) => {
-    const isLast = i === textRuns.length - 1;
-    const runWords = isLast
-      ? words.slice(runWordIdx).join(' ')
-      : words.slice(runWordIdx, runWordIdx + wordsPerRun).join(' ');
-    if (!isLast) runWordIdx += wordsPerRun;
-    if (!runWords) return;
-    const safeRunWords = escapeXmlChars(runWords);
-    const newRunXml = run.xml.replace(/<w:t[^>]*>[\s\S]*?<\/w:t>/, () =>
-      '<w:t xml:space="preserve">' + safeRunWords + '</w:t>');
-    result = result.replace(run.xml, () => newRunXml);
+    const newRunXml = i === 0
+      // First run gets ALL the new text
+      ? run.xml.replace(/<w:t[^>]*>[\s\S]*?<\/w:t>/, () =>
+          '<w:t xml:space="preserve">' + escapeXmlChars(newText) + '</w:t>')
+      // Other runs get emptied — keeps their rPr (bold/italic/size) intact but invisible
+      : run.xml.replace(/<w:t[^>]*>[\s\S]*?<\/w:t>/, () => '<w:t></w:t>');
+    const parts = result.split(run.xml);
+    if (parts.length > 1) result = parts[0] + newRunXml + parts.slice(1).join(run.xml);
   });
   return result;
 }
 
-function replaceDocxText(xmlString, newText) {
-  // Step 1: extract all paragraph XML + their text content in order
-  const originalParas = [];
-  const paraRegex = /<w:p[ >][\s\S]*?<\/w:p>/g;
-  let paraMatch;
-  while ((paraMatch = paraRegex.exec(xmlString)) !== null) {
-    const paraXml = paraMatch[0];
-    const textParts = [];
-    const tRegex = /<w:t[^>]*>([\s\S]*?)<\/w:t>/g;
-    let tMatch;
-    while ((tMatch = tRegex.exec(paraXml)) !== null) textParts.push(tMatch[1]);
-    const fullText = textParts.join('').trim();
-    originalParas.push({ xml: paraXml, text: fullText, hasText: fullText.length > 0 });
-  }
+function replaceDocxText(originalXml, paraphrasedText) {
+  // Split new text into paragraphs
+  let newParaTexts = paraphrasedText.split(/\n\n+/).map(p => p.trim()).filter(p => p.length > 0);
+  if (newParaTexts.length < 2) newParaTexts = paraphrasedText.split(/\n/).map(p => p.trim()).filter(p => p.length > 0);
 
-  // Step 2: paraphrased paragraphs — try double-newline split first, then single
-  let newParas = newText.split(/\n\n+/).map(p => p.trim()).filter(p => p.length > 0);
-  if (newParas.length < 2) newParas = newText.split(/\n/).map(p => p.trim()).filter(p => p.length > 0);
+  let newIdx = 0;
 
-  console.log('[ParaFree] XML text paras:', originalParas.filter(p => p.hasText).length, '| New paras:', newParas.length);
+  // Step 1: process table cells separately so their paragraphs don't consume the main para index
+  let result = originalXml.replace(/(<w:tc[ >][\s\S]*?<\/w:tc>)/g, (cellMatch) => {
+    return cellMatch.replace(/(<w:p[ >][\s\S]*?<\/w:p>)/g, (cellPara) => {
+      const tParts = [];
+      const tReg = /<w:t[^>]*>([\s\S]*?)<\/w:t>/g;
+      let t;
+      while ((t = tReg.exec(cellPara)) !== null) tParts.push(t[1]);
+      const cellText = tParts.join('').trim();
+      if (!cellText) return cellPara;
+      const newCellText = newParaTexts[newIdx] || cellText;
+      newIdx++;
+      if (newCellText === cellText) return cellPara;
+      return smartReplaceParaText(cellPara, newCellText);
+    });
+  });
 
-  // Step 3: map new text only to paragraphs that had text
-  const textParas = originalParas.filter(p => p.hasText);
-  let newParaIdx = 0;
-  let result = xmlString;
+  // Step 2: stash tables so their inner paragraphs aren't double-processed
+  const tableCache = [];
+  let noTableXml = result.replace(/<w:tbl[\s\S]*?<\/w:tbl>/g, (tbl) => {
+    tableCache.push(tbl);
+    return '\x00TABLE' + (tableCache.length - 1) + '\x00';
+  });
 
-  for (let i = 0; i < textParas.length; i++) {
-    const orig = textParas[i];
-    const newParaText = newParas[newParaIdx] !== undefined ? newParas[newParaIdx] : orig.text;
-    newParaIdx++;
-    const newParaXml = replaceParaText(orig.xml, newParaText);
-    // Use function form of replace to avoid $ special treatment
-    result = result.replace(orig.xml, () => newParaXml);
-  }
+  // Step 3: process regular paragraphs outside tables
+  noTableXml = noTableXml.replace(/(<w:p[ >][\s\S]*?<\/w:p>)/g, (paraMatch) => {
+    const tParts = [];
+    const tReg = /<w:t[^>]*>([\s\S]*?)<\/w:t>/g;
+    let t;
+    while ((t = tReg.exec(paraMatch)) !== null) tParts.push(t[1]);
+    const paraText = tParts.join('').trim();
+    if (!paraText) return paraMatch;
+    const newParaText = newParaTexts[newIdx] || paraText;
+    newIdx++;
+    if (newParaText === paraText) return paraMatch;
+    return smartReplaceParaText(paraMatch, newParaText);
+  });
 
-  return result;
+  // Step 4: restore tables
+  tableCache.forEach((tbl, i) => {
+    noTableXml = noTableXml.replace('\x00TABLE' + i + '\x00', () => tbl);
+  });
+
+  console.log('[ParaFree] Replaced', newIdx, 'paragraphs from', newParaTexts.length, 'new paras');
+  return noTableXml;
 }
 
 function _docxXmlEsc(t) { return (t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;'); }
