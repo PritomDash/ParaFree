@@ -1955,18 +1955,11 @@ async function handleFileUpload(event) {
         originalDocxHtml = result.value;
         const div = document.createElement('div');
         div.innerHTML = result.value;
+        // Remove tables entirely — they're preserved in originalDocxHtml and must not be paraphrased
+        div.querySelectorAll('table').forEach(t => t.remove());
         for (const node of div.childNodes) {
-          if (node.nodeName === 'TABLE') {
-            extracted += '[TABLE START]\n';
-            for (const tr of node.querySelectorAll('tr')) {
-              const cells = Array.from(tr.querySelectorAll('td,th')).map(td => (td.innerText||td.textContent||'').trim());
-              extracted += cells.join(' | ') + '\n';
-            }
-            extracted += '[TABLE END]\n';
-          } else {
-            const t = (node.innerText || node.textContent || '').trim();
-            if (t) extracted += t + '\n';
-          }
+          const t = (node.innerText || node.textContent || '').trim();
+          if (t) extracted += t + '\n';
         }
       } catch(e) {
         const fallback = await mammoth.extractRawText({arrayBuffer});
@@ -4102,7 +4095,7 @@ async function downloadAsDOCX() {
     // html-docx-js path: original DOCX was uploaded, HTML was stored on upload
     if (originalDocxHtml && typeof htmlDocx !== 'undefined') {
       showStatus('⏳ Building document...', 'info');
-      const updatedHtml = injectTextIntoHtml(originalDocxHtml, fullOutputText);
+      const updatedHtml = buildFinalHtml(originalDocxHtml, fullOutputText);
       const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
         body{font-family:Calibri,sans-serif;font-size:11pt;line-height:1.5;color:#374151}
         h1{font-size:16pt;font-weight:bold;color:#0D1B2A;margin:16pt 0 8pt}
@@ -4145,13 +4138,18 @@ async function downloadAsDOCX() {
   }
 }
 
-function injectTextIntoHtml(originalHtml, paraphrasedText) {
+function buildFinalHtml(originalHtml, paraphrasedText) {
   const parser = new DOMParser();
-  const doc = parser.parseFromString('<html><body>' + originalHtml + '</body></html>', 'text/html');
+  const origDoc = parser.parseFromString('<body>' + originalHtml + '</body>', 'text/html');
 
-  // Collect text-bearing block elements in document order
-  const elements = Array.from(doc.body.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, td, th'));
-  const textEls = elements.filter(el => el.textContent.trim().length > 0);
+  // Stash every table and replace with a unique placeholder <p>
+  const tables = [];
+  origDoc.querySelectorAll('table').forEach((table, i) => {
+    tables.push({ index: i, html: table.outerHTML });
+    const ph = origDoc.createElement('p');
+    ph.textContent = '__TABLE_' + i + '__';
+    table.parentNode.replaceChild(ph, table);
+  });
 
   // Split paraphrased text into paragraphs
   let newParas = paraphrasedText.split(/\n\n+/).map(p => p.trim()).filter(p => p.length > 0);
@@ -4159,35 +4157,24 @@ function injectTextIntoHtml(originalHtml, paraphrasedText) {
     newParas = paraphrasedText.split(/\n/).map(p => p.trim()).filter(p => p.length > 0);
   }
 
-  textEls.forEach((el, i) => {
-    if (i < newParas.length) replaceTextInElement(el, newParas[i]);
+  // Replace text in non-table block elements only
+  let paraIdx = 0;
+  origDoc.body.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li').forEach(el => {
+    const text = el.textContent.trim();
+    if (!text || text.startsWith('__TABLE_')) return;
+    const newText = newParas[paraIdx];
+    paraIdx++;
+    if (newText) el.textContent = newText;
   });
 
-  return doc.body.innerHTML;
-}
+  // Restore original tables (untouched)
+  let finalHtml = origDoc.body.innerHTML;
+  tables.forEach(({ index, html }) => {
+    finalHtml = finalHtml.replace('<p>__TABLE_' + index + '__</p>', html);
+    finalHtml = finalHtml.replace('__TABLE_' + index + '__', html);
+  });
 
-function replaceTextInElement(el, newText) {
-  const inlineTags = new Set(['B','I','U','EM','STRONG','SPAN','A','S','SUB','SUP','MARK']);
-  const onlyInline = Array.from(el.childNodes).every(n =>
-    n.nodeType === Node.TEXT_NODE ||
-    (n.nodeType === Node.ELEMENT_NODE && inlineTags.has(n.nodeName))
-  );
-
-  if (onlyInline) {
-    // Put all new text in the first text node or inline wrapper; empty the rest
-    let placed = false;
-    for (const child of Array.from(el.childNodes)) {
-      if (!placed) {
-        if (child.nodeType === Node.TEXT_NODE) { child.textContent = newText; placed = true; }
-        else if (child.nodeType === Node.ELEMENT_NODE) { child.textContent = newText; placed = true; }
-      } else {
-        child.textContent = '';
-      }
-    }
-    if (!placed) el.textContent = newText;
-  } else {
-    el.textContent = newText;
-  }
+  return finalHtml;
 }
 
 async function buildDocxBlob(text) {
