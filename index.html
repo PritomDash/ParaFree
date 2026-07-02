@@ -4114,12 +4114,16 @@ async function downloadAsDOCX() {
 
 async function downloadDocxInPlace(originalFile, originalName, newText) {
   try {
+    console.log('[ParaFree] DOCX in-place replace — file:', originalName);
+    console.log('[ParaFree] New text length:', newText.length);
+    console.log('[ParaFree] New text preview:', newText.slice(0, 150));
     showStatus('⏳ Rebuilding document...', 'info');
     const arrayBuffer = await originalFile.arrayBuffer();
     const zip = await JSZip.loadAsync(arrayBuffer);
     const docXmlFile = zip.file('word/document.xml');
     if (!docXmlFile) { showStatus('❌ Invalid DOCX file', 'error'); return; }
     const originalDocXml = await docXmlFile.async('string');
+    console.log('[ParaFree] Original XML length:', originalDocXml.length);
     const updatedDocXml = replaceDocxText(originalDocXml, newText);
     zip.file('word/document.xml', updatedDocXml);
     const blob = await zip.generateAsync({
@@ -4136,7 +4140,7 @@ async function downloadDocxInPlace(originalFile, originalName, newText) {
     setTimeout(() => URL.revokeObjectURL(url), 2000);
     showStatus('✓ Document downloaded — same format as original!', 'success');
   } catch(err) {
-    console.error('In-place DOCX error:', err);
+    console.error('[ParaFree] In-place DOCX error:', err);
     showStatus('❌ Error: ' + err.message, 'error');
   }
 }
@@ -4145,26 +4149,71 @@ function escapeXmlChars(str) {
   return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
 }
 
-function replaceDocxText(xmlString, newText) {
-  const newParagraphs = newText.split(/\n\n+/).map(p => p.trim()).filter(p => p.length > 0);
-  let paraIndex = 0;
-  return xmlString.replace(/(<w:p[ >][\s\S]*?<\/w:p>)/g, (match) => {
-    if (!/<w:t/.test(match)) return match;
-    const newPara = newParagraphs[paraIndex];
-    if (newPara === undefined) { paraIndex++; return match; }
-    const newLines = newPara.split(/\n/).map(l => l.trim()).filter(l => l.length > 0);
-    let lineIndex = 0;
-    const updatedPara = match.replace(/(<w:r[ >][\s\S]*?<\/w:r>)/g, (runMatch) => {
-      if (!/<w:t/.test(runMatch)) return runMatch;
-      const runText = newLines[lineIndex] !== undefined ? newLines[lineIndex] : (newLines[newLines.length - 1] || '');
-      lineIndex++;
-      return runMatch.replace(/(<w:t[^>]*>)([\s\S]*?)(<\/w:t>)/, (tMatch, open, oldText, close) => {
-        return '<w:t xml:space="preserve">' + escapeXmlChars(runText) + '</w:t>';
-      });
-    });
-    paraIndex++;
-    return updatedPara;
+function replaceParaText(paraXml, newText) {
+  const words = newText.split(' ').filter(w => w.length > 0);
+  if (!words.length) return paraXml;
+  const runs = [];
+  const runRegex = /<w:r[ >][\s\S]*?<\/w:r>/g;
+  let runMatch;
+  while ((runMatch = runRegex.exec(paraXml)) !== null) {
+    runs.push({ xml: runMatch[0], hasText: /<w:t/.test(runMatch[0]) });
+  }
+  const textRuns = runs.filter(r => r.hasText);
+  if (textRuns.length === 0) return paraXml;
+  const wordsPerRun = Math.ceil(words.length / textRuns.length);
+  let result = paraXml;
+  let runWordIdx = 0;
+  textRuns.forEach((run, i) => {
+    const isLast = i === textRuns.length - 1;
+    const runWords = isLast
+      ? words.slice(runWordIdx).join(' ')
+      : words.slice(runWordIdx, runWordIdx + wordsPerRun).join(' ');
+    if (!isLast) runWordIdx += wordsPerRun;
+    if (!runWords) return;
+    const safeRunWords = escapeXmlChars(runWords);
+    const newRunXml = run.xml.replace(/<w:t[^>]*>[\s\S]*?<\/w:t>/, () =>
+      '<w:t xml:space="preserve">' + safeRunWords + '</w:t>');
+    result = result.replace(run.xml, () => newRunXml);
   });
+  return result;
+}
+
+function replaceDocxText(xmlString, newText) {
+  // Step 1: extract all paragraph XML + their text content in order
+  const originalParas = [];
+  const paraRegex = /<w:p[ >][\s\S]*?<\/w:p>/g;
+  let paraMatch;
+  while ((paraMatch = paraRegex.exec(xmlString)) !== null) {
+    const paraXml = paraMatch[0];
+    const textParts = [];
+    const tRegex = /<w:t[^>]*>([\s\S]*?)<\/w:t>/g;
+    let tMatch;
+    while ((tMatch = tRegex.exec(paraXml)) !== null) textParts.push(tMatch[1]);
+    const fullText = textParts.join('').trim();
+    originalParas.push({ xml: paraXml, text: fullText, hasText: fullText.length > 0 });
+  }
+
+  // Step 2: paraphrased paragraphs — try double-newline split first, then single
+  let newParas = newText.split(/\n\n+/).map(p => p.trim()).filter(p => p.length > 0);
+  if (newParas.length < 2) newParas = newText.split(/\n/).map(p => p.trim()).filter(p => p.length > 0);
+
+  console.log('[ParaFree] XML text paras:', originalParas.filter(p => p.hasText).length, '| New paras:', newParas.length);
+
+  // Step 3: map new text only to paragraphs that had text
+  const textParas = originalParas.filter(p => p.hasText);
+  let newParaIdx = 0;
+  let result = xmlString;
+
+  for (let i = 0; i < textParas.length; i++) {
+    const orig = textParas[i];
+    const newParaText = newParas[newParaIdx] !== undefined ? newParas[newParaIdx] : orig.text;
+    newParaIdx++;
+    const newParaXml = replaceParaText(orig.xml, newParaText);
+    // Use function form of replace to avoid $ special treatment
+    result = result.replace(orig.xml, () => newParaXml);
+  }
+
+  return result;
 }
 
 function _docxXmlEsc(t) { return (t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;'); }
