@@ -102,6 +102,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://unpkg.com/html-docx-js@0.3.1/dist/html-docx.js"></script>
 <script src="https://unpkg.com/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 <!-- docx: preload with fallback CDN -->
 <script>
@@ -1936,11 +1937,22 @@ async function handleFileUpload(event) {
     } else if (ext === 'docx' || ext === 'doc') {
       originalDocxFile = file;
       originalDocxName = file.name;
+      originalDocxHtml = '';
       showStatus("Reading Word document...", "info");
       const arrayBuffer = await file.arrayBuffer();
       let extracted = '';
       try {
-        const result = await mammoth.convertToHtml({arrayBuffer});
+        const result = await mammoth.convertToHtml({arrayBuffer}, {
+          styleMap: [
+            "p[style-name='Heading 1'] => h1:fresh",
+            "p[style-name='Heading 2'] => h2:fresh",
+            "p[style-name='Heading 3'] => h3:fresh",
+            "p[style-name='Heading 4'] => h4:fresh",
+            "b => b", "i => i", "u => u",
+            "table => table", "tr => tr", "td => td", "th => th"
+          ]
+        });
+        originalDocxHtml = result.value;
         const div = document.createElement('div');
         div.innerHTML = result.value;
         for (const node of div.childNodes) {
@@ -2402,6 +2414,7 @@ function setToolLoading(tool, on, label) {
 let currentTool = "paraphrase";
 let originalDocxFile = null;
 let originalDocxName = '';
+let originalDocxHtml = '';
 
 function switchTool(tool) {
   currentTool = tool;
@@ -2409,6 +2422,7 @@ function switchTool(tool) {
   pptxData = null;
   originalDocxFile = null;
   originalDocxName = '';
+  originalDocxHtml = '';
   document.getElementById("downloadBtn").textContent = "⬇ TXT";
   const allTools = ['paraphrase','humanize','summarize','grammar','detect','ai'];
   allTools.forEach(t => {
@@ -4080,249 +4094,100 @@ function replaceHtmlText(html, newText) {
 // ════════════════════════════════════════════
 async function downloadAsDOCX() {
   if (!fullOutputText) return;
-  if (typeof JSZip === 'undefined') {
-    showStatus("DOCX library is still loading. Please try again.", "error");
-    return;
-  }
   setDlBtnLoading('downloadDOCXBtn');
   try {
-    // In-place replacement: use original DOCX file (like PPTX approach)
-    if (originalDocxFile) {
-      await downloadDocxInPlace(originalDocxFile, originalDocxName, fullOutputText);
-      return;
-    }
-    // Fallback: plain text DOCX (no original file uploaded)
     const names = { paraphrase: 'paraphrased', humanize: 'humanized', summarize: 'summary', grammar: 'grammar_checked', detect: 'ai_detection' };
     const base = names[currentTool] || 'result';
+
+    // html-docx-js path: original DOCX was uploaded, HTML was stored on upload
+    if (originalDocxHtml && typeof htmlDocx !== 'undefined') {
+      showStatus('⏳ Building document...', 'info');
+      const updatedHtml = injectTextIntoHtml(originalDocxHtml, fullOutputText);
+      const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+        body{font-family:Calibri,sans-serif;font-size:11pt;line-height:1.5;color:#374151}
+        h1{font-size:16pt;font-weight:bold;color:#0D1B2A;margin:16pt 0 8pt}
+        h2{font-size:14pt;font-weight:bold;color:#1A3A2A;margin:14pt 0 6pt}
+        h3{font-size:12pt;font-weight:bold;color:#2D6A4F;margin:12pt 0 5pt}
+        p{margin:0 0 8pt}
+        table{border-collapse:collapse;width:100%;margin:8pt 0}
+        td,th{border:1px solid #999;padding:4pt 6pt;text-align:left}
+        th{background:#D1FAE5;font-weight:bold}
+        b,strong{font-weight:bold} i,em{font-style:italic} u{text-decoration:underline}
+      </style></head><body>${updatedHtml}</body></html>`;
+      const docxBlob = htmlDocx.asBlob(fullHtml, {
+        orientation: 'portrait',
+        margins: { top: 1440, right: 1260, bottom: 1440, left: 1260 }
+      });
+      const newName = originalDocxName.replace(/\.docx?$/i, '') + '-paraphrased.docx';
+      const url = URL.createObjectURL(docxBlob);
+      const a = document.createElement('a');
+      a.href = url; a.download = newName;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      showStatus('✓ Document downloaded!', 'success');
+      return;
+    }
+
+    // Fallback: plain text DOCX
+    if (typeof JSZip === 'undefined') {
+      showStatus('DOCX library is still loading. Please try again.', 'error');
+      return;
+    }
     const blob = await buildDocxBlob(fullOutputText);
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = base + '.docx';
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    showStatus("✓ DOCX downloaded!", "success");
+    showStatus('✓ DOCX downloaded!', 'success');
   } finally {
     restoreDlBtn('downloadDOCXBtn');
   }
 }
 
-async function downloadDocxInPlace(originalFile, originalName, newText) {
-  try {
-    showStatus('⏳ Rebuilding document...', 'info');
-    const arrayBuffer = await originalFile.arrayBuffer();
-    const zip = await JSZip.loadAsync(arrayBuffer);
-    const docXmlFile = zip.file('word/document.xml');
-    if (!docXmlFile) { showStatus('❌ Invalid DOCX file', 'error'); return; }
-    const originalDocXml = await docXmlFile.async('string');
-    const origParaCount = (originalDocXml.match(/<w:p[ >]/g) || []).length;
-    const newParaCount = newText.split(/\n\n+/).filter(p => p.trim().length > 0).length;
-    console.log('[ParaFree] Original XML paras:', origParaCount, '| New text paras:', newParaCount);
-    console.log('[ParaFree] New text preview:', newText.slice(0, 150));
-    const updatedDocXml = replaceDocxText(originalDocXml, newText);
-    zip.file('word/document.xml', updatedDocXml);
-    const blob = await zip.generateAsync({
-      type: 'blob',
-      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      compression: 'DEFLATE',
-      compressionOptions: { level: 6 }
-    });
-    const newName = originalName.replace(/\.docx?$/i, '') + '-paraphrased.docx';
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = newName;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
-    showStatus('✓ Document downloaded — same format as original!', 'success');
-  } catch(err) {
-    console.error('[ParaFree] In-place DOCX error:', err);
-    showStatus('❌ Error: ' + err.message, 'error');
+function injectTextIntoHtml(originalHtml, paraphrasedText) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString('<html><body>' + originalHtml + '</body></html>', 'text/html');
+
+  // Collect text-bearing block elements in document order
+  const elements = Array.from(doc.body.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, td, th'));
+  const textEls = elements.filter(el => el.textContent.trim().length > 0);
+
+  // Split paraphrased text into paragraphs
+  let newParas = paraphrasedText.split(/\n\n+/).map(p => p.trim()).filter(p => p.length > 0);
+  if (newParas.length < 2) {
+    newParas = paraphrasedText.split(/\n/).map(p => p.trim()).filter(p => p.length > 0);
   }
+
+  textEls.forEach((el, i) => {
+    if (i < newParas.length) replaceTextInElement(el, newParas[i]);
+  });
+
+  return doc.body.innerHTML;
 }
 
-function escapeXmlChars(str) {
-  return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
-}
+function replaceTextInElement(el, newText) {
+  const inlineTags = new Set(['B','I','U','EM','STRONG','SPAN','A','S','SUB','SUP','MARK']);
+  const onlyInline = Array.from(el.childNodes).every(n =>
+    n.nodeType === Node.TEXT_NODE ||
+    (n.nodeType === Node.ELEMENT_NODE && inlineTags.has(n.nodeName))
+  );
 
-function smartReplaceParaText(paraXml, newText) {
-  const runRegex = /<w:r[ >][\s\S]*?<\/w:r>/g;
-  const runs = [];
-  let rm;
-  while ((rm = runRegex.exec(paraXml)) !== null) {
-    const tMatch = rm[0].match(/<w:t[^>]*>([\s\S]*?)<\/w:t>/);
-    runs.push({ xml: rm[0], text: tMatch ? tMatch[1] : '', hasText: !!tMatch && tMatch[1].length >= 0 && /<w:t/.test(rm[0]) });
-  }
-  const textRuns = runs.filter(r => r.hasText);
-  if (textRuns.length === 0) return paraXml;
-
-  let result = paraXml;
-  textRuns.forEach((run, i) => {
-    const newRunXml = i === 0
-      // First run gets ALL the new text
-      ? run.xml.replace(/<w:t[^>]*>[\s\S]*?<\/w:t>/, () =>
-          '<w:t xml:space="preserve">' + escapeXmlChars(newText) + '</w:t>')
-      // Other runs get emptied — keeps their rPr (bold/italic/size) intact but invisible
-      : run.xml.replace(/<w:t[^>]*>[\s\S]*?<\/w:t>/, () => '<w:t></w:t>');
-    const parts = result.split(run.xml);
-    if (parts.length > 1) result = parts[0] + newRunXml + parts.slice(1).join(run.xml);
-  });
-  return result;
-}
-
-function replaceDocxText(originalXml, paraphrasedText) {
-  // Split new text into paragraphs
-  let newParaTexts = paraphrasedText.split(/\n\n+/).map(p => p.trim()).filter(p => p.length > 0);
-  if (newParaTexts.length < 2) newParaTexts = paraphrasedText.split(/\n/).map(p => p.trim()).filter(p => p.length > 0);
-
-  let newIdx = 0;
-
-  // Step 1: process table cells separately so their paragraphs don't consume the main para index
-  let result = originalXml.replace(/(<w:tc[ >][\s\S]*?<\/w:tc>)/g, (cellMatch) => {
-    return cellMatch.replace(/(<w:p[ >][\s\S]*?<\/w:p>)/g, (cellPara) => {
-      const tParts = [];
-      const tReg = /<w:t[^>]*>([\s\S]*?)<\/w:t>/g;
-      let t;
-      while ((t = tReg.exec(cellPara)) !== null) tParts.push(t[1]);
-      const cellText = tParts.join('').trim();
-      if (!cellText) return cellPara;
-      const newCellText = newParaTexts[newIdx] || cellText;
-      newIdx++;
-      if (newCellText === cellText) return cellPara;
-      return smartReplaceParaText(cellPara, newCellText);
-    });
-  });
-
-  // Step 2: stash tables so their inner paragraphs aren't double-processed
-  const tableCache = [];
-  let noTableXml = result.replace(/<w:tbl[\s\S]*?<\/w:tbl>/g, (tbl) => {
-    tableCache.push(tbl);
-    return '\x00TABLE' + (tableCache.length - 1) + '\x00';
-  });
-
-  // Step 3: process regular paragraphs outside tables
-  noTableXml = noTableXml.replace(/(<w:p[ >][\s\S]*?<\/w:p>)/g, (paraMatch) => {
-    const tParts = [];
-    const tReg = /<w:t[^>]*>([\s\S]*?)<\/w:t>/g;
-    let t;
-    while ((t = tReg.exec(paraMatch)) !== null) tParts.push(t[1]);
-    const paraText = tParts.join('').trim();
-    if (!paraText) return paraMatch;
-    const newParaText = newParaTexts[newIdx] || paraText;
-    newIdx++;
-    if (newParaText === paraText) return paraMatch;
-    return smartReplaceParaText(paraMatch, newParaText);
-  });
-
-  // Step 4: restore tables
-  tableCache.forEach((tbl, i) => {
-    noTableXml = noTableXml.replace('\x00TABLE' + i + '\x00', () => tbl);
-  });
-
-  console.log('[ParaFree] Replaced', newIdx, 'paragraphs from', newParaTexts.length, 'new paras');
-  return noTableXml;
-}
-
-function _docxXmlEsc(t) { return (t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;'); }
-
-function _docxMakeTable(rows) {
-  if (!rows || !rows.length) return '';
-  let tbl = '<w:tbl><w:tblPr><w:tblW w:w="9360" w:type="dxa"/><w:tblBorders>' +
-    '<w:top w:val="single" w:sz="4" w:color="2D6A4F"/>' +
-    '<w:left w:val="single" w:sz="4" w:color="2D6A4F"/>' +
-    '<w:bottom w:val="single" w:sz="4" w:color="2D6A4F"/>' +
-    '<w:right w:val="single" w:sz="4" w:color="2D6A4F"/>' +
-    '<w:insideH w:val="single" w:sz="4" w:color="E2DDD4"/>' +
-    '<w:insideV w:val="single" w:sz="4" w:color="E2DDD4"/>' +
-    '</w:tblBorders></w:tblPr>';
-  rows.forEach((cells, ri) => {
-    const isHeader = ri === 0;
-    tbl += '<w:tr>';
-    (Array.isArray(cells) ? cells : [String(cells)]).forEach(cell => {
-      tbl += '<w:tc><w:tcPr><w:tcW w:type="auto"/>' +
-        (isHeader ? '<w:shd w:val="clear" w:color="auto" w:fill="D1FAE5"/>' : '') +
-        '</w:tcPr><w:p><w:pPr><w:spacing w:after="60"/></w:pPr><w:r><w:rPr>' +
-        (isHeader ? '<w:b/><w:bCs/>' : '') +
-        '<w:color w:val="' + (isHeader ? '1A3A2A' : '374151') + '"/>' +
-        '<w:sz w:val="20"/><w:szCs w:val="20"/>' +
-        '<w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr>' +
-        '<w:t xml:space="preserve">' + _docxXmlEsc(String(cell||'').trim()) + '</w:t></w:r></w:p></w:tc>';
-    });
-    tbl += '</w:tr>';
-  });
-  tbl += '</w:tbl><w:p><w:pPr><w:spacing w:after="160"/></w:pPr></w:p>';
-  return tbl;
-}
-
-async function buildStructuredDocxBlob(elements) {
-  const e = _docxXmlEsc;
-  let bodyXML = '';
-  for (const el of elements) {
-    if (!el) continue;
-    if (el.type === 'table') { bodyXML += _docxMakeTable(el.rows); continue; }
-    if (el.type === 'space') { bodyXML += '<w:p><w:pPr><w:spacing w:after="80"/></w:pPr></w:p>'; continue; }
-    const safe = e(el.text || '');
-    if (!safe.trim()) continue;
-    if (el.type === 'h1') {
-      bodyXML += '<w:p><w:pPr><w:spacing w:before="320" w:after="160"/><w:pBdr><w:bottom w:val="single" w:sz="6" w:space="4" w:color="2D6A4F"/></w:pBdr></w:pPr>' +
-        '<w:r><w:rPr><w:b/><w:bCs/><w:color w:val="0D1B2A"/><w:sz w:val="32"/><w:szCs w:val="32"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t>' + safe + '</w:t></w:r></w:p>';
-    } else if (el.type === 'h2') {
-      bodyXML += '<w:p><w:pPr><w:spacing w:before="280" w:after="120"/></w:pPr>' +
-        '<w:r><w:rPr><w:b/><w:bCs/><w:color w:val="1A3A2A"/><w:sz w:val="28"/><w:szCs w:val="28"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t>' + safe + '</w:t></w:r></w:p>';
-    } else if (el.type === 'h3') {
-      bodyXML += '<w:p><w:pPr><w:spacing w:before="240" w:after="100"/></w:pPr>' +
-        '<w:r><w:rPr><w:b/><w:bCs/><w:color w:val="2D6A4F"/><w:sz w:val="24"/><w:szCs w:val="24"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t>' + safe + '</w:t></w:r></w:p>';
-    } else if (el.type === 'bold') {
-      bodyXML += '<w:p><w:pPr><w:spacing w:after="160" w:line="360" w:lineRule="auto"/></w:pPr>' +
-        '<w:r><w:rPr><w:b/><w:bCs/><w:color w:val="1A3A2A"/><w:sz w:val="22"/><w:szCs w:val="22"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t xml:space="preserve">' + safe + '</w:t></w:r></w:p>';
-    } else if (el.type === 'bullet') {
-      bodyXML += '<w:p><w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr><w:spacing w:after="80"/></w:pPr>' +
-        '<w:r><w:rPr><w:color w:val="374151"/><w:sz w:val="22"/><w:szCs w:val="22"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t xml:space="preserve">' + safe + '</w:t></w:r></w:p>';
-    } else {
-      bodyXML += '<w:p><w:pPr><w:spacing w:after="160" w:line="360" w:lineRule="auto"/><w:jc w:val="both"/></w:pPr>' +
-        '<w:r><w:rPr><w:color w:val="374151"/><w:sz w:val="22"/><w:szCs w:val="22"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t xml:space="preserve">' + safe + '</w:t></w:r></w:p>';
+  if (onlyInline) {
+    // Put all new text in the first text node or inline wrapper; empty the rest
+    let placed = false;
+    for (const child of Array.from(el.childNodes)) {
+      if (!placed) {
+        if (child.nodeType === Node.TEXT_NODE) { child.textContent = newText; placed = true; }
+        else if (child.nodeType === Node.ELEMENT_NODE) { child.textContent = newText; placed = true; }
+      } else {
+        child.textContent = '';
+      }
     }
+    if (!placed) el.textContent = newText;
+  } else {
+    el.textContent = newText;
   }
-  if (!bodyXML) bodyXML = '<w:p><w:r><w:t>No content</w:t></w:r></w:p>';
-
-  const wNS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"';
-  const rNS = 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
-  const zip = new JSZip();
-  zip.file('[Content_Types].xml',
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
-    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
-    '<Default Extension="xml" ContentType="application/xml"/>' +
-    '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
-    '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>' +
-    '<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>' +
-    '</Types>');
-  zip.file('_rels/.rels',
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
-    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>' +
-    '</Relationships>');
-  zip.file('word/_rels/document.xml.rels',
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
-    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
-    '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>' +
-    '</Relationships>');
-  zip.file('word/document.xml',
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    '<w:document ' + wNS + ' ' + rNS + '><w:body>' + bodyXML +
-    '<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1260" w:bottom="1440" w:left="1260" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr></w:body></w:document>');
-  zip.file('word/styles.xml',
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    '<w:styles ' + wNS + '><w:docDefaults><w:rPrDefault><w:rPr>' +
-    '<w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:sz w:val="22"/><w:szCs w:val="22"/>' +
-    '</w:rPr></w:rPrDefault></w:docDefaults></w:styles>');
-  zip.file('word/numbering.xml',
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    '<w:numbering ' + wNS + '>' +
-    '<w:abstractNum w:abstractNumId="0"><w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="•"/><w:lvlJc w:val="left"/>' +
-    '<w:pPr><w:ind w:left="360" w:hanging="360"/></w:pPr><w:rPr><w:color w:val="2D6A4F"/></w:rPr></w:lvl></w:abstractNum>' +
-    '<w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>' +
-    '</w:numbering>');
-  return zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
 }
 
 async function buildDocxBlob(text) {
