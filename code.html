@@ -2692,111 +2692,73 @@ async function createPPTX(data) {
 async function createDOCX(data) {
   try {
     showToast('⏳ Creating Word document...');
+    if (typeof JSZip === 'undefined') { showToast('❌ JSZip not loaded'); return; }
 
-    // Wait up to 10s for library already in flight
-    let waited = 0;
-    while (!window.docx && waited < 100) {
-      await new Promise(r => setTimeout(r, 100));
-      waited++;
+    function xmlEsc(t) { return (t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    function rpr(opts) {
+      let s = '';
+      if (opts.bold) s += '<w:b/>';
+      if (opts.italic) s += '<w:i/>';
+      if (opts.sz) s += '<w:sz w:val="' + opts.sz + '"/>';
+      if (opts.color) s += '<w:color w:val="' + opts.color + '"/>';
+      return s ? '<w:rPr>' + s + '</w:rPr>' : '';
     }
+    function wrun(text, opts) { return '<w:r>' + rpr(opts||{}) + '<w:t xml:space="preserve">' + xmlEsc(text) + '</w:t></w:r>'; }
+    function wpara(runs, pPrStr) { return '<w:p>' + (pPrStr ? '<w:pPr>' + pPrStr + '</w:pPr>' : '') + (runs||'') + '</w:p>'; }
 
-    // Dynamic fallback load if still missing
-    if (!window.docx) {
-      showToast('⏳ Loading library...');
-      await new Promise((resolve, reject) => {
-        const urls = [
-          'https://unpkg.com/docx@8.5.0/build/index.js',
-          'https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js'
-        ];
-        let tried = 0;
-        function tryNext() {
-          if (tried >= urls.length) { reject(new Error('All CDNs failed')); return; }
-          const s = document.createElement('script');
-          s.src = urls[tried++];
-          s.onload = () => resolve();
-          s.onerror = () => tryNext();
-          document.head.appendChild(s);
-        }
-        tryNext();
-      });
-      await new Promise(r => setTimeout(r, 800));
-    }
-
-    if (!window.docx) { showToast('❌ Word library unavailable. Try refreshing page.'); return; }
-
-    const { Document, Paragraph, TextRun, Packer, AlignmentType, BorderStyle } = window.docx;
-    const children = [];
-
+    let body = '';
     if (data.title) {
-      children.push(new Paragraph({
-        children: [new TextRun({ text: data.title, bold: true, size: 48, color: '1A3A2A', font: 'Calibri' })],
-        spacing: { after: 200, before: 100 },
-        border: { bottom: { color: '2D6A4F', space: 4, style: BorderStyle.SINGLE, size: 8 } }
-      }));
-      children.push(new Paragraph({ children: [new TextRun({ text: '' })], spacing: { after: 200 } }));
+      body += wpara(wrun(data.title, {bold:true, sz:48, color:'1A3A2A'}),
+        '<w:spacing w:before="100" w:after="200"/><w:pBdr><w:bottom w:val="single" w:sz="8" w:space="4" w:color="2D6A4F"/></w:pBdr>');
+      body += '<w:p/>';
     }
 
-    const contentItems = data.content || [];
-    console.log('[ParaFree] Processing DOCX items:', contentItems.length);
-
-    for (const item of contentItems) {
+    const items = data.content || [];
+    for (const item of items) {
       if (!item) continue;
       const text = item.text || '';
       const type = item.type || 'paragraph';
-
       if (type === 'heading' || type === 'h1') {
-        children.push(new Paragraph({
-          children: [new TextRun({ text, bold: true, size: 28, color: '2D6A4F', font: 'Calibri' })],
-          spacing: { before: 360, after: 120 }
-        }));
-        children.push(new Paragraph({
-          children: [new TextRun({ text: '', size: 4 })],
-          border: { bottom: { color: '52B788', style: BorderStyle.SINGLE, size: 4, space: 2 } },
-          spacing: { after: 160 }
-        }));
+        body += wpara(wrun(text, {bold:true, sz:28, color:'2D6A4F'}), '<w:spacing w:before="360" w:after="120"/>');
+        body += wpara('', '<w:pBdr><w:bottom w:val="single" w:sz="4" w:space="2" w:color="52B788"/></w:pBdr><w:spacing w:after="160"/>');
       } else if (type === 'heading2' || type === 'h2') {
-        children.push(new Paragraph({
-          children: [new TextRun({ text, bold: true, size: 24, color: '1A3A2A', font: 'Calibri' })],
-          spacing: { before: 280, after: 100 }
-        }));
+        body += wpara(wrun(text, {bold:true, sz:24, color:'1A3A2A'}), '<w:spacing w:before="280" w:after="100"/>');
       } else if (type === 'bullet' || type === 'list') {
-        children.push(new Paragraph({
-          children: [new TextRun({ text, size: 22, color: '374151', font: 'Calibri' })],
-          bullet: { level: 0 },
-          spacing: { after: 80 },
-          indent: { left: 360, hanging: 360 }
-        }));
+        body += wpara(wrun('• ' + text, {sz:22, color:'374151'}), '<w:spacing w:after="80"/><w:ind w:left="360"/>');
       } else if (type === 'quote') {
-        children.push(new Paragraph({
-          children: [new TextRun({ text, italics: true, size: 22, color: '4B5563', font: 'Calibri' })],
-          indent: { left: 720 },
-          spacing: { before: 160, after: 160 },
-          border: { left: { color: '52B788', style: BorderStyle.SINGLE, size: 12, space: 8 } }
-        }));
-      } else {
-        if (text.trim()) {
-          children.push(new Paragraph({
-            children: [new TextRun({ text, size: 22, color: '374151', font: 'Calibri' })],
-            spacing: { after: 160 },
-            alignment: AlignmentType.JUSTIFIED
-          }));
-        }
+        body += wpara(wrun(text, {italic:true, sz:22, color:'4B5563'}),
+          '<w:ind w:left="720"/><w:spacing w:before="160" w:after="160"/><w:pBdr><w:left w:val="single" w:sz="12" w:space="8" w:color="52B788"/></w:pBdr>');
+      } else if (text.trim()) {
+        body += wpara(wrun(text, {sz:22, color:'374151'}), '<w:spacing w:after="160"/><w:jc w:val="both"/>');
       }
     }
 
-    if (children.length <= 1) { showToast('❌ No content to create document'); return; }
+    if (!body) { showToast('❌ No content to create document'); return; }
 
-    console.log('[ParaFree] Creating doc with', children.length, 'paragraphs');
-    const doc = new Document({
-      creator: '',
-      title: data.title || '',
-      description: '',
-      styles: { default: { document: { run: { font: 'Calibri', size: 22, color: '374151' }, paragraph: { spacing: { line: 340, lineRule: 'auto' } } } } },
-      sections: [{ properties: { page: { margin: { top: 1440, right: 1260, bottom: 1440, left: 1260 } } }, children }]
-    });
+    const ns = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"';
+    const docXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<w:document ' + ns + '><w:body>' + body +
+      '<w:sectPr><w:pgMar w:top="1440" w:right="1260" w:bottom="1440" w:left="1260"/></w:sectPr></w:body></w:document>';
 
-    const blob = await Packer.toBlob(doc);
-    console.log('[ParaFree] DOCX blob size:', blob.size);
+    const zip = new JSZip();
+    zip.file('[Content_Types].xml',
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+      '<Default Extension="xml" ContentType="application/xml"/>' +
+      '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
+      '</Types>');
+    zip.file('_rels/.rels',
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>' +
+      '</Relationships>');
+    zip.file('word/_rels/document.xml.rels',
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>');
+    zip.file('word/document.xml', docXml);
+
+    const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
     if (blob.size < 100) { showToast('❌ Document appears empty'); return; }
 
     const fileName = (data.title || 'document').replace(/[^a-z0-9\s]/gi, '').replace(/\s+/g, '-').toLowerCase().slice(0, 40) || 'document';
