@@ -1887,26 +1887,24 @@ function langSuffix() {
 // ════════════════════════════════════════════
 // MODE PROMPTS
 // ════════════════════════════════════════════
-const _PARA_RULES = `You are a professional paraphrasing assistant.
+const _PARA_RULES = `You are paraphrasing a document. Keep the EXACT SAME structure as the input.
 
-CRITICAL RULES — follow exactly:
+CRITICAL STRUCTURE RULES:
+- Same number of paragraphs as input
+- Same paragraph order
+- Same heading positions
+- Same bullet point positions
+- Same table positions
 
-1. OUTPUT FORMAT:
-   - Plain text ONLY. Zero markdown symbols.
-   - No hashtags (#, ##, ###) ever. No asterisks (**, *) ever.
-   - No underscores (__) ever. No backticks. No horizontal rules (---, ===) ever.
+OUTPUT FORMAT RULES — follow exactly:
+- Plain text ONLY. Zero markdown symbols.
+- No hashtags (#, ##, ###) ever. No asterisks (**, *) ever.
+- No underscores (__) ever. No backticks. No horizontal rules (---, ===) ever.
 
-2. STRUCTURE — use these markers:
-   - Headings: [H1]text[/H1]  [H2]text[/H2]  [H3]text[/H3]
-   - Bold text: [BOLD]text[/BOLD]
-   - Bullets: use only the • symbol (never * or -)
-   - Tables: [TABLE]\\nHeader1 | Header2\\nVal1 | Val2\\n[/TABLE]
-   - Keep blank lines between sections. Keep same document flow.
-
-3. CONTENT RULES:
-   - Do NOT change: names, dates, numbers, addresses, passport numbers, amounts, university names, course names, company names, country names
-   - DO change: sentence structure, word choice, phrasing only
-   - Keep the exact same meaning`;
+CONTENT RULES:
+- Do NOT change: names, dates, numbers, addresses, passport numbers, amounts, university names, course names, company names, country names
+- DO change: sentence structure, word choice, phrasing only
+- Keep the exact same meaning`;
 
 const MODE_PROMPTS = {
   standard: _PARA_RULES + "\n\nNow paraphrase the following text, following ALL rules above exactly:",
@@ -1942,6 +1940,8 @@ async function handleFileUpload(event) {
       document.getElementById("inputCount").textContent = countWords(text) + " words";
       hideStatus();
     } else if (ext === 'docx' || ext === 'doc') {
+      originalDocxFile = file;
+      originalDocxName = file.name;
       showStatus("Reading Word document...", "info");
       const arrayBuffer = await file.arrayBuffer();
       let extracted = '';
@@ -2406,11 +2406,15 @@ function setToolLoading(tool, on, label) {
 // TOOL SWITCHING
 // ════════════════════════════════════════════
 let currentTool = "paraphrase";
+let originalDocxFile = null;
+let originalDocxName = '';
 
 function switchTool(tool) {
   currentTool = tool;
   pptxMode = false;
   pptxData = null;
+  originalDocxFile = null;
+  originalDocxName = '';
   document.getElementById("downloadBtn").textContent = "⬇ TXT";
   const allTools = ['paraphrase','humanize','summarize','grammar','detect','ai'];
   allTools.forEach(t => {
@@ -3999,14 +4003,20 @@ async function downloadPPTX() {
 // ════════════════════════════════════════════
 // PDF DOWNLOAD
 // ════════════════════════════════════════════
-function downloadAsPDF() {
+async function downloadAsPDF() {
   if (!fullOutputText) return;
-  if (typeof window.jspdf === 'undefined') {
-    showStatus("PDF library is still loading. Please try again.", "error");
-    return;
-  }
   setDlBtnLoading('downloadPDFBtn');
   try {
+    // If original DOCX is available, use mammoth HTML + print dialog
+    if (originalDocxFile && typeof mammoth !== 'undefined') {
+      await downloadPDFFromDocx(originalDocxFile, originalDocxName, fullOutputText);
+      return;
+    }
+    // Fallback: jsPDF plain text
+    if (typeof window.jspdf === 'undefined') {
+      showStatus("PDF library is still loading. Please try again.", "error");
+      return;
+    }
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     doc.setFont('helvetica', 'normal');
@@ -4029,6 +4039,48 @@ function downloadAsPDF() {
   }
 }
 
+async function downloadPDFFromDocx(originalFile, originalName, newText) {
+  try {
+    const arrayBuffer = await originalFile.arrayBuffer();
+    const result = await mammoth.convertToHtml({ arrayBuffer });
+    const updatedHtml = replaceHtmlText(result.value, newText);
+    const docTitle = originalName.replace(/\.docx?$/i, '') + ' — Paraphrased';
+    const printWin = window.open('', '_blank');
+    if (!printWin) { showStatus('Pop-up blocked — please allow pop-ups and try again.', 'error'); return; }
+    printWin.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${docTitle}</title><style>
+      @media print { body{margin:0} @page{size:A4;margin:25mm 20mm 25mm 20mm} }
+      body{font-family:Calibri,'Times New Roman',serif;font-size:11pt;line-height:1.6;color:#000;max-width:800px;margin:40px auto;padding:0 40px}
+      h1{font-size:16pt;font-weight:bold;margin:20pt 0 10pt;color:#000}
+      h2{font-size:14pt;font-weight:bold;margin:16pt 0 8pt;color:#000}
+      h3{font-size:12pt;font-weight:bold;margin:12pt 0 6pt;color:#000}
+      p{margin:0 0 10pt;text-align:justify}
+      ul,ol{margin:6pt 0 10pt;padding-left:20pt}
+      li{margin-bottom:4pt}
+      table{width:100%;border-collapse:collapse;margin:10pt 0}
+      td,th{border:1px solid #000;padding:4pt 8pt;text-align:left}
+      th{background:#f0f0f0;font-weight:bold}
+      strong,b{font-weight:bold} em,i{font-style:italic}
+    </style></head><body>${updatedHtml}<script>window.onload=function(){setTimeout(function(){window.print()},500)}<\/script></body></html>`);
+    printWin.document.close();
+    showStatus('✓ PDF print dialog opened — Save as PDF!', 'success');
+  } catch(err) {
+    console.error('PDF from DOCX error:', err);
+    showStatus('❌ PDF error: ' + err.message, 'error');
+  }
+}
+
+function replaceHtmlText(html, newText) {
+  const newParas = newText.split(/\n\n+/).map(p => p.trim()).filter(p => p.length > 0);
+  let paraIdx = 0;
+  return html.replace(/(<(?:p|li)[^>]*>)([\s\S]*?)(<\/(?:p|li)>)/gi, (match, open, content, close) => {
+    const textContent = content.replace(/<[^>]+>/g, '').trim();
+    if (!textContent) return match;
+    const newContent = newParas[paraIdx] || textContent;
+    paraIdx++;
+    return open + newContent + close;
+  });
+}
+
 // ════════════════════════════════════════════
 // DOCX DOWNLOAD
 // ════════════════════════════════════════════
@@ -4040,21 +4092,14 @@ async function downloadAsDOCX() {
   }
   setDlBtnLoading('downloadDOCXBtn');
   try {
-    const names = { paraphrase: 'paraphrased', humanize: 'humanized', summarize: 'summary', grammar: 'grammar_checked', detect: 'ai_detection' };
-    const base = pptxMode ? 'paraphrased_presentation' : (names[currentTool] || 'result');
-    // Use structured DOCX when structured data is available
-    const structured = window._lastParaphraseStructured;
-    if (structured && structured.length > 0) {
-      const blob = await buildStructuredDocxBlob(structured);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = base + '.docx';
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      showStatus("✓ DOCX downloaded!", "success");
+    // In-place replacement: use original DOCX file (like PPTX approach)
+    if (originalDocxFile) {
+      await downloadDocxInPlace(originalDocxFile, originalDocxName, fullOutputText);
       return;
     }
-    // Fallback: plain text DOCX for grammar checker etc.
+    // Fallback: plain text DOCX (no original file uploaded)
+    const names = { paraphrase: 'paraphrased', humanize: 'humanized', summarize: 'summary', grammar: 'grammar_checked', detect: 'ai_detection' };
+    const base = names[currentTool] || 'result';
     const blob = await buildDocxBlob(fullOutputText);
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -4065,6 +4110,61 @@ async function downloadAsDOCX() {
   } finally {
     restoreDlBtn('downloadDOCXBtn');
   }
+}
+
+async function downloadDocxInPlace(originalFile, originalName, newText) {
+  try {
+    showStatus('⏳ Rebuilding document...', 'info');
+    const arrayBuffer = await originalFile.arrayBuffer();
+    const zip = await JSZip.loadAsync(arrayBuffer);
+    const docXmlFile = zip.file('word/document.xml');
+    if (!docXmlFile) { showStatus('❌ Invalid DOCX file', 'error'); return; }
+    const originalDocXml = await docXmlFile.async('string');
+    const updatedDocXml = replaceDocxText(originalDocXml, newText);
+    zip.file('word/document.xml', updatedDocXml);
+    const blob = await zip.generateAsync({
+      type: 'blob',
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      compression: 'DEFLATE',
+      compressionOptions: { level: 6 }
+    });
+    const newName = originalName.replace(/\.docx?$/i, '') + '-paraphrased.docx';
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = newName;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    showStatus('✓ Document downloaded — same format as original!', 'success');
+  } catch(err) {
+    console.error('In-place DOCX error:', err);
+    showStatus('❌ Error: ' + err.message, 'error');
+  }
+}
+
+function escapeXmlChars(str) {
+  return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
+}
+
+function replaceDocxText(xmlString, newText) {
+  const newParagraphs = newText.split(/\n\n+/).map(p => p.trim()).filter(p => p.length > 0);
+  let paraIndex = 0;
+  return xmlString.replace(/(<w:p[ >][\s\S]*?<\/w:p>)/g, (match) => {
+    if (!/<w:t/.test(match)) return match;
+    const newPara = newParagraphs[paraIndex];
+    if (newPara === undefined) { paraIndex++; return match; }
+    const newLines = newPara.split(/\n/).map(l => l.trim()).filter(l => l.length > 0);
+    let lineIndex = 0;
+    const updatedPara = match.replace(/(<w:r[ >][\s\S]*?<\/w:r>)/g, (runMatch) => {
+      if (!/<w:t/.test(runMatch)) return runMatch;
+      const runText = newLines[lineIndex] !== undefined ? newLines[lineIndex] : (newLines[newLines.length - 1] || '');
+      lineIndex++;
+      return runMatch.replace(/(<w:t[^>]*>)([\s\S]*?)(<\/w:t>)/, (tMatch, open, oldText, close) => {
+        return '<w:t xml:space="preserve">' + escapeXmlChars(runText) + '</w:t>';
+      });
+    });
+    paraIndex++;
+    return updatedPara;
+  });
 }
 
 function _docxXmlEsc(t) { return (t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;'); }
