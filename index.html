@@ -4085,10 +4085,14 @@ async function downloadAsDOCX() {
       if (!docFile) { showStatus('❌ Invalid DOCX file.', 'error'); return; }
 
       let xml = await docFile.async('string');
-      let newParas = fullOutputText.split(/\n\n+/).map(p => p.trim()).filter(p => p.length > 0);
-      if (newParas.length < 2) newParas = fullOutputText.split(/\n/).map(p => p.trim()).filter(p => p.length > 0);
+      const cleanedOutput = fullOutputText
+        .replace(/\*\*(.*?)\*\*/g, '$1')
+        .replace(/\*(.*?)\*/g, '$1')
+        .replace(/^#{1,6}\s+/gm, '')
+        .replace(/^---+$/gm, '')
+        .trim();
 
-      zip.file('word/document.xml', docxReplaceParas(xml, newParas));
+      zip.file('word/document.xml', docxReplaceParas(xml, cleanedOutput));
 
       const blob = await zip.generateAsync({
         type: 'blob',
@@ -4128,30 +4132,50 @@ async function downloadAsDOCX() {
   }
 }
 
-// Mirror of PPTX modifyTextBox: keep <w:pPr> + first run's <w:rPr>, one run with new text
-// Tables are stashed first and restored untouched — they are never modified
-function docxReplaceParas(xml, newParas) {
-  const tables = [];
-  let work = xml.replace(/<w:tbl[\s\S]*?<\/w:tbl>/g, tbl => {
-    tables.push(tbl);
-    return '\x00TBL' + (tables.length - 1) + '\x00';
+// Word-pool approach: distribute paraphrased words proportionally across original paragraphs.
+// Tables are stashed first and restored untouched — they are never modified.
+function docxReplaceParas(xml, newText) {
+  // Step 1: Protect tables
+  const tblStash = [];
+  xml = xml.replace(/<w:tbl[\s\S]*?<\/w:tbl>/g, match => {
+    tblStash.push(match);
+    return '\x00TBL' + (tblStash.length - 1) + '\x00';
   });
 
-  let idx = 0;
-  work = work.replace(/(<w:p)([ >])([\s\S]*?)(<\/w:p>)/g, (m, tag, sp, inner, close) => {
-    if (!/<w:t[\s\S]*?<\/w:t>/.test(inner)) return m;
-    const parts = [];
-    inner.replace(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g, (_, t) => parts.push(pptxDecodeXml(t)));
-    if (!parts.join('').trim()) return m;
+  // Step 2: Build word pool from all paraphrased text
+  const wordPool = newText.split(/\s+/).filter(w => w.length > 0);
+  const totalPoolWords = wordPool.length;
 
-    const newText = newParas[idx++];
-    if (!newText) return m;
+  // Count total original words outside tables (for ratio calculation)
+  let totalOrigWords = 0;
+  xml.replace(/(<w:p[ >])([\s\S]*?)(<\/w:p>)/g, (m, open, inner) => {
+    if (!/<w:t/.test(inner)) return;
+    const t = inner.replace(/<[^>]+>/g, '').trim();
+    if (t) totalOrigWords += t.split(/\s+/).filter(w => w.length > 0).length;
+  });
 
-    // Keep paragraph formatting exactly (indents, numbering, spacing, alignment)
+  let wordIdx = 0;
+
+  // Step 3: Replace each paragraph proportionally
+  xml = xml.replace(/(<w:p[ >])([\s\S]*?)(<\/w:p>)/g, (match, open, inner, close) => {
+    if (!/<w:t/.test(inner)) return match;
+    const origText = inner.replace(/<[^>]+>/g, '').trim();
+    if (!origText) return match;
+
+    const origWordCount = origText.split(/\s+/).filter(w => w.length > 0).length;
+    const takeWords = totalOrigWords > 0
+      ? Math.max(Math.round(origWordCount * totalPoolWords / totalOrigWords), 1)
+      : origWordCount;
+
+    const paraWords = wordPool.slice(wordIdx, wordIdx + takeWords);
+    wordIdx += takeWords;
+    if (paraWords.length === 0) return match;
+
+    // Keep paragraph formatting (indents, numbering, spacing, alignment)
     const pPrM = inner.match(/<w:pPr\b[\s\S]*?<\/w:pPr>|<w:pPr\/>/);
     const pPr = pPrM ? pPrM[0] : '';
 
-    // Take run formatting from FIRST run (bold, size, color, font — same as PPTX)
+    // Keep run formatting from first run (bold, color, size, font)
     let rPr = '';
     const firstRunM = inner.match(/<w:r[ >][\s\S]*?<\/w:r>/);
     if (firstRunM) {
@@ -4159,13 +4183,15 @@ function docxReplaceParas(xml, newParas) {
       if (rPrM) rPr = rPrM[0];
     }
 
-    return tag + sp + pPr + '<w:r>' + rPr + '<w:t xml:space="preserve">' + pptxEncodeXml(newText) + '</w:t></w:r>' + close;
+    const escaped = pptxEncodeXml(paraWords.join(' '));
+    return open + pPr + '<w:r>' + rPr + '<w:t xml:space="preserve">' + escaped + '</w:t></w:r>' + close;
   });
 
-  tables.forEach((tbl, i) => {
-    work = work.replace('\x00TBL' + i + '\x00', () => tbl);
+  // Step 4: Restore tables unchanged
+  tblStash.forEach((tbl, i) => {
+    xml = xml.replace('\x00TBL' + i + '\x00', () => tbl);
   });
-  return work;
+  return xml;
 }
 
 async function buildDocxBlob(text) {
