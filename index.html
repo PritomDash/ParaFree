@@ -2178,22 +2178,44 @@ async function handleFileUpload(event) {
     } else if (ext === 'docx' || ext === 'doc') {
       originalDocxFile = file;
       originalDocxName = file.name;
+      docxZip = null; docxOriginalXml = ''; docxOriginalTexts = [];
       showStatus("Reading Word document...", "info");
       const arrayBuffer = await file.arrayBuffer();
       let extracted = '';
       try {
-        const result = await mammoth.convertToHtml({arrayBuffer});
-        const div = document.createElement('div');
-        div.innerHTML = result.value;
-        // Remove tables — they are preserved in the original XML and must not be paraphrased
-        div.querySelectorAll('table').forEach(t => t.remove());
-        for (const node of div.childNodes) {
-          const t = (node.innerText || node.textContent || '').trim();
-          if (t) extracted += t + '\n';
-        }
+        docxZip = await JSZip.loadAsync(arrayBuffer);
+        const docFile = docxZip.file('word/document.xml');
+        if (!docFile) throw new Error('No document.xml');
+        const xml = await docFile.async('string');
+        docxOriginalXml = xml;
+        // Stash tables so table text is never sent to the AI
+        const tblStash = [];
+        const xmlNoTables = xml.replace(/<w:tbl[\s\S]*?<\/w:tbl>/g, match => {
+          tblStash.push(match);
+          return '\x00TBL' + (tblStash.length - 1) + '\x00';
+        });
+        // Collect every non-empty <w:t> text in document order
+        docxOriginalTexts = [];
+        xmlNoTables.replace(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g, (m, text) => {
+          if (text.trim()) docxOriginalTexts.push(text.trim());
+        });
+        extracted = docxOriginalTexts.join('\n');
       } catch(e) {
-        const fallback = await mammoth.extractRawText({arrayBuffer});
-        extracted = fallback.value;
+        docxZip = null;
+        // Fallback to mammoth if JSZip fails
+        try {
+          const result = await mammoth.convertToHtml({arrayBuffer});
+          const div = document.createElement('div');
+          div.innerHTML = result.value;
+          div.querySelectorAll('table').forEach(t => t.remove());
+          for (const node of div.childNodes) {
+            const t = (node.innerText || node.textContent || '').trim();
+            if (t) extracted += t + '\n';
+          }
+        } catch(e2) {
+          const fallback = await mammoth.extractRawText({arrayBuffer});
+          extracted = fallback.value;
+        }
       }
       document.getElementById("inputText").value = extracted.trim();
       document.getElementById("inputCount").textContent = countWords(extracted) + " words";
@@ -2637,6 +2659,9 @@ function setToolLoading(tool, on, label) {
 let currentTool = "paraphrase";
 let originalDocxFile = null;
 let originalDocxName = '';
+let docxZip = null;
+let docxOriginalXml = '';
+let docxOriginalTexts = [];
 
 function switchTool(tool) {
   currentTool = tool;
@@ -2644,6 +2669,9 @@ function switchTool(tool) {
   pptxData = null;
   originalDocxFile = null;
   originalDocxName = '';
+  docxZip = null;
+  docxOriginalXml = '';
+  docxOriginalTexts = [];
   document.getElementById("downloadBtn").textContent = "⬇ TXT";
   const allTools = ['paraphrase','humanize','summarize','grammar','detect','ai'];
   allTools.forEach(t => {
@@ -4317,30 +4345,41 @@ async function downloadAsDOCX() {
   if (!fullOutputText) return;
   setDlBtnLoading('downloadDOCXBtn');
 
-  // Original file path: same JSZip XML approach as PPTX paraphraser
-  if (originalDocxFile) {
+  // Primary path: use stored zip + original XML (same pattern as PPTX)
+  if (docxZip && docxOriginalXml) {
     try {
       showStatus('⏳ Building document...', 'info');
-      const arrayBuffer = await originalDocxFile.arrayBuffer();
-      const zip = await JSZip.loadAsync(arrayBuffer);
-      const docFile = zip.file('word/document.xml');
-      if (!docFile) { showStatus('❌ Invalid DOCX file.', 'error'); return; }
+      const newSegments = stripMarkdown(fullOutputText)
+        .split(/\n+/)
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
 
-      let xml = await docFile.async('string');
-      const cleanedOutput = fullOutputText
-        .replace(/\*\*(.*?)\*\*/g, '$1')
-        .replace(/\*(.*?)\*/g, '$1')
-        .replace(/^#{1,6}\s+/gm, '')
-        .replace(/^---+$/gm, '')
-        .trim();
+      // Stash tables — never modified, always preserved as-is
+      const tblStash = [];
+      let xml = docxOriginalXml.replace(/<w:tbl[\s\S]*?<\/w:tbl>/g, match => {
+        tblStash.push(match);
+        return '\x00TBL' + (tblStash.length - 1) + '\x00';
+      });
 
-      zip.file('word/document.xml', docxReplaceParas(xml, cleanedOutput));
+      // Replace only <w:t> content — ALL other XML (rPr, b, color, sz, pPr) untouched
+      let segIdx = 0;
+      xml = xml.replace(/(<w:t[^>]*>)([\s\S]*?)(<\/w:t>)/g, (match, open, text, close) => {
+        if (!text.trim()) return match; // preserve whitespace-only spacing nodes
+        const newSeg = segIdx < newSegments.length ? newSegments[segIdx] : text;
+        segIdx++;
+        return open + pptxEncodeXml(newSeg) + close;
+      });
 
-      const blob = await zip.generateAsync({
+      // Restore tables unchanged
+      tblStash.forEach((tbl, i) => {
+        xml = xml.replace('\x00TBL' + i + '\x00', () => tbl);
+      });
+
+      docxZip.file('word/document.xml', xml);
+      const blob = await docxZip.generateAsync({
         type: 'blob',
         mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        compression: 'DEFLATE',
-        compressionOptions: { level: 6 }
+        compression: 'DEFLATE'
       });
       const newName = originalDocxName.replace(/\.docx?$/i, '') + '-paraphrased.docx';
       const url = URL.createObjectURL(blob);
@@ -4348,7 +4387,7 @@ async function downloadAsDOCX() {
       a.href = url; a.download = newName;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 2000);
-      showStatus('✓ Document downloaded — same format as original!', 'success');
+      showStatus('✓ Document downloaded — original formatting preserved!', 'success');
     } catch(err) {
       console.error('[ParaFree DOCX]', err);
       showStatus('❌ Error: ' + err.message, 'error');
@@ -4372,68 +4411,6 @@ async function downloadAsDOCX() {
   } finally {
     restoreDlBtn('downloadDOCXBtn');
   }
-}
-
-// Word-pool approach: distribute paraphrased words proportionally across original paragraphs.
-// Tables are stashed first and restored untouched — they are never modified.
-function docxReplaceParas(xml, newText) {
-  // Step 1: Protect tables
-  const tblStash = [];
-  xml = xml.replace(/<w:tbl[\s\S]*?<\/w:tbl>/g, match => {
-    tblStash.push(match);
-    return '\x00TBL' + (tblStash.length - 1) + '\x00';
-  });
-
-  // Step 2: Build word pool from all paraphrased text
-  const wordPool = newText.split(/\s+/).filter(w => w.length > 0);
-  const totalPoolWords = wordPool.length;
-
-  // Count total original words outside tables (for ratio calculation)
-  let totalOrigWords = 0;
-  xml.replace(/(<w:p[ >])([\s\S]*?)(<\/w:p>)/g, (m, open, inner) => {
-    if (!/<w:t/.test(inner)) return;
-    const t = inner.replace(/<[^>]+>/g, '').trim();
-    if (t) totalOrigWords += t.split(/\s+/).filter(w => w.length > 0).length;
-  });
-
-  let wordIdx = 0;
-
-  // Step 3: Replace each paragraph proportionally
-  xml = xml.replace(/(<w:p[ >])([\s\S]*?)(<\/w:p>)/g, (match, open, inner, close) => {
-    if (!/<w:t/.test(inner)) return match;
-    const origText = inner.replace(/<[^>]+>/g, '').trim();
-    if (!origText) return match;
-
-    const origWordCount = origText.split(/\s+/).filter(w => w.length > 0).length;
-    const takeWords = totalOrigWords > 0
-      ? Math.max(Math.round(origWordCount * totalPoolWords / totalOrigWords), 1)
-      : origWordCount;
-
-    const paraWords = wordPool.slice(wordIdx, wordIdx + takeWords);
-    wordIdx += takeWords;
-    if (paraWords.length === 0) return match;
-
-    // Keep paragraph formatting (indents, numbering, spacing, alignment)
-    const pPrM = inner.match(/<w:pPr\b[\s\S]*?<\/w:pPr>|<w:pPr\/>/);
-    const pPr = pPrM ? pPrM[0] : '';
-
-    // Keep run formatting from first run (bold, color, size, font)
-    let rPr = '';
-    const firstRunM = inner.match(/<w:r[ >][\s\S]*?<\/w:r>/);
-    if (firstRunM) {
-      const rPrM = firstRunM[0].match(/<w:rPr\b[\s\S]*?<\/w:rPr>|<w:rPr\/>/);
-      if (rPrM) rPr = rPrM[0];
-    }
-
-    const escaped = pptxEncodeXml(paraWords.join(' '));
-    return open + pPr + '<w:r>' + rPr + '<w:t xml:space="preserve">' + escaped + '</w:t></w:r>' + close;
-  });
-
-  // Step 4: Restore tables unchanged
-  tblStash.forEach((tbl, i) => {
-    xml = xml.replace('\x00TBL' + i + '\x00', () => tbl);
-  });
-  return xml;
 }
 
 async function buildDocxBlob(text) {

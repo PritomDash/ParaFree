@@ -4,5 +4,28 @@
   "private": true,
   "engines": {
     "node": "24.x"
+  },
+  "main": "index.js",
+  "scripts": {
+    "test": "playwright test",
+    "test:format": "playwright test --grep \"Format Preservation\"",
+    "test:headed": "playwright test --headed"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PritomDash/ParaFree.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/PritomDash/ParaFree/issues"
+  },
+  "homepage": "https://github.com/PritomDash/ParaFree#readme",
+  "description": "",
+  "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "@types/node": "^26.1.1",
+    "jszip": "^3.10.1"
   }
 }

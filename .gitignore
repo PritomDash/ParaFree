@@ -1,2 +1,7 @@
 .vercel
 .env*
+node_modules/
+tests/results/
+tests/downloads/
+tests/.compiled/
+playwright-report/
