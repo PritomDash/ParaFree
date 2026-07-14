@@ -52,6 +52,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/favicon.svg">
 <meta name="theme-color" content="#2d6a4f">
@@ -182,7 +183,8 @@ nav .nav-links a.active { color: #52b788; font-weight: 600; }
 .tpl-classic .cv-jobtitle { font-size: 14px; color: #2d6a4f; font-weight: 600; margin-top: 2px; }
 .tpl-classic .cv-contact { font-size: 11px; color: #6b6660; margin-top: 4px; }
 .tpl-classic .cv-divider { border: none; border-top: 2px solid #2d6a4f; margin: 14px 0 12px; }
-.tpl-classic .cv-sec-title { font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 800; color: #2d6a4f; text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1px solid #e2ddd4; padding-bottom: 4px; margin-bottom: 10px; margin-top: 16px; }
+.tpl-classic .cv-sec-title { font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 800; color: #2d6a4f; text-transform: uppercase; letter-spacing: 0.8px; border-left: 3px solid #2d6a4f; padding-left: 8px; margin-bottom: 10px; margin-top: 16px; }
+.tpl-classic .cv-skill-pill { display: inline-block; background: #d8f3dc; color: #1b4332; border-radius: 4px; font-size: 10px; font-weight: 600; padding: 2px 8px; margin: 2px 2px 0 0; }
 .tpl-classic .cv-sec-body { color: #1a1814; }
 .tpl-classic .cv-exp-hdr { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 4px; }
 .tpl-classic .cv-exp-role { font-weight: 700; font-size: 13px; }
@@ -356,6 +358,7 @@ nav .nav-links a.active { color: #52b788; font-weight: 600; }
 .tpl-burgundy .cv-bullets { padding-left: 16px; margin-top: 4px; }
 .tpl-burgundy .cv-bullets li { margin-bottom: 2px; color: #1a1814; }
 .tpl-burgundy .cv-edu-entry { margin-bottom: 8px; }
+.tpl-burgundy .cv-skill-pill { display: inline-block; background: #fce7ec; color: #7b2d3e; border-radius: 4px; font-size: 10px; font-weight: 600; padding: 2px 8px; margin: 2px 2px 0 0; }
 
 /* ── TEAL TEMPLATE ── */
 .tpl-teal .cv-sheet { font-family: 'DM Sans', sans-serif; }
@@ -388,6 +391,7 @@ nav .nav-links a.active { color: #52b788; font-weight: 600; }
 .tpl-slate .cv-bullets { padding-left: 15px; margin-top: 4px; }
 .tpl-slate .cv-bullets li { font-size: 12px; margin-bottom: 2px; color: #1e293b; }
 .tpl-slate .cv-edu-entry { margin-bottom: 8px; }
+.tpl-slate .cv-skill-pill { display: inline-block; background: #f1f5f9; color: #334155; border-radius: 4px; font-size: 10px; font-weight: 600; padding: 2px 8px; margin: 2px 2px 0 0; border: 1px solid #cbd5e1; }
 
 /* ── TERRACOTTA TEMPLATE ── */
 .tpl-terracotta .cv-sheet { font-family: 'DM Sans', sans-serif; }
@@ -404,6 +408,7 @@ nav .nav-links a.active { color: #52b788; font-weight: 600; }
 .tpl-terracotta .cv-bullets { padding-left: 15px; margin-top: 4px; }
 .tpl-terracotta .cv-bullets li { font-size: 12px; margin-bottom: 2px; color: #1c0a00; }
 .tpl-terracotta .cv-edu-entry { margin-bottom: 8px; }
+.tpl-terracotta .cv-skill-pill { display: inline-block; background: #fff7ed; color: #9a3412; border-radius: 4px; font-size: 10px; font-weight: 600; padding: 2px 8px; margin: 2px 2px 0 0; border: 1px solid #fed7aa; }
 
 /* ── BOLD TEMPLATE ── */
 .tpl-bold .cv-sheet { font-family: 'DM Sans', sans-serif; }
@@ -492,6 +497,48 @@ nav .nav-links a.active { color: #52b788; font-weight: 600; }
 .tpl-warm .cv-bullets { padding-left: 16px; margin-top: 4px; }
 .tpl-warm .cv-bullets li { margin-bottom: 2px; color: #1a1814; font-size: 12px; }
 .tpl-warm .cv-edu-entry { margin-bottom: 8px; }
+
+/* ── PROFESSIONAL TEMPLATE ── */
+.tpl-professional .cv-sheet { padding: 0; display: grid; grid-template-columns: 190px 1fr; }
+.tpl-professional .cv-sidebar { background: #1a3a2a; color: white; padding: 30px 18px; }
+.tpl-professional .cv-name { font-family: 'Syne', sans-serif; font-size: 17px; font-weight: 800; color: white; line-height: 1.25; margin-bottom: 5px; }
+.tpl-professional .cv-jobtitle { font-size: 11px; color: #86efac; font-weight: 500; letter-spacing: 0.5px; margin-bottom: 22px; }
+.tpl-professional .cv-sidebar-sec { margin-bottom: 18px; }
+.tpl-professional .cv-sidebar-hdr { font-family: 'Syne', sans-serif; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #4ade80; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 4px; margin-bottom: 8px; }
+.tpl-professional .cv-contact-item { font-size: 10.5px; color: rgba(255,255,255,0.8); margin-bottom: 5px; word-break: break-all; }
+.tpl-professional .cv-skill-pill { display: inline-block; background: rgba(255,255,255,0.1); color: #bbf7d0; border: 1px solid rgba(255,255,255,0.18); border-radius: 3px; font-size: 9.5px; padding: 2px 6px; margin: 2px 2px 0 0; }
+.tpl-professional .cv-main-col { padding: 28px 24px; }
+.tpl-professional .cv-sec-title { font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 800; color: #1a3a2a; text-transform: uppercase; letter-spacing: 0.8px; border-left: 3px solid #1a3a2a; padding-left: 8px; margin-bottom: 10px; margin-top: 18px; }
+.tpl-professional .cv-sec-title:first-child { margin-top: 0; }
+.tpl-professional .cv-sec-body { font-size: 12px; color: #1a1814; line-height: 1.6; }
+.tpl-professional .cv-exp-hdr { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 4px; }
+.tpl-professional .cv-exp-role { font-weight: 700; font-size: 13px; color: #1a1814; }
+.tpl-professional .cv-exp-dates { font-size: 11px; color: #6b6660; background: #f0ede6; padding: 1px 7px; border-radius: 10px; }
+.tpl-professional .cv-exp-company { font-size: 12px; color: #1a3a2a; font-weight: 600; margin-bottom: 4px; }
+.tpl-professional .cv-bullets { padding-left: 14px; margin-top: 4px; }
+.tpl-professional .cv-bullets li { font-size: 12px; margin-bottom: 3px; color: #1a1814; }
+.tpl-professional .cv-edu-entry { margin-bottom: 8px; }
+
+/* ── GRADIENT TEMPLATE ── */
+.tpl-gradient .cv-sheet { font-family: 'DM Sans', sans-serif; }
+.tpl-gradient .cv-gradient-header { background: linear-gradient(135deg, #1a3a2a 0%, #2d6a4f 65%, #52b788 100%); color: white; padding: 26px 60px 22px; margin: -40px -60px 22px; }
+.tpl-gradient .cv-name { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800; color: white; letter-spacing: -0.5px; }
+.tpl-gradient .cv-jobtitle { font-size: 12px; color: #a7f3d0; font-weight: 500; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 4px; }
+.tpl-gradient .cv-contact { font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 8px; }
+.tpl-gradient .cv-sec-title { font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 800; color: #1a3a2a; text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 2px solid #52b788; padding-bottom: 4px; margin-bottom: 12px; margin-top: 20px; }
+.tpl-gradient .cv-sec-body { font-size: 12px; color: #1a1814; line-height: 1.6; }
+.tpl-gradient .cv-exp-hdr { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 4px; }
+.tpl-gradient .cv-exp-role { font-weight: 700; font-size: 13px; color: #1a1814; }
+.tpl-gradient .cv-exp-dates { font-size: 11px; color: #2d6a4f; font-weight: 600; }
+.tpl-gradient .cv-exp-company { font-size: 12px; color: #2d6a4f; font-weight: 600; margin-bottom: 4px; }
+.tpl-gradient .cv-bullets { padding-left: 14px; margin-top: 4px; }
+.tpl-gradient .cv-bullets li { font-size: 12px; margin-bottom: 3px; color: #1a1814; }
+.tpl-gradient .cv-edu-entry { margin-bottom: 8px; }
+.tpl-gradient .cv-skill-bars { margin-top: 6px; }
+.tpl-gradient .cv-skill-bar-wrap { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.tpl-gradient .cv-skill-bar-label { font-size: 11px; color: #1a1814; min-width: 110px; font-weight: 500; }
+.tpl-gradient .cv-skill-bar { flex: 1; background: #e2ddd4; border-radius: 10px; height: 6px; overflow: hidden; }
+.tpl-gradient .cv-skill-bar-fill { height: 100%; background: linear-gradient(90deg, #1a3a2a, #52b788); border-radius: 10px; }
 
 /* Fill notice */
 .cv-fill-notice { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #92400e; display: flex; align-items: flex-start; gap: 8px; }
@@ -712,6 +759,8 @@ nav div a:hover::after { width: 100%; }
             <button class="tpl-btn" id="tpl-elegant" onclick="setTemplate('elegant')">Elegant</button>
             <button class="tpl-btn" id="tpl-purple" onclick="setTemplate('purple')">Purple</button>
             <button class="tpl-btn" id="tpl-warm" onclick="setTemplate('warm')">Warm</button>
+            <button class="tpl-btn" id="tpl-professional" onclick="setTemplate('professional')">Professional</button>
+            <button class="tpl-btn" id="tpl-gradient" onclick="setTemplate('gradient')">Gradient</button>
             <button class="tpl-btn" id="surprise-btn" onclick="surpriseMe()" style="background:linear-gradient(135deg,#2d6a4f,#52b788);color:white;border-color:transparent;">🎲 Surprise Me</button>
           </div>
           <div class="dl-row">
@@ -934,18 +983,23 @@ function renderBullets(bulletsText, cls) {
 
 // ── Classic template ──
 function renderClassic(d) {
-  const contact = [d.email,d.phone,d.location,d.linkedin].filter(Boolean).map(esc).join(' · ');
+  const contactParts = [
+    d.email    && `<span>✉&#xFE0E; ${esc(d.email)}</span>`,
+    d.phone    && `<span>☎&#xFE0E; ${esc(d.phone)}</span>`,
+    d.location && `<span>⌖ ${esc(d.location)}</span>`,
+    d.linkedin && `<span>⊞ ${esc(d.linkedin)}</span>`
+  ].filter(Boolean).join('<span style="color:#ccc;margin:0 5px;">|</span>');
   let h = `<div class="cv-name">${esc(d.name||'Your Name')}</div>`;
   if (d.title) h += `<div class="cv-jobtitle">${esc(d.title)}</div>`;
-  if (contact) h += `<div class="cv-contact">${contact}</div>`;
+  if (contactParts) h += `<div class="cv-contact" style="display:flex;flex-wrap:wrap;align-items:center;gap:2px;">${contactParts}</div>`;
   h += `<hr class="cv-divider">`;
-  if (d.summary) h += `<div class="cv-sec-title">Professional Summary</div><div class="cv-sec-body">${esc(d.summary)}</div>`;
+  if (d.summary) h += `<div class="cv-sec-title">Professional Summary</div><div class="cv-sec-body" style="text-align:justify;line-height:1.65;">${esc(d.summary)}</div>`;
   const exps = d.experience.filter(e => e.company||e.role);
   if (exps.length) {
     h += `<div class="cv-sec-title">Work Experience</div>`;
     exps.forEach(e => {
       const dates = [e.start,e.end].filter(Boolean).join(' – ');
-      h += `<div style="margin-bottom:12px;">
+      h += `<div style="margin-bottom:14px;">
         <div class="cv-exp-hdr"><span class="cv-exp-role">${esc(e.role)}</span>${dates?`<span class="cv-exp-dates">${esc(dates)}</span>`:''}</div>
         <div class="cv-exp-company">${esc(e.company)}</div>
         ${renderBullets(e.bullets,'cv-bullets')}
@@ -963,7 +1017,12 @@ function renderClassic(d) {
       </div>`;
     });
   }
-  if (d.skills) h += `<div class="cv-sec-title">Skills</div><div class="cv-sec-body">${esc(d.skills)}</div>`;
+  if (d.skills) {
+    h += `<div class="cv-sec-title">Skills</div>`;
+    const pills = d.skills.split(',').map(s => s.trim()).filter(Boolean)
+      .map(s => `<span class="cv-skill-pill">${esc(s)}</span>`).join('');
+    h += `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">${pills}</div>`;
+  }
   if (d.certs) h += `<div class="cv-sec-title">Certifications</div><div class="cv-sec-body">${esc(d.certs)}</div>`;
   return h;
 }
@@ -1008,6 +1067,94 @@ function renderModern(d) {
     });
   }
   return `<div class="cv-sidebar">${sidebar}</div><div class="cv-main-col">${main}</div>`;
+}
+
+// ── Professional template ──
+function renderProfessional(d) {
+  const contact = [d.email,d.phone,d.location,d.linkedin].filter(Boolean);
+  let sidebar = `<div class="cv-name">${esc(d.name||'Your Name')}</div><div class="cv-jobtitle">${esc(d.title||'')}</div>`;
+  if (contact.length) {
+    sidebar += `<div class="cv-sidebar-sec"><div class="cv-sidebar-hdr">Contact</div>${contact.map(c=>`<div class="cv-contact-item">${esc(c)}</div>`).join('')}</div>`;
+  }
+  if (d.skills) {
+    const pills = d.skills.split(',').map(s=>`<span class="cv-skill-pill">${esc(s.trim())}</span>`).join('');
+    sidebar += `<div class="cv-sidebar-sec"><div class="cv-sidebar-hdr">Skills</div>${pills}</div>`;
+  }
+  if (d.certs) {
+    sidebar += `<div class="cv-sidebar-sec"><div class="cv-sidebar-hdr">Certifications</div><div style="font-size:10px;color:rgba(255,255,255,0.75);">${esc(d.certs)}</div></div>`;
+  }
+  let main = '';
+  if (d.summary) main += `<div class="cv-sec-title">Summary</div><div class="cv-sec-body">${esc(d.summary)}</div>`;
+  const exps = d.experience.filter(e => e.company||e.role);
+  if (exps.length) {
+    main += `<div class="cv-sec-title">Experience</div>`;
+    exps.forEach(e => {
+      const dates = [e.start,e.end].filter(Boolean).join(' – ');
+      main += `<div style="margin-bottom:12px;">
+        <div class="cv-exp-hdr"><span class="cv-exp-role">${esc(e.role)}</span>${dates?`<span class="cv-exp-dates">${esc(dates)}</span>`:''}</div>
+        <div class="cv-exp-company">${esc(e.company)}</div>
+        ${renderBullets(e.bullets,'cv-bullets')}
+      </div>`;
+    });
+  }
+  const edus = d.education.filter(e => e.school||e.degree);
+  if (edus.length) {
+    main += `<div class="cv-sec-title">Education</div>`;
+    edus.forEach(e => {
+      const dates = [e.start,e.end].filter(Boolean).join(' – ');
+      main += `<div class="cv-edu-entry">
+        <div class="cv-exp-hdr"><span class="cv-exp-role">${esc(e.degree)}</span>${dates?`<span class="cv-exp-dates">${esc(dates)}</span>`:''}</div>
+        <div class="cv-exp-company">${esc(e.school)}</div>
+      </div>`;
+    });
+  }
+  return `<div class="cv-sidebar">${sidebar}</div><div class="cv-main-col">${main}</div>`;
+}
+
+// ── Gradient template ──
+function renderGradient(d) {
+  const contact = [d.email,d.phone,d.location,d.linkedin].filter(Boolean).map(esc).join('  ·  ');
+  let h = `<div class="cv-gradient-header">
+    <div class="cv-name">${esc(d.name||'Your Name')}</div>
+    ${d.title?`<div class="cv-jobtitle">${esc(d.title)}</div>`:''}
+    ${contact?`<div class="cv-contact">${contact}</div>`:''}
+  </div>`;
+  if (d.summary) h += `<div class="cv-sec-title">About</div><div class="cv-sec-body">${esc(d.summary)}</div>`;
+  const exps = d.experience.filter(e => e.company||e.role);
+  if (exps.length) {
+    h += `<div class="cv-sec-title">Experience</div>`;
+    exps.forEach(e => {
+      const dates = [e.start,e.end].filter(Boolean).join(' – ');
+      h += `<div style="margin-bottom:14px;">
+        <div class="cv-exp-hdr"><span class="cv-exp-role">${esc(e.role)}</span>${dates?`<span class="cv-exp-dates">${esc(dates)}</span>`:''}</div>
+        <div class="cv-exp-company">${esc(e.company)}</div>
+        ${renderBullets(e.bullets,'cv-bullets')}
+      </div>`;
+    });
+  }
+  const edus = d.education.filter(e => e.school||e.degree);
+  if (edus.length) {
+    h += `<div class="cv-sec-title">Education</div>`;
+    edus.forEach(e => {
+      const dates = [e.start,e.end].filter(Boolean).join(' – ');
+      h += `<div class="cv-edu-entry">
+        <div class="cv-exp-hdr"><span class="cv-exp-role">${esc(e.degree)}</span>${dates?`<span class="cv-exp-dates">${esc(dates)}</span>`:''}</div>
+        <div class="cv-exp-company">${esc(e.school)}</div>
+      </div>`;
+    });
+  }
+  if (d.skills) {
+    const skillList = d.skills.split(',').map(s => s.trim()).filter(Boolean);
+    const skillWidth = s => 65 + (s.split('').reduce((a,c) => a + c.charCodeAt(0), 0) % 30);
+    h += `<div class="cv-sec-title">Skills</div><div class="cv-skill-bars">${
+      skillList.map(s => `<div class="cv-skill-bar-wrap">
+        <span class="cv-skill-bar-label">${esc(s)}</span>
+        <div class="cv-skill-bar"><div class="cv-skill-bar-fill" style="width:${skillWidth(s)}%"></div></div>
+      </div>`).join('')
+    }</div>`;
+  }
+  if (d.certs) h += `<div class="cv-sec-title">Certifications</div><div class="cv-sec-body">${esc(d.certs)}</div>`;
+  return h;
 }
 
 // ── Minimal template ──
@@ -1305,7 +1452,7 @@ const RENDER_MAP = {
   navy: renderModern, burgundy: renderClassic, teal: renderExecutive,
   slate: renderClassic, terracotta: renderClassic, bold: renderBold,
   academic: renderAcademic, elegant: renderCreative, purple: renderModern,
-  warm: renderExecutive
+  warm: renderExecutive, professional: renderProfessional, gradient: renderGradient
 };
 
 function updatePreview() {
@@ -1506,98 +1653,57 @@ function copyCV() {
 
 // ── Download PDF ──
 async function downloadPDF() {
+  const preview = document.getElementById('cv-preview');
+  if (!preview || !preview.innerHTML.trim() || preview.querySelector('.cv-empty')) {
+    alert('Please fill in your CV details first.'); return;
+  }
+  if (!window.html2canvas) { alert('PDF renderer not loaded yet. Please try again.'); return; }
   const { jsPDF } = window.jspdf;
   if (!jsPDF) { alert('PDF library not loaded yet. Please try again.'); return; }
-  const d = getFormData();
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-  let y = 18; const L = 15; const W = 180;
 
-  const addPage = () => { doc.addPage(); y = 18; };
-  const checkY = (h) => { if (y + h > 275) addPage(); };
+  const dlBtn = document.querySelector('.dl-btn');
+  const originalText = dlBtn ? dlBtn.textContent : '';
+  if (dlBtn) { dlBtn.textContent = '⏳ Generating…'; dlBtn.disabled = true; }
 
-  // Name
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(22);
-  doc.setTextColor(26, 24, 20);
-  doc.text(d.name || 'Your Name', L, y); y += 8;
+  try {
+    const canvas = await html2canvas(preview, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      scrollX: 0,
+      scrollY: 0,
+      width: preview.scrollWidth,
+      height: preview.scrollHeight,
+      windowWidth: preview.scrollWidth,
+      windowHeight: preview.scrollHeight
+    });
 
-  // Job title
-  if (d.title) {
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(13);
-    doc.setTextColor(45, 106, 79);
-    doc.text(d.title, L, y); y += 6;
-  }
+    const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const imgW = pageW;
+    const imgH = (canvas.height * imgW) / canvas.width;
+    const imgData = canvas.toDataURL('image/png');
 
-  // Contact
-  const cp = [d.email,d.phone,d.location,d.linkedin].filter(Boolean);
-  if (cp.length) {
-    doc.setFontSize(9); doc.setTextColor(107, 102, 96);
-    doc.text(cp.join('  ·  '), L, y); y += 5;
-  }
-
-  // Divider
-  doc.setDrawColor(45, 106, 79); doc.setLineWidth(0.5);
-  doc.line(L, y, L + W, y); y += 7;
-
-  const addSection = (title) => {
-    checkY(14);
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
-    doc.setTextColor(45, 106, 79);
-    doc.text(title.toUpperCase(), L, y); y += 1;
-    doc.setLineWidth(0.3); doc.line(L, y, L + W, y); y += 5;
-    doc.setFont('helvetica', 'normal'); doc.setTextColor(26, 24, 20);
-  };
-
-  const addText = (text, indent) => {
-    doc.setFontSize(10); doc.setTextColor(26, 24, 20);
-    const lines = doc.splitTextToSize(text, W - (indent||0));
-    lines.forEach(ln => { checkY(5); doc.text(ln, L + (indent||0), y); y += 4.5; });
-  };
-
-  if (d.summary) { addSection('Professional Summary'); addText(d.summary, 0); y += 3; }
-
-  const exps = d.experience.filter(e=>e.role||e.company);
-  if (exps.length) {
-    addSection('Work Experience');
-    exps.forEach(e => {
-      checkY(10);
-      const dates = [e.start,e.end].filter(Boolean).join(' – ');
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(26,24,20);
-      doc.text(e.role || '', L, y);
-      if (dates) { doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(107,102,96); doc.text(dates, 195 - doc.getTextWidth(dates), y); }
-      y += 5;
-      if (e.company) { doc.setFont('helvetica','italic'); doc.setFontSize(9); doc.setTextColor(107,102,96); doc.text(e.company, L, y); y += 4; }
-      if (e.bullets) {
-        doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(26,24,20);
-        e.bullets.split('\n').filter(b=>b.trim()).forEach(b => {
-          const bLine = '• ' + b.replace(/^[•\-]\s*/,'');
-          const ls = doc.splitTextToSize(bLine, W - 4);
-          ls.forEach(ln => { checkY(5); doc.text(ln, L+3, y); y += 4; });
-        });
+    if (imgH <= pageH) {
+      doc.addImage(imgData, 'PNG', 0, 0, imgW, imgH);
+    } else {
+      let remaining = imgH;
+      let yOffset = 0;
+      while (remaining > 0) {
+        doc.addImage(imgData, 'PNG', 0, -yOffset, imgW, imgH);
+        remaining -= pageH;
+        yOffset += pageH;
+        if (remaining > 0) doc.addPage();
       }
-      y += 3;
-    });
+    }
+
+    const d = getFormData();
+    const fname = (d.name||'CV').replace(/\s+/g,'_') + '_Resume.pdf';
+    doc.save(fname);
+  } finally {
+    if (dlBtn) { dlBtn.textContent = originalText; dlBtn.disabled = false; }
   }
-
-  const edus = d.education.filter(e=>e.school||e.degree);
-  if (edus.length) {
-    addSection('Education');
-    edus.forEach(e => {
-      checkY(8);
-      const dates = [e.start,e.end].filter(Boolean).join(' – ');
-      doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(26,24,20);
-      doc.text(e.degree||'', L, y);
-      if (dates) { doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(107,102,96); doc.text(dates, 195 - doc.getTextWidth(dates), y); }
-      y += 5;
-      if (e.school) { doc.setFont('helvetica','italic'); doc.setFontSize(9); doc.setTextColor(107,102,96); doc.text(e.school, L, y); y += 5; }
-    });
-  }
-
-  if (d.skills) { addSection('Skills'); addText(d.skills, 0); y += 3; }
-  if (d.certs)  { addSection('Certifications'); addText(d.certs, 0); }
-
-  const fname = (d.name||'CV').replace(/\s+/g,'_') + '_Resume.pdf';
-  doc.save(fname);
 }
 
 // ── Download DOCX ──
@@ -1781,7 +1887,7 @@ function updateJobSearch() {
 
 // ── Surprise Me ──
 function surpriseMe() {
-  const all = ['classic','modern','minimal','executive','creative','compact','timeline','tech','navy','burgundy','teal','slate','terracotta','bold','academic','elegant','purple','warm'];
+  const all = ['classic','modern','minimal','executive','creative','compact','timeline','tech','navy','burgundy','teal','slate','terracotta','bold','academic','elegant','purple','warm','professional','gradient'];
   setTemplate(all[Math.floor(Math.random() * all.length)]);
 }
 
