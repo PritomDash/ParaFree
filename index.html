@@ -121,6 +121,17 @@
   document.head.appendChild(s);
 })();
 </script>
+<script>
+const PHOTOS = {
+  hero: 'https://images.unsplash.com/photo-1455390582262-044cdead277a?w=1400&q=80',
+  writing: 'https://images.unsplash.com/photo-1471107340929-a87cd0f5b5f3?w=600&q=80',
+  student: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=600&q=80',
+  cv: 'https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=600&q=80',
+  code: 'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=600&q=80',
+  ai: 'https://images.unsplash.com/photo-1677442135703-1787eea5ce01?w=600&q=80',
+  laptop: 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=800&q=80',
+};
+</script>
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8692254823531289" crossorigin="anonymous"></script>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/favicon.svg">
@@ -1017,6 +1028,29 @@
     nav, footer, #pf-scroll-top { display: none !important; }
     body { background: white; color: black; }
   }
+
+  /* ── PREMIUM LANDING SECTIONS ── */
+  @keyframes heroScrollBounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+
+  #tools { scroll-margin-top: 80px; }
+
+  @media (max-width: 768px) {
+    #mainNav { padding: 0 16px !important; }
+    #mainNav a[href="/blog.html"],
+    #mainNav a[href="/faq.html"] { display: none !important; }
+    .hero-title { font-size: 36px !important; letter-spacing: -1px !important; }
+    .hero-content { padding: 100px 20px 60px !important; }
+    .services-grid { grid-template-columns: 1fr !important; }
+    .services-grid > div:first-child { height: 280px !important; }
+    .steps-grid { grid-template-columns: 1fr !important; }
+    .features-grid { grid-template-columns: 1fr !important; }
+    .cta-buttons { flex-direction: column !important; }
+    .cta-buttons a { width: 100% !important; text-align: center !important; box-sizing: border-box !important; }
+    .stats-strip-inner { gap: 16px !important; }
+  }
 </style>
 </head>
 <body>
@@ -1035,45 +1069,113 @@
     <a href="/privacy.html" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;display:block;">Privacy</a>
   </div>
 </div>
-<nav style="background:#1a3a2a; padding:10px 24px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; font-family:'DM Sans',sans-serif;">
-  <a href="/" style="display:flex;align-items:center;text-decoration:none;flex-shrink:0;"><img src="/logo-dark.svg" alt="ParaFree" height="32" style="height:32px;width:auto;display:block;"></a>
-  <div id="homeNavLinks" style="display:flex; gap:16px; flex-wrap:wrap;">
-    <a href="/" style="color:#ccc; text-decoration:none; font-size:14px;">Home</a>
-    <a href="/about.html" style="color:#ccc; text-decoration:none; font-size:14px;">About</a>
-    <a href="/blog.html" style="color:#ccc; text-decoration:none; font-size:14px;">Blog</a>
-    <a href="/cv-builder.html" style="color:#ccc; text-decoration:none; font-size:14px;">CV Builder</a>
-    <a href="/code.html" style="color:#ccc; text-decoration:none; font-size:14px;">ParaFree AI</a>
-    <a href="/faq.html" style="color:#ccc; text-decoration:none; font-size:14px;">FAQ</a>
-    <a href="/contact.html" style="color:#ccc; text-decoration:none; font-size:14px;">Contact</a>
-    <a href="/privacy.html" style="color:#ccc; text-decoration:none; font-size:14px;">Privacy</a>
+<!-- PREMIUM STICKY NAV -->
+<nav id="mainNav" style="position:fixed;top:0;left:0;right:0;z-index:200;background:transparent;padding:0 40px;height:68px;display:flex;align-items:center;justify-content:space-between;transition:all 0.3s ease;">
+  <a href="/" style="display:flex;align-items:center;text-decoration:none;">
+    <img src="/logo-dark.svg" alt="ParaFree" height="34" style="height:34px;width:auto;" id="navLogo">
+  </a>
+  <div id="homeNavLinks" style="display:flex;gap:8px;align-items:center;">
+    <a href="/cv-builder.html" class="nav-link" style="color:rgba(255,255,255,0.85);font-size:14px;font-weight:500;text-decoration:none;padding:8px 12px;transition:color 0.2s;">CV Builder</a>
+    <a href="/code.html" class="nav-link" style="color:rgba(255,255,255,0.85);font-size:14px;font-weight:500;text-decoration:none;padding:8px 12px;transition:color 0.2s;">ParaFree AI</a>
+    <a href="/blog.html" class="nav-link" style="color:rgba(255,255,255,0.85);font-size:14px;font-weight:500;text-decoration:none;padding:8px 12px;transition:color 0.2s;">Blog</a>
+    <a href="/faq.html" class="nav-link" style="color:rgba(255,255,255,0.85);font-size:14px;font-weight:500;text-decoration:none;padding:8px 12px;transition:color 0.2s;">FAQ</a>
+    <a href="/cv-builder.html" id="navCta" style="padding:10px 22px;background:#ffffff;border-radius:10px;color:#1a3a2a;font-weight:800;font-size:14px;text-decoration:none;box-shadow:0 2px 12px rgba(0,0,0,0.15);transition:all 0.2s;">Try Free →</a>
   </div>
   <button id="menuToggle" aria-label="Open menu" onclick="toggleMenu()" style="display:none;background:none;border:none;cursor:pointer;padding:8px;flex-direction:column;gap:5px;align-items:center;justify-content:center;min-width:44px;min-height:44px;">
-    <span style="display:block;width:22px;height:2px;background:#ccc;border-radius:2px;"></span>
-    <span style="display:block;width:22px;height:2px;background:#ccc;border-radius:2px;"></span>
-    <span style="display:block;width:22px;height:2px;background:#ccc;border-radius:2px;"></span>
+    <span style="display:block;width:22px;height:2px;background:rgba(255,255,255,0.85);border-radius:2px;"></span>
+    <span style="display:block;width:22px;height:2px;background:rgba(255,255,255,0.85);border-radius:2px;"></span>
+    <span style="display:block;width:22px;height:2px;background:rgba(255,255,255,0.85);border-radius:2px;"></span>
   </button>
 </nav>
+<script>
+(function() {
+  var scrolled = false;
+  window.addEventListener('scroll', function() {
+    var nav = document.getElementById('mainNav');
+    var links = nav.querySelectorAll('.nav-link');
+    var logo = document.getElementById('navLogo');
+    var hamburgerLines = nav.querySelectorAll('#menuToggle span');
+    if (window.scrollY > 20) {
+      if (!scrolled) {
+        scrolled = true;
+        nav.style.background = 'rgba(255,255,255,0.97)';
+        nav.style.backdropFilter = 'blur(12px)';
+        nav.style.webkitBackdropFilter = 'blur(12px)';
+        nav.style.borderBottom = '1px solid rgba(0,0,0,0.08)';
+        nav.style.boxShadow = '0 2px 16px rgba(0,0,0,0.06)';
+        links.forEach(function(a) { a.style.color = '#64748b'; });
+        hamburgerLines.forEach(function(s) { s.style.background = '#1a3a2a'; });
+        if (logo) logo.src = '/logo.svg';
+      }
+    } else {
+      if (scrolled) {
+        scrolled = false;
+        nav.style.background = 'transparent';
+        nav.style.backdropFilter = 'none';
+        nav.style.webkitBackdropFilter = 'none';
+        nav.style.borderBottom = 'none';
+        nav.style.boxShadow = 'none';
+        links.forEach(function(a) { a.style.color = 'rgba(255,255,255,0.85)'; });
+        hamburgerLines.forEach(function(s) { s.style.background = 'rgba(255,255,255,0.85)'; });
+        if (logo) logo.src = '/logo-dark.svg';
+      }
+    }
+  });
+})();
+</script>
 
-<!-- HEADER -->
-<header>
-  <div class="logo">Para<span>Free</span></div>
-  <div class="header-badge">✦ Always Free · No Signup</div>
-</header>
+<!-- FULL-SCREEN HERO -->
+<div style="position:relative;height:100vh;min-height:600px;display:flex;align-items:center;overflow:hidden;">
+  <img src="https://images.unsplash.com/photo-1455390582262-044cdead277a?w=1400&q=80" alt="Writing and AI" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;" loading="eager">
+  <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(10,28,20,0.92) 0%,rgba(26,58,42,0.88) 50%,rgba(45,106,79,0.82) 100%);"></div>
+  <div class="hero-content" style="position:relative;z-index:1;max-width:800px;padding:80px 40px 60px;margin:0 auto;text-align:center;width:100%;">
+    <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);border-radius:24px;padding:8px 20px;margin-bottom:28px;">
+      <span style="color:rgba(255,255,255,0.95);font-size:14px;font-weight:600;">✦ Free AI Writing Suite — No Signup Ever</span>
+    </div>
+    <h1 class="hero-title" style="font-size:clamp(38px,6vw,62px);font-weight:900;color:#ffffff;margin-bottom:20px;line-height:1.05;letter-spacing:-2.5px;font-family:'Syne',sans-serif;">Write Smarter.<br><span style="color:#52b788;">Completely Free.</span></h1>
+    <p style="font-size:20px;color:rgba(255,255,255,0.85);margin-bottom:40px;line-height:1.7;max-width:580px;margin-left:auto;margin-right:auto;">Paraphrase, humanize, summarize, check grammar, build CVs and create with AI — all free, no word limits, no signup required.</p>
+    <div class="cta-buttons" style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-bottom:40px;">
+      <a href="#tools" style="padding:18px 44px;background:#ffffff;color:#1a3a2a;border-radius:14px;font-weight:900;font-size:18px;text-decoration:none;box-shadow:0 8px 32px rgba(0,0,0,0.2);font-family:'Syne',sans-serif;">Start Writing Free →</a>
+      <a href="/cv-builder.html" style="padding:18px 44px;background:rgba(255,255,255,0.12);color:#ffffff;border-radius:14px;font-weight:700;font-size:18px;text-decoration:none;border:2px solid rgba(255,255,255,0.3);backdrop-filter:blur(8px);">Build Your CV</a>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+      <div style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:7px 16px;color:rgba(255,255,255,0.9);font-size:13px;font-weight:500;">✓ No Word Limit</div>
+      <div style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:7px 16px;color:rgba(255,255,255,0.9);font-size:13px;font-weight:500;">✓ 10 Languages</div>
+      <div style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:7px 16px;color:rgba(255,255,255,0.9);font-size:13px;font-weight:500;">✓ No Signup</div>
+      <div style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:7px 16px;color:rgba(255,255,255,0.9);font-size:13px;font-weight:500;">✓ Always Free</div>
+      <div style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:7px 16px;color:rgba(255,255,255,0.9);font-size:13px;font-weight:500;">✓ AI Powered</div>
+    </div>
+  </div>
+  <div style="position:absolute;bottom:32px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.5);font-size:12px;text-align:center;line-height:1.6;">
+    <div style="animation:heroScrollBounce 2s infinite;">↓</div>
+    <div>Explore Tools</div>
+  </div>
+</div>
 
-<!-- HERO -->
-<div class="hero">
-  <h1>Free AI Writing Suite<br><em>No Limits. 10 Languages. Always Free.</em></h1>
-  <p>Paraphrase, Humanize, Summarize, Grammar Check & Detect AI — all free, no signup, no word limits.</p>
-  <div class="hero-badges">
-    <div class="badge"><span class="dot"></span>No word limit</div>
-    <div class="badge"><span class="dot"></span>10 languages</div>
-    <div class="badge"><span class="dot"></span>5 free tools</div>
-    <div class="badge"><span class="dot"></span>No signup ever</div>
+<!-- STATS STRIP -->
+<div style="background:linear-gradient(135deg,#1a3a2a,#2d6a4f);padding:28px 40px;">
+  <div class="stats-strip-inner" style="max-width:900px;margin:0 auto;display:flex;justify-content:space-around;flex-wrap:wrap;gap:20px;">
+    <div style="text-align:center;">
+      <div style="font-size:32px;font-weight:900;color:#52b788;font-family:'Syne',sans-serif;">50K+</div>
+      <div style="font-size:14px;color:rgba(255,255,255,0.75);margin-top:4px;">Documents Paraphrased</div>
+    </div>
+    <div style="text-align:center;">
+      <div style="font-size:32px;font-weight:900;color:#52b788;font-family:'Syne',sans-serif;">8+</div>
+      <div style="font-size:14px;color:rgba(255,255,255,0.75);margin-top:4px;">Countries</div>
+    </div>
+    <div style="text-align:center;">
+      <div style="font-size:32px;font-weight:900;color:#52b788;font-family:'Syne',sans-serif;">10</div>
+      <div style="font-size:14px;color:rgba(255,255,255,0.75);margin-top:4px;">Languages Supported</div>
+    </div>
+    <div style="text-align:center;">
+      <div style="font-size:32px;font-weight:900;color:#52b788;font-family:'Syne',sans-serif;">5</div>
+      <div style="font-size:14px;color:rgba(255,255,255,0.75);margin-top:4px;">Free AI Tools</div>
+    </div>
   </div>
 </div>
 
 <!-- TOOL TABS -->
-<div class="tool-tabs-wrap">
+<div class="tool-tabs-wrap" id="tools">
   <div class="tool-tabs" style="flex-wrap:wrap;">
     <button class="tool-tab active" id="tab-paraphrase" onclick="switchTool('paraphrase')" aria-label="Free AI Paraphraser - No Word Limit" title="Free AI Paraphraser — Paraphrase essays, articles and text with no word limit, no signup">✦ Paraphraser</button>
     <button class="tool-tab" id="tab-humanize" onclick="switchTool('humanize')" aria-label="Free AI Humanizer - Bypass AI Detection" title="Free AI Humanizer — Make ChatGPT and AI text undetectable, bypass GPTZero and Turnitin AI">◈ AI Humanizer</button>
@@ -1568,6 +1670,134 @@
 
 </div>
 
+<!-- SERVICES CARDS -->
+<div style="padding:80px 40px;background:#ffffff;">
+  <div style="max-width:1100px;margin:0 auto;">
+    <div style="text-align:center;margin-bottom:56px;">
+      <div style="font-size:13px;font-weight:700;color:#2d6a4f;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;">ALL FREE TOOLS</div>
+      <h2 style="font-size:42px;font-weight:900;color:#1a1814;margin-bottom:14px;letter-spacing:-1px;font-family:'Syne',sans-serif;">Everything You Need to Write Better</h2>
+      <p style="font-size:17px;color:#6b6660;max-width:500px;margin:0 auto;">Professional AI writing tools — completely free, no account needed</p>
+    </div>
+    <div class="services-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:24px;">
+      <!-- Paraphraser card (large left) -->
+      <div style="border-radius:24px;overflow:hidden;position:relative;height:320px;">
+        <img src="https://images.unsplash.com/photo-1455390582262-044cdead277a?w=600&q=80" alt="Paraphraser" style="width:100%;height:100%;object-fit:cover;" loading="lazy">
+        <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.88) 0%,rgba(0,0,0,0.1) 60%);"></div>
+        <div style="position:absolute;bottom:0;left:0;right:0;padding:28px;">
+          <div style="background:#2d6a4f;color:white;display:inline-block;padding:4px 12px;border-radius:8px;font-size:12px;font-weight:700;margin-bottom:10px;">PARAPHRASER</div>
+          <h3 style="color:white;font-size:24px;font-weight:800;margin-bottom:8px;font-family:'Syne',sans-serif;">Rewrite Any Text Instantly</h3>
+          <p style="color:rgba(255,255,255,0.8);font-size:14px;line-height:1.6;margin:0 0 16px;">Paraphrase documents, essays and articles in 10 languages. Upload Word, PDF or PPT files.</p>
+          <a href="#tools" style="display:inline-block;padding:10px 22px;background:white;color:#1a3a2a;border-radius:10px;font-weight:700;font-size:14px;text-decoration:none;">Try Paraphraser →</a>
+        </div>
+      </div>
+      <!-- Right column (stacked) -->
+      <div style="display:flex;flex-direction:column;gap:24px;">
+        <!-- CV Builder -->
+        <div style="border-radius:24px;overflow:hidden;position:relative;height:145px;">
+          <img src="https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=600&q=80" alt="CV Builder" style="width:100%;height:100%;object-fit:cover;" loading="lazy">
+          <div style="position:absolute;inset:0;background:linear-gradient(to right,rgba(0,0,0,0.85) 40%,rgba(0,0,0,0.2) 100%);"></div>
+          <div style="position:absolute;top:50%;transform:translateY(-50%);left:24px;right:24px;">
+            <div style="background:#1565c0;color:white;display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;margin-bottom:6px;">CV BUILDER</div>
+            <h3 style="color:white;font-size:18px;font-weight:800;margin-bottom:4px;">16 Professional Templates</h3>
+            <a href="/cv-builder.html" style="color:#93c5fd;font-size:13px;font-weight:700;text-decoration:none;">Build Your CV →</a>
+          </div>
+        </div>
+        <!-- Bottom row: AI Humanizer + ParaFree AI -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;flex:1;">
+          <div style="border-radius:24px;overflow:hidden;position:relative;min-height:125px;">
+            <img src="https://images.unsplash.com/photo-1677442135703-1787eea5ce01?w=400&q=80" alt="AI Humanizer" style="width:100%;height:100%;object-fit:cover;" loading="lazy">
+            <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.88) 0%,rgba(0,0,0,0.1) 50%);"></div>
+            <div style="position:absolute;bottom:0;left:0;right:0;padding:14px;">
+              <div style="background:#7c3aed;color:white;display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;margin-bottom:4px;">AI HUMANIZER</div>
+              <h3 style="color:white;font-size:14px;font-weight:800;margin-bottom:4px;">Beat AI Detection</h3>
+              <a href="#tools" style="color:#c4b5fd;font-size:12px;font-weight:700;text-decoration:none;">Try Free →</a>
+            </div>
+          </div>
+          <div style="border-radius:24px;overflow:hidden;position:relative;min-height:125px;">
+            <img src="https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=400&q=80" alt="ParaFree AI" style="width:100%;height:100%;object-fit:cover;" loading="lazy">
+            <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.88) 0%,rgba(0,0,0,0.1) 50%);"></div>
+            <div style="position:absolute;bottom:0;left:0;right:0;padding:14px;">
+              <div style="background:#ea580c;color:white;display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;margin-bottom:4px;">PARAFREE AI ✨</div>
+              <h3 style="color:white;font-size:14px;font-weight:800;margin-bottom:4px;">AI Chat + Code</h3>
+              <a href="/code.html" style="color:#fed7aa;font-size:12px;font-weight:700;text-decoration:none;">Try AI →</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- HOW IT WORKS -->
+<div style="padding:80px 40px;background:#f7f5f0;">
+  <div style="max-width:1000px;margin:0 auto;">
+    <div style="text-align:center;margin-bottom:56px;">
+      <div style="font-size:13px;font-weight:700;color:#2d6a4f;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;">SIMPLE TO USE</div>
+      <h2 style="font-size:42px;font-weight:900;color:#1a1814;letter-spacing:-1px;font-family:'Syne',sans-serif;">Get Results in 3 Steps</h2>
+    </div>
+    <div class="steps-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:24px;">
+      <div style="background:white;border:1.5px solid #e2ddd4;border-radius:20px;padding:32px 28px;position:relative;box-shadow:0 4px 24px rgba(0,0,0,0.06);">
+        <div style="font-size:48px;font-weight:900;color:#f0ede6;position:absolute;top:16px;right:20px;line-height:1;font-family:'Syne',sans-serif;">01</div>
+        <div style="width:60px;height:60px;background:#f0fdf4;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:28px;margin-bottom:20px;">📄</div>
+        <h3 style="font-size:22px;font-weight:800;color:#1a1814;margin-bottom:10px;font-family:'Syne',sans-serif;">Paste or Upload</h3>
+        <p style="font-size:15px;color:#6b6660;line-height:1.7;margin:0;">Paste your text directly or upload a Word, PDF, or PowerPoint file. We support all major formats.</p>
+      </div>
+      <div style="background:white;border:1.5px solid #e2ddd4;border-radius:20px;padding:32px 28px;position:relative;box-shadow:0 4px 24px rgba(0,0,0,0.06);">
+        <div style="font-size:48px;font-weight:900;color:#f0ede6;position:absolute;top:16px;right:20px;line-height:1;font-family:'Syne',sans-serif;">02</div>
+        <div style="width:60px;height:60px;background:#eff6ff;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:28px;margin-bottom:20px;">🤖</div>
+        <h3 style="font-size:22px;font-weight:800;color:#1a1814;margin-bottom:10px;font-family:'Syne',sans-serif;">AI Processes</h3>
+        <p style="font-size:15px;color:#6b6660;line-height:1.7;margin:0;">Our AI powered by 6 engines processes your text in seconds. No waiting, no queues, completely free.</p>
+      </div>
+      <div style="background:white;border:1.5px solid #e2ddd4;border-radius:20px;padding:32px 28px;position:relative;box-shadow:0 4px 24px rgba(0,0,0,0.06);">
+        <div style="font-size:48px;font-weight:900;color:#f0ede6;position:absolute;top:16px;right:20px;line-height:1;font-family:'Syne',sans-serif;">03</div>
+        <div style="width:60px;height:60px;background:#faf5ff;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:28px;margin-bottom:20px;">⬇️</div>
+        <h3 style="font-size:22px;font-weight:800;color:#1a1814;margin-bottom:10px;font-family:'Syne',sans-serif;">Download Result</h3>
+        <p style="font-size:15px;color:#6b6660;line-height:1.7;margin:0;">Copy your result or download as Word, PDF, or PPT. Same format as original, just better text.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- WHY PARAFREE -->
+<div style="padding:80px 40px;background:#ffffff;">
+  <div style="max-width:900px;margin:0 auto;text-align:center;">
+    <div style="font-size:13px;font-weight:700;color:#2d6a4f;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;">WHY PARAFREE</div>
+    <h2 style="font-size:42px;font-weight:900;color:#1a1814;margin-bottom:48px;letter-spacing:-1px;font-family:'Syne',sans-serif;">The Best Free AI Writing Tool</h2>
+    <div class="features-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:24px;">
+      <div style="padding:28px 24px;border:1.5px solid #e2ddd4;border-radius:16px;text-align:left;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+        <div style="font-size:32px;margin-bottom:14px;">♾️</div>
+        <h3 style="font-size:17px;font-weight:800;color:#1a1814;margin-bottom:8px;font-family:'Syne',sans-serif;">No Word Limits</h3>
+        <p style="font-size:14px;color:#6b6660;line-height:1.7;margin:0;">Paraphrase entire essays, articles and documents without any character restrictions.</p>
+      </div>
+      <div style="padding:28px 24px;border:1.5px solid #e2ddd4;border-radius:16px;text-align:left;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+        <div style="font-size:32px;margin-bottom:14px;">🌍</div>
+        <h3 style="font-size:17px;font-weight:800;color:#1a1814;margin-bottom:8px;font-family:'Syne',sans-serif;">10 Languages</h3>
+        <p style="font-size:14px;color:#6b6660;line-height:1.7;margin:0;">Write in English, Spanish, French, German, Arabic, Hindi, Portuguese and more.</p>
+      </div>
+      <div style="padding:28px 24px;border:1.5px solid #e2ddd4;border-radius:16px;text-align:left;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+        <div style="font-size:32px;margin-bottom:14px;">📁</div>
+        <h3 style="font-size:17px;font-weight:800;color:#1a1814;margin-bottom:8px;font-family:'Syne',sans-serif;">File Upload</h3>
+        <p style="font-size:14px;color:#6b6660;line-height:1.7;margin:0;">Upload Word documents, PDFs and PowerPoint files. Download results in same format.</p>
+      </div>
+      <div style="padding:28px 24px;border:1.5px solid #e2ddd4;border-radius:16px;text-align:left;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+        <div style="font-size:32px;margin-bottom:14px;">🤖</div>
+        <h3 style="font-size:17px;font-weight:800;color:#1a1814;margin-bottom:8px;font-family:'Syne',sans-serif;">6 AI Engines</h3>
+        <p style="font-size:14px;color:#6b6660;line-height:1.7;margin:0;">Powered by Gemini, Groq, Cerebras, Mistral and more with automatic fallback.</p>
+      </div>
+      <div style="padding:28px 24px;border:1.5px solid #e2ddd4;border-radius:16px;text-align:left;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+        <div style="font-size:32px;margin-bottom:14px;">🆓</div>
+        <h3 style="font-size:17px;font-weight:800;color:#1a1814;margin-bottom:8px;font-family:'Syne',sans-serif;">Always Free</h3>
+        <p style="font-size:14px;color:#6b6660;line-height:1.7;margin:0;">Every tool is free forever. No credit card, no subscription, no hidden limits.</p>
+      </div>
+      <div style="padding:28px 24px;border:1.5px solid #e2ddd4;border-radius:16px;text-align:left;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+        <div style="font-size:32px;margin-bottom:14px;">🔒</div>
+        <h3 style="font-size:17px;font-weight:800;color:#1a1814;margin-bottom:8px;font-family:'Syne',sans-serif;">Private &amp; Secure</h3>
+        <p style="font-size:14px;color:#6b6660;line-height:1.7;margin:0;">Your text is never stored or used for training. Complete privacy guaranteed.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- BLOG SECTION -->
 <div style="max-width:1100px; margin:0 auto 40px; padding:0 16px;" id="blog">
 
@@ -1781,7 +2011,19 @@
 </div>
 
 <!-- FOOTER -->
-<footer style="background:#1a3a2a; color:#ccc; padding:32px 24px; margin-top:60px; text-align:center; font-family:'DM Sans',sans-serif;">
+<!-- CTA SECTION -->
+<div style="padding:80px 40px;background:linear-gradient(135deg,#0f1f17 0%,#1a3a2a 50%,#2d6a4f 100%);text-align:center;">
+  <div style="max-width:600px;margin:0 auto;">
+    <h2 style="font-size:clamp(32px,5vw,46px);font-weight:900;color:#ffffff;margin-bottom:16px;line-height:1.1;letter-spacing:-1.5px;font-family:'Syne',sans-serif;">Start Writing Better<br>Right Now</h2>
+    <p style="font-size:18px;color:rgba(255,255,255,0.8);margin-bottom:40px;line-height:1.7;">Join students and professionals from 50+ countries using ParaFree free. No signup. No limits. Ever.</p>
+    <div class="cta-buttons" style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;">
+      <a href="#tools" style="padding:18px 44px;background:#ffffff;color:#1a3a2a;border-radius:14px;font-weight:900;font-size:18px;text-decoration:none;box-shadow:0 8px 32px rgba(0,0,0,0.2);font-family:'Syne',sans-serif;">Start Free Now</a>
+      <a href="/cv-builder.html" style="padding:18px 44px;background:rgba(255,255,255,0.12);color:#ffffff;border-radius:14px;font-weight:700;font-size:18px;text-decoration:none;border:2px solid rgba(255,255,255,0.3);">Build Your CV</a>
+    </div>
+  </div>
+</div>
+
+<footer style="background:#1a3a2a; color:#ccc; padding:32px 24px; margin-top:0; text-align:center; font-family:'DM Sans',sans-serif;">
   <div style="display:flex; justify-content:center; gap:24px; flex-wrap:wrap; margin-bottom:16px;">
     <a href="/" style="color:#ccc; text-decoration:none; font-size:14px;">Home</a>
     <a href="/about.html" style="color:#ccc; text-decoration:none; font-size:14px;">About</a>
