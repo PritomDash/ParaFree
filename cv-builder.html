@@ -700,6 +700,21 @@ nav div a:hover::after { width: 100%; }
             <div class="form-row"><label>Location</label><input id="f-location" placeholder="Sydney, Australia" oninput="updatePreview()"></div>
             <div class="form-row"><label>LinkedIn (optional)</label><input id="f-linkedin" placeholder="linkedin.com/in/janesmith" oninput="updatePreview()"></div>
           </div>
+          <div class="form-row" style="margin-top:12px;">
+            <label>Profile Photo <span style="font-weight:400;color:var(--text3);font-size:12px;">(optional — shows in premium templates)</span></label>
+            <div style="display:flex;align-items:center;gap:14px;margin-top:8px;">
+              <div id="photoPreview" onclick="document.getElementById('photoInput').click()" style="width:100px;height:100px;border-radius:50%;border:2px dashed var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;background:var(--surface2);flex-shrink:0;">
+                <div id="photoIcon" style="font-size:28px;">📷</div>
+                <div id="photoText" style="font-size:11px;color:var(--text3);margin-top:4px;">Upload</div>
+                <img id="photoImg" style="display:none;width:100%;height:100%;object-fit:cover;" src="" alt="">
+              </div>
+              <div>
+                <div style="font-size:13px;color:var(--text2);line-height:1.5;">Add a professional photo.<br>Auto-cropped to square.</div>
+                <button type="button" id="removePhotoBtn" onclick="removePhoto()" style="display:none;margin-top:8px;background:none;border:1px solid #e63946;color:#e63946;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">Remove Photo</button>
+              </div>
+              <input type="file" id="photoInput" accept="image/*" style="display:none;" onchange="handlePhotoUpload(this)">
+            </div>
+          </div>
         </div>
 
         <!-- Summary -->
@@ -868,7 +883,37 @@ nav div a:hover::after { width: 100%; }
             <button class="tpl-btn" id="tpl-warm" onclick="setTemplate('warm')">Warm</button>
             <button class="tpl-btn" id="tpl-professional" onclick="setTemplate('professional')">Professional</button>
             <button class="tpl-btn" id="tpl-gradient" onclick="setTemplate('gradient')">Gradient</button>
+            <button class="tpl-btn" id="tpl-exec-pro" onclick="setTemplate('exec-pro')">Executive Pro <span style="font-size:9px;background:#7c3aed;color:white;padding:1px 5px;border-radius:3px;margin-left:3px;">PRO</span></button>
+            <button class="tpl-btn" id="tpl-modern-blue" onclick="setTemplate('modern-blue')">Modern Blue <span style="font-size:9px;background:#7c3aed;color:white;padding:1px 5px;border-radius:3px;margin-left:3px;">PRO</span></button>
+            <button class="tpl-btn" id="tpl-minimal-serif" onclick="setTemplate('minimal-serif')">Minimal Serif <span style="font-size:9px;background:#7c3aed;color:white;padding:1px 5px;border-radius:3px;margin-left:3px;">PRO</span></button>
+            <button class="tpl-btn" id="tpl-bold-tech" onclick="setTemplate('bold-tech')">Bold Tech <span style="font-size:9px;background:#7c3aed;color:white;padding:1px 5px;border-radius:3px;margin-left:3px;">PRO</span></button>
+            <button class="tpl-btn" id="tpl-elegant-gold" onclick="setTemplate('elegant-gold')">Elegant Gold <span style="font-size:9px;background:#7c3aed;color:white;padding:1px 5px;border-radius:3px;margin-left:3px;">PRO</span></button>
+            <button class="tpl-btn" id="tpl-modern-minimal" onclick="setTemplate('modern-minimal')">Modern Minimal <span style="font-size:9px;background:#7c3aed;color:white;padding:1px 5px;border-radius:3px;margin-left:3px;">PRO</span></button>
+            <button class="tpl-btn" id="tpl-vibrant-purple" onclick="setTemplate('vibrant-purple')">Vibrant Purple <span style="font-size:9px;background:#7c3aed;color:white;padding:1px 5px;border-radius:3px;margin-left:3px;">PRO</span></button>
+            <button class="tpl-btn" id="tpl-creative-split" onclick="setTemplate('creative-split')">Creative Split <span style="font-size:9px;background:#7c3aed;color:white;padding:1px 5px;border-radius:3px;margin-left:3px;">PRO</span></button>
             <button class="tpl-btn" id="surprise-btn" onclick="surpriseMe()" style="background:linear-gradient(135deg,#2d6a4f,#52b788);color:white;border-color:transparent;">🎲 Surprise Me</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;padding:7px 2px;flex-wrap:wrap;border-top:1px solid var(--border);margin-top:6px;">
+            <span style="font-size:11px;font-weight:600;color:var(--text2);">Accent:</span>
+            <input type="color" id="cvAccentInput" value="#2d6a4f" onchange="setAccentColor(this.value)" style="width:26px;height:26px;border:1px solid var(--border);border-radius:5px;cursor:pointer;padding:2px;" title="Custom">
+            <button onclick="setAccentColor('#2d6a4f')" style="width:20px;height:20px;background:#2d6a4f;border:2px solid transparent;border-radius:4px;cursor:pointer;" title="Forest"></button>
+            <button onclick="setAccentColor('#1565c0')" style="width:20px;height:20px;background:#1565c0;border:2px solid transparent;border-radius:4px;cursor:pointer;" title="Blue"></button>
+            <button onclick="setAccentColor('#c9a84c')" style="width:20px;height:20px;background:#c9a84c;border:2px solid transparent;border-radius:4px;cursor:pointer;" title="Gold"></button>
+            <button onclick="setAccentColor('#7c3aed')" style="width:20px;height:20px;background:#7c3aed;border:2px solid transparent;border-radius:4px;cursor:pointer;" title="Purple"></button>
+            <button onclick="setAccentColor('#e63946')" style="width:20px;height:20px;background:#e63946;border:2px solid transparent;border-radius:4px;cursor:pointer;" title="Red"></button>
+            <button onclick="setAccentColor('#f97316')" style="width:20px;height:20px;background:#f97316;border:2px solid transparent;border-radius:4px;cursor:pointer;" title="Orange"></button>
+            <button onclick="setAccentColor('#1a1814')" style="width:20px;height:20px;background:#1a1814;border:2px solid transparent;border-radius:4px;cursor:pointer;" title="Black"></button>
+            <div style="width:1px;height:18px;background:var(--border);margin:0 2px;"></div>
+            <span style="font-size:11px;font-weight:600;color:var(--text2);">Font:</span>
+            <select onchange="setCVFont(this.value)" style="height:26px;border:1px solid var(--border);border-radius:5px;padding:0 6px;font-size:11px;">
+              <option value="">Default</option>
+              <option value="Georgia, serif">Georgia</option>
+              <option value="Garamond, Georgia, serif">Garamond</option>
+              <option value="Arial, sans-serif">Arial</option>
+              <option value="Helvetica Neue, Arial, sans-serif">Helvetica</option>
+              <option value="Trebuchet MS, Arial, sans-serif">Trebuchet</option>
+              <option value="monospace">Monospace</option>
+            </select>
           </div>
           <div class="dl-row">
             <button class="dl-btn" onclick="downloadPDF()">⬇ PDF</button>
@@ -1587,7 +1632,15 @@ const RENDER_MAP = {
   navy: renderModern, burgundy: renderClassic, teal: renderExecutive,
   slate: renderClassic, terracotta: renderClassic, bold: renderBold,
   academic: renderAcademic, elegant: renderCreative, purple: renderModern,
-  warm: renderExecutive, professional: renderProfessional, gradient: renderGradient
+  warm: renderExecutive, professional: renderProfessional, gradient: renderGradient,
+  'exec-pro': d => renderPremiumExecutive(toPremium(d)),
+  'modern-blue': d => renderModernBlue(toPremium(d)),
+  'minimal-serif': d => renderMinimalSerif(toPremium(d)),
+  'bold-tech': d => renderBoldTech(toPremium(d)),
+  'elegant-gold': d => renderElegantGold(toPremium(d)),
+  'modern-minimal': d => renderModernMinimal(toPremium(d)),
+  'vibrant-purple': d => renderVibrantPurple(toPremium(d)),
+  'creative-split': d => renderCreativeSplit(toPremium(d))
 };
 
 function updatePreview() {
@@ -1605,10 +1658,13 @@ function updatePreview() {
   const renderer = RENDER_MAP[currentTemplate] || renderClassic;
   wrap.className = 'preview-wrap tpl-' + currentTemplate;
   preview.innerHTML = renderer(d);
-  const extraHtml = renderExtraSections();
-  if (extraHtml) {
-    const mainCol = preview.querySelector('.cv-main-col');
-    (mainCol || preview).insertAdjacentHTML('beforeend', extraHtml);
+  const premiumTpls = new Set(['exec-pro','modern-blue','minimal-serif','bold-tech','elegant-gold','modern-minimal','vibrant-purple','creative-split']);
+  if (!premiumTpls.has(currentTemplate)) {
+    const extraHtml = renderExtraSections();
+    if (extraHtml) {
+      const mainCol = preview.querySelector('.cv-main-col');
+      (mainCol || preview).insertAdjacentHTML('beforeend', extraHtml);
+    }
   }
   updateJobSearch();
 }
@@ -2029,7 +2085,7 @@ function updateJobSearch() {
 
 // ── Surprise Me ──
 function surpriseMe() {
-  const all = ['classic','modern','minimal','executive','creative','compact','timeline','tech','navy','burgundy','teal','slate','terracotta','bold','academic','elegant','purple','warm','professional','gradient'];
+  const all = ['classic','modern','minimal','executive','creative','compact','timeline','tech','navy','burgundy','teal','slate','terracotta','bold','academic','elegant','purple','warm','professional','gradient','exec-pro','modern-blue','minimal-serif','bold-tech','elegant-gold','modern-minimal','vibrant-purple','creative-split'];
   setTemplate(all[Math.floor(Math.random() * all.length)]);
 }
 
@@ -2293,6 +2349,293 @@ function resetToFormData() {
     updatePreview();
     showToast('✓ Reset to form data');
   }
+}
+
+// ── Profile photo ──
+let cvPhotoData = null;
+
+function handlePhotoUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      const size = Math.min(img.width, img.height);
+      const canvas = document.createElement('canvas');
+      canvas.width = 300; canvas.height = 300;
+      const ctx = canvas.getContext('2d');
+      const sx = (img.width - size) / 2, sy = (img.height - size) / 2;
+      ctx.drawImage(img, sx, sy, size, size, 0, 0, 300, 300);
+      cvPhotoData = canvas.toDataURL('image/jpeg', 0.9);
+      document.getElementById('photoImg').src = cvPhotoData;
+      document.getElementById('photoImg').style.display = 'block';
+      document.getElementById('photoIcon').style.display = 'none';
+      document.getElementById('photoText').style.display = 'none';
+      document.getElementById('removePhotoBtn').style.display = 'inline-block';
+      updatePreview();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function removePhoto() {
+  cvPhotoData = null;
+  document.getElementById('photoImg').src = '';
+  document.getElementById('photoImg').style.display = 'none';
+  document.getElementById('photoIcon').style.display = 'block';
+  document.getElementById('photoText').style.display = 'block';
+  document.getElementById('removePhotoBtn').style.display = 'none';
+  document.getElementById('photoInput').value = '';
+  updatePreview();
+}
+
+function photoHTML(size, radius, border) {
+  if (!cvPhotoData) return '';
+  return `<img src="${cvPhotoData}" style="width:${size}px;height:${size}px;border-radius:${radius};object-fit:cover;${border ? 'border:' + border + ';' : ''}">`;
+}
+
+// ── Color & font customizer ──
+let _cvAccentColor = '#2d6a4f';
+let _cvFont = '';
+
+function setAccentColor(color) {
+  window._cvAccentColor = color;
+  _cvAccentColor = color;
+  const inp = document.getElementById('cvAccentInput');
+  if (inp) inp.value = color;
+  updatePreview();
+}
+
+function setCVFont(font) {
+  window._cvFont = font;
+  _cvFont = font;
+  updatePreview();
+}
+
+// ── Premium data adapter ──
+function toPremium(d) {
+  return {
+    name: d.name, title: d.title, email: d.email, phone: d.phone,
+    location: d.location, linkedin: d.linkedin, summary: d.summary,
+    skills: d.skills, certifications: d.certs,
+    experience: d.experience.filter(e => e.role || e.company).map(e => ({
+      title: e.role, company: e.company, startDate: e.start, endDate: e.end,
+      bullets: e.bullets ? e.bullets.split('\n').filter(b => b.trim()).map(b => b.replace(/^[•\-]\s*/,'')) : []
+    })),
+    education: d.education.filter(e => e.school || e.degree).map(e => ({
+      degree: e.degree, school: e.school,
+      endYear: [e.start, e.end].filter(Boolean).join('–')
+    }))
+  };
+}
+
+// ── Premium template: Executive Pro ──
+function renderPremiumExecutive(data) {
+  const accent = window._cvAccentColor || '#2d6a4f';
+  const font = window._cvFont || 'Georgia, serif';
+  const photo = cvPhotoData ? `<img src="${cvPhotoData}" style="width:88px;height:88px;border-radius:50%;object-fit:cover;border:3px solid ${accent};display:block;margin:0 auto 14px;">` : '';
+  return `<div style="font-family:${font};min-height:1056px;background:white;display:grid;grid-template-columns:220px 1fr;">
+    <div style="background:${accent};padding:28px 16px;color:white;box-sizing:border-box;">
+      ${photo}
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;opacity:.65;margin-bottom:12px;">Contact</div>
+      ${data.email ? `<div style="font-size:11px;margin-bottom:5px;opacity:.9;word-break:break-all;">${esc(data.email)}</div>` : ''}
+      ${data.phone ? `<div style="font-size:11px;margin-bottom:5px;opacity:.9;">${esc(data.phone)}</div>` : ''}
+      ${data.location ? `<div style="font-size:11px;margin-bottom:5px;opacity:.9;">${esc(data.location)}</div>` : ''}
+      ${data.linkedin ? `<div style="font-size:11px;margin-bottom:5px;opacity:.9;word-break:break-all;">${esc(data.linkedin)}</div>` : ''}
+      ${data.skills ? `<div style="margin-top:20px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;opacity:.65;margin-bottom:10px;">Skills</div>${data.skills.split(',').map(s => s.trim()).filter(Boolean).map(s => `<div style="margin-bottom:7px;"><div style="font-size:11px;margin-bottom:3px;opacity:.9;">${esc(s)}</div><div style="background:rgba(255,255,255,.2);border-radius:4px;height:4px;overflow:hidden;"><div style="height:100%;background:white;width:${75 + Math.round(Math.random() * 25)}%;border-radius:4px;"></div></div></div>`).join('')}</div>` : ''}
+      ${data.certifications ? `<div style="margin-top:20px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;opacity:.65;margin-bottom:7px;">Certifications</div><div style="font-size:11px;opacity:.9;line-height:1.7;">${esc(data.certifications)}</div></div>` : ''}
+    </div>
+    <div style="padding:34px 30px;box-sizing:border-box;">
+      <div style="margin-bottom:24px;">
+        <div style="font-size:28px;font-weight:700;color:#1a1814;letter-spacing:-0.5px;line-height:1.1;">${esc(data.name || 'Your Name')}</div>
+        ${data.title ? `<div style="font-size:12px;color:${accent};font-weight:600;margin-top:4px;text-transform:uppercase;letter-spacing:1px;">${esc(data.title)}</div>` : ''}
+      </div>
+      ${data.summary ? `<div style="margin-bottom:20px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${accent};border-bottom:2px solid ${accent};padding-bottom:4px;margin-bottom:8px;">Profile</div><div style="font-size:12px;color:#374151;line-height:1.7;">${esc(data.summary)}</div></div>` : ''}
+      ${data.experience.length ? `<div style="margin-bottom:20px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${accent};border-bottom:2px solid ${accent};padding-bottom:4px;margin-bottom:11px;">Experience</div>${data.experience.map(exp => `<div style="margin-bottom:13px;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13px;font-weight:700;color:#1a1814;">${esc(exp.title)}</span><span style="font-size:11px;color:#6b6660;">${[exp.startDate, exp.endDate].filter(Boolean).join(' – ')}</span></div><div style="font-size:12px;color:${accent};font-weight:600;margin-bottom:4px;">${esc(exp.company)}</div>${exp.bullets.length ? `<ul style="margin:0;padding-left:13px;">${exp.bullets.map(b => `<li style="font-size:12px;color:#374151;margin-bottom:3px;line-height:1.5;">${esc(b)}</li>`).join('')}</ul>` : ''}</div>`).join('')}</div>` : ''}
+      ${data.education.length ? `<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${accent};border-bottom:2px solid ${accent};padding-bottom:4px;margin-bottom:11px;">Education</div>${data.education.map(edu => `<div style="margin-bottom:8px;"><div style="font-size:13px;font-weight:700;color:#1a1814;">${esc(edu.degree)}</div><div style="display:flex;justify-content:space-between;"><span style="font-size:12px;color:#6b6660;">${esc(edu.school)}</span><span style="font-size:11px;color:#6b6660;">${esc(edu.endYear)}</span></div></div>`).join('')}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+// ── Premium template: Modern Blue ──
+function renderModernBlue(data) {
+  const accent = window._cvAccentColor || '#1565c0';
+  const font = window._cvFont || 'Arial, sans-serif';
+  const photo = cvPhotoData ? `<img src="${cvPhotoData}" style="width:74px;height:74px;border-radius:8px;object-fit:cover;border:3px solid white;flex-shrink:0;">` : '';
+  return `<div style="font-family:${font};min-height:1056px;background:white;">
+    <div style="background:linear-gradient(135deg,${accent} 0%,#1976d2 100%);padding:28px 42px 24px;color:white;">
+      <div style="display:flex;align-items:center;gap:16px;">
+        ${photo}
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:26px;font-weight:700;letter-spacing:-0.5px;">${esc(data.name || 'Your Name')}</div>
+          ${data.title ? `<div style="font-size:12px;opacity:.85;margin-top:4px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;">${esc(data.title)}</div>` : ''}
+          <div style="display:flex;flex-wrap:wrap;gap:9px;margin-top:8px;">${[data.email, data.phone, data.location, data.linkedin].filter(Boolean).map(c => `<span style="font-size:11px;opacity:.8;">${esc(c)}</span>`).join('<span style="opacity:.4;margin:0 2px;">·</span>')}</div>
+        </div>
+      </div>
+    </div>
+    <div style="padding:26px 42px;">
+      ${data.summary ? `<div style="margin-bottom:18px;"><div style="font-size:11px;font-weight:700;color:${accent};text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;">Summary</div><div style="font-size:12px;color:#374151;line-height:1.7;border-left:3px solid ${accent};padding-left:11px;">${esc(data.summary)}</div></div>` : ''}
+      ${data.experience.length ? `<div style="margin-bottom:18px;"><div style="font-size:11px;font-weight:700;color:${accent};text-transform:uppercase;letter-spacing:1.5px;margin-bottom:9px;">Experience</div>${data.experience.map(exp => `<div style="margin-bottom:12px;padding-left:11px;border-left:2px solid #e2e8f0;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13px;font-weight:700;color:#1a202c;">${esc(exp.title)}</span><span style="font-size:11px;color:#718096;background:#f7fafc;padding:2px 7px;border-radius:20px;">${[exp.startDate, exp.endDate].filter(Boolean).join(' – ')}</span></div><div style="font-size:12px;color:${accent};font-weight:600;margin:2px 0 5px;">${esc(exp.company)}</div>${exp.bullets.length ? `<ul style="margin:0;padding-left:12px;">${exp.bullets.map(b => `<li style="font-size:12px;color:#4a5568;margin-bottom:3px;line-height:1.5;">${esc(b)}</li>`).join('')}</ul>` : ''}</div>`).join('')}</div>` : ''}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        ${data.education.length ? `<div><div style="font-size:11px;font-weight:700;color:${accent};text-transform:uppercase;letter-spacing:1.5px;margin-bottom:9px;">Education</div>${data.education.map(edu => `<div style="margin-bottom:8px;"><div style="font-size:12px;font-weight:700;color:#1a202c;">${esc(edu.degree)}</div><div style="font-size:11px;color:#718096;">${esc(edu.school)}${edu.endYear ? ' · ' + esc(edu.endYear) : ''}</div></div>`).join('')}</div>` : ''}
+        ${data.skills ? `<div><div style="font-size:11px;font-weight:700;color:${accent};text-transform:uppercase;letter-spacing:1.5px;margin-bottom:9px;">Skills</div><div style="display:flex;flex-wrap:wrap;gap:5px;">${data.skills.split(',').map(s => s.trim()).filter(Boolean).map(s => `<span style="font-size:11px;background:${accent}18;color:${accent};padding:3px 8px;border-radius:20px;font-weight:500;">${esc(s)}</span>`).join('')}</div></div>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── Premium template: Minimal Serif ──
+function renderMinimalSerif(data) {
+  const accent = window._cvAccentColor || '#8b4513';
+  const font = window._cvFont || 'Georgia, serif';
+  const photo = cvPhotoData ? `<img src="${cvPhotoData}" style="width:68px;height:68px;border-radius:4px;object-fit:cover;float:right;margin:0 0 12px 14px;">` : '';
+  return `<div style="font-family:${font};min-height:1056px;background:white;padding:50px 58px;box-sizing:border-box;color:#2c2c2c;">
+    <div style="border-bottom:1.5px solid #2c2c2c;padding-bottom:16px;margin-bottom:24px;overflow:hidden;">
+      ${photo}
+      <div style="font-size:26px;font-weight:700;letter-spacing:-0.5px;line-height:1.1;">${esc(data.name || 'Your Name')}</div>
+      ${data.title ? `<div style="font-size:13px;color:${accent};margin-top:4px;font-style:italic;">${esc(data.title)}</div>` : ''}
+      <div style="font-size:11px;color:#555;margin-top:8px;display:flex;flex-wrap:wrap;gap:13px;">${[data.email, data.phone, data.location, data.linkedin].filter(Boolean).map(c => `<span>${esc(c)}</span>`).join('')}</div>
+    </div>
+    ${data.summary ? `<div style="margin-bottom:20px;font-size:12.5px;line-height:1.8;color:#333;font-style:italic;">${esc(data.summary)}</div>` : ''}
+    ${data.experience.length ? `<div style="margin-bottom:20px;"><div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:${accent};margin-bottom:8px;">Experience</div>${data.experience.map(exp => `<div style="margin-bottom:14px;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13px;font-weight:700;">${esc(exp.title)}${exp.company ? ` — <em style="font-weight:400;color:#555;">${esc(exp.company)}</em>` : ''}</span><span style="font-size:11px;color:#888;">${[exp.startDate, exp.endDate].filter(Boolean).join(' – ')}</span></div>${exp.bullets.length ? `<ul style="margin:5px 0 0;padding-left:15px;">${exp.bullets.map(b => `<li style="font-size:12px;color:#333;line-height:1.6;margin-bottom:2px;">${esc(b)}</li>`).join('')}</ul>` : ''}</div>`).join('')}</div>` : ''}
+    ${data.education.length ? `<div style="margin-bottom:20px;"><div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:${accent};margin-bottom:8px;">Education</div>${data.education.map(edu => `<div style="margin-bottom:7px;font-size:12px;"><span style="font-weight:700;">${esc(edu.degree)}</span>${edu.school ? `, <em>${esc(edu.school)}</em>` : ''}${edu.endYear ? ` <span style="color:#888;">(${esc(edu.endYear)})</span>` : ''}</div>`).join('')}</div>` : ''}
+    ${data.skills ? `<div><div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:${accent};margin-bottom:8px;">Skills</div><div style="font-size:12px;color:#333;line-height:1.8;">${data.skills.split(',').map(s => s.trim()).filter(Boolean).map(s => esc(s)).join(' · ')}</div></div>` : ''}
+  </div>`;
+}
+
+// ── Premium template: Bold Tech ──
+function renderBoldTech(data) {
+  const accent = window._cvAccentColor || '#00ff87';
+  const font = window._cvFont || 'monospace';
+  const photo = cvPhotoData ? `<img src="${cvPhotoData}" style="width:76px;height:76px;border-radius:8px;object-fit:cover;border:2px solid ${accent};flex-shrink:0;">` : '';
+  return `<div style="font-family:${font};min-height:1056px;background:#0d1117;color:#e6edf3;">
+    <div style="padding:26px 34px;border-bottom:1px solid #30363d;">
+      <div style="display:flex;align-items:center;gap:16px;">
+        ${photo}
+        <div style="flex:1;min-width:0;">
+          <div style="color:${accent};font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px;">// cv.init()</div>
+          <div style="font-size:24px;font-weight:700;letter-spacing:-1px;color:#f0f6fc;line-height:1.1;">${esc(data.name || 'Your Name')}</div>
+          ${data.title ? `<div style="font-size:12px;color:${accent};margin-top:4px;">&gt; ${esc(data.title)}</div>` : ''}
+        </div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:13px;">${[data.email, data.phone, data.location, data.linkedin].filter(Boolean).map(c => `<span style="font-size:11px;background:#161b22;border:1px solid #30363d;color:#8b949e;padding:3px 8px;border-radius:6px;">${esc(c)}</span>`).join('')}</div>
+    </div>
+    <div style="padding:22px 34px;display:grid;grid-template-columns:1fr 230px;gap:22px;">
+      <div>
+        ${data.summary ? `<div style="margin-bottom:16px;"><div style="color:${accent};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;margin-bottom:6px;">/* About */</div><div style="font-size:12px;color:#8b949e;line-height:1.7;border-left:2px solid ${accent};padding-left:10px;">${esc(data.summary)}</div></div>` : ''}
+        ${data.experience.length ? `<div><div style="color:${accent};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;margin-bottom:9px;">/* Experience */</div>${data.experience.map(exp => `<div style="margin-bottom:13px;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:11px;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13px;font-weight:700;color:#f0f6fc;">${esc(exp.title)}</span><span style="font-size:11px;color:${accent};">${[exp.startDate, exp.endDate].filter(Boolean).join(' → ')}</span></div><div style="font-size:12px;color:#8b949e;margin:3px 0 6px;">${esc(exp.company)}</div>${exp.bullets.length ? `<ul style="margin:0;padding-left:13px;list-style:none;">${exp.bullets.map(b => `<li style="font-size:12px;color:#8b949e;margin-bottom:3px;line-height:1.5;">» ${esc(b)}</li>`).join('')}</ul>` : ''}</div>`).join('')}</div>` : ''}
+      </div>
+      <div>
+        ${data.skills ? `<div style="margin-bottom:16px;"><div style="color:${accent};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">// Skills</div><div style="display:flex;flex-wrap:wrap;gap:5px;">${data.skills.split(',').map(s => s.trim()).filter(Boolean).map(s => `<span style="font-size:11px;background:#161b22;border:1px solid #30363d;color:${accent};padding:3px 7px;border-radius:4px;">${esc(s)}</span>`).join('')}</div></div>` : ''}
+        ${data.education.length ? `<div style="margin-bottom:16px;"><div style="color:${accent};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">// Education</div>${data.education.map(edu => `<div style="margin-bottom:8px;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:9px;"><div style="font-size:12px;font-weight:700;color:#f0f6fc;">${esc(edu.degree)}</div><div style="font-size:11px;color:#8b949e;">${esc(edu.school)}</div>${edu.endYear ? `<div style="font-size:10px;color:${accent};">${esc(edu.endYear)}</div>` : ''}</div>`).join('')}</div>` : ''}
+        ${data.certifications ? `<div><div style="color:${accent};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">// Certifications</div><div style="font-size:11px;color:#8b949e;line-height:1.7;">${esc(data.certifications)}</div></div>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── Premium template: Elegant Gold ──
+function renderElegantGold(data) {
+  const accent = window._cvAccentColor || '#c9a84c';
+  const font = window._cvFont || 'Georgia, serif';
+  const photo = cvPhotoData ? `<img src="${cvPhotoData}" style="width:86px;height:86px;border-radius:50%;object-fit:cover;border:3px solid ${accent};display:block;margin:0 auto 12px;">` : '';
+  return `<div style="font-family:${font};min-height:1056px;background:#fafaf7;color:#1c1c1c;">
+    <div style="background:#1c1c1c;padding:34px 50px;text-align:center;">
+      ${photo}
+      <div style="font-size:26px;font-weight:700;color:white;letter-spacing:2px;text-transform:uppercase;">${esc(data.name || 'Your Name')}</div>
+      ${data.title ? `<div style="font-size:11px;color:${accent};margin-top:5px;letter-spacing:3px;text-transform:uppercase;">${esc(data.title)}</div>` : ''}
+      <div style="width:34px;height:1px;background:${accent};margin:11px auto;"></div>
+      <div style="font-size:11px;color:rgba(255,255,255,.6);display:flex;justify-content:center;flex-wrap:wrap;gap:13px;">${[data.email, data.phone, data.location, data.linkedin].filter(Boolean).map(c => `<span>${esc(c)}</span>`).join('')}</div>
+    </div>
+    <div style="padding:30px 50px;">
+      ${data.summary ? `<div style="margin-bottom:20px;text-align:center;"><div style="font-size:9px;letter-spacing:4px;text-transform:uppercase;color:${accent};margin-bottom:8px;">Profile</div><div style="font-size:12.5px;line-height:1.8;color:#333;font-style:italic;max-width:480px;margin:0 auto;">${esc(data.summary)}</div><div style="width:34px;height:1px;background:${accent};margin:12px auto 0;"></div></div>` : ''}
+      ${data.experience.length ? `<div style="margin-bottom:20px;"><div style="font-size:9px;letter-spacing:4px;text-transform:uppercase;color:${accent};margin-bottom:11px;text-align:center;">Experience</div>${data.experience.map(exp => `<div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid #e8e4dc;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13px;font-weight:700;color:#1c1c1c;">${esc(exp.title)}</span><span style="font-size:11px;color:${accent};font-style:italic;">${[exp.startDate, exp.endDate].filter(Boolean).join(' – ')}</span></div><div style="font-size:12px;color:#666;font-style:italic;margin:2px 0 5px;">${esc(exp.company)}</div>${exp.bullets.length ? `<ul style="margin:0;padding-left:13px;">${exp.bullets.map(b => `<li style="font-size:12px;color:#333;line-height:1.6;margin-bottom:2px;">${esc(b)}</li>`).join('')}</ul>` : ''}</div>`).join('')}</div>` : ''}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        ${data.education.length ? `<div><div style="font-size:9px;letter-spacing:4px;text-transform:uppercase;color:${accent};margin-bottom:8px;">Education</div>${data.education.map(edu => `<div style="margin-bottom:8px;"><div style="font-size:12px;font-weight:700;">${esc(edu.degree)}</div><div style="font-size:11px;color:#888;font-style:italic;">${esc(edu.school)}${edu.endYear ? ' · ' + esc(edu.endYear) : ''}</div></div>`).join('')}</div>` : ''}
+        ${data.skills ? `<div><div style="font-size:9px;letter-spacing:4px;text-transform:uppercase;color:${accent};margin-bottom:8px;">Skills</div><div style="font-size:12px;color:#333;line-height:1.8;">${data.skills.split(',').map(s => s.trim()).filter(Boolean).map(s => esc(s)).join(' · ')}</div></div>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── Premium template: Modern Minimal ──
+function renderModernMinimal(data) {
+  const accent = window._cvAccentColor || '#e63946';
+  const font = window._cvFont || 'Arial, sans-serif';
+  const photo = cvPhotoData ? `<img src="${cvPhotoData}" style="width:68px;height:68px;border-radius:4px;object-fit:cover;flex-shrink:0;">` : '';
+  return `<div style="font-family:${font};min-height:1056px;background:white;padding:46px 54px;box-sizing:border-box;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:26px;gap:14px;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:28px;font-weight:300;color:#1a1a1a;letter-spacing:-1px;line-height:1.1;">${esc(data.name || 'Your Name')}</div>
+        ${data.title ? `<div style="font-size:12px;color:${accent};font-weight:600;margin-top:5px;letter-spacing:1px;">${esc(data.title)}</div>` : ''}
+        <div style="display:flex;flex-wrap:wrap;gap:11px;margin-top:9px;">${[data.email, data.phone, data.location, data.linkedin].filter(Boolean).map(c => `<span style="font-size:11px;color:#666;">${esc(c)}</span>`).join('')}</div>
+      </div>
+      ${photo}
+    </div>
+    <div style="height:3px;background:${accent};margin-bottom:24px;"></div>
+    ${data.summary ? `<div style="margin-bottom:20px;"><div style="font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:2px;margin-bottom:6px;">About</div><div style="font-size:12.5px;color:#333;line-height:1.7;">${esc(data.summary)}</div></div>` : ''}
+    ${data.experience.length ? `<div style="margin-bottom:20px;"><div style="font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:2px;margin-bottom:9px;">Experience</div>${data.experience.map(exp => `<div style="margin-bottom:13px;display:grid;grid-template-columns:88px 1fr;gap:13px;"><div style="font-size:11px;color:#999;padding-top:2px;text-align:right;">${[exp.startDate, exp.endDate].filter(Boolean).join('<br>')}</div><div><div style="font-size:13px;font-weight:700;color:#1a1a1a;">${esc(exp.title)}</div><div style="font-size:12px;color:${accent};font-weight:600;margin-bottom:4px;">${esc(exp.company)}</div>${exp.bullets.length ? `<ul style="margin:0;padding-left:12px;">${exp.bullets.map(b => `<li style="font-size:12px;color:#444;margin-bottom:3px;line-height:1.5;">${esc(b)}</li>`).join('')}</ul>` : ''}</div></div>`).join('')}</div>` : ''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+      ${data.education.length ? `<div><div style="font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:2px;margin-bottom:9px;">Education</div>${data.education.map(edu => `<div style="margin-bottom:8px;"><div style="font-size:12px;font-weight:700;color:#1a1a1a;">${esc(edu.degree)}</div><div style="font-size:11px;color:#666;">${esc(edu.school)}${edu.endYear ? ' — ' + esc(edu.endYear) : ''}</div></div>`).join('')}</div>` : ''}
+      ${data.skills ? `<div><div style="font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:2px;margin-bottom:9px;">Skills</div><div style="display:flex;flex-wrap:wrap;gap:5px;">${data.skills.split(',').map(s => s.trim()).filter(Boolean).map(s => `<span style="font-size:11px;border:1px solid ${accent};color:${accent};padding:3px 7px;border-radius:20px;">${esc(s)}</span>`).join('')}</div></div>` : ''}
+    </div>
+  </div>`;
+}
+
+// ── Premium template: Vibrant Purple ──
+function renderVibrantPurple(data) {
+  const accent = window._cvAccentColor || '#7c3aed';
+  const font = window._cvFont || 'Arial, sans-serif';
+  const photo = cvPhotoData ? `<img src="${cvPhotoData}" style="width:84px;height:84px;border-radius:50%;object-fit:cover;border:4px solid white;flex-shrink:0;">` : '';
+  return `<div style="font-family:${font};min-height:1056px;background:white;">
+    <div style="background:linear-gradient(160deg,${accent} 0%,#a855f7 100%);padding:30px 38px;color:white;border-radius:0 0 26px 26px;margin-bottom:22px;">
+      <div style="display:flex;align-items:center;gap:16px;">
+        ${photo}
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:25px;font-weight:700;letter-spacing:-0.5px;">${esc(data.name || 'Your Name')}</div>
+          ${data.title ? `<div style="font-size:12px;opacity:.85;margin-top:4px;font-weight:500;">${esc(data.title)}</div>` : ''}
+          <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:9px;">${[data.email, data.phone, data.location, data.linkedin].filter(Boolean).map(c => `<span style="font-size:11px;background:rgba(255,255,255,.2);padding:2px 8px;border-radius:20px;">${esc(c)}</span>`).join('')}</div>
+        </div>
+      </div>
+    </div>
+    <div style="padding:0 38px 34px;">
+      ${data.summary ? `<div style="margin-bottom:18px;"><div style="font-size:12px;font-weight:700;color:${accent};margin-bottom:6px;">About Me</div><div style="font-size:12.5px;color:#374151;line-height:1.7;">${esc(data.summary)}</div></div>` : ''}
+      ${data.experience.length ? `<div style="margin-bottom:18px;"><div style="font-size:12px;font-weight:700;color:${accent};margin-bottom:9px;">Experience</div>${data.experience.map((exp, i) => `<div style="margin-bottom:13px;padding:13px;background:${i % 2 === 0 ? '#faf5ff' : '#f9f7ff'};border-radius:10px;border-left:4px solid ${accent};"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13px;font-weight:700;color:#1f2937;">${esc(exp.title)}</span><span style="font-size:11px;color:${accent};background:rgba(124,58,237,.1);padding:2px 7px;border-radius:20px;">${[exp.startDate, exp.endDate].filter(Boolean).join(' – ')}</span></div><div style="font-size:12px;color:#6b7280;font-weight:600;margin-bottom:5px;">${esc(exp.company)}</div>${exp.bullets.length ? `<ul style="margin:0;padding-left:12px;">${exp.bullets.map(b => `<li style="font-size:12px;color:#374151;margin-bottom:3px;line-height:1.5;">${esc(b)}</li>`).join('')}</ul>` : ''}</div>`).join('')}</div>` : ''}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        ${data.education.length ? `<div><div style="font-size:12px;font-weight:700;color:${accent};margin-bottom:8px;">Education</div>${data.education.map(edu => `<div style="margin-bottom:8px;padding:10px;background:#faf5ff;border-radius:8px;"><div style="font-size:12px;font-weight:700;color:#1f2937;">${esc(edu.degree)}</div><div style="font-size:11px;color:#6b7280;">${esc(edu.school)}${edu.endYear ? ' · ' + esc(edu.endYear) : ''}</div></div>`).join('')}</div>` : ''}
+        ${data.skills ? `<div><div style="font-size:12px;font-weight:700;color:${accent};margin-bottom:8px;">Skills</div><div style="display:flex;flex-wrap:wrap;gap:5px;">${data.skills.split(',').map(s => s.trim()).filter(Boolean).map(s => `<span style="font-size:11px;background:linear-gradient(135deg,${accent},#a855f7);color:white;padding:3px 8px;border-radius:20px;">${esc(s)}</span>`).join('')}</div></div>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── Premium template: Creative Split ──
+function renderCreativeSplit(data) {
+  const accent = window._cvAccentColor || '#f97316';
+  const font = window._cvFont || 'Arial, sans-serif';
+  const photo = cvPhotoData ? `<img src="${cvPhotoData}" style="width:76px;height:76px;border-radius:8px;object-fit:cover;display:block;margin-bottom:12px;">` : '';
+  return `<div style="font-family:${font};min-height:1056px;background:white;">
+    <div style="height:5px;background:linear-gradient(90deg,${accent},#fb923c,#fbbf24);"></div>
+    <div style="display:grid;grid-template-columns:200px 1fr;">
+      <div style="background:#1f2937;padding:26px 18px;box-sizing:border-box;">
+        ${photo}
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${accent};margin-bottom:9px;">Contact</div>
+        ${[data.email, data.phone, data.location, data.linkedin].filter(Boolean).map(c => `<div style="font-size:11px;color:rgba(255,255,255,.7);margin-bottom:5px;line-height:1.4;word-break:break-word;">${esc(c)}</div>`).join('')}
+        ${data.skills ? `<div style="margin-top:20px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${accent};margin-bottom:9px;">Skills</div>${data.skills.split(',').map(s => s.trim()).filter(Boolean).map(s => `<div style="margin-bottom:6px;"><div style="font-size:11px;color:rgba(255,255,255,.85);margin-bottom:2px;">${esc(s)}</div><div style="height:3px;background:rgba(255,255,255,.15);border-radius:2px;overflow:hidden;"><div style="height:100%;background:${accent};width:${70 + Math.round(Math.random() * 30)}%;border-radius:2px;"></div></div></div>`).join('')}</div>` : ''}
+        ${data.education.length ? `<div style="margin-top:20px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${accent};margin-bottom:9px;">Education</div>${data.education.map(edu => `<div style="margin-bottom:10px;"><div style="font-size:12px;font-weight:700;color:white;">${esc(edu.degree)}</div><div style="font-size:11px;color:rgba(255,255,255,.6);">${esc(edu.school)}</div>${edu.endYear ? `<div style="font-size:10px;color:${accent};">${esc(edu.endYear)}</div>` : ''}</div>`).join('')}</div>` : ''}
+      </div>
+      <div style="padding:30px 30px;box-sizing:border-box;">
+        <div style="margin-bottom:20px;">
+          <div style="font-size:26px;font-weight:700;color:#1f2937;letter-spacing:-0.5px;line-height:1.1;">${esc(data.name || 'Your Name')}</div>
+          ${data.title ? `<div style="font-size:12px;color:${accent};font-weight:600;margin-top:4px;">${esc(data.title)}</div>` : ''}
+        </div>
+        ${data.summary ? `<div style="margin-bottom:18px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:${accent};margin-bottom:6px;">Summary</div><div style="font-size:12.5px;color:#374151;line-height:1.7;">${esc(data.summary)}</div></div>` : ''}
+        ${data.experience.length ? `<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:${accent};margin-bottom:9px;">Experience</div>${data.experience.map(exp => `<div style="margin-bottom:13px;position:relative;padding-left:13px;"><div style="position:absolute;left:0;top:4px;width:7px;height:7px;border-radius:50%;background:${accent};"></div><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13px;font-weight:700;color:#1f2937;">${esc(exp.title)}</span><span style="font-size:11px;color:#9ca3af;">${[exp.startDate, exp.endDate].filter(Boolean).join(' – ')}</span></div><div style="font-size:12px;color:${accent};font-weight:600;margin-bottom:4px;">${esc(exp.company)}</div>${exp.bullets.length ? `<ul style="margin:0;padding-left:12px;">${exp.bullets.map(b => `<li style="font-size:12px;color:#4b5563;margin-bottom:3px;line-height:1.5;">${esc(b)}</li>`).join('')}</ul>` : ''}</div>`).join('')}</div>` : ''}
+      </div>
+    </div>
+  </div>`;
 }
 
 // Initialise with one experience and one education entry
