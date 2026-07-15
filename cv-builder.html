@@ -615,7 +615,15 @@ nav div a:hover::after { width: 100%; }
 #pf-scroll-top.visible { opacity:1; pointer-events:auto; transform:none; }
 #pf-scroll-top:hover { background:#245a41; }
 @media (prefers-reduced-motion: reduce) { *,*::before,*::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
-@media print { nav, footer, #pf-scroll-top, .cv-toolbar, .tpl-selector { display: none !important; } .preview-wrap { box-shadow: none; border: 1px solid #ccc; } }
+@media print { nav, footer, #pf-scroll-top, .cv-toolbar, .tpl-selector, #cvEditToolbar { display: none !important; } .preview-wrap { box-shadow: none; border: 1px solid #ccc; } }
+.form-section > h3 { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 14px; }
+.btn-add { background: none; border: 1px dashed var(--border); border-radius: 8px; color: var(--accent); font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; padding: 8px 14px; cursor: pointer; width: 100%; margin-top: 10px; transition: all .15s; }
+.btn-add:hover { border-color: var(--accent); background: var(--accent-light); }
+.form-section input:not([type="checkbox"]):not([type="radio"]):not([type="color"]), .form-section select, .form-section textarea { border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text); background: var(--bg); transition: border-color .15s; box-sizing: border-box; }
+.form-section input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):focus, .form-section select:focus, .form-section textarea:focus { outline: none; border-color: var(--accent2); }
+.form-section textarea { resize: vertical; }
+#cv-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1a1814; color: white; padding: 10px 20px; border-radius: 8px; font-size: 14px; z-index: 10000; transition: opacity .3s; pointer-events: none; opacity: 0; white-space: nowrap; }
+#cvEditToolbar button:hover { filter: brightness(0.9); }
 </style>
 </head>
 <body>
@@ -737,6 +745,103 @@ nav div a:hover::after { width: 100%; }
           </div>
         </div>
 
+        <!-- Languages -->
+        <div class="form-section">
+          <h3>Languages</h3>
+          <div id="languagesList"></div>
+          <button onclick="addLanguage()" class="btn-add">+ Add Language</button>
+        </div>
+
+        <!-- Availability -->
+        <div class="form-section">
+          <h3>Availability</h3>
+          <div class="form-grid">
+            <div class="form-row">
+              <label>Available From</label>
+              <input type="date" id="availableFrom" oninput="updatePreview()">
+            </div>
+            <div class="form-row">
+              <label>Notice Period</label>
+              <select id="noticePeriod" onchange="updatePreview()">
+                <option value="">Select notice period</option>
+                <option value="Immediately available">Immediately available</option>
+                <option value="1 week notice">1 week notice</option>
+                <option value="2 weeks notice">2 weeks notice</option>
+                <option value="1 month notice">1 month notice</option>
+                <option value="2 months notice">2 months notice</option>
+                <option value="3 months notice">3 months notice</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-grid" style="margin-top:10px;">
+            <div class="form-row">
+              <label>Work Type Preference</label>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;">
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;font-size:14px;"><input type="checkbox" id="workFull" value="Full-time" onchange="updatePreview()"> Full-time</label>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;font-size:14px;"><input type="checkbox" id="workPart" value="Part-time" onchange="updatePreview()"> Part-time</label>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;font-size:14px;"><input type="checkbox" id="workContract" value="Contract" onchange="updatePreview()"> Contract</label>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;font-size:14px;"><input type="checkbox" id="workFreelance" value="Freelance" onchange="updatePreview()"> Freelance</label>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;font-size:14px;"><input type="checkbox" id="workRemote" value="Remote" onchange="updatePreview()"> Remote</label>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;font-size:14px;"><input type="checkbox" id="workHybrid" value="Hybrid" onchange="updatePreview()"> Hybrid</label>
+              </div>
+            </div>
+            <div class="form-row">
+              <label>Work Location</label>
+              <select id="workLocation" onchange="updatePreview()">
+                <option value="">Select preference</option>
+                <option value="On-site only">On-site only</option>
+                <option value="Remote only">Remote only</option>
+                <option value="Hybrid (flexible)">Hybrid (flexible)</option>
+                <option value="Open to relocation">Open to relocation</option>
+                <option value="Willing to travel">Willing to travel</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row" style="margin-top:10px;">
+            <label>Expected Salary <span style="font-weight:400;color:var(--text3);">(optional)</span></label>
+            <input type="text" id="expectedSalary" placeholder="e.g. $80,000 – $100,000 AUD per year" oninput="updatePreview()">
+          </div>
+        </div>
+
+        <!-- Volunteer & Activities -->
+        <div class="form-section">
+          <h3>Volunteer &amp; Activities <span style="font-weight:400;font-size:13px;color:var(--text3);">(optional)</span></h3>
+          <div class="form-row">
+            <textarea id="volunteerWork" rows="3" placeholder="e.g. Volunteer teacher at local school (2022–2023), Member of Student Council" oninput="updatePreview()"></textarea>
+          </div>
+        </div>
+
+        <!-- References -->
+        <div class="form-section">
+          <h3>References</h3>
+          <div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;font-size:14px;">
+              <input type="radio" name="references" value="Available upon request" checked onchange="toggleRefSection(this)"> Available upon request
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;font-size:14px;">
+              <input type="radio" name="references" value="custom" onchange="toggleRefSection(this)"> Add references
+            </label>
+          </div>
+          <div id="refSection" style="display:none;">
+            <div id="referencesList"></div>
+            <button onclick="addReference()" class="btn-add">+ Add Reference</button>
+          </div>
+        </div>
+
+        <!-- Awards & Achievements -->
+        <div class="form-section">
+          <h3>Awards &amp; Achievements <span style="font-weight:400;font-size:13px;color:var(--text3);">(optional)</span></h3>
+          <div id="awardsList"></div>
+          <button onclick="addAward()" class="btn-add">+ Add Award</button>
+        </div>
+
+        <!-- Projects -->
+        <div class="form-section">
+          <h3>Projects <span style="font-weight:400;font-size:13px;color:var(--text3);">(optional)</span></h3>
+          <div id="projectsList"></div>
+          <button onclick="addProject()" class="btn-add">+ Add Project</button>
+        </div>
+
       </div><!-- /form-panel -->
 
       <!-- RIGHT: Preview -->
@@ -776,7 +881,35 @@ nav div a:hover::after { width: 100%; }
           <span>Your CV looks a bit light — add more work experience details, bullet points, or skills for a fuller, more competitive resume.</span>
           <button class="cv-fill-notice-close" onclick="dismissFillNotice()" aria-label="Dismiss">×</button>
         </div>
-        <div class="preview-wrap tpl-classic">
+        <!-- Edit toolbar -->
+        <div id="cvEditToolbar" style="display:flex;gap:8px;padding:10px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius) var(--radius) 0 0;align-items:center;flex-wrap:wrap;">
+          <span style="font-size:13px;font-weight:600;color:var(--text2);margin-right:4px;">Quick Edit:</span>
+          <button onclick="cvFormat('bold')" title="Bold" style="width:32px;height:32px;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;font-weight:700;font-size:14px;">B</button>
+          <button onclick="cvFormat('italic')" title="Italic" style="width:32px;height:32px;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;font-style:italic;font-size:14px;">I</button>
+          <button onclick="cvFormat('underline')" title="Underline" style="width:32px;height:32px;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;text-decoration:underline;font-size:14px;">U</button>
+          <div style="width:1px;height:24px;background:var(--border);margin:0 4px;"></div>
+          <select onchange="cvFontSize(this.value)" style="height:32px;border:1px solid var(--border);border-radius:6px;padding:0 8px;font-size:13px;cursor:pointer;">
+            <option value="">Size</option>
+            <option value="10px">10</option>
+            <option value="11px">11</option>
+            <option value="12px">12</option>
+            <option value="13px">13</option>
+            <option value="14px">14</option>
+            <option value="16px">16</option>
+            <option value="18px">18</option>
+            <option value="20px">20</option>
+            <option value="24px">24</option>
+          </select>
+          <div style="display:flex;align-items:center;gap:4px;">
+            <span style="font-size:12px;color:var(--text2);">Color:</span>
+            <input type="color" onchange="cvTextColor(this.value)" value="#1a1814" style="width:32px;height:32px;border:1px solid var(--border);border-radius:6px;cursor:pointer;padding:2px;">
+          </div>
+          <div style="width:1px;height:24px;background:var(--border);margin:0 4px;"></div>
+          <button id="editModeBtn" onclick="toggleEditMode()" style="padding:6px 16px;background:var(--accent);color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;font-family:'DM Sans',sans-serif;">&#9998; Enable Editing</button>
+          <button onclick="document.execCommand('undo')" title="Undo" style="width:32px;height:32px;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;font-size:14px;">&#8617;</button>
+          <button onclick="resetToFormData()" title="Reset to original" style="padding:6px 14px;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;font-size:12px;color:var(--text2);">&#8634; Reset</button>
+        </div>
+        <div class="preview-wrap tpl-classic" style="border-top:none;border-radius:0 0 10px 10px;">
           <div id="cv-preview" class="cv-sheet">
             <div class="cv-empty">
               <div style="font-size:40px;">📄</div>
@@ -1458,6 +1591,7 @@ const RENDER_MAP = {
 };
 
 function updatePreview() {
+  if (editModeOn) return; // Don't overwrite manual edits
   const d = getFormData();
   const hasContent = d.name || d.title || d.summary || d.experience.some(e=>e.role||e.company);
   const preview = document.getElementById('cv-preview');
@@ -1471,8 +1605,14 @@ function updatePreview() {
   const renderer = RENDER_MAP[currentTemplate] || renderClassic;
   wrap.className = 'preview-wrap tpl-' + currentTemplate;
   preview.innerHTML = renderer(d);
+  const extraHtml = renderExtraSections();
+  if (extraHtml) {
+    const mainCol = preview.querySelector('.cv-main-col');
+    (mainCol || preview).insertAdjacentHTML('beforeend', extraHtml);
+  }
   updateJobSearch();
 }
+const updateCV = updatePreview;
 
 // ── Dynamic form sections ──
 function addExp() {
@@ -1891,6 +2031,268 @@ function updateJobSearch() {
 function surpriseMe() {
   const all = ['classic','modern','minimal','executive','creative','compact','timeline','tech','navy','burgundy','teal','slate','terracotta','bold','academic','elegant','purple','warm','professional','gradient'];
   setTemplate(all[Math.floor(Math.random() * all.length)]);
+}
+
+// ── Toast notification ──
+function showToast(msg) {
+  let t = document.getElementById('cv-toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'cv-toast';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = '1';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.style.opacity = '0'; }, 2500);
+}
+
+// ── Language section ──
+function addLanguage() {
+  const container = document.getElementById('languagesList');
+  const div = document.createElement('div');
+  div.className = 'language-entry';
+  div.style.cssText = 'display:flex;gap:12px;margin-bottom:10px;align-items:center;';
+  div.innerHTML = `
+    <input type="text" placeholder="Language (e.g. English)" style="flex:2;" oninput="updatePreview()">
+    <select style="flex:1;" onchange="updatePreview()">
+      <option value="">Proficiency</option>
+      <option value="Native">Native</option>
+      <option value="Fluent">Fluent</option>
+      <option value="Professional">Professional</option>
+      <option value="Intermediate">Intermediate</option>
+      <option value="Basic">Basic</option>
+    </select>
+    <button onclick="this.parentNode.remove();updatePreview()" style="background:none;border:none;color:#e63946;cursor:pointer;font-size:18px;padding:0 8px;">×</button>`;
+  container.appendChild(div);
+}
+
+function getLanguagesData() {
+  return Array.from(document.querySelectorAll('#languagesList .language-entry')).map(e => ({
+    language: e.querySelector('input')?.value?.trim() || '',
+    level: e.querySelector('select')?.value || ''
+  })).filter(l => l.language);
+}
+
+// ── Availability section ──
+function getAvailabilityData() {
+  const ids = ['workFull','workPart','workContract','workFreelance','workRemote','workHybrid'];
+  const workTypes = ids.map(id => document.getElementById(id)).filter(cb => cb?.checked).map(cb => cb.value);
+  return {
+    availableFrom: document.getElementById('availableFrom')?.value || '',
+    noticePeriod: document.getElementById('noticePeriod')?.value || '',
+    workTypes,
+    workLocation: document.getElementById('workLocation')?.value || '',
+    expectedSalary: document.getElementById('expectedSalary')?.value?.trim() || ''
+  };
+}
+
+// ── Awards section ──
+function addAward() {
+  const container = document.getElementById('awardsList');
+  const div = document.createElement('div');
+  div.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;align-items:center;';
+  div.innerHTML = `
+    <input type="text" placeholder="Award or achievement name" style="flex:2;" oninput="updatePreview()">
+    <input type="text" placeholder="Year" style="flex:0.5;min-width:70px;" oninput="updatePreview()">
+    <button onclick="this.parentNode.remove();updatePreview()" style="background:none;border:none;color:#e63946;cursor:pointer;font-size:18px;">×</button>`;
+  container.appendChild(div);
+}
+
+function getAwardsData() {
+  return Array.from(document.querySelectorAll('#awardsList > div')).map(e => {
+    const inputs = e.querySelectorAll('input');
+    return { name: inputs[0]?.value?.trim() || '', year: inputs[1]?.value?.trim() || '' };
+  }).filter(a => a.name);
+}
+
+// ── Projects section ──
+function addProject() {
+  const container = document.getElementById('projectsList');
+  const div = document.createElement('div');
+  div.style.cssText = 'background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:10px;';
+  div.innerHTML = `
+    <div class="form-grid" style="margin-bottom:8px;">
+      <input type="text" placeholder="Project Name" oninput="updatePreview()">
+      <input type="text" placeholder="Year / Duration" oninput="updatePreview()">
+    </div>
+    <input type="text" placeholder="Project URL (optional)" style="width:100%;margin-bottom:8px;" oninput="updatePreview()">
+    <textarea rows="2" placeholder="Brief description of the project and your role" style="width:100%;resize:vertical;" oninput="updatePreview()"></textarea>
+    <button onclick="this.closest('div').remove();updatePreview()" style="margin-top:6px;background:none;border:none;color:#e63946;cursor:pointer;font-size:12px;">Remove Project</button>`;
+  container.appendChild(div);
+}
+
+function getProjectsData() {
+  return Array.from(document.querySelectorAll('#projectsList > div')).map(e => {
+    const inputs = e.querySelectorAll('input');
+    const textarea = e.querySelector('textarea');
+    return {
+      name: inputs[0]?.value?.trim() || '',
+      duration: inputs[1]?.value?.trim() || '',
+      url: inputs[2]?.value?.trim() || '',
+      description: textarea?.value?.trim() || ''
+    };
+  }).filter(p => p.name);
+}
+
+// ── References section ──
+function toggleRefSection(radio) {
+  document.getElementById('refSection').style.display = radio.value === 'custom' ? 'block' : 'none';
+  updatePreview();
+}
+
+function addReference() {
+  const container = document.getElementById('referencesList');
+  const div = document.createElement('div');
+  div.style.cssText = 'background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:10px;';
+  div.innerHTML = `
+    <div class="form-grid" style="gap:8px;">
+      <input type="text" placeholder="Reference Name" oninput="updatePreview()">
+      <input type="text" placeholder="Job Title" oninput="updatePreview()">
+      <input type="text" placeholder="Company" oninput="updatePreview()">
+      <input type="text" placeholder="Email or Phone" oninput="updatePreview()">
+    </div>
+    <button onclick="this.closest('div').remove();updatePreview()" style="margin-top:8px;background:none;border:none;color:#e63946;cursor:pointer;font-size:12px;">Remove</button>`;
+  container.appendChild(div);
+}
+
+function getReferencesData() {
+  return Array.from(document.querySelectorAll('#referencesList > div')).map(e => {
+    const inputs = e.querySelectorAll('input');
+    return {
+      name: inputs[0]?.value?.trim() || '',
+      title: inputs[1]?.value?.trim() || '',
+      company: inputs[2]?.value?.trim() || '',
+      contact: inputs[3]?.value?.trim() || ''
+    };
+  }).filter(r => r.name);
+}
+
+// ── Render extra sections (appended to all templates) ──
+function renderExtraSections() {
+  let h = '';
+
+  const languages = getLanguagesData();
+  if (languages.length) {
+    h += `<div class="cv-sec-title">Languages</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">`;
+    languages.forEach(l => {
+      h += `<span style="background:#f0fdf4;border:1px solid #86efac;color:#166534;padding:3px 10px;border-radius:12px;font-size:11.5px;">${esc(l.language)}${l.level ? ' — ' + esc(l.level) : ''}</span>`;
+    });
+    h += `</div>`;
+  }
+
+  const av = getAvailabilityData();
+  if (av.noticePeriod || av.workTypes.length || av.workLocation || av.expectedSalary) {
+    h += `<div class="cv-sec-title">Availability</div><div style="font-size:13px;color:#374151;line-height:1.8;">`;
+    if (av.noticePeriod) h += `<div>📅 ${esc(av.noticePeriod)}</div>`;
+    if (av.workTypes.length) h += `<div>💼 ${esc(av.workTypes.join(', '))}</div>`;
+    if (av.workLocation) h += `<div>📍 ${esc(av.workLocation)}</div>`;
+    if (av.expectedSalary) h += `<div>💰 ${esc(av.expectedSalary)}</div>`;
+    h += `</div>`;
+  }
+
+  const awards = getAwardsData();
+  if (awards.length) {
+    h += `<div class="cv-sec-title">Awards &amp; Achievements</div>`;
+    awards.forEach(a => {
+      h += `<div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px;"><span>⭐ ${esc(a.name)}</span><span style="color:#6b6660;font-size:12px;">${esc(a.year)}</span></div>`;
+    });
+  }
+
+  const projects = getProjectsData();
+  if (projects.length) {
+    h += `<div class="cv-sec-title">Projects</div>`;
+    projects.forEach(p => {
+      h += `<div style="margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;">
+          <span style="font-weight:700;font-size:13px;">${esc(p.name)}${p.url ? ` <a href="${esc(p.url)}" style="font-size:11px;color:#2d6a4f;font-weight:400;margin-left:6px;">🔗 Link</a>` : ''}</span>
+          <span style="font-size:12px;color:#6b6660;">${esc(p.duration)}</span>
+        </div>
+        ${p.description ? `<p style="font-size:12.5px;color:#374151;line-height:1.6;margin:4px 0 0;">${esc(p.description)}</p>` : ''}
+      </div>`;
+    });
+  }
+
+  const refInput = document.querySelector('input[name="references"]:checked');
+  if (refInput) {
+    h += `<div class="cv-sec-title">References</div>`;
+    if (refInput.value === 'Available upon request') {
+      h += `<p style="font-size:13px;color:#6b6660;font-style:italic;">Available upon request</p>`;
+    } else {
+      getReferencesData().forEach(ref => {
+        h += `<div style="margin-bottom:10px;">
+          <div style="font-weight:700;font-size:13px;">${esc(ref.name)}</div>
+          ${ref.title || ref.company ? `<div style="font-size:12px;color:#2d6a4f;">${esc(ref.title)}${ref.title && ref.company ? ' — ' : ''}${esc(ref.company)}</div>` : ''}
+          ${ref.contact ? `<div style="font-size:12px;color:#6b6660;">${esc(ref.contact)}</div>` : ''}
+        </div>`;
+      });
+    }
+  }
+
+  const vol = document.getElementById('volunteerWork')?.value?.trim();
+  if (vol) {
+    h += `<div class="cv-sec-title">Volunteer &amp; Activities</div><p style="font-size:13px;color:#374151;line-height:1.7;">${esc(vol)}</p>`;
+  }
+
+  return h;
+}
+
+// ── Edit mode ──
+let editModeOn = false;
+
+function toggleEditMode() {
+  const preview = document.getElementById('cv-preview');
+  const btn = document.getElementById('editModeBtn');
+  if (!preview) return;
+  editModeOn = !editModeOn;
+  if (editModeOn) {
+    preview.contentEditable = 'true';
+    preview.style.outline = '2px dashed var(--accent)';
+    preview.style.cursor = 'text';
+    btn.textContent = '💾 Save Changes';
+    btn.style.background = '#1565c0';
+    showToast('✏️ Edit mode ON — click any text to edit');
+  } else {
+    preview.contentEditable = 'false';
+    preview.style.outline = 'none';
+    preview.style.cursor = 'default';
+    btn.textContent = '✒️ Enable Editing';
+    btn.style.background = 'var(--accent)';
+    showToast('✓ Changes saved');
+  }
+}
+
+function cvFormat(command) {
+  if (!editModeOn) { showToast('Enable editing first'); return; }
+  document.execCommand(command, false, null);
+}
+
+function cvFontSize(size) {
+  if (!editModeOn || !size) return;
+  const sel = window.getSelection();
+  if (sel.rangeCount > 0 && !sel.isCollapsed) {
+    const range = sel.getRangeAt(0);
+    const span = document.createElement('span');
+    span.style.fontSize = size;
+    try { range.surroundContents(span); } catch(e) { document.execCommand('fontSize', false, '3'); }
+  }
+}
+
+function cvTextColor(color) {
+  if (!editModeOn) return;
+  document.execCommand('foreColor', false, color);
+}
+
+function resetToFormData() {
+  if (confirm('Reset to original CV data? Manual edits will be lost.')) {
+    editModeOn = false;
+    const preview = document.getElementById('cv-preview');
+    if (preview) { preview.contentEditable = 'false'; preview.style.outline = 'none'; preview.style.cursor = 'default'; }
+    const btn = document.getElementById('editModeBtn');
+    if (btn) { btn.textContent = '✒️ Enable Editing'; btn.style.background = 'var(--accent)'; }
+    updatePreview();
+    showToast('✓ Reset to form data');
+  }
 }
 
 // Initialise with one experience and one education entry
