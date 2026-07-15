@@ -152,10 +152,12 @@ html { scroll-behavior: smooth; }
 }
 
 /* ── Base ── */
+html { overflow-x: hidden; }
 body {
   font-family: 'DM Sans', sans-serif;
   background: var(--bg);
   color: var(--text);
+  overflow-x: hidden;
   font-size: 15px;
   line-height: 1.6;
   min-height: 100vh;
@@ -1057,6 +1059,7 @@ footer p { margin: 0; font-size: 13px; color: #999; }
 /* Comparison table */
 .tracker-table-wrap {
   overflow-x: auto;
+  min-width: 0;
   border-radius: var(--radius);
   border: 1px solid var(--border);
 }

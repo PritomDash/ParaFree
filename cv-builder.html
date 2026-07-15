@@ -66,7 +66,8 @@
   --accent: #2d6a4f; --accent2: #52b788; --accent-light: #d8f3dc;
   --red: #e63946; --amber: #f4a261; --radius: 14px;
 }
-body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 15px; line-height: 1.6; }
+html { overflow-x: hidden; }
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 15px; line-height: 1.6; overflow-x: hidden; }
 nav { background: #1a3a2a; padding: 10px 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; font-family: 'DM Sans', sans-serif; }
 nav a.logo { color: #52b788; font-weight: 700; font-size: 16px; text-decoration: none; }
 nav .nav-links { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
@@ -107,6 +108,7 @@ nav .nav-links a.active { color: #52b788; font-weight: 600; }
   .tab-btn { white-space: nowrap; padding: 9px 14px !important; font-size: 13px !important; }
   .cv-main { padding: 16px 12px 40px !important; }
   .form-section { padding: 14px !important; }
+  .form-grid { grid-template-columns: 1fr !important; }
   .dl-btns { flex-direction: column !important; }
   .dl-btns button { width: 100% !important; }
   .cover-preview { padding: 20px !important; }

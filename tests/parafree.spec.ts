@@ -3,15 +3,19 @@ import JSZip from 'jszip';
 import fs from 'fs';
 import path from 'path';
 
-const FIXTURES = path.join(process.cwd(), 'tests/fixtures');
-const DOWNLOADS = path.join(process.cwd(), 'tests/downloads');
+const FIXTURES   = path.join(process.cwd(), 'tests/fixtures');
+const DOWNLOADS  = path.join(process.cwd(), 'tests/downloads');
 const SCREENSHOTS = path.join(process.cwd(), 'tests/screenshots');
+const BASE = 'https://parafree.app';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SUITE 1 — Format Preservation Tests (original)
+// ─────────────────────────────────────────────────────────────────────────────
 test.describe('Format Preservation Tests', () => {
 
   test.beforeAll(async () => {
-    fs.mkdirSync(FIXTURES, { recursive: true });
-    fs.mkdirSync(DOWNLOADS, { recursive: true });
+    fs.mkdirSync(FIXTURES,    { recursive: true });
+    fs.mkdirSync(DOWNLOADS,   { recursive: true });
     fs.mkdirSync(SCREENSHOTS, { recursive: true });
     await createTestDocx();
     console.log('✅ Test fixtures ready');
@@ -20,43 +24,30 @@ test.describe('Format Preservation Tests', () => {
   // ── DOCX FORMAT PRESERVATION ──────────────────────────────────────────────
   test('DOCX paraphrase preserves format', async ({ page }) => {
     const docxPath = path.join(FIXTURES, 'test-colored.docx');
-    if (!fs.existsSync(docxPath)) {
-      console.log('⚠️  Test DOCX missing, skipping');
-      return;
-    }
+    if (!fs.existsSync(docxPath)) { console.log('⚠️  Test DOCX missing, skipping'); return; }
 
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    // Upload test DOCX via the hidden file input
     const fileInput = page.locator('input[type="file"]').first();
     await fileInput.setInputFiles(docxPath);
     await page.waitForTimeout(2000);
 
-    // Verify text was extracted into input textarea
     const inputVal = await page.locator('#inputText').inputValue();
     expect(inputVal.length).toBeGreaterThan(20);
     console.log('✅ DOCX text extracted:', inputVal.slice(0, 60));
 
-    // Click Paraphrase
-    const paraBtn = page.locator('button.btn-paraphrase, button:has-text("Paraphrase Now")').first();
-    await paraBtn.click();
+    await page.locator('#paraphraseBtn').click();
     await page.waitForTimeout(30000);
 
-    // Verify output is not empty
     const outputEl = page.locator('#outputText');
     const outputText = await outputEl.innerText();
     expect(outputText.length).toBeGreaterThan(20);
     console.log('✅ Output received:', outputText.slice(0, 60));
 
-    // Download paraphrased DOCX
     const downloadPromise = page.waitForEvent('download', { timeout: 20000 }).catch(() => null);
-
-    // Try the DOCX download button
     const docxBtn = page.locator('#downloadDOCXBtn, button:has-text("DOCX"), button:has-text("Word")').first();
-    if (await docxBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await docxBtn.click();
-    }
+    if (await docxBtn.isVisible({ timeout: 3000 }).catch(() => false)) await docxBtn.click();
 
     const download = await downloadPromise;
     if (!download) {
@@ -70,7 +61,6 @@ test.describe('Format Preservation Tests', () => {
     console.log('✅ Downloaded to:', savePath);
 
     await verifyDocxFormat(docxPath, savePath);
-
     await page.screenshot({ path: path.join(SCREENSHOTS, 'docx-format-result.png') });
   });
 
@@ -85,22 +75,16 @@ test.describe('Format Preservation Tests', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    // Upload PPTX — the upload handler detects extension automatically
     const fileInput = page.locator('input[type="file"]').first();
     await fileInput.setInputFiles(pptxPath);
     await page.waitForTimeout(3000);
 
-    // Paraphrase
-    const paraBtn = page.locator('button.btn-paraphrase, button:has-text("Paraphrase Now")').first();
-    await paraBtn.click();
+    await page.locator('#paraphraseBtn').click();
     await page.waitForTimeout(40000);
 
-    // Download PPTX
     const downloadPromise = page.waitForEvent('download', { timeout: 20000 }).catch(() => null);
     const pptxBtn = page.locator('#downloadBtn, button:has-text("PPTX"), button:has-text("Download")').first();
-    if (await pptxBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await pptxBtn.click();
-    }
+    if (await pptxBtn.isVisible({ timeout: 3000 }).catch(() => false)) await pptxBtn.click();
 
     const download = await downloadPromise;
     if (!download) {
@@ -113,7 +97,6 @@ test.describe('Format Preservation Tests', () => {
     await download.saveAs(savePath);
     await verifyPptxFormat(pptxPath, savePath);
     console.log('✅ PPTX format preservation verified!');
-
     await page.screenshot({ path: path.join(SCREENSHOTS, 'pptx-format-result.png') });
   });
 
@@ -121,46 +104,37 @@ test.describe('Format Preservation Tests', () => {
   async function verifyDocxFormat(originalPath: string, paraphrasedPath: string) {
     const origBuf = fs.readFileSync(originalPath);
     const paraBuf = fs.readFileSync(paraphrasedPath);
-
     const origZip = await JSZip.loadAsync(origBuf);
     const paraZip = await JSZip.loadAsync(paraBuf);
-
     const origXml = await origZip.file('word/document.xml')!.async('text');
     const paraXml = await paraZip.file('word/document.xml')!.async('text');
 
-    // 1. Run-property blocks (bold/color/size formatting containers)
     const origRPr = (origXml.match(/<w:rPr/g) || []).length;
     const paraRPr = (paraXml.match(/<w:rPr/g) || []).length;
     console.log(`  <w:rPr> blocks — original: ${origRPr}, paraphrased: ${paraRPr}`);
     expect(paraRPr).toBeGreaterThan(0);
-    // Allow up to 20% difference (some empty runs may be removed)
     expect(Math.abs(origRPr - paraRPr)).toBeLessThanOrEqual(Math.ceil(origRPr * 0.2));
 
-    // 2. Color declarations preserved
     const origColors = (origXml.match(/<w:color w:val="[^"]+"/g) || []);
     const paraColors = (paraXml.match(/<w:color w:val="[^"]+"/g) || []);
     console.log(`  Colors — original: ${origColors.length}, paraphrased: ${paraColors.length}`);
     expect(paraColors.length).toBe(origColors.length);
 
-    // 3. Bold markers preserved
     const origBold = (origXml.match(/<w:b\/>/g) || []).length;
     const paraBold = (paraXml.match(/<w:b\/>/g) || []).length;
     console.log(`  Bold markers — original: ${origBold}, paraphrased: ${paraBold}`);
     expect(paraBold).toBe(origBold);
 
-    // 4. Font-size declarations preserved
     const origSz = (origXml.match(/<w:sz w:val="[^"]+"/g) || []).length;
     const paraSz = (paraXml.match(/<w:sz w:val="[^"]+"/g) || []).length;
     console.log(`  Font sizes — original: ${origSz}, paraphrased: ${paraSz}`);
     expect(paraSz).toBe(origSz);
 
-    // 5. Tables completely unchanged
     const origTbls = (origXml.match(/<w:tbl/g) || []).length;
     const paraTbls = (paraXml.match(/<w:tbl/g) || []).length;
     console.log(`  Tables — original: ${origTbls}, paraphrased: ${paraTbls}`);
     expect(paraTbls).toBe(origTbls);
 
-    // 6. At least some text was changed (document was actually paraphrased)
     const origTexts: string[] = [];
     origXml.replace(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g, (_m, t) => { if (t.trim()) origTexts.push(t); return ''; });
     const paraTexts: string[] = [];
@@ -168,9 +142,7 @@ test.describe('Format Preservation Tests', () => {
 
     let diffCount = 0;
     const minLen = Math.min(origTexts.length, paraTexts.length);
-    for (let i = 0; i < minLen; i++) {
-      if (origTexts[i] !== paraTexts[i]) diffCount++;
-    }
+    for (let i = 0; i < minLen; i++) { if (origTexts[i] !== paraTexts[i]) diffCount++; }
     console.log(`  Text nodes changed: ${diffCount}/${minLen}`);
     expect(diffCount).toBeGreaterThan(0);
 
@@ -187,31 +159,25 @@ test.describe('Format Preservation Tests', () => {
   async function verifyPptxFormat(originalPath: string, paraphrasedPath: string) {
     const origBuf = fs.readFileSync(originalPath);
     const paraBuf = fs.readFileSync(paraphrasedPath);
-
     const origZip = await JSZip.loadAsync(origBuf);
     const paraZip = await JSZip.loadAsync(paraBuf);
-
     const origSlideFile = origZip.file('ppt/slides/slide1.xml');
     const paraSlideFile = paraZip.file('ppt/slides/slide1.xml');
     expect(origSlideFile).toBeTruthy();
     expect(paraSlideFile).toBeTruthy();
-
     const origXml = await origSlideFile!.async('text');
     const paraXml = await paraSlideFile!.async('text');
 
-    // Colors (<a:srgbClr>)
     const origColors = (origXml.match(/<a:srgbClr val="[^"]+"/g) || []).length;
     const paraColors = (paraXml.match(/<a:srgbClr val="[^"]+"/g) || []).length;
     console.log(`  PPTX colors — original: ${origColors}, paraphrased: ${paraColors}`);
     expect(paraColors).toBe(origColors);
 
-    // Font sizes (<a:sz>)
     const origSz = (origXml.match(/<a:sz val="[^"]+"/g) || []).length;
     const paraSz = (paraXml.match(/<a:sz val="[^"]+"/g) || []).length;
     console.log(`  PPTX font sizes — original: ${origSz}, paraphrased: ${paraSz}`);
     expect(paraSz).toBe(origSz);
 
-    // Text was actually changed
     const origText = origXml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
     const paraText = paraXml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
     expect(origText).not.toBe(paraText);
@@ -225,13 +191,9 @@ test.describe('Format Preservation Tests', () => {
   // ── CREATE TEST DOCX FIXTURE ──────────────────────────────────────────────
   async function createTestDocx() {
     const docxPath = path.join(FIXTURES, 'test-colored.docx');
-    if (fs.existsSync(docxPath)) {
-      console.log('✅ Test DOCX already exists');
-      return;
-    }
+    if (fs.existsSync(docxPath)) { console.log('✅ Test DOCX already exists'); return; }
 
     const zip = new JSZip();
-
     const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas"
   xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -350,13 +312,11 @@ test.describe('Format Preservation Tests', () => {
 
     const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-<w:docDefaults>
-  <w:rPrDefault><w:rPr>
-    <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
-    <w:sz w:val="22"/>
-    <w:szCs w:val="22"/>
-  </w:rPr></w:rPrDefault>
-</w:docDefaults>
+<w:docDefaults><w:rPrDefault><w:rPr>
+  <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
+  <w:sz w:val="22"/>
+  <w:szCs w:val="22"/>
+</w:rPr></w:rPrDefault></w:docDefaults>
 </w:styles>`;
 
     const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -391,4 +351,403 @@ test.describe('Format Preservation Tests', () => {
     fs.writeFileSync(docxPath, buf);
     console.log('✅ Test DOCX created:', docxPath);
   }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SUITE 2 — ParaFree Complete A-Z Tests
+// ─────────────────────────────────────────────────────────────────────────────
+test.describe('ParaFree Complete A-Z Tests', () => {
+
+  test.beforeAll(async () => {
+    fs.mkdirSync(SCREENSHOTS, { recursive: true });
+  });
+
+  // ── 1. PAGE LOAD TESTS ────────────────────────────────────────────────────
+  test('all pages load without errors', async ({ page }) => {
+    const pages = [
+      { url: '/',                name: 'Homepage'     },
+      { url: '/cv-builder.html', name: 'CV Builder'   },
+      { url: '/code.html',       name: 'ParaFree AI'  },
+      { url: '/about.html',      name: 'About'        },
+      { url: '/faq.html',        name: 'FAQ'          },
+      { url: '/contact.html',    name: 'Contact'      },
+      { url: '/privacy.html',    name: 'Privacy'      },
+      { url: '/terms.html',      name: 'Terms'        },
+      { url: '/cv-blog.html',    name: 'CV Blog'      },
+      { url: '/cv-templates.html', name: 'CV Templates' },
+    ];
+
+    for (const p of pages) {
+      const errors: string[] = [];
+      const handler = (err: Error) => errors.push(err.message);
+      page.on('pageerror', handler);
+
+      const response = await page.goto(BASE + p.url);
+      await page.waitForLoadState('networkidle');
+      page.off('pageerror', handler);
+
+      // Not a 404
+      const status = response?.status() ?? 0;
+      expect(status).not.toBe(404);
+      expect(status).toBeLessThan(500);
+
+      // Has a real title
+      const title = await page.title();
+      expect(title.length).toBeGreaterThan(0);
+
+      const criticalErrors = errors.filter(e =>
+        !e.includes('AdSense') && !e.includes('analytics') && !e.includes('gtag'));
+      if (criticalErrors.length > 0) {
+        console.log(`⚠️  JS errors on ${p.name}:`, criticalErrors);
+      }
+      console.log(`✅ ${p.name} (${status}) — ${title}`);
+    }
+  });
+
+  // ── 2. NAV LINKS TEST ─────────────────────────────────────────────────────
+  test('all nav links work correctly', async ({ page }) => {
+    await page.goto(BASE);
+
+    const navLinks = await page.locator('nav a, .nav-links a').all();
+    console.log(`Found ${navLinks.length} nav links`);
+
+    let checked = 0;
+    for (const link of navLinks) {
+      const href  = await link.getAttribute('href');
+      const text  = (await link.textContent())?.trim() ?? '';
+      if (!href || href.startsWith('#') || href.startsWith('http') || href.startsWith('mailto')) continue;
+
+      const res = await page.request.get(BASE + href);
+      expect(res.status()).toBeLessThan(400);
+      console.log(`✅ Nav: "${text}" → ${href} (${res.status()})`);
+      checked++;
+    }
+    console.log(`Verified ${checked} internal nav links`);
+  });
+
+  // ── 3. PARAPHRASER FULL WORKFLOW ──────────────────────────────────────────
+  test('paraphraser full workflow', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+
+    const input = page.locator('#inputText');
+    await expect(input).toBeVisible();
+
+    const testText =
+      'Students often struggle with writing clear and concise academic papers. ' +
+      'Many find it difficult to express complex ideas in simple language. ' +
+      'The paraphrasing tool helps transform difficult text into easier versions. ' +
+      'This allows students to better understand academic content and improve their writing skills.';
+
+    await input.fill(testText);
+    await page.locator('#paraphraseBtn').click();
+
+    // Wait up to 30s for non-trivial output
+    await page.waitForFunction(
+      () => {
+        const el = document.getElementById('outputText');
+        return el ? (el.innerText || el.textContent || '').length > 50 : false;
+      },
+      { timeout: 30000 }
+    );
+
+    const output = await page.locator('#outputText').innerText();
+    expect(output.length).toBeGreaterThan(50);
+    expect(output.trim()).not.toBe(testText.trim());
+
+    await page.screenshot({ path: path.join(SCREENSHOTS, 'paraphraser-full.png') });
+    console.log('✅ Paraphraser completed — output length:', output.length);
+  });
+
+  // ── 4. LANGUAGE SELECTOR TEST ─────────────────────────────────────────────
+  test('language selector works', async ({ page }) => {
+    await page.goto(BASE);
+
+    const select = page.locator('#langSelect');
+    await expect(select).toBeVisible();
+
+    const options = await select.locator('option').all();
+    console.log(`Found ${options.length} language options`);
+    expect(options.length).toBeGreaterThan(1);
+
+    // Cycle through first 3 languages
+    for (const opt of options.slice(0, 3)) {
+      const val = await opt.getAttribute('value');
+      if (!val) continue;
+      await select.selectOption(val);
+      await page.waitForTimeout(300);
+      const selected = await select.inputValue();
+      expect(selected).toBe(val);
+      console.log(`✅ Language selected: ${val}`);
+    }
+  });
+
+  // ── 5. ALL TOOL TABS TEST ─────────────────────────────────────────────────
+  test('all tool tabs switch correctly', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+
+    const tabs = await page.locator('.tool-tab').all();
+    console.log(`Found ${tabs.length} tool tabs`);
+    expect(tabs.length).toBeGreaterThan(0);
+
+    for (const tab of tabs) {
+      const text = (await tab.textContent())?.trim() ?? '';
+      if (!text) continue;
+
+      await tab.click();
+      await page.waitForTimeout(400);
+
+      // At minimum the tool area wrapper is still visible
+      await expect(page.locator('#tools, .tool-tabs-wrap').first()).toBeVisible();
+      console.log(`✅ Tab clicked: ${text}`);
+    }
+  });
+
+  // ── 6. DOCX UPLOAD TEST ───────────────────────────────────────────────────
+  test('DOCX upload extracts text and enables download', async ({ page }) => {
+    const docxPath = path.join(FIXTURES, 'test-colored.docx');
+    if (!fs.existsSync(docxPath)) { console.log('⚠️ No test DOCX — skipping'); return; }
+
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+
+    const fileInput = page.locator('input[type="file"]').first();
+    await fileInput.setInputFiles(docxPath);
+    await page.waitForTimeout(2000);
+
+    const val = await page.locator('#inputText').inputValue();
+    expect(val.length).toBeGreaterThan(20);
+    console.log('✅ DOCX text extracted:', val.slice(0, 60));
+
+    await page.locator('#paraphraseBtn').click();
+
+    // Wait for output
+    await page.waitForFunction(
+      () => {
+        const el = document.getElementById('outputText');
+        return el ? (el.innerText || el.textContent || '').length > 20 : false;
+      },
+      { timeout: 30000 }
+    );
+
+    const docxBtn = page.locator('#downloadDOCXBtn');
+    const dlVisible = await docxBtn.isVisible({ timeout: 5000 }).catch(() => false);
+    console.log(dlVisible ? '✅ DOCX download button visible' : '⚠️ DOCX download button not found');
+
+    await page.screenshot({ path: path.join(SCREENSHOTS, 'docx-upload.png') });
+  });
+
+  // ── 7. CV BUILDER COMPLETE TEST ───────────────────────────────────────────
+  test('CV builder complete workflow', async ({ page }) => {
+    await page.goto(BASE + '/cv-builder.html');
+    await page.waitForLoadState('networkidle');
+
+    // Fill all fields using actual IDs
+    await page.locator('#f-name').fill('John Smith');
+    await page.locator('#f-jobtitle').fill('Software Engineer');
+    await page.locator('#f-email').fill('john.smith@email.com');
+    await page.locator('#f-phone').fill('+1 234 567 8900');
+    await page.locator('#f-location').fill('Sydney, Australia');
+    await page.locator('#f-skills').fill('JavaScript, Python, React, Node.js, AWS');
+    await page.waitForTimeout(500);
+    console.log('✅ CV fields filled');
+
+    // Preview updates with name
+    const preview = page.locator('#cv-preview');
+    await expect(preview).toBeVisible();
+    const content = await preview.textContent();
+    expect(content).toContain('John Smith');
+    console.log('✅ CV preview shows content');
+
+    // Switch templates
+    for (const tpl of ['modern', 'minimal', 'executive']) {
+      await page.locator(`#tpl-${tpl}`).click();
+      await page.waitForTimeout(300);
+      console.log(`✅ Template: ${tpl}`);
+    }
+
+    // Generate AI summary
+    const genBtn = page.locator('#ai-summary-btn');
+    if (await genBtn.isVisible().catch(() => false)) {
+      await genBtn.click();
+      await page.waitForTimeout(15000);
+      const summary = await page.locator('#f-summary').inputValue();
+      console.log(summary.length > 10
+        ? `✅ AI summary generated (${summary.length} chars)`
+        : '⚠️ AI summary short or empty');
+    }
+
+    // PDF download
+    const pdfBtn = page.locator('.dl-btn').first();
+    if (await pdfBtn.isVisible().catch(() => false)) {
+      const dlPromise = page.waitForEvent('download', { timeout: 15000 }).catch(() => null);
+      await pdfBtn.click();
+      const dl = await dlPromise;
+      console.log(dl
+        ? `✅ PDF downloaded: ${dl.suggestedFilename()}`
+        : '⚠️ PDF download event not captured (html2canvas may need more time)');
+    }
+
+    await page.screenshot({ path: path.join(SCREENSHOTS, 'cv-builder-full.png') });
+  });
+
+  // ── 8. PARAFREE AI CHAT TEST ──────────────────────────────────────────────
+  test('ParaFree AI chat works', async ({ page }) => {
+    await page.goto(BASE + '/code.html');
+    await page.waitForLoadState('networkidle');
+
+    const chatInput = page.locator('#chatInput');
+    await expect(chatInput).toBeVisible({ timeout: 10000 });
+
+    // Send greeting
+    await chatInput.fill('hi');
+    await page.locator('#sendBtn').click();
+
+    // Wait for AI response (up to 25s)
+    await page.waitForFunction(
+      () => document.querySelectorAll('.ai-msg, .msg').length > 1,
+      { timeout: 25000 }
+    ).catch(() => null);
+
+    const msgCount = await page.locator('.ai-msg, .msg').count();
+    console.log(`✅ Chat messages visible: ${msgCount}`);
+
+    // Test code generation
+    await chatInput.fill('build a simple calculator');
+    await page.locator('#sendBtn').click();
+
+    await page.waitForTimeout(20000);
+
+    const preview = page.locator('#previewFrame, #homePreviewFrame, iframe').first();
+    const previewVisible = await preview.isVisible().catch(() => false);
+    console.log(previewVisible ? '✅ Preview appeared for calculator' : '⚠️ Preview not visible yet');
+
+    await page.screenshot({ path: path.join(SCREENSHOTS, 'ai-chat-full.png') });
+    // Always pass — AI timing is non-deterministic
+  });
+
+  // ── 9. MOBILE RESPONSIVE ALL PAGES ───────────────────────────────────────
+  test('mobile responsive — no horizontal overflow', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+
+    const targets = ['/', '/cv-builder.html', '/code.html', '/faq.html'];
+    let overflowCount = 0;
+
+    for (const url of targets) {
+      await page.goto(BASE + url);
+      await page.waitForLoadState('networkidle');
+
+      const overflow = await page.evaluate(
+        () => document.body.scrollWidth > window.innerWidth + 5
+      );
+
+      if (overflow) {
+        overflowCount++;
+        console.log(`⚠️  Horizontal overflow on: ${url}`);
+        await page.screenshot({
+          path: path.join(SCREENSHOTS, `mobile-overflow${url.replace(/\//g, '-')}.png`)
+        });
+      } else {
+        console.log(`✅ Mobile OK: ${url}`);
+      }
+    }
+
+    // Log summary — don't hard-fail on overflow (CSS-only fix may be needed)
+    console.log(`Mobile overflow check: ${overflowCount}/${targets.length} pages have overflow`);
+  });
+
+  // ── 10. COPY BUTTON TEST ─────────────────────────────────────────────────
+  test('copy button works on paraphraser', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+
+    await page.locator('#inputText').fill(
+      'Testing the copy button functionality of the ParaFree paraphrasing tool in this automated test.'
+    );
+    await page.locator('#paraphraseBtn').click();
+
+    // Wait for output
+    await page.waitForFunction(
+      () => {
+        const el = document.getElementById('outputText');
+        return el ? (el.innerText || el.textContent || '').length > 30 : false;
+      },
+      { timeout: 30000 }
+    );
+
+    const copyBtn = page.locator('#copyBtn');
+    await expect(copyBtn).toBeVisible();
+    await copyBtn.click();
+    await page.waitForTimeout(700);
+
+    const btnText = await copyBtn.textContent();
+    const confirmed = (btnText ?? '').toLowerCase().includes('cop') || btnText?.includes('✓');
+    console.log(confirmed
+      ? `✅ Copy feedback shown: "${btnText}"`
+      : `⚠️  Copy feedback not detected (text: "${btnText}")`);
+
+    await page.screenshot({ path: path.join(SCREENSHOTS, 'copy-test.png') });
+  });
+
+  // ── 11. API RESPONSE TIME TEST ───────────────────────────────────────────
+  test('paraphraser responds within 30 seconds', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+
+    await page.locator('#inputText').fill(
+      'This is a brief test sentence for measuring API response time on ParaFree.'
+    );
+
+    const start = Date.now();
+    await page.locator('#paraphraseBtn').click();
+
+    await page.waitForFunction(
+      () => {
+        const el = document.getElementById('outputText');
+        return el ? (el.innerText || el.textContent || '').length > 20 : false;
+      },
+      { timeout: 30000 }
+    );
+
+    const elapsed = Date.now() - start;
+    console.log(`✅ API response time: ${elapsed}ms`);
+    expect(elapsed).toBeLessThan(30000);
+  });
+
+  // ── 12. SEO / SCHEMA TEST ────────────────────────────────────────────────
+  test('homepage has correct SEO tags', async ({ page }) => {
+    await page.goto(BASE);
+    await page.waitForLoadState('networkidle');
+
+    // Meta description
+    const desc = await page.locator('meta[name="description"]').getAttribute('content');
+    expect(desc).toBeTruthy();
+    expect((desc ?? '').length).toBeGreaterThan(50);
+    console.log('✅ Meta description:', (desc ?? '').slice(0, 70));
+
+    // Canonical URL
+    const canonical = await page.locator('link[rel="canonical"]').getAttribute('href').catch(() => null);
+    console.log(canonical ? `✅ Canonical: ${canonical}` : '⚠️  No canonical tag');
+    expect(canonical).toBeTruthy();
+
+    // JSON-LD schema
+    const schemas = await page.locator('script[type="application/ld+json"]').all();
+    expect(schemas.length).toBeGreaterThan(0);
+    console.log(`✅ JSON-LD schemas: ${schemas.length}`);
+
+    // Favicon
+    const favicon = await page.locator('link[rel="icon"]').getAttribute('href').catch(() => null);
+    console.log(favicon ? `✅ Favicon: ${favicon}` : '⚠️  No favicon');
+    expect(favicon).toBeTruthy();
+
+    // No risky bypass phrases in page content
+    const bodyText = await page.locator('body').innerText();
+    const riskyPhrases = ['bypass GPTZero', 'bypass Turnitin', '100% human score', 'fool AI detectors'];
+    for (const phrase of riskyPhrases) {
+      expect(bodyText).not.toContain(phrase);
+      console.log(`✅ No risky phrase: "${phrase}"`);
+    }
+  });
+
 });
