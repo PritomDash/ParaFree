@@ -624,6 +624,10 @@ nav div a:hover::after { width: 100%; }
 .form-section textarea { resize: vertical; }
 #cv-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1a1814; color: white; padding: 10px 20px; border-radius: 8px; font-size: 14px; z-index: 10000; transition: opacity .3s; pointer-events: none; opacity: 0; white-space: nowrap; }
 #cvEditToolbar button:hover { filter: brightness(0.9); }
+@keyframes cvSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@media (max-width: 600px) {
+  #importCVSection > div:nth-child(3) { grid-template-columns: 1fr !important; }
+}
 </style>
 </head>
 <body>
@@ -676,7 +680,7 @@ nav div a:hover::after { width: 100%; }
   <!-- Tab bar -->
   <div class="cv-tabs">
     <button class="tab-btn active" onclick="switchTab('build')">📄 Build CV</button>
-    <button class="tab-btn" onclick="switchTab('improve')">⬆️ Improve My CV</button>
+    <button class="tab-btn" onclick="switchTab('improve')">📥 Import CV</button>
     <button class="tab-btn" onclick="switchTab('cover')">✉️ Cover Letter</button>
   </div>
 
@@ -967,37 +971,81 @@ nav div a:hover::after { width: 100%; }
     </div><!-- /builder-layout -->
   </div><!-- /tab-build -->
 
-  <!-- ══════════ TAB: IMPROVE MY CV ══════════ -->
+  <!-- ══════════ TAB: IMPORT CV ══════════ -->
   <div id="tab-improve" class="tab-panel">
-    <div class="improve-layout">
-      <div class="form-section">
-        <div class="form-section-hdr"><h3>Upload Your Existing CV</h3></div>
-        <div class="upload-drop" id="improve-drop" onclick="document.getElementById('improve-file').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleImproveDrop(event)">
-          <input type="file" id="improve-file" accept=".txt,.docx" onchange="handleImproveFile(this.files[0])">
-          <div class="upload-icon">📂</div>
-          <p><strong>Click to upload</strong> or drag &amp; drop your CV<br><span style="font-size:12px;color:var(--text3);">Supports .docx and .txt — or paste text below</span></p>
-        </div>
-        <p style="text-align:center;color:var(--text3);font-size:13px;margin:12px 0;">— or paste your CV text directly —</p>
-        <div class="form-row">
-          <textarea id="improve-text" style="min-height:180px;" placeholder="Paste your existing CV text here..."></textarea>
-        </div>
-        <div class="form-row" style="margin-top:10px;">
-          <label>Target Job Title (optional — helps AI focus improvements)</label>
-          <input id="improve-target" placeholder="e.g. Data Analyst, Software Engineer, Project Manager">
-        </div>
-        <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
-          <button class="dl-btn" id="improve-btn" onclick="improveCV()" style="padding:12px 24px;">✨ Analyze &amp; Improve</button>
-        </div>
-        <div class="cv-status" id="improve-status"></div>
+    <div style="max-width:700px;margin:0 auto;padding:8px 0;">
+
+    <div id="importCVSection" style="background:linear-gradient(135deg,rgba(45,106,79,0.06),rgba(82,183,136,0.1));border:1.5px solid rgba(45,106,79,0.2);border-radius:var(--radius);padding:24px;margin-bottom:24px;">
+
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+        <span style="font-size:22px;">✨</span>
+        <h3 style="margin:0;font-size:16px;font-weight:700;font-family:'Syne',sans-serif;color:var(--accent);">Import Existing CV</h3>
       </div>
-      <div class="improve-output" id="improve-output">
-        <h3 style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;margin-bottom:12px;color:var(--accent);">✨ AI Improvements</h3>
-        <div id="improve-result" style="white-space:pre-wrap;font-size:14px;line-height:1.7;color:var(--text2);"></div>
-        <div style="margin-top:16px;display:flex;gap:8px;">
-          <button class="dl-btn secondary" onclick="copyImproved()">⎘ Copy Improved Text</button>
+
+      <p style="font-size:13px;color:var(--text2);margin:0 0 16px;line-height:1.6;">
+        Already have a CV? Made one with ChatGPT? Upload it or paste the text —
+        AI reads it and auto-fills everything. Then pick any of 24 premium templates.
+      </p>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+
+        <div style="background:white;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:20px 16px;text-align:center;cursor:pointer;transition:all 0.2s;" onclick="document.getElementById('cvImportFile').click()" onmouseover="this.style.borderColor='var(--accent)';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='var(--border)';this.style.background='white'">
+          <div style="font-size:32px;margin-bottom:8px;">📄</div>
+          <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;">Upload CV File</div>
+          <div style="font-size:11px;color:var(--text3);">PDF, DOCX or TXT</div>
+          <input type="file" id="cvImportFile" accept=".pdf,.doc,.docx,.txt" style="display:none;" onchange="handleCVImport(this)">
+        </div>
+
+        <div style="background:white;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:20px 16px;text-align:center;cursor:pointer;transition:all 0.2s;" onclick="togglePasteArea()" onmouseover="this.style.borderColor='var(--accent)';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='var(--border)';this.style.background='white'">
+          <div style="font-size:32px;margin-bottom:8px;">📋</div>
+          <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;">Paste CV Text</div>
+          <div style="font-size:11px;color:var(--text3);">From ChatGPT or anywhere</div>
         </div>
       </div>
-    </div>
+
+      <div id="cvPasteArea" style="display:none;margin-bottom:12px;">
+        <textarea id="cvPasteText" rows="10" placeholder="Paste your CV text here...
+
+Example:
+John Smith
+Software Engineer
+john@email.com | +61 412 345 678 | Sydney, Australia
+
+SUMMARY
+Experienced software engineer with 5 years building scalable systems...
+
+EXPERIENCE
+Google — Senior Developer (Jan 2022 – Present)
+- Built cloud systems serving 10M users
+- Led team of 10 engineers
+
+Meta — Developer (Jun 2020 – Dec 2021)
+- Developed React components
+- Improved performance by 40%
+
+EDUCATION
+MIT — Computer Science — 2020
+
+SKILLS
+Python, JavaScript, React, AWS, Docker
+
+LANGUAGES
+English — Native | Bengali — Fluent" style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:14px;font-size:13px;font-family:'DM Sans',sans-serif;line-height:1.6;resize:vertical;box-sizing:border-box;color:var(--text);background:white;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+        <button onclick="importFromPaste()" style="margin-top:10px;width:100%;padding:13px;background:var(--accent);color:white;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif;transition:all 0.2s;" onmouseover="this.style.background='#1e4d35'" onmouseout="this.style.background='var(--accent)'">
+          ✨ Extract &amp; Fill All Sections
+        </button>
+      </div>
+
+      <div id="importProgress" style="display:none;text-align:center;padding:20px;">
+        <div style="font-size:28px;margin-bottom:10px;display:inline-block;animation:cvSpin 1s linear infinite;">⚙️</div>
+        <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px;">AI is reading your CV...</div>
+        <div id="importStatus" style="font-size:12px;color:var(--text3);">This takes about 10 seconds</div>
+      </div>
+
+      <div id="importSuccess" style="display:none;"></div>
+
+    </div><!-- /importCVSection -->
+    </div><!-- /max-width wrapper -->
   </div><!-- /tab-improve -->
 
   <!-- ══════════ TAB: COVER LETTER ══════════ -->
@@ -2351,6 +2399,250 @@ function resetToFormData() {
   }
 }
 
+// ── CV Import ──
+function togglePasteArea() {
+  const area = document.getElementById('cvPasteArea');
+  if (!area) return;
+  const hidden = area.style.display === 'none' || !area.style.display;
+  area.style.display = hidden ? 'block' : 'none';
+  if (hidden) document.getElementById('cvPasteText')?.focus();
+}
+
+async function handleCVImport(input) {
+  const file = input.files[0];
+  if (!file) return;
+  showImportProgress('Reading your CV file...');
+  try {
+    let text = '';
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (ext === 'txt') {
+      text = await file.text();
+    } else if (ext === 'docx' || ext === 'doc') {
+      showImportProgress('Extracting text from Word document...');
+      if (typeof mammoth === 'undefined') throw new Error('Word reader not loaded. Please paste text instead.');
+      const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+      text = result.value || '';
+    } else if (ext === 'pdf') {
+      showImportProgress('Extracting text from PDF...');
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      let raw = '';
+      for (let i = 0; i < bytes.length; i++) {
+        const c = bytes[i];
+        if (c >= 32 && c < 127) raw += String.fromCharCode(c);
+        else if (c === 10 || c === 13) raw += '\n';
+      }
+      text = raw.replace(/[^\x20-\x7E\n\r]/g, ' ').replace(/\s{4,}/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+    }
+    if (!text || text.trim().length < 30) {
+      hideImportProgress();
+      showToast('❌ Could not read file content. Try pasting the text instead.');
+      document.getElementById('cvPasteArea').style.display = 'block';
+      return;
+    }
+    await extractCVDataWithAI(text);
+  } catch(err) {
+    console.error('Import error:', err);
+    hideImportProgress();
+    showToast('❌ ' + err.message);
+  }
+  input.value = '';
+}
+
+async function importFromPaste() {
+  const text = document.getElementById('cvPasteText')?.value?.trim();
+  if (!text || text.length < 30) { showToast('⚠️ Please paste your CV text first'); return; }
+  showImportProgress('AI is reading your CV text...');
+  await extractCVDataWithAI(text);
+}
+
+async function extractCVDataWithAI(cvText) {
+  try {
+    showImportProgress('Extracting your information...');
+    const rawResult = await callAPI('cv_extract', cvText.slice(0, 4000));
+    let extracted;
+    try {
+      let jsonStr = rawResult.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+      const start = jsonStr.indexOf('{');
+      const end = jsonStr.lastIndexOf('}');
+      if (start === -1 || end === -1) throw new Error('No JSON in response');
+      extracted = JSON.parse(jsonStr.slice(start, end + 1));
+    } catch(parseErr) {
+      console.error('CV parse error:', parseErr, 'Raw:', rawResult);
+      throw new Error('Could not parse CV data. Try again or paste simpler text.');
+    }
+    showImportProgress('Filling in all your details...');
+    await fillCVForm(extracted);
+    hideImportProgress();
+    showImportSuccess(extracted);
+  } catch(err) {
+    console.error('Extract error:', err);
+    hideImportProgress();
+    showToast('❌ ' + err.message);
+  }
+}
+
+async function fillCVForm(data) {
+  function setVal(id, value) {
+    if (!value) return;
+    const el = document.getElementById(id);
+    if (el) { el.value = value; el.dispatchEvent(new Event('input', { bubbles: true })); }
+  }
+
+  // Basic fields — using actual cv-builder.html field IDs
+  setVal('f-name', data.name);
+  setVal('f-jobtitle', data.title);
+  setVal('f-email', data.email);
+  setVal('f-phone', data.phone);
+  setVal('f-location', data.location);
+  setVal('f-linkedin', data.linkedin);
+  setVal('f-summary', data.summary);
+  setVal('f-skills', data.skills);
+  setVal('f-certs', data.certifications);
+  setVal('volunteerWork', data.volunteer);
+
+  await new Promise(r => setTimeout(r, 100));
+
+  // Experience — remove default empty entry, add imported ones
+  if (data.experience?.length > 0) {
+    document.querySelectorAll('.exp-entry').forEach(e => e.remove());
+    for (const exp of data.experience) {
+      if (!exp.title && !exp.company) continue;
+      addExp();
+      await new Promise(r => setTimeout(r, 80));
+      const entries = document.querySelectorAll('.exp-entry');
+      const last = entries[entries.length - 1];
+      if (!last) continue;
+      const role = last.querySelector('.exp-role');
+      const co   = last.querySelector('.exp-company');
+      const st   = last.querySelector('.exp-start');
+      const en   = last.querySelector('.exp-end');
+      const bl   = last.querySelector('.exp-bullets');
+      if (role) { role.value = exp.title || '';     role.dispatchEvent(new Event('input', { bubbles: true })); }
+      if (co)   { co.value   = exp.company || '';   co.dispatchEvent(new Event('input', { bubbles: true })); }
+      if (st)   { st.value   = exp.startDate || ''; st.dispatchEvent(new Event('input', { bubbles: true })); }
+      if (en)   { en.value   = exp.endDate || '';   en.dispatchEvent(new Event('input', { bubbles: true })); }
+      if (bl && exp.bullets?.length) { bl.value = exp.bullets.join('\n'); bl.dispatchEvent(new Event('input', { bubbles: true })); }
+    }
+  }
+
+  await new Promise(r => setTimeout(r, 100));
+
+  // Education — same pattern
+  if (data.education?.length > 0) {
+    document.querySelectorAll('.edu-entry').forEach(e => e.remove());
+    for (const edu of data.education) {
+      if (!edu.degree && !edu.school) continue;
+      addEdu();
+      await new Promise(r => setTimeout(r, 80));
+      const entries = document.querySelectorAll('.edu-entry');
+      const last = entries[entries.length - 1];
+      if (!last) continue;
+      const deg  = last.querySelector('.edu-degree');
+      const sch  = last.querySelector('.edu-school');
+      const st   = last.querySelector('.edu-start');
+      const en   = last.querySelector('.edu-end');
+      if (deg) { deg.value = edu.degree   || ''; deg.dispatchEvent(new Event('input', { bubbles: true })); }
+      if (sch) { sch.value = edu.school   || ''; sch.dispatchEvent(new Event('input', { bubbles: true })); }
+      if (st)  { st.value  = edu.startYear|| ''; st.dispatchEvent(new Event('input', { bubbles: true })); }
+      if (en)  { en.value  = edu.endYear  || ''; en.dispatchEvent(new Event('input', { bubbles: true })); }
+    }
+  }
+
+  await new Promise(r => setTimeout(r, 100));
+
+  // Languages
+  if (data.languages?.length > 0 && typeof addLanguage === 'function') {
+    for (const lang of data.languages) {
+      if (!lang.language) continue;
+      addLanguage();
+      await new Promise(r => setTimeout(r, 80));
+      const entries = document.querySelectorAll('#languagesList .language-entry');
+      const last = entries[entries.length - 1];
+      if (!last) continue;
+      const inp = last.querySelector('input[type="text"]');
+      const sel = last.querySelector('select');
+      if (inp) { inp.value = lang.language; inp.dispatchEvent(new Event('input', { bubbles: true })); }
+      if (sel && lang.level) {
+        const match = Array.from(sel.options).find(o => o.value.toLowerCase() === lang.level.toLowerCase() || o.text.toLowerCase() === lang.level.toLowerCase());
+        if (match) { sel.value = match.value; sel.dispatchEvent(new Event('change', { bubbles: true })); }
+      }
+    }
+  }
+
+  // Projects
+  if (data.projects?.length > 0 && typeof addProject === 'function') {
+    for (const proj of data.projects) {
+      if (!proj.name) continue;
+      addProject();
+      await new Promise(r => setTimeout(r, 80));
+      const entries = document.querySelectorAll('#projectsList > div');
+      const last = entries[entries.length - 1];
+      if (!last) continue;
+      const inputs = last.querySelectorAll('input');
+      const ta = last.querySelector('textarea');
+      if (inputs[0]) { inputs[0].value = proj.name || '';        inputs[0].dispatchEvent(new Event('input', { bubbles: true })); }
+      if (inputs[1]) { inputs[1].value = proj.duration || '';    inputs[1].dispatchEvent(new Event('input', { bubbles: true })); }
+      if (inputs[2]) { inputs[2].value = proj.url || '';         inputs[2].dispatchEvent(new Event('input', { bubbles: true })); }
+      if (ta)        { ta.value        = proj.description || ''; ta.dispatchEvent(new Event('input', { bubbles: true })); }
+    }
+  }
+
+  await new Promise(r => setTimeout(r, 150));
+  if (typeof updateCV === 'function') updateCV();
+}
+
+function showImportProgress(message) {
+  const prog = document.getElementById('importProgress');
+  const stat = document.getElementById('importStatus');
+  const succ = document.getElementById('importSuccess');
+  if (prog) prog.style.display = 'block';
+  if (stat) stat.textContent = message;
+  if (succ) succ.style.display = 'none';
+}
+
+function hideImportProgress() {
+  const el = document.getElementById('importProgress');
+  if (el) el.style.display = 'none';
+}
+
+function showImportSuccess(data) {
+  const el = document.getElementById('importSuccess');
+  if (!el) return;
+  const expCount = data?.experience?.length || 0;
+  const eduCount = data?.education?.length || 0;
+  el.style.display = 'block';
+  el.innerHTML = `<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:var(--radius-sm);padding:16px;">
+    <div style="font-size:15px;font-weight:700;color:#166534;margin-bottom:12px;display:flex;align-items:center;gap:8px;">✅ CV imported successfully!</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;">
+      ${data?.name ? `<span style="background:white;border:1px solid #86efac;color:#166534;padding:3px 10px;border-radius:12px;font-size:12px;">👤 ${esc(data.name)}</span>` : ''}
+      ${expCount > 0 ? `<span style="background:white;border:1px solid #86efac;color:#166534;padding:3px 10px;border-radius:12px;font-size:12px;">💼 ${expCount} experience ${expCount === 1 ? 'entry' : 'entries'}</span>` : ''}
+      ${eduCount > 0 ? `<span style="background:white;border:1px solid #86efac;color:#166534;padding:3px 10px;border-radius:12px;font-size:12px;">🎓 ${eduCount} education ${eduCount === 1 ? 'entry' : 'entries'}</span>` : ''}
+      ${data?.skills ? `<span style="background:white;border:1px solid #86efac;color:#166534;padding:3px 10px;border-radius:12px;font-size:12px;">⚡ Skills extracted</span>` : ''}
+      ${data?.languages?.length ? `<span style="background:white;border:1px solid #86efac;color:#166534;padding:3px 10px;border-radius:12px;font-size:12px;">🌍 Languages added</span>` : ''}
+    </div>
+    <div style="display:flex;gap:12px;align-items:center;padding:14px;background:white;border-radius:8px;border:1px solid #d1fae5;margin-bottom:14px;flex-wrap:wrap;">
+      <div id="importPhotoCircle" style="width:56px;height:56px;border-radius:8px;background:#f0fdf4;border:2px dashed #86efac;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;flex-shrink:0;position:relative;transition:all 0.2s;" onclick="document.getElementById('photoInput').click()" onmouseover="this.style.borderColor='#2d6a4f'" onmouseout="this.style.borderColor='#86efac'">
+        <span id="importPhotoIcon" style="font-size:22px;">👤</span>
+        <img id="importPhotoImg" src="" alt="" style="display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">
+      </div>
+      <div style="flex:1;min-width:120px;">
+        <div style="font-size:13px;font-weight:600;color:#166534;margin-bottom:3px;">Add a profile photo?</div>
+        <div style="font-size:12px;color:#6b6660;line-height:1.5;">Auto-cropped to square. Shows in premium templates.</div>
+      </div>
+      <button onclick="document.getElementById('photoInput').click()" style="padding:8px 16px;background:#2d6a4f;color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:'DM Sans',sans-serif;flex-shrink:0;" onmouseover="this.style.background='#1e4d35'" onmouseout="this.style.background='#2d6a4f'">+ Add Photo</button>
+    </div>
+    <div style="font-size:12px;color:#6b6660;line-height:1.8;margin-bottom:14px;">
+      <strong style="color:#166534;">Next steps:</strong><br>
+      👇 Review and fix any details below<br>
+      🎨 Switch templates and change colors<br>
+      ⬇️ Download PDF or Word — free, no watermark
+    </div>
+    <button onclick="switchTab('build')" style="width:100%;padding:11px;background:var(--accent);color:white;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif;" onmouseover="this.style.background='#1e4d35'" onmouseout="this.style.background='var(--accent)'">
+      📄 View &amp; Edit Your CV →
+    </button>
+  </div>`;
+}
+
 // ── Profile photo ──
 let cvPhotoData = null;
 
@@ -2374,6 +2666,11 @@ function handlePhotoUpload(input) {
       document.getElementById('photoText').style.display = 'none';
       document.getElementById('removePhotoBtn').style.display = 'inline-block';
       updatePreview();
+      // Sync import success box preview
+      const importIcon = document.getElementById('importPhotoIcon');
+      const importImg  = document.getElementById('importPhotoImg');
+      if (importIcon) importIcon.style.display = 'none';
+      if (importImg)  { importImg.src = cvPhotoData; importImg.style.display = 'block'; }
     };
     img.src = e.target.result;
   };

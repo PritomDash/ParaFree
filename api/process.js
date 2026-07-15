@@ -302,6 +302,12 @@ const PROMPTS = {
   summarize:    "Summarize the following text. Your summary MUST be significantly shorter than the input — maximum 30% of the original word count. Use concise bullet points for the key ideas, then one short conclusion sentence. Be brief and to the point. Never exceed 30% of input word count. Return only the summary, nothing else:",
   grammar:      "Check and correct the following text for grammar, spelling, and punctuation errors.\n\nRespond in this exact format:\nCORRECTED TEXT:\n[Write the fully corrected text here]\n\nERRORS FOUND:\n[List each error: Original → Corrected (reason)]\n\nIf no errors found write: No errors found! Your text looks great.\n\nText to check:",
   cv_build:     "You are a professional resume writer. Read the instructions below carefully and follow them exactly. Output ONLY what is requested — no labels, no preamble, no markdown, no extra commentary:",
+  cv_extract:   `Extract all information from the CV text below and return ONLY a valid JSON object. No text before or after. No markdown. No code blocks. Just the raw JSON.
+
+JSON structure to populate (use empty string or empty array when data is not found):
+{"name":"","title":"","email":"","phone":"","location":"","linkedin":"","summary":"","skills":"skill1, skill2","certifications":"","volunteer":"","awards":"","experience":[{"title":"","company":"","startDate":"","endDate":"","bullets":["achievement"]}],"education":[{"degree":"","school":"","startYear":"","endYear":""}],"languages":[{"language":"","level":"Native/Fluent/Professional/Intermediate/Basic"}],"projects":[{"name":"","duration":"","url":"","description":""}]}
+
+CV Text:`,
   cover_letter: "You are a professional resume writer. Write a tailored cover letter based on the candidate information and job description below. Keep it to 3-4 paragraphs. Do not use generic openers like 'I am writing to express my interest' or clichés like 'proven track record' or 'passionate about'. Ground every sentence in the candidate's actual background and the specific role. Confident, natural tone. Return only the cover letter text, nothing else:",
   code_assistant: `Your creator and developer is Pritom. If asked who made you — answer: Pritom.
 
@@ -404,16 +410,25 @@ async function runChain(text, prompt, type) {
   const EXTRA5_KEY     = process.env.EXTRA5_KEY;
   const EXTRA6_KEY     = process.env.EXTRA6_KEY;
 
-  const isAIChat = type === "code_assistant" || type === "code_project";
+  const isAIChat   = type === "code_assistant" || type === "code_project";
+  const isCVExtract = type === "cv_extract";
 
   // Build candidate list with explicit key-checking — only include providers whose keys exist.
   // Cloudflare requires both CF_KEY and CF_ACCOUNT; skip entirely if account is missing.
-  // AI chat:  Gemini → Cerebras → Groq-70b → DeepSeek → Qwen → Mistral → Cloudflare → Extras
-  // Writing:  Cerebras → Gemini → Groq → Mistral → Cloudflare → OpenRouter → GLM → Extras
+  // AI chat:   Gemini → Cerebras → Groq-70b → DeepSeek → Qwen → Mistral → Cloudflare → Extras
+  // CV extract: Gemini → Groq-70b → Cerebras → Mistral → Cloudflare (JSON-capable models first)
+  // Writing:   Cerebras → Gemini → Groq → Mistral → Cloudflare → OpenRouter → GLM → Extras
   const cfOk = validKey(CF_KEY) && validKey(CF_ACCOUNT);
 
   let candidates;
-  if (isAIChat) {
+  if (isCVExtract) {
+    candidates = [];
+    if (validKey(GEMINI_KEY))   candidates.push({ name: "gemini",   fn: () => callGemini(text, prompt, GEMINI_KEY) });
+    if (validKey(GROQ_KEY))     candidates.push({ name: "groq-70b", fn: () => callGroqModel(text, prompt, GROQ_KEY, "llama-3.3-70b-versatile") });
+    if (validKey(CEREBRAS_KEY)) candidates.push({ name: "cerebras", fn: () => callCerebras(text, prompt, CEREBRAS_KEY) });
+    if (validKey(MISTRAL_KEY))  candidates.push({ name: "mistral",  fn: () => callMistral(text, prompt, MISTRAL_KEY) });
+    if (cfOk)                   candidates.push({ name: "cloudflare", fn: () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT) });
+  } else if (isAIChat) {
     candidates = [];
     if (validKey(GEMINI_KEY))     candidates.push({ name: "gemini",         fn: () => callGemini(text, prompt, GEMINI_KEY) });
     if (validKey(CEREBRAS_KEY))   candidates.push({ name: "cerebras",       fn: () => callCerebras(text, prompt, CEREBRAS_KEY) });
