@@ -96,7 +96,7 @@ nav .nav-links a.active { color: #52b788; font-weight: 600; }
 .tab-panel.active { display: block; }
 
 /* Builder layout */
-.builder-layout { display: grid; grid-template-columns: minmax(340px, 420px) 1fr; gap: 24px; align-items: start; }
+.builder-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
 @media (max-width: 1024px) { .builder-layout { grid-template-columns: 1fr; } }
 @media (max-width: 768px) {
   nav .nav-links { display: none !important; }
@@ -157,6 +157,15 @@ nav .nav-links a.active { color: #52b788; font-weight: 600; }
 .dl-btn:hover { background: #235a40; }
 .dl-btn.secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
 .dl-btn.secondary:hover { background: var(--surface2); }
+
+/* Collapsible section cards */
+.cv-section-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.cv-section-header { display: flex; justify-content: space-between; align-items: center; padding: 13px 16px; cursor: pointer; user-select: none; transition: background .15s; }
+.cv-section-header:hover { background: var(--surface2); }
+.section-title { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; color: var(--text); }
+.section-preview-txt { font-size: 11px; color: var(--text3); margin-top: 1px; max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.section-arrow { color: var(--text3); font-size: 12px; transition: transform .2s; flex-shrink: 0; }
+.section-dot { width: 8px; height: 8px; border-radius: 50%; background: #e2ddd4; flex-shrink: 0; transition: background .3s; }
 
 /* CV Preview container — A4-proportioned, grows for multi-page */
 .preview-wrap {
@@ -691,233 +700,397 @@ nav div a:hover::after { width: 100%; }
       <!-- LEFT: Form -->
       <div class="form-panel">
 
-        <!-- Personal info -->
-        <div class="form-section">
-          <div class="form-section-hdr"><h3>Personal Information</h3></div>
-          <div class="form-grid full">
-            <div class="form-row"><label>Full Name</label><input id="f-name" placeholder="Jane Smith" oninput="updatePreview()"></div>
-            <div class="form-row"><label>Job Title / Target Role</label><input id="f-jobtitle" placeholder="Senior Marketing Manager" oninput="updatePreview()"></div>
-          </div>
-          <div class="form-grid" style="margin-top:10px;">
-            <div class="form-row"><label>Email</label><input id="f-email" type="email" placeholder="jane@email.com" oninput="updatePreview()"></div>
-            <div class="form-row"><label>Phone</label><input id="f-phone" placeholder="+61 400 000 000" oninput="updatePreview()"></div>
-            <div class="form-row"><label>Location</label><input id="f-location" placeholder="Sydney, Australia" oninput="updatePreview()"></div>
-            <div class="form-row"><label>LinkedIn (optional)</label><input id="f-linkedin" placeholder="linkedin.com/in/janesmith" oninput="updatePreview()"></div>
-          </div>
-          <div class="form-row" style="margin-top:12px;">
-            <label>Profile Photo <span style="font-weight:400;color:var(--text3);font-size:12px;">(optional — shows in premium templates)</span></label>
-            <div style="display:flex;align-items:center;gap:14px;margin-top:8px;">
-              <div id="photoPreview" onclick="document.getElementById('photoInput').click()" style="width:100px;height:100px;border-radius:50%;border:2px dashed var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;background:var(--surface2);flex-shrink:0;">
-                <div id="photoIcon" style="font-size:28px;">📷</div>
-                <div id="photoText" style="font-size:11px;color:var(--text3);margin-top:4px;">Upload</div>
-                <img id="photoImg" style="display:none;width:100%;height:100%;object-fit:cover;" src="" alt="">
-              </div>
+        <!-- Personal Information -->
+        <div class="cv-section-card">
+          <div class="cv-section-header" onclick="toggleSection('personal')">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-size:18px;">👤</span>
               <div>
-                <div style="font-size:13px;color:var(--text2);line-height:1.5;">Add a professional photo.<br>Auto-cropped to square.</div>
-                <button type="button" id="removePhotoBtn" onclick="removePhoto()" style="display:none;margin-top:8px;background:none;border:1px solid #e63946;color:#e63946;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">Remove Photo</button>
+                <div class="section-title">Personal Information</div>
+                <div id="personal-preview" class="section-preview-txt">Your name &amp; contact details</div>
               </div>
-              <input type="file" id="photoInput" accept="image/*" style="display:none;" onchange="handlePhotoUpload(this)">
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div id="personal-dot" class="section-dot"></div>
+              <span id="personal-arrow" class="section-arrow">▼</span>
+            </div>
+          </div>
+          <div id="section-personal" style="padding:16px;border-top:1px solid var(--border);">
+            <div class="form-grid full">
+              <div class="form-row"><label>Full Name</label><input id="f-name" placeholder="Jane Smith" oninput="updatePreview()"></div>
+              <div class="form-row"><label>Job Title / Target Role</label><input id="f-jobtitle" placeholder="Senior Marketing Manager" oninput="updatePreview()"></div>
+            </div>
+            <div class="form-grid" style="margin-top:10px;">
+              <div class="form-row"><label>Email</label><input id="f-email" type="email" placeholder="jane@email.com" oninput="updatePreview()"></div>
+              <div class="form-row"><label>Phone</label><input id="f-phone" placeholder="+61 400 000 000" oninput="updatePreview()"></div>
+              <div class="form-row"><label>Location</label><input id="f-location" placeholder="Sydney, Australia" oninput="updatePreview()"></div>
+              <div class="form-row"><label>LinkedIn (optional)</label><input id="f-linkedin" placeholder="linkedin.com/in/janesmith" oninput="updatePreview()"></div>
+            </div>
+            <div class="form-row" style="margin-top:12px;">
+              <label>Profile Photo <span style="font-weight:400;color:var(--text3);font-size:12px;">(optional — shows in premium templates)</span></label>
+              <div style="display:flex;align-items:center;gap:14px;margin-top:8px;">
+                <div id="photoPreview" onclick="document.getElementById('photoInput').click()" style="width:100px;height:100px;border-radius:50%;border:2px dashed var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;background:var(--surface2);flex-shrink:0;">
+                  <div id="photoIcon" style="font-size:28px;">📷</div>
+                  <div id="photoText" style="font-size:11px;color:var(--text3);margin-top:4px;">Upload</div>
+                  <img id="photoImg" style="display:none;width:100%;height:100%;object-fit:cover;" src="" alt="">
+                </div>
+                <div>
+                  <div style="font-size:13px;color:var(--text2);line-height:1.5;">Add a professional photo.<br>Auto-cropped to square.</div>
+                  <button type="button" id="removePhotoBtn" onclick="removePhoto()" style="display:none;margin-top:8px;background:none;border:1px solid #e63946;color:#e63946;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">Remove Photo</button>
+                </div>
+                <input type="file" id="photoInput" accept="image/*" style="display:none;" onchange="handlePhotoUpload(this)">
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- Summary -->
-        <div class="form-section">
-          <div class="form-section-hdr">
-            <h3>Professional Summary</h3>
-            <button class="ai-btn" id="ai-summary-btn" onclick="aiGenSummary()">✨ Generate</button>
+        <!-- Professional Summary -->
+        <div class="cv-section-card">
+          <div class="cv-section-header" onclick="toggleSection('summary')">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-size:18px;">✍️</span>
+              <div>
+                <div class="section-title">Professional Summary</div>
+                <div id="summary-preview" class="section-preview-txt">Your professional overview</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <button class="ai-btn" id="ai-summary-btn" onclick="aiGenSummary();event.stopPropagation();" style="padding:5px 10px;font-size:11px;">✨ AI</button>
+              <span id="summary-arrow" class="section-arrow">▼</span>
+            </div>
           </div>
-          <div class="cv-status" id="summary-status"></div>
-          <div class="form-row">
-            <textarea id="f-summary" placeholder="Write 2-3 sentences about your experience, key strengths and what you bring to the role. Or click ✨ Generate to let AI write it." oninput="updatePreview()"></textarea>
+          <div id="section-summary" style="padding:16px;border-top:1px solid var(--border);display:none;">
+            <div class="cv-status" id="summary-status"></div>
+            <div class="form-row">
+              <textarea id="f-summary" placeholder="Write 2-3 sentences about your experience, key strengths and what you bring to the role. Or click ✨ AI to generate." oninput="updatePreview()"></textarea>
+            </div>
           </div>
         </div>
 
-        <!-- Experience -->
-        <div class="form-section">
-          <div class="form-section-hdr"><h3>Work Experience</h3></div>
-          <div id="exp-list"></div>
-          <button class="add-btn" onclick="addExp()">+ Add Position</button>
+        <!-- Work Experience -->
+        <div class="cv-section-card">
+          <div class="cv-section-header" onclick="toggleSection('experience')">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-size:18px;">💼</span>
+              <div>
+                <div class="section-title">Work Experience</div>
+                <div id="experience-preview" class="section-preview-txt">Your positions &amp; roles</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div id="experience-dot" class="section-dot"></div>
+              <span id="experience-arrow" class="section-arrow">▼</span>
+            </div>
+          </div>
+          <div id="section-experience" style="padding:16px;border-top:1px solid var(--border);display:none;">
+            <div id="exp-list"></div>
+            <button class="add-btn" onclick="addExp()">+ Add Position</button>
+          </div>
         </div>
 
         <!-- Education -->
-        <div class="form-section">
-          <div class="form-section-hdr"><h3>Education</h3></div>
-          <div id="edu-list"></div>
-          <button class="add-btn" onclick="addEdu()">+ Add Education</button>
+        <div class="cv-section-card">
+          <div class="cv-section-header" onclick="toggleSection('education')">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-size:18px;">🎓</span>
+              <div>
+                <div class="section-title">Education</div>
+                <div id="education-preview" class="section-preview-txt">Your qualifications</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div id="education-dot" class="section-dot"></div>
+              <span id="education-arrow" class="section-arrow">▼</span>
+            </div>
+          </div>
+          <div id="section-education" style="padding:16px;border-top:1px solid var(--border);display:none;">
+            <div id="edu-list"></div>
+            <button class="add-btn" onclick="addEdu()">+ Add Education</button>
+          </div>
         </div>
 
         <!-- Skills -->
-        <div class="form-section">
-          <div class="form-section-hdr"><h3>Skills</h3></div>
-          <div class="form-row">
-            <label>Skills (comma separated)</label>
-            <input id="f-skills" placeholder="Project Management, Excel, Python, Leadership, Agile..." oninput="updatePreview()">
+        <div class="cv-section-card">
+          <div class="cv-section-header" onclick="toggleSection('skills')">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-size:18px;">⚡</span>
+              <div>
+                <div class="section-title">Skills</div>
+                <div id="skills-preview" class="section-preview-txt">Comma-separated skills</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div id="skills-dot" class="section-dot"></div>
+              <span id="skills-arrow" class="section-arrow">▼</span>
+            </div>
+          </div>
+          <div id="section-skills" style="padding:16px;border-top:1px solid var(--border);display:none;">
+            <div class="form-row">
+              <label>Skills (comma separated)</label>
+              <input id="f-skills" placeholder="Project Management, Excel, Python, Leadership, Agile..." oninput="updatePreview()">
+            </div>
           </div>
         </div>
 
         <!-- Certifications -->
-        <div class="form-section">
-          <div class="form-section-hdr"><h3>Certifications <span style="font-weight:400;color:var(--text3);font-size:12px;">(optional)</span></h3></div>
-          <div class="form-row">
-            <input id="f-certs" placeholder="AWS Certified Solutions Architect, PMP, IELTS 8.0..." oninput="updatePreview()">
+        <div class="cv-section-card">
+          <div class="cv-section-header" onclick="toggleSection('certifications')">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-size:18px;">🏆</span>
+              <div>
+                <div class="section-title">Certifications <span style="font-weight:400;font-size:12px;color:var(--text3);">(optional)</span></div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span id="certifications-arrow" class="section-arrow">▼</span>
+            </div>
+          </div>
+          <div id="section-certifications" style="padding:16px;border-top:1px solid var(--border);display:none;">
+            <div class="form-row">
+              <input id="f-certs" placeholder="AWS Certified Solutions Architect, PMP, IELTS 8.0..." oninput="updatePreview()">
+            </div>
           </div>
         </div>
 
         <!-- Languages -->
-        <div class="form-section">
-          <h3>Languages</h3>
-          <div id="languagesList"></div>
-          <button onclick="addLanguage()" class="btn-add">+ Add Language</button>
+        <div class="cv-section-card">
+          <div class="cv-section-header" onclick="toggleSection('languages')">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-size:18px;">🌐</span>
+              <div>
+                <div class="section-title">Languages <span style="font-weight:400;font-size:12px;color:var(--text3);">(optional)</span></div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span id="languages-arrow" class="section-arrow">▼</span>
+            </div>
+          </div>
+          <div id="section-languages" style="padding:16px;border-top:1px solid var(--border);display:none;">
+            <div id="languagesList"></div>
+            <button onclick="addLanguage()" class="btn-add">+ Add Language</button>
+          </div>
         </div>
 
         <!-- Availability -->
-        <div class="form-section">
-          <h3>Availability</h3>
-          <div class="form-grid">
-            <div class="form-row">
-              <label>Available From</label>
-              <input type="date" id="availableFrom" oninput="updatePreview()">
-            </div>
-            <div class="form-row">
-              <label>Notice Period</label>
-              <select id="noticePeriod" onchange="updatePreview()">
-                <option value="">Select notice period</option>
-                <option value="Immediately available">Immediately available</option>
-                <option value="1 week notice">1 week notice</option>
-                <option value="2 weeks notice">2 weeks notice</option>
-                <option value="1 month notice">1 month notice</option>
-                <option value="2 months notice">2 months notice</option>
-                <option value="3 months notice">3 months notice</option>
-              </select>
-            </div>
-          </div>
-          <div class="form-grid" style="margin-top:10px;">
-            <div class="form-row">
-              <label>Work Type Preference</label>
-              <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;">
-                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;font-size:14px;"><input type="checkbox" id="workFull" value="Full-time" onchange="updatePreview()"> Full-time</label>
-                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;font-size:14px;"><input type="checkbox" id="workPart" value="Part-time" onchange="updatePreview()"> Part-time</label>
-                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;font-size:14px;"><input type="checkbox" id="workContract" value="Contract" onchange="updatePreview()"> Contract</label>
-                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;font-size:14px;"><input type="checkbox" id="workFreelance" value="Freelance" onchange="updatePreview()"> Freelance</label>
-                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;font-size:14px;"><input type="checkbox" id="workRemote" value="Remote" onchange="updatePreview()"> Remote</label>
-                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;font-size:14px;"><input type="checkbox" id="workHybrid" value="Hybrid" onchange="updatePreview()"> Hybrid</label>
+        <div class="cv-section-card">
+          <div class="cv-section-header" onclick="toggleSection('availability')">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-size:18px;">📅</span>
+              <div>
+                <div class="section-title">Availability <span style="font-weight:400;font-size:12px;color:var(--text3);">(optional)</span></div>
               </div>
             </div>
-            <div class="form-row">
-              <label>Work Location</label>
-              <select id="workLocation" onchange="updatePreview()">
-                <option value="">Select preference</option>
-                <option value="On-site only">On-site only</option>
-                <option value="Remote only">Remote only</option>
-                <option value="Hybrid (flexible)">Hybrid (flexible)</option>
-                <option value="Open to relocation">Open to relocation</option>
-                <option value="Willing to travel">Willing to travel</option>
-              </select>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span id="availability-arrow" class="section-arrow">▼</span>
             </div>
           </div>
-          <div class="form-row" style="margin-top:10px;">
-            <label>Expected Salary <span style="font-weight:400;color:var(--text3);">(optional)</span></label>
-            <input type="text" id="expectedSalary" placeholder="e.g. $80,000 – $100,000 AUD per year" oninput="updatePreview()">
+          <div id="section-availability" style="padding:16px;border-top:1px solid var(--border);display:none;">
+            <div class="form-grid">
+              <div class="form-row">
+                <label>Available From</label>
+                <input type="date" id="availableFrom" oninput="updatePreview()">
+              </div>
+              <div class="form-row">
+                <label>Notice Period</label>
+                <select id="noticePeriod" onchange="updatePreview()">
+                  <option value="">Select notice period</option>
+                  <option value="Immediately available">Immediately available</option>
+                  <option value="1 week notice">1 week notice</option>
+                  <option value="2 weeks notice">2 weeks notice</option>
+                  <option value="1 month notice">1 month notice</option>
+                  <option value="2 months notice">2 months notice</option>
+                  <option value="3 months notice">3 months notice</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-grid" style="margin-top:10px;">
+              <div class="form-row">
+                <label>Work Type Preference</label>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;">
+                  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;font-size:14px;"><input type="checkbox" id="workFull" value="Full-time" onchange="updatePreview()"> Full-time</label>
+                  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;font-size:14px;"><input type="checkbox" id="workPart" value="Part-time" onchange="updatePreview()"> Part-time</label>
+                  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;font-size:14px;"><input type="checkbox" id="workContract" value="Contract" onchange="updatePreview()"> Contract</label>
+                  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;font-size:14px;"><input type="checkbox" id="workFreelance" value="Freelance" onchange="updatePreview()"> Freelance</label>
+                  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;font-size:14px;"><input type="checkbox" id="workRemote" value="Remote" onchange="updatePreview()"> Remote</label>
+                  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;font-size:14px;"><input type="checkbox" id="workHybrid" value="Hybrid" onchange="updatePreview()"> Hybrid</label>
+                </div>
+              </div>
+              <div class="form-row">
+                <label>Work Location</label>
+                <select id="workLocation" onchange="updatePreview()">
+                  <option value="">Select preference</option>
+                  <option value="On-site only">On-site only</option>
+                  <option value="Remote only">Remote only</option>
+                  <option value="Hybrid (flexible)">Hybrid (flexible)</option>
+                  <option value="Open to relocation">Open to relocation</option>
+                  <option value="Willing to travel">Willing to travel</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row" style="margin-top:10px;">
+              <label>Expected Salary <span style="font-weight:400;color:var(--text3);">(optional)</span></label>
+              <input type="text" id="expectedSalary" placeholder="e.g. $80,000 – $100,000 AUD per year" oninput="updatePreview()">
+            </div>
           </div>
         </div>
 
         <!-- Volunteer & Activities -->
-        <div class="form-section">
-          <h3>Volunteer &amp; Activities <span style="font-weight:400;font-size:13px;color:var(--text3);">(optional)</span></h3>
-          <div class="form-row">
-            <textarea id="volunteerWork" rows="3" placeholder="e.g. Volunteer teacher at local school (2022–2023), Member of Student Council" oninput="updatePreview()"></textarea>
+        <div class="cv-section-card">
+          <div class="cv-section-header" onclick="toggleSection('volunteer')">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-size:18px;">🤝</span>
+              <div>
+                <div class="section-title">Volunteer &amp; Activities <span style="font-weight:400;font-size:12px;color:var(--text3);">(optional)</span></div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span id="volunteer-arrow" class="section-arrow">▼</span>
+            </div>
+          </div>
+          <div id="section-volunteer" style="padding:16px;border-top:1px solid var(--border);display:none;">
+            <div class="form-row">
+              <textarea id="volunteerWork" rows="3" placeholder="e.g. Volunteer teacher at local school (2022–2023), Member of Student Council" oninput="updatePreview()"></textarea>
+            </div>
           </div>
         </div>
 
         <!-- References -->
-        <div class="form-section">
-          <h3>References</h3>
-          <div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;">
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;font-size:14px;">
-              <input type="radio" name="references" value="Available upon request" checked onchange="toggleRefSection(this)"> Available upon request
-            </label>
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;font-size:14px;">
-              <input type="radio" name="references" value="custom" onchange="toggleRefSection(this)"> Add references
-            </label>
+        <div class="cv-section-card">
+          <div class="cv-section-header" onclick="toggleSection('references')">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-size:18px;">📋</span>
+              <div>
+                <div class="section-title">References <span style="font-weight:400;font-size:12px;color:var(--text3);">(optional)</span></div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span id="references-arrow" class="section-arrow">▼</span>
+            </div>
           </div>
-          <div id="refSection" style="display:none;">
-            <div id="referencesList"></div>
-            <button onclick="addReference()" class="btn-add">+ Add Reference</button>
+          <div id="section-references" style="padding:16px;border-top:1px solid var(--border);display:none;">
+            <div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;">
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;font-size:14px;">
+                <input type="radio" name="references" value="Available upon request" checked onchange="toggleRefSection(this)"> Available upon request
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;font-size:14px;">
+                <input type="radio" name="references" value="custom" onchange="toggleRefSection(this)"> Add references
+              </label>
+            </div>
+            <div id="refSection" style="display:none;">
+              <div id="referencesList"></div>
+              <button onclick="addReference()" class="btn-add">+ Add Reference</button>
+            </div>
           </div>
         </div>
 
         <!-- Awards & Achievements -->
-        <div class="form-section">
-          <h3>Awards &amp; Achievements <span style="font-weight:400;font-size:13px;color:var(--text3);">(optional)</span></h3>
-          <div id="awardsList"></div>
-          <button onclick="addAward()" class="btn-add">+ Add Award</button>
+        <div class="cv-section-card">
+          <div class="cv-section-header" onclick="toggleSection('awards')">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-size:18px;">🥇</span>
+              <div>
+                <div class="section-title">Awards &amp; Achievements <span style="font-weight:400;font-size:12px;color:var(--text3);">(optional)</span></div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span id="awards-arrow" class="section-arrow">▼</span>
+            </div>
+          </div>
+          <div id="section-awards" style="padding:16px;border-top:1px solid var(--border);display:none;">
+            <div id="awardsList"></div>
+            <button onclick="addAward()" class="btn-add">+ Add Award</button>
+          </div>
         </div>
 
         <!-- Projects -->
-        <div class="form-section">
-          <h3>Projects <span style="font-weight:400;font-size:13px;color:var(--text3);">(optional)</span></h3>
-          <div id="projectsList"></div>
-          <button onclick="addProject()" class="btn-add">+ Add Project</button>
+        <div class="cv-section-card">
+          <div class="cv-section-header" onclick="toggleSection('projects')">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-size:18px;">🚀</span>
+              <div>
+                <div class="section-title">Projects <span style="font-weight:400;font-size:12px;color:var(--text3);">(optional)</span></div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span id="projects-arrow" class="section-arrow">▼</span>
+            </div>
+          </div>
+          <div id="section-projects" style="padding:16px;border-top:1px solid var(--border);display:none;">
+            <div id="projectsList"></div>
+            <button onclick="addProject()" class="btn-add">+ Add Project</button>
+          </div>
         </div>
 
       </div><!-- /form-panel -->
 
+
+
       <!-- RIGHT: Preview -->
       <div class="preview-panel">
-        <div class="preview-top">
-          <div class="tpl-selector" style="flex-wrap:wrap;gap:5px;">
-            <button class="tpl-btn active" id="tpl-classic" onclick="setTemplate('classic')">Classic</button>
-            <button class="tpl-btn" id="tpl-modern" onclick="setTemplate('modern')">Modern</button>
-            <button class="tpl-btn" id="tpl-minimal" onclick="setTemplate('minimal')">Minimal</button>
-            <button class="tpl-btn" id="tpl-executive" onclick="setTemplate('executive')">Executive</button>
-            <button class="tpl-btn" id="tpl-creative" onclick="setTemplate('creative')">Creative</button>
-            <button class="tpl-btn" id="tpl-compact" onclick="setTemplate('compact')">Compact</button>
-            <button class="tpl-btn" id="tpl-timeline" onclick="setTemplate('timeline')">Timeline</button>
-            <button class="tpl-btn" id="tpl-tech" onclick="setTemplate('tech')">Tech</button>
-            <button class="tpl-btn" id="tpl-navy" onclick="setTemplate('navy')">Navy</button>
-            <button class="tpl-btn" id="tpl-burgundy" onclick="setTemplate('burgundy')">Burgundy</button>
-            <button class="tpl-btn" id="tpl-teal" onclick="setTemplate('teal')">Teal</button>
-            <button class="tpl-btn" id="tpl-slate" onclick="setTemplate('slate')">Slate</button>
-            <button class="tpl-btn" id="tpl-terracotta" onclick="setTemplate('terracotta')">Terracotta</button>
-            <button class="tpl-btn" id="tpl-bold" onclick="setTemplate('bold')">Bold</button>
-            <button class="tpl-btn" id="tpl-academic" onclick="setTemplate('academic')">Academic</button>
-            <button class="tpl-btn" id="tpl-elegant" onclick="setTemplate('elegant')">Elegant</button>
-            <button class="tpl-btn" id="tpl-purple" onclick="setTemplate('purple')">Purple</button>
-            <button class="tpl-btn" id="tpl-warm" onclick="setTemplate('warm')">Warm</button>
-            <button class="tpl-btn" id="tpl-professional" onclick="setTemplate('professional')">Professional</button>
-            <button class="tpl-btn" id="tpl-gradient" onclick="setTemplate('gradient')">Gradient</button>
-            <button class="tpl-btn" id="tpl-exec-pro" onclick="setTemplate('exec-pro')">Executive Pro <span style="font-size:9px;background:#f0fdf4;color:#2d6a4f;border:1px solid #86efac;padding:1px 5px;border-radius:4px;margin-left:3px;">C-Suite</span></button>
-            <button class="tpl-btn" id="tpl-modern-blue" onclick="setTemplate('modern-blue')">Modern Blue <span style="font-size:9px;background:#eff6ff;color:#1565c0;border:1px solid #bfdbfe;padding:1px 5px;border-radius:4px;margin-left:3px;">Corporate</span></button>
-            <button class="tpl-btn" id="tpl-minimal-serif" onclick="setTemplate('minimal-serif')">Minimal Serif <span style="font-size:9px;background:#faf5ff;color:#6d28d9;border:1px solid #ddd6fe;padding:1px 5px;border-radius:4px;margin-left:3px;">Academic</span></button>
-            <button class="tpl-btn" id="tpl-bold-tech" onclick="setTemplate('bold-tech')">Bold Tech <span style="font-size:9px;background:#f0fdf4;color:#2d6a4f;border:1px solid #86efac;padding:1px 5px;border-radius:4px;margin-left:3px;">Developer</span></button>
-            <button class="tpl-btn" id="tpl-elegant-gold" onclick="setTemplate('elegant-gold')">Elegant Gold <span style="font-size:9px;background:#fffbeb;color:#92400e;border:1px solid #fde68a;padding:1px 5px;border-radius:4px;margin-left:3px;">Finance</span></button>
-            <button class="tpl-btn" id="tpl-modern-minimal" onclick="setTemplate('modern-minimal')">Modern Minimal <span style="font-size:9px;background:#f0fdf4;color:#2d6a4f;border:1px solid #86efac;padding:1px 5px;border-radius:4px;margin-left:3px;">Universal</span></button>
-            <button class="tpl-btn" id="tpl-vibrant-purple" onclick="setTemplate('vibrant-purple')">Vibrant Purple <span style="font-size:9px;background:#faf5ff;color:#6d28d9;border:1px solid #ddd6fe;padding:1px 5px;border-radius:4px;margin-left:3px;">Creative</span></button>
-            <button class="tpl-btn" id="tpl-creative-split" onclick="setTemplate('creative-split')">Creative Split <span style="font-size:9px;background:#fff1f2;color:#9f1239;border:1px solid #fecdd3;padding:1px 5px;border-radius:4px;margin-left:3px;">Designer</span></button>
-            <button class="tpl-btn" id="tpl-timeline-cv" onclick="setTemplate('timeline-cv')">Timeline <span style="font-size:9px;background:#f0fdf4;color:#2d6a4f;border:1px solid #86efac;padding:1px 5px;border-radius:4px;margin-left:3px;">ATS ✓</span></button>
-            <button class="tpl-btn" id="tpl-skill-bubbles" onclick="setTemplate('skill-bubbles')">Skill Bubbles <span style="font-size:9px;background:#eff6ff;color:#1565c0;border:1px solid #bfdbfe;padding:1px 5px;border-radius:4px;margin-left:3px;">Creative</span></button>
-            <button class="tpl-btn" id="tpl-gradient-header" onclick="setTemplate('gradient-header')">Gradient+ <span style="font-size:9px;background:#faf5ff;color:#6d28d9;border:1px solid #ddd6fe;padding:1px 5px;border-radius:4px;margin-left:3px;">Premium</span></button>
-            <button class="tpl-btn" id="tpl-two-tone" onclick="setTemplate('two-tone')">Two Tone <span style="font-size:9px;background:#f0fdf4;color:#2d6a4f;border:1px solid #86efac;padding:1px 5px;border-radius:4px;margin-left:3px;">ATS ✓</span></button>
-            <button class="tpl-btn" id="tpl-newspaper" onclick="setTemplate('newspaper')">Newspaper <span style="font-size:9px;background:#fffbeb;color:#92400e;border:1px solid #fde68a;padding:1px 5px;border-radius:4px;margin-left:3px;">Writer</span></button>
-            <button class="tpl-btn" id="tpl-corner-accent" onclick="setTemplate('corner-accent')">Corner <span style="font-size:9px;background:#fff1f2;color:#9f1239;border:1px solid #fecdd3;padding:1px 5px;border-radius:4px;margin-left:3px;">Bold</span></button>
-            <button class="tpl-btn" id="tpl-border-frame" onclick="setTemplate('border-frame')">Framed <span style="font-size:9px;background:#fffbeb;color:#92400e;border:1px solid #fde68a;padding:1px 5px;border-radius:4px;margin-left:3px;">Executive</span></button>
-            <button class="tpl-btn" id="tpl-modern-photo" onclick="setTemplate('modern-photo')">Photo CV <span style="font-size:9px;background:#f0fdf4;color:#2d6a4f;border:1px solid #86efac;padding:1px 5px;border-radius:4px;margin-left:3px;">Portrait</span></button>
-            <button class="tpl-btn" id="surprise-btn" onclick="surpriseMe()" style="background:linear-gradient(135deg,#2d6a4f,#52b788);color:white;border-color:transparent;">🎲 Surprise Me</button>
+
+        <!-- Preview header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius) var(--radius) 0 0;border-bottom:none;">
+          <span style="font-size:13px;font-weight:700;color:var(--text);font-family:'Syne',sans-serif;">Live Preview</span>
+          <div style="display:flex;gap:6px;">
+            <button id="customizeBtn" onclick="toggleCustomize()" style="padding:5px 12px;background:white;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text2);font-family:'DM Sans',sans-serif;transition:all .15s;">✏️ Customize</button>
+            <button onclick="openFullPreview()" title="Open full screen" style="padding:5px 10px;background:white;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;font-size:13px;" title="Full screen preview">⛶</button>
           </div>
-          <div style="display:flex;align-items:center;gap:10px;padding:7px 2px;flex-wrap:wrap;border-top:1px solid var(--border);margin-top:6px;">
-            <span style="font-size:11px;font-weight:600;color:var(--text2);">Accent:</span>
-            <input type="color" id="cvAccentInput" value="#2d6a4f" onchange="setAccentColor(this.value)" style="width:26px;height:26px;border:1px solid var(--border);border-radius:5px;cursor:pointer;padding:2px;" title="Custom">
-            <button onclick="setAccentColor('#2d6a4f')" style="width:20px;height:20px;background:#2d6a4f;border:2px solid transparent;border-radius:4px;cursor:pointer;" title="Forest"></button>
-            <button onclick="setAccentColor('#1565c0')" style="width:20px;height:20px;background:#1565c0;border:2px solid transparent;border-radius:4px;cursor:pointer;" title="Blue"></button>
-            <button onclick="setAccentColor('#c9a84c')" style="width:20px;height:20px;background:#c9a84c;border:2px solid transparent;border-radius:4px;cursor:pointer;" title="Gold"></button>
-            <button onclick="setAccentColor('#7c3aed')" style="width:20px;height:20px;background:#7c3aed;border:2px solid transparent;border-radius:4px;cursor:pointer;" title="Purple"></button>
-            <button onclick="setAccentColor('#e63946')" style="width:20px;height:20px;background:#e63946;border:2px solid transparent;border-radius:4px;cursor:pointer;" title="Red"></button>
-            <button onclick="setAccentColor('#f97316')" style="width:20px;height:20px;background:#f97316;border:2px solid transparent;border-radius:4px;cursor:pointer;" title="Orange"></button>
-            <button onclick="setAccentColor('#1a1814')" style="width:20px;height:20px;background:#1a1814;border:2px solid transparent;border-radius:4px;cursor:pointer;" title="Black"></button>
-            <div style="width:1px;height:18px;background:var(--border);margin:0 2px;"></div>
-            <span style="font-size:11px;font-weight:600;color:var(--text2);">Font:</span>
-            <select id="cvFontSelector" onchange="setCVFont(this.value)" style="height:28px;border:1.5px solid var(--border);border-radius:6px;padding:0 8px;font-size:12px;cursor:pointer;background:white;min-width:150px;">
+        </div>
+
+        <!-- Template selector -->
+        <div style="padding:10px 12px;background:var(--surface);border:1.5px solid var(--border);border-top:none;border-bottom:none;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <span style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;">Template</span>
+            <button id="templateGalleryBtn" onclick="toggleTemplateGallery()" style="font-size:11px;color:var(--accent);background:none;border:none;cursor:pointer;font-weight:700;font-family:'DM Sans',sans-serif;padding:2px 4px;">See all 36 →</button>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
+            <div onclick="setTemplate('classic')" id="qtpl-classic" style="border:2px solid var(--accent);border-radius:8px;padding:6px 4px;cursor:pointer;text-align:center;background:#f0fdf4;">
+              <div style="height:34px;background:white;border:1px solid #e2ddd4;border-radius:3px;margin-bottom:4px;overflow:hidden;padding:4px 4px 2px;display:flex;flex-direction:column;gap:2px;"><div style="height:3px;background:#2d6a4f;border-radius:1px;"></div><div style="height:2px;background:#e2ddd4;border-radius:1px;width:80%;"></div><div style="height:2px;background:#e2ddd4;border-radius:1px;width:60%;"></div></div>
+              <div style="font-size:10px;font-weight:700;color:var(--text);">Classic</div>
+            </div>
+            <div onclick="setTemplate('modern')" id="qtpl-modern" style="border:1.5px solid var(--border);border-radius:8px;padding:6px 4px;cursor:pointer;text-align:center;background:white;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="if(currentTemplate!=='modern')this.style.borderColor='var(--border)'">
+              <div style="height:34px;border:1px solid #e2ddd4;border-radius:3px;margin-bottom:4px;overflow:hidden;display:flex;"><div style="width:36%;background:#2d6a4f;"></div><div style="flex:1;padding:3px;display:flex;flex-direction:column;gap:2px;"><div style="height:2px;background:#e2ddd4;border-radius:1px;"></div><div style="height:2px;background:#e2ddd4;border-radius:1px;width:70%;"></div></div></div>
+              <div style="font-size:10px;font-weight:700;color:var(--text);">Modern</div>
+            </div>
+            <div onclick="setTemplate('exec-pro')" id="qtpl-exec-pro" style="border:1.5px solid var(--border);border-radius:8px;padding:6px 4px;cursor:pointer;text-align:center;background:white;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="if(currentTemplate!=='exec-pro')this.style.borderColor='var(--border)'">
+              <div style="height:34px;border:1px solid #e2ddd4;border-radius:3px;margin-bottom:4px;overflow:hidden;"><div style="height:14px;background:#1a3a2a;display:flex;align-items:center;padding:0 4px;"><div style="width:30px;height:2px;background:rgba(255,255,255,0.4);border-radius:1px;"></div></div><div style="padding:2px 3px;display:flex;flex-direction:column;gap:2px;"><div style="height:2px;background:#e2ddd4;border-radius:1px;"></div><div style="height:2px;background:#e2ddd4;border-radius:1px;width:70%;"></div></div></div>
+              <div style="font-size:10px;font-weight:700;color:var(--text);">Executive</div>
+              <div style="font-size:9px;color:var(--accent);line-height:1;">✨ Pro</div>
+            </div>
+            <div onclick="surpriseMe()" style="border:1.5px solid var(--border);border-radius:8px;padding:6px 4px;cursor:pointer;text-align:center;background:white;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+              <div style="height:34px;border:1px solid #e2ddd4;border-radius:3px;margin-bottom:4px;display:flex;align-items:center;justify-content:center;font-size:20px;background:linear-gradient(135deg,#f0fdf4,#eff6ff);">🎲</div>
+              <div style="font-size:10px;font-weight:700;color:var(--text);">Surprise</div>
+            </div>
+          </div>
+
+          <!-- Full gallery (hidden) -->
+          <div id="templateGallery" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+            <div style="max-height:280px;overflow-y:auto;padding-right:4px;">
+              <div style="font-size:10px;font-weight:700;color:var(--accent);letter-spacing:1px;text-transform:uppercase;margin-bottom:7px;">✨ Premium (16)</div>
+              <div id="premiumTemplateGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:12px;"></div>
+              <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:1px;text-transform:uppercase;margin-bottom:7px;">Classic (20)</div>
+              <div id="classicTemplateGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;"></div>
+            </div>
+            <button onclick="toggleTemplateGallery()" style="margin-top:8px;width:100%;padding:6px;background:none;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;color:var(--text2);font-family:'DM Sans',sans-serif;">✕ Close gallery</button>
+          </div>
+        </div>
+
+        <!-- Customize panel (hidden) -->
+        <div id="customizePanel" style="display:none;padding:12px 14px;background:#f0fdf4;border:1.5px solid #b7e4c7;border-top:none;border-bottom:none;">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+            <span style="font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px;min-width:40px;">Color:</span>
+            <input type="color" id="cvAccentInput" value="#2d6a4f" onchange="setAccentColor(this.value)" style="width:24px;height:24px;border:1px solid var(--border);border-radius:4px;cursor:pointer;padding:1px;" title="Custom color">
+            <button onclick="setAccentColor('#2d6a4f')" style="width:18px;height:18px;background:#2d6a4f;border:2px solid transparent;border-radius:3px;cursor:pointer;" title="Forest"></button>
+            <button onclick="setAccentColor('#1565c0')" style="width:18px;height:18px;background:#1565c0;border:2px solid transparent;border-radius:3px;cursor:pointer;" title="Blue"></button>
+            <button onclick="setAccentColor('#7c3aed')" style="width:18px;height:18px;background:#7c3aed;border:2px solid transparent;border-radius:3px;cursor:pointer;" title="Purple"></button>
+            <button onclick="setAccentColor('#c9a84c')" style="width:18px;height:18px;background:#c9a84c;border:2px solid transparent;border-radius:3px;cursor:pointer;" title="Gold"></button>
+            <button onclick="setAccentColor('#e63946')" style="width:18px;height:18px;background:#e63946;border:2px solid transparent;border-radius:3px;cursor:pointer;" title="Red"></button>
+            <button onclick="setAccentColor('#f97316')" style="width:18px;height:18px;background:#f97316;border:2px solid transparent;border-radius:3px;cursor:pointer;" title="Orange"></button>
+            <button onclick="setAccentColor('#1a1814')" style="width:18px;height:18px;background:#1a1814;border:2px solid transparent;border-radius:3px;cursor:pointer;" title="Dark"></button>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+            <span style="font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px;min-width:40px;">Font:</span>
+            <select id="cvFontSelector" onchange="setCVFont(this.value)" style="height:26px;border:1px solid var(--border);border-radius:5px;padding:0 6px;font-size:11px;cursor:pointer;background:white;flex:1;min-width:0;">
               <optgroup label="── Sans Serif ──">
                 <option value="">Default</option>
                 <option value="'Inter',-apple-system,sans-serif">Inter (Modern)</option>
@@ -946,90 +1119,53 @@ nav div a:hover::after { width: 100%; }
               </optgroup>
             </select>
           </div>
-          <div class="dl-row">
-            <button class="dl-btn" onclick="downloadPDF()">⬇ PDF</button>
-            <button class="dl-btn" onclick="downloadDOCX()">⬇ DOCX</button>
-            <button class="dl-btn secondary" onclick="copyCV()">⎘ Copy</button>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+            <span style="font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px;min-width:40px;">Decor:</span>
+            <button onclick="addDecorator('line-simple')" style="padding:3px 9px;background:white;border:1px solid var(--border);border-radius:12px;cursor:pointer;font-size:11px;font-family:'DM Sans',sans-serif;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">─ Line</button>
+            <button onclick="addDecorator('line-accent')" style="padding:3px 9px;background:white;border:1px solid var(--border);border-radius:12px;cursor:pointer;font-size:11px;font-family:'DM Sans',sans-serif;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">─ Accent</button>
+            <button onclick="addDecorator('line-diamond')" style="padding:3px 9px;background:white;border:1px solid var(--border);border-radius:12px;cursor:pointer;font-size:11px;font-family:'DM Sans',sans-serif;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">◆ Diamond</button>
+            <button onclick="addDecorator('line-double')" style="padding:3px 9px;background:white;border:1px solid var(--border);border-radius:12px;cursor:pointer;font-size:11px;font-family:'DM Sans',sans-serif;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">═ Double</button>
+            <button onclick="addDecorator('shape-leftbar')" style="padding:3px 9px;background:white;border:1px solid var(--border);border-radius:12px;cursor:pointer;font-size:11px;font-family:'DM Sans',sans-serif;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">▌ Left Bar</button>
+            <button onclick="addDecorator('space-medium')" style="padding:3px 9px;background:white;border:1px solid var(--border);border-radius:12px;cursor:pointer;font-size:11px;font-family:'DM Sans',sans-serif;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">↕ Space</button>
+            <span id="decoratorCount" style="font-size:11px;color:var(--text3);"></span>
+            <button onclick="cvDecorators=[];updatePreview();showToast('Decorators cleared');" style="padding:3px 9px;background:none;border:1px solid #fecaca;color:#e63946;border-radius:12px;cursor:pointer;font-size:11px;font-family:'DM Sans',sans-serif;">Clear</button>
+          </div>
+          <div style="padding-top:10px;border-top:1px solid #b7e4c7;">
+            <button id="editModeBtn" onclick="toggleEditMode()" style="padding:6px 14px;background:var(--accent);color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;font-family:'DM Sans',sans-serif;">✒️ Enable Editing</button>
+            <span style="font-size:11px;color:var(--text3);margin-left:8px;">Click any CV text to edit directly</span>
           </div>
         </div>
-        <!-- ══ Decorators & Shapes Panel ══ -->
-        <div id="decoratorsPanel" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;margin-bottom:12px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="toggleDecorators()">
-            <span style="font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px;">✦ Decorators &amp; Shapes <span style="font-size:11px;font-weight:400;color:var(--text3);">(click to expand)</span></span>
-            <span id="decoratorArrow" style="color:var(--text3);font-size:12px;">▶</span>
-          </div>
-          <div id="decoratorContent" style="display:none;margin-top:12px;">
-            <div style="margin-bottom:14px;">
-              <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Section Dividers</div>
-              <div style="display:flex;flex-wrap:wrap;gap:7px;">
-                <button onclick="addDecorator('line-simple')" style="padding:7px 12px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"><div style="width:60px;height:1px;background:#1a1814;margin:0 auto 3px;"></div>Simple</button>
-                <button onclick="addDecorator('line-double')" style="padding:7px 12px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"><div style="width:60px;border-top:2px solid #1a1814;border-bottom:1px solid #1a1814;height:4px;margin:0 auto 3px;"></div>Double</button>
-                <button onclick="addDecorator('line-dashed')" style="padding:7px 12px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"><div style="width:60px;border-top:2px dashed #6b6660;margin:0 auto 3px;"></div>Dashed</button>
-                <button onclick="addDecorator('line-dotted')" style="padding:7px 12px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"><div style="width:60px;border-top:2px dotted #6b6660;margin:0 auto 3px;"></div>Dotted</button>
-                <button onclick="addDecorator('line-accent')" style="padding:7px 12px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"><div style="width:60px;height:3px;background:var(--accent);margin:0 auto 3px;border-radius:2px;"></div>Accent</button>
-                <button onclick="addDecorator('line-diamond')" style="padding:7px 12px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"><div style="display:flex;align-items:center;gap:3px;justify-content:center;margin-bottom:3px;"><div style="flex:1;height:1px;background:#1a1814;"></div><span style="font-size:8px;">◆</span><div style="flex:1;height:1px;background:#1a1814;"></div></div>Diamond</button>
-                <button onclick="addDecorator('line-wave')" style="padding:7px 12px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"><div style="text-align:center;font-size:9px;letter-spacing:2px;color:#6b6660;margin-bottom:3px;">∼∼∼∼∼</div>Wave</button>
-              </div>
-            </div>
-            <div style="margin-bottom:14px;">
-              <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Shapes &amp; Accents</div>
-              <div style="display:flex;flex-wrap:wrap;gap:7px;">
-                <button onclick="addDecorator('shape-leftbar')" style="padding:7px 12px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"><div style="display:flex;gap:5px;align-items:center;margin-bottom:3px;"><div style="width:3px;height:18px;background:var(--accent);border-radius:2px;"></div><span style="font-size:9px;color:#6b6660;">Section</span></div>Left Bar</button>
-                <button onclick="addDecorator('shape-badge')" style="padding:7px 12px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"><div style="background:var(--accent);color:white;padding:1px 6px;border-radius:3px;font-size:9px;display:inline-block;margin-bottom:3px;">SECTION</div><br>Badge</button>
-                <button onclick="addDecorator('shape-circle')" style="padding:7px 12px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"><div style="width:20px;height:20px;border-radius:50%;background:var(--accent);color:white;font-size:10px;display:flex;align-items:center;justify-content:center;margin:0 auto 3px;">1</div>Circle</button>
-                <button onclick="addDecorator('shape-square')" style="padding:7px 12px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"><div style="width:14px;height:14px;background:var(--accent);margin:0 auto 3px;"></div>Square</button>
-                <button onclick="addDecorator('shape-tag')" style="padding:7px 12px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"><div style="background:#f0fdf4;border:1px solid #86efac;color:#166534;padding:1px 6px;border-radius:10px;font-size:9px;display:inline-block;margin-bottom:3px;">skill</div><br>Tag</button>
-                <button onclick="addDecorator('shape-underline-heading')" style="padding:7px 12px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"><div style="font-size:10px;font-weight:700;border-bottom:2px solid var(--accent);padding-bottom:1px;margin-bottom:3px;">HEADING</div>Underline H</button>
-              </div>
-            </div>
-            <div>
-              <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Spacing</div>
-              <div style="display:flex;flex-wrap:wrap;gap:7px;">
-                <button onclick="addDecorator('space-small')" style="padding:7px 12px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;">+ Small Gap</button>
-                <button onclick="addDecorator('space-medium')" style="padding:7px 12px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;">+ Medium Gap</button>
-                <button onclick="addDecorator('space-large')" style="padding:7px 12px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;">+ Large Gap</button>
-              </div>
-            </div>
-            <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
-              <span id="decoratorCount" style="font-size:11px;color:var(--text3);">No decorators added</span>
-              <button onclick="cvDecorators=[];updatePreview();showToast('Decorators cleared');" style="font-size:11px;color:#e63946;background:none;border:1px solid #fecaca;border-radius:5px;padding:3px 8px;cursor:pointer;">Clear all</button>
-            </div>
-          </div>
-        </div>
-        <div id="cv-fill-notice" class="cv-fill-notice" style="display:none;">
+
+        <!-- Fill notice -->
+        <div id="cv-fill-notice" class="cv-fill-notice" style="display:none;border-radius:0;border-left:1.5px solid var(--border);border-right:1.5px solid var(--border);">
           <span>💡</span>
           <span>Your CV looks a bit light — add more work experience details, bullet points, or skills for a fuller, more competitive resume.</span>
           <button class="cv-fill-notice-close" onclick="dismissFillNotice()" aria-label="Dismiss">×</button>
         </div>
-        <!-- Edit toolbar -->
-        <div id="cvEditToolbar" style="display:flex;gap:8px;padding:10px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius) var(--radius) 0 0;align-items:center;flex-wrap:wrap;">
-          <span style="font-size:13px;font-weight:600;color:var(--text2);margin-right:4px;">Quick Edit:</span>
-          <button onclick="cvFormat('bold')" title="Bold" style="width:32px;height:32px;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;font-weight:700;font-size:14px;">B</button>
-          <button onclick="cvFormat('italic')" title="Italic" style="width:32px;height:32px;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;font-style:italic;font-size:14px;">I</button>
-          <button onclick="cvFormat('underline')" title="Underline" style="width:32px;height:32px;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;text-decoration:underline;font-size:14px;">U</button>
-          <div style="width:1px;height:24px;background:var(--border);margin:0 4px;"></div>
-          <select onchange="cvFontSize(this.value)" style="height:32px;border:1px solid var(--border);border-radius:6px;padding:0 8px;font-size:13px;cursor:pointer;">
+
+        <!-- Quick-edit toolbar (shown when edit mode is on) -->
+        <div id="cvEditToolbar" style="display:none;gap:8px;padding:8px 12px;background:var(--surface2);border:1.5px solid var(--border);border-top:none;border-bottom:none;align-items:center;flex-wrap:wrap;">
+          <span style="font-size:12px;font-weight:600;color:var(--text2);margin-right:2px;">Edit:</span>
+          <button onclick="cvFormat('bold')" title="Bold" style="width:28px;height:28px;border:1px solid var(--border);border-radius:5px;background:white;cursor:pointer;font-weight:700;font-size:13px;">B</button>
+          <button onclick="cvFormat('italic')" title="Italic" style="width:28px;height:28px;border:1px solid var(--border);border-radius:5px;background:white;cursor:pointer;font-style:italic;font-size:13px;">I</button>
+          <button onclick="cvFormat('underline')" title="Underline" style="width:28px;height:28px;border:1px solid var(--border);border-radius:5px;background:white;cursor:pointer;text-decoration:underline;font-size:13px;">U</button>
+          <div style="width:1px;height:20px;background:var(--border);margin:0 2px;"></div>
+          <select onchange="cvFontSize(this.value)" style="height:28px;border:1px solid var(--border);border-radius:5px;padding:0 5px;font-size:12px;cursor:pointer;">
             <option value="">Size</option>
-            <option value="10px">10</option>
-            <option value="11px">11</option>
-            <option value="12px">12</option>
-            <option value="13px">13</option>
-            <option value="14px">14</option>
-            <option value="16px">16</option>
-            <option value="18px">18</option>
-            <option value="20px">20</option>
-            <option value="24px">24</option>
+            <option value="10px">10</option><option value="11px">11</option><option value="12px">12</option>
+            <option value="13px">13</option><option value="14px">14</option><option value="16px">16</option>
+            <option value="18px">18</option><option value="20px">20</option><option value="24px">24</option>
           </select>
-          <div style="display:flex;align-items:center;gap:4px;">
-            <span style="font-size:12px;color:var(--text2);">Color:</span>
-            <input type="color" onchange="cvTextColor(this.value)" value="#1a1814" style="width:32px;height:32px;border:1px solid var(--border);border-radius:6px;cursor:pointer;padding:2px;">
+          <div style="display:flex;align-items:center;gap:3px;">
+            <span style="font-size:11px;color:var(--text2);">Color:</span>
+            <input type="color" onchange="cvTextColor(this.value)" value="#1a1814" style="width:28px;height:28px;border:1px solid var(--border);border-radius:5px;cursor:pointer;padding:2px;">
           </div>
-          <div style="width:1px;height:24px;background:var(--border);margin:0 4px;"></div>
-          <button id="editModeBtn" onclick="toggleEditMode()" style="padding:6px 16px;background:var(--accent);color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;font-family:'DM Sans',sans-serif;">&#9998; Enable Editing</button>
-          <button onclick="document.execCommand('undo')" title="Undo" style="width:32px;height:32px;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;font-size:14px;">&#8617;</button>
-          <button onclick="resetToFormData()" title="Reset to original" style="padding:6px 14px;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;font-size:12px;color:var(--text2);">&#8634; Reset</button>
+          <button onclick="document.execCommand('undo')" title="Undo" style="width:28px;height:28px;border:1px solid var(--border);border-radius:5px;background:white;cursor:pointer;font-size:13px;">↩</button>
+          <button onclick="resetToFormData()" style="padding:4px 10px;border:1px solid var(--border);border-radius:5px;background:white;cursor:pointer;font-size:11px;color:var(--text2);">⟳ Reset</button>
         </div>
-        <div class="preview-wrap tpl-classic" style="border-top:none;border-radius:0 0 10px 10px;">
+
+        <!-- CV Preview -->
+        <div class="preview-wrap tpl-classic" style="border-top:none;border-radius:0 0 var(--radius) var(--radius);">
           <div id="cv-preview" class="cv-sheet">
             <div class="cv-empty">
               <div style="font-size:40px;">📄</div>
@@ -1037,7 +1173,16 @@ nav div a:hover::after { width: 100%; }
             </div>
           </div>
         </div>
+
+        <!-- Download buttons -->
+        <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-top:12px;">
+          <button onclick="downloadPDF()" style="padding:10px;background:var(--accent);color:white;border:none;border-radius:var(--radius);font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background .15s;" onmouseover="this.style.background='#235a40'" onmouseout="this.style.background='var(--accent)'">⬇ PDF</button>
+          <button onclick="downloadDOCX()" style="padding:10px;background:white;color:var(--accent);border:1.5px solid var(--accent);border-radius:var(--radius);font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;" onmouseover="this.style.background='var(--accent-light)'" onmouseout="this.style.background='white'">⬇ Word</button>
+          <button onclick="copyCV()" title="Copy CV text" style="padding:10px 14px;background:white;color:var(--text2);border:1px solid var(--border);border-radius:var(--radius);font-size:14px;cursor:pointer;transition:all .15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">⎘</button>
+        </div>
+
       </div><!-- /preview-panel -->
+
 
     </div><!-- /builder-layout -->
   </div><!-- /tab-build -->
@@ -1772,6 +1917,7 @@ const RENDER_MAP = {
 
 function updatePreview() {
   if (editModeOn) return; // Don't overwrite manual edits
+  updateSectionPreviews();
   const d = getFormData();
   const hasContent = d.name || d.title || d.summary || d.experience.some(e=>e.role||e.company);
   const preview = document.getElementById('cv-preview');
@@ -2437,12 +2583,14 @@ function toggleEditMode() {
   const btn = document.getElementById('editModeBtn');
   if (!preview) return;
   editModeOn = !editModeOn;
+  const toolbar = document.getElementById('cvEditToolbar');
   if (editModeOn) {
     preview.contentEditable = 'true';
     preview.style.outline = '2px dashed var(--accent)';
     preview.style.cursor = 'text';
     btn.textContent = '💾 Save Changes';
     btn.style.background = '#1565c0';
+    if (toolbar) toolbar.style.display = 'flex';
     showToast('✏️ Edit mode ON — click any text to edit');
   } else {
     preview.contentEditable = 'false';
@@ -2450,6 +2598,7 @@ function toggleEditMode() {
     preview.style.cursor = 'default';
     btn.textContent = '✒️ Enable Editing';
     btn.style.background = 'var(--accent)';
+    if (toolbar) toolbar.style.display = 'none';
     showToast('✓ Changes saved');
   }
 }
@@ -2482,6 +2631,8 @@ function resetToFormData() {
     if (preview) { preview.contentEditable = 'false'; preview.style.outline = 'none'; preview.style.cursor = 'default'; }
     const btn = document.getElementById('editModeBtn');
     if (btn) { btn.textContent = '✒️ Enable Editing'; btn.style.background = 'var(--accent)'; }
+    const toolbar = document.getElementById('cvEditToolbar');
+    if (toolbar) toolbar.style.display = 'none';
     updatePreview();
     showToast('✓ Reset to form data');
   }
@@ -3310,6 +3461,135 @@ function renderDecorators() {
 addExp();
 addEdu();
 updateJobSearch();
+
+// ── Template gallery ──
+const PREMIUM_TEMPLATES = [
+  {key:'exec-pro', label:'Executive Pro', tag:'C-Suite'},
+  {key:'modern-blue', label:'Modern Blue', tag:'Corporate'},
+  {key:'minimal-serif', label:'Minimal Serif', tag:'Academic'},
+  {key:'bold-tech', label:'Bold Tech', tag:'Developer'},
+  {key:'elegant-gold', label:'Elegant Gold', tag:'Finance'},
+  {key:'modern-minimal', label:'Modern Minimal', tag:'Universal'},
+  {key:'vibrant-purple', label:'Vibrant Purple', tag:'Creative'},
+  {key:'creative-split', label:'Creative Split', tag:'Designer'},
+  {key:'timeline-cv', label:'Timeline', tag:'ATS ✓'},
+  {key:'skill-bubbles', label:'Skill Bubbles', tag:'Creative'},
+  {key:'gradient-header', label:'Gradient+', tag:'Premium'},
+  {key:'two-tone', label:'Two Tone', tag:'ATS ✓'},
+  {key:'newspaper', label:'Newspaper', tag:'Writer'},
+  {key:'corner-accent', label:'Corner', tag:'Bold'},
+  {key:'border-frame', label:'Framed', tag:'Executive'},
+  {key:'modern-photo', label:'Photo CV', tag:'Portrait'}
+];
+const CLASSIC_TEMPLATES = [
+  {key:'classic',label:'Classic'},{key:'modern',label:'Modern'},{key:'minimal',label:'Minimal'},
+  {key:'executive',label:'Executive'},{key:'creative',label:'Creative'},{key:'compact',label:'Compact'},
+  {key:'timeline',label:'Timeline'},{key:'tech',label:'Tech'},{key:'navy',label:'Navy'},
+  {key:'burgundy',label:'Burgundy'},{key:'teal',label:'Teal'},{key:'slate',label:'Slate'},
+  {key:'terracotta',label:'Terracotta'},{key:'bold',label:'Bold'},{key:'academic',label:'Academic'},
+  {key:'elegant',label:'Elegant'},{key:'purple',label:'Purple'},{key:'warm',label:'Warm'},
+  {key:'professional',label:'Professional'},{key:'gradient',label:'Gradient'}
+];
+
+function buildTemplateGallery() {
+  const pGrid = document.getElementById('premiumTemplateGrid');
+  const cGrid = document.getElementById('classicTemplateGrid');
+  if (!pGrid || !cGrid) return;
+  pGrid.innerHTML = PREMIUM_TEMPLATES.map(t => `<div onclick="setTemplate('${t.key}');toggleTemplateGallery();" style="border:1.5px solid var(--border);border-radius:7px;padding:6px 4px;cursor:pointer;text-align:center;background:white;transition:border-color .15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"><div style="height:26px;background:#f8f7f4;border:1px solid #e2ddd4;border-radius:3px;margin-bottom:3px;"></div><div style="font-size:9px;font-weight:700;color:var(--text);line-height:1.3;">${t.label}</div><div style="font-size:8px;color:var(--accent);">${t.tag}</div></div>`).join('');
+  cGrid.innerHTML = CLASSIC_TEMPLATES.map(t => `<div onclick="setTemplate('${t.key}');toggleTemplateGallery();" style="border:1.5px solid var(--border);border-radius:7px;padding:6px 4px;cursor:pointer;text-align:center;background:white;transition:border-color .15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"><div style="height:26px;background:#f8f7f4;border:1px solid #e2ddd4;border-radius:3px;margin-bottom:3px;"></div><div style="font-size:9px;font-weight:700;color:var(--text);">${t.label}</div></div>`).join('');
+}
+
+let _galleryOpen = false;
+function toggleTemplateGallery() {
+  _galleryOpen = !_galleryOpen;
+  const gallery = document.getElementById('templateGallery');
+  const btn = document.getElementById('templateGalleryBtn');
+  if (gallery) gallery.style.display = _galleryOpen ? 'block' : 'none';
+  if (btn) btn.textContent = _galleryOpen ? '✕ Close' : 'See all 36 →';
+}
+
+let _customizeOpen = false;
+function toggleCustomize() {
+  _customizeOpen = !_customizeOpen;
+  const panel = document.getElementById('customizePanel');
+  const btn = document.getElementById('customizeBtn');
+  if (panel) panel.style.display = _customizeOpen ? 'block' : 'none';
+  if (btn) {
+    btn.style.background = _customizeOpen ? 'var(--accent)' : 'white';
+    btn.style.color = _customizeOpen ? 'white' : 'var(--text2)';
+    btn.style.borderColor = _customizeOpen ? 'var(--accent)' : 'var(--border)';
+  }
+}
+
+function openFullPreview() {
+  const preview = document.getElementById('cv-preview');
+  if (!preview) return;
+  const styles = Array.from(document.querySelectorAll('style')).map(s => s.outerHTML).join('\n');
+  const wrap = preview.parentElement;
+  const html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>CV Preview</title>' + styles + '</head><body style="background:#f0ede8;padding:30px;display:flex;justify-content:center;">' + (wrap ? wrap.outerHTML : preview.outerHTML) + '</body></html>';
+  const win = window.open('', '_blank');
+  if (win) { win.document.write(html); win.document.close(); }
+}
+
+// ── Collapsible form sections ──
+function toggleSection(id) {
+  const content = document.getElementById('section-' + id);
+  const arrow = document.getElementById(id + '-arrow');
+  if (!content) return;
+  const isOpen = content.style.display !== 'none';
+  content.style.display = isOpen ? 'none' : 'block';
+  if (arrow) arrow.style.transform = isOpen ? 'rotate(-90deg)' : 'rotate(0deg)';
+}
+
+function initSections() {
+  ['summary','experience','education','skills','certifications','languages','availability','volunteer','references','awards','projects'].forEach(id => {
+    const c = document.getElementById('section-' + id);
+    const a = document.getElementById(id + '-arrow');
+    if (c) c.style.display = 'none';
+    if (a) a.style.transform = 'rotate(-90deg)';
+  });
+  const personal = document.getElementById('section-personal');
+  const personalArrow = document.getElementById('personal-arrow');
+  if (personal) personal.style.display = 'block';
+  if (personalArrow) personalArrow.style.transform = 'rotate(0deg)';
+}
+
+function updateSectionPreviews() {
+  const name = document.getElementById('f-name') ? document.getElementById('f-name').value : '';
+  const email = document.getElementById('f-email') ? document.getElementById('f-email').value : '';
+  const summary = document.getElementById('f-summary') ? document.getElementById('f-summary').value : '';
+  const skills = document.getElementById('f-skills') ? document.getElementById('f-skills').value : '';
+  const expEntries = document.querySelectorAll('.exp-entry');
+  const eduEntries = document.querySelectorAll('.edu-entry');
+
+  const pPrev = document.getElementById('personal-preview');
+  if (pPrev) pPrev.textContent = name ? (email ? name + ' · ' + email : name) : 'Your name & contact details';
+
+  const sPrev = document.getElementById('summary-preview');
+  if (sPrev) sPrev.textContent = summary ? (summary.length > 45 ? summary.substring(0, 45) + '…' : summary) : 'Your professional overview';
+
+  const expPrev = document.getElementById('experience-preview');
+  if (expPrev) expPrev.textContent = expEntries.length ? expEntries.length + ' position' + (expEntries.length > 1 ? 's' : '') + ' added' : 'Your positions & roles';
+
+  const eduPrev = document.getElementById('education-preview');
+  if (eduPrev) eduPrev.textContent = eduEntries.length ? eduEntries.length + ' qualification' + (eduEntries.length > 1 ? 's' : '') + ' added' : 'Your qualifications';
+
+  const skPrev = document.getElementById('skills-preview');
+  if (skPrev) skPrev.textContent = skills ? (skills.length > 40 ? skills.substring(0, 40) + '…' : skills) : 'Comma-separated skills';
+
+  // Update status dots
+  const dot = (id, val) => { const d = document.getElementById(id); if (d) d.style.background = val ? '#22c55e' : '#e2ddd4'; };
+  dot('personal-dot', name || email);
+  dot('experience-dot', expEntries.length > 0);
+  dot('education-dot', eduEntries.length > 0);
+  dot('skills-dot', !!skills);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  initSections();
+  buildTemplateGallery();
+  updateSectionPreviews();
+});
 </script>
 
 <button id="pf-scroll-top" aria-label="Scroll to top">↑</button>
