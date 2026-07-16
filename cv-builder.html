@@ -1077,8 +1077,7 @@ We are looking for a Software Engineer with:
         <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius) var(--radius) 0 0;border-bottom:none;">
           <span style="font-size:13px;font-weight:700;color:var(--text);font-family:'Syne',sans-serif;">Live Preview</span>
           <div style="display:flex;gap:6px;">
-            <button id="customizeBtn" onclick="toggleCustomize()" style="padding:5px 12px;background:white;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text2);font-family:'DM Sans',sans-serif;transition:all .15s;">✏️ Customize</button>
-            <button onclick="openFullPreview()" title="Open full screen" style="padding:5px 10px;background:white;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;font-size:13px;" title="Full screen preview">⛶</button>
+            <button onclick="openFullPreview()" title="Open full screen" style="padding:5px 10px;background:white;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;font-size:13px;">⛶</button>
           </div>
         </div>
 
@@ -1086,25 +1085,29 @@ We are looking for a Software Engineer with:
         <div style="padding:10px 12px;background:var(--surface);border:1.5px solid var(--border);border-top:none;border-bottom:none;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
             <span style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;">Template</span>
-            <button id="templateGalleryBtn" onclick="toggleTemplateGallery()" style="font-size:11px;color:var(--accent);background:none;border:none;cursor:pointer;font-weight:700;font-family:'DM Sans',sans-serif;padding:2px 4px;">See all 36 →</button>
+            <button id="templateGalleryBtn" onclick="toggleTemplateGallery()" style="font-size:12px;color:var(--accent);background:none;border:none;cursor:pointer;font-weight:600;font-family:'DM Sans',sans-serif;padding:0;">See all 36 →</button>
           </div>
-          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
-            <div onclick="setTemplate('classic')" id="qtpl-classic" style="border:2px solid var(--accent);border-radius:8px;padding:6px 4px;cursor:pointer;text-align:center;background:#f0fdf4;">
-              <div style="height:34px;background:white;border:1px solid #e2ddd4;border-radius:3px;margin-bottom:4px;overflow:hidden;padding:4px 4px 2px;display:flex;flex-direction:column;gap:2px;"><div style="height:3px;background:#2d6a4f;border-radius:1px;"></div><div style="height:2px;background:#e2ddd4;border-radius:1px;width:80%;"></div><div style="height:2px;background:#e2ddd4;border-radius:1px;width:60%;"></div></div>
-              <div style="font-size:10px;font-weight:700;color:var(--text);">Classic</div>
-            </div>
-            <div onclick="setTemplate('modern')" id="qtpl-modern" style="border:1.5px solid var(--border);border-radius:8px;padding:6px 4px;cursor:pointer;text-align:center;background:white;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="if(currentTemplate!=='modern')this.style.borderColor='var(--border)'">
-              <div style="height:34px;border:1px solid #e2ddd4;border-radius:3px;margin-bottom:4px;overflow:hidden;display:flex;"><div style="width:36%;background:#2d6a4f;"></div><div style="flex:1;padding:3px;display:flex;flex-direction:column;gap:2px;"><div style="height:2px;background:#e2ddd4;border-radius:1px;"></div><div style="height:2px;background:#e2ddd4;border-radius:1px;width:70%;"></div></div></div>
-              <div style="font-size:10px;font-weight:700;color:var(--text);">Modern</div>
-            </div>
-            <div onclick="setTemplate('exec-pro')" id="qtpl-exec-pro" style="border:1.5px solid var(--border);border-radius:8px;padding:6px 4px;cursor:pointer;text-align:center;background:white;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="if(currentTemplate!=='exec-pro')this.style.borderColor='var(--border)'">
-              <div style="height:34px;border:1px solid #e2ddd4;border-radius:3px;margin-bottom:4px;overflow:hidden;"><div style="height:14px;background:#1a3a2a;display:flex;align-items:center;padding:0 4px;"><div style="width:30px;height:2px;background:rgba(255,255,255,0.4);border-radius:1px;"></div></div><div style="padding:2px 3px;display:flex;flex-direction:column;gap:2px;"><div style="height:2px;background:#e2ddd4;border-radius:1px;"></div><div style="height:2px;background:#e2ddd4;border-radius:1px;width:70%;"></div></div></div>
+          <!-- Quick 4 — premium first -->
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px;">
+            <div onclick="setTemplate('exec-pro');highlightTemplate(this)" style="border:1.5px solid var(--border);border-radius:8px;padding:8px 4px;cursor:pointer;text-align:center;background:white;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="if(!this.classList.contains('tpl-active'))this.style.borderColor='var(--border)'">
+              <div style="height:36px;border-radius:4px;overflow:hidden;margin-bottom:4px;display:flex;"><div style="width:35%;background:#1a3a2a;"></div><div style="flex:1;background:#f7f5f0;padding:3px;display:flex;flex-direction:column;gap:2px;"><div style="height:3px;background:#e2ddd4;border-radius:1px;"></div><div style="height:2px;background:#e2ddd4;border-radius:1px;width:70%;"></div></div></div>
               <div style="font-size:10px;font-weight:700;color:var(--text);">Executive</div>
-              <div style="font-size:9px;color:var(--accent);line-height:1;">✨ Pro</div>
+              <div style="font-size:9px;color:var(--accent);font-weight:600;">✨ Premium</div>
             </div>
-            <div onclick="surpriseMe()" style="border:1.5px solid var(--border);border-radius:8px;padding:6px 4px;cursor:pointer;text-align:center;background:white;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
-              <div style="height:34px;border:1px solid #e2ddd4;border-radius:3px;margin-bottom:4px;display:flex;align-items:center;justify-content:center;font-size:20px;background:linear-gradient(135deg,#f0fdf4,#eff6ff);">🎲</div>
-              <div style="font-size:10px;font-weight:700;color:var(--text);">Surprise</div>
+            <div onclick="setTemplate('modern-minimal');highlightTemplate(this)" style="border:1.5px solid var(--border);border-radius:8px;padding:8px 4px;cursor:pointer;text-align:center;background:white;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="if(!this.classList.contains('tpl-active'))this.style.borderColor='var(--border)'">
+              <div style="height:36px;border-radius:4px;overflow:hidden;margin-bottom:4px;background:white;padding:4px;"><div style="height:5px;background:#1a1814;border-radius:1px;margin-bottom:3px;"></div><div style="height:1px;background:#e2ddd4;margin-bottom:2px;"></div><div style="height:1px;background:#e2ddd4;width:75%;"></div></div>
+              <div style="font-size:10px;font-weight:700;color:var(--text);">Minimal</div>
+              <div style="font-size:9px;color:var(--accent);font-weight:600;">✨ Premium</div>
+            </div>
+            <div onclick="setTemplate('classic');highlightTemplate(this)" class="tpl-active" style="border:2px solid var(--accent);border-radius:8px;padding:8px 4px;cursor:pointer;text-align:center;background:#f0fdf4;transition:all 0.2s;">
+              <div style="height:36px;border-radius:4px;overflow:hidden;margin-bottom:4px;background:white;padding:3px;"><div style="height:3px;background:#2d6a4f;border-radius:1px;margin-bottom:2px;"></div><div style="height:2px;background:#e2ddd4;margin-bottom:2px;"></div><div style="height:2px;background:#e2ddd4;width:80%;"></div></div>
+              <div style="font-size:10px;font-weight:700;color:var(--accent);">Classic ✓</div>
+              <div style="font-size:9px;color:var(--text2);">Default</div>
+            </div>
+            <div onclick="setTemplate('modern-blue');highlightTemplate(this)" style="border:1.5px solid var(--border);border-radius:8px;padding:8px 4px;cursor:pointer;text-align:center;background:white;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="if(!this.classList.contains('tpl-active'))this.style.borderColor='var(--border)'">
+              <div style="height:36px;border-radius:4px;overflow:hidden;margin-bottom:4px;"><div style="height:14px;background:#1565c0;"></div><div style="padding:2px 3px;"><div style="height:2px;background:#e2ddd4;margin-bottom:2px;border-radius:1px;"></div><div style="height:2px;background:#e2ddd4;border-radius:1px;width:70%;"></div></div></div>
+              <div style="font-size:10px;font-weight:700;color:var(--text);">Blue</div>
+              <div style="font-size:9px;color:var(--accent);font-weight:600;">✨ Premium</div>
             </div>
           </div>
 
@@ -1120,64 +1123,45 @@ We are looking for a Software Engineer with:
           </div>
         </div>
 
-        <!-- Customize panel (hidden) -->
-        <div id="customizePanel" style="display:none;padding:12px 14px;background:#f0fdf4;border:1.5px solid #b7e4c7;border-top:none;border-bottom:none;">
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
-            <span style="font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px;min-width:40px;">Color:</span>
-            <input type="color" id="cvAccentInput" value="#2d6a4f" onchange="setAccentColor(this.value)" style="width:24px;height:24px;border:1px solid var(--border);border-radius:4px;cursor:pointer;padding:1px;" title="Custom color">
-            <button onclick="setAccentColor('#2d6a4f')" style="width:18px;height:18px;background:#2d6a4f;border:2px solid transparent;border-radius:3px;cursor:pointer;" title="Forest"></button>
-            <button onclick="setAccentColor('#1565c0')" style="width:18px;height:18px;background:#1565c0;border:2px solid transparent;border-radius:3px;cursor:pointer;" title="Blue"></button>
-            <button onclick="setAccentColor('#7c3aed')" style="width:18px;height:18px;background:#7c3aed;border:2px solid transparent;border-radius:3px;cursor:pointer;" title="Purple"></button>
-            <button onclick="setAccentColor('#c9a84c')" style="width:18px;height:18px;background:#c9a84c;border:2px solid transparent;border-radius:3px;cursor:pointer;" title="Gold"></button>
-            <button onclick="setAccentColor('#e63946')" style="width:18px;height:18px;background:#e63946;border:2px solid transparent;border-radius:3px;cursor:pointer;" title="Red"></button>
-            <button onclick="setAccentColor('#f97316')" style="width:18px;height:18px;background:#f97316;border:2px solid transparent;border-radius:3px;cursor:pointer;" title="Orange"></button>
-            <button onclick="setAccentColor('#1a1814')" style="width:18px;height:18px;background:#1a1814;border:2px solid transparent;border-radius:3px;cursor:pointer;" title="Dark"></button>
-          </div>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
-            <span style="font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px;min-width:40px;">Font:</span>
-            <select id="cvFontSelector" onchange="setCVFont(this.value)" style="height:26px;border:1px solid var(--border);border-radius:5px;padding:0 6px;font-size:11px;cursor:pointer;background:white;flex:1;min-width:0;">
-              <optgroup label="── Sans Serif ──">
-                <option value="">Default</option>
-                <option value="'Inter',-apple-system,sans-serif">Inter (Modern)</option>
-                <option value="'Helvetica Neue',Arial,sans-serif">Helvetica (Clean)</option>
-                <option value="Arial,sans-serif">Arial (Universal)</option>
-                <option value="'Trebuchet MS',sans-serif">Trebuchet (Friendly)</option>
-                <option value="Verdana,sans-serif">Verdana (Readable)</option>
-                <option value="Tahoma,sans-serif">Tahoma (Corporate)</option>
-                <option value="'Century Gothic',sans-serif">Century Gothic (Modern)</option>
-                <option value="Optima,sans-serif">Optima (Elegant)</option>
-              </optgroup>
-              <optgroup label="── Serif ──">
-                <option value="'Times New Roman',Times,serif">Times New Roman (Classic)</option>
-                <option value="Georgia,serif">Georgia (Editorial)</option>
-                <option value="Garamond,serif">Garamond (Elegant)</option>
-                <option value="Calibri,serif">Calibri (Default)</option>
-                <option value="'Palatino Linotype',serif">Palatino (Literary)</option>
-                <option value="'Book Antiqua',serif">Book Antiqua (Traditional)</option>
-                <option value="Cambria,serif">Cambria (Professional)</option>
-                <option value="Baskerville,serif">Baskerville (Academic)</option>
-              </optgroup>
-              <optgroup label="── Monospace ──">
-                <option value="'Courier New',monospace">Courier New (Typewriter)</option>
-                <option value="Consolas,monospace">Consolas (Developer)</option>
-                <option value="'Lucida Console',monospace">Lucida Console (Tech)</option>
-              </optgroup>
-            </select>
-          </div>
-          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
-            <span style="font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px;min-width:40px;">Decor:</span>
-            <button onclick="addDecorator('line-simple')" style="padding:3px 9px;background:white;border:1px solid var(--border);border-radius:12px;cursor:pointer;font-size:11px;font-family:'DM Sans',sans-serif;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">─ Line</button>
-            <button onclick="addDecorator('line-accent')" style="padding:3px 9px;background:white;border:1px solid var(--border);border-radius:12px;cursor:pointer;font-size:11px;font-family:'DM Sans',sans-serif;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">─ Accent</button>
-            <button onclick="addDecorator('line-diamond')" style="padding:3px 9px;background:white;border:1px solid var(--border);border-radius:12px;cursor:pointer;font-size:11px;font-family:'DM Sans',sans-serif;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">◆ Diamond</button>
-            <button onclick="addDecorator('line-double')" style="padding:3px 9px;background:white;border:1px solid var(--border);border-radius:12px;cursor:pointer;font-size:11px;font-family:'DM Sans',sans-serif;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">═ Double</button>
-            <button onclick="addDecorator('shape-leftbar')" style="padding:3px 9px;background:white;border:1px solid var(--border);border-radius:12px;cursor:pointer;font-size:11px;font-family:'DM Sans',sans-serif;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">▌ Left Bar</button>
-            <button onclick="addDecorator('space-medium')" style="padding:3px 9px;background:white;border:1px solid var(--border);border-radius:12px;cursor:pointer;font-size:11px;font-family:'DM Sans',sans-serif;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">↕ Space</button>
-            <span id="decoratorCount" style="font-size:11px;color:var(--text3);"></span>
-            <button onclick="cvDecorators=[];updatePreview();showToast('Decorators cleared');" style="padding:3px 9px;background:none;border:1px solid #fecaca;color:#e63946;border-radius:12px;cursor:pointer;font-size:11px;font-family:'DM Sans',sans-serif;">Clear</button>
-          </div>
-          <div style="padding-top:10px;border-top:1px solid #b7e4c7;">
-            <button id="editModeBtn" onclick="toggleEditMode()" style="padding:6px 14px;background:var(--accent);color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;font-family:'DM Sans',sans-serif;">✒️ Enable Editing</button>
-            <span style="font-size:11px;color:var(--text3);margin-left:8px;">Click any CV text to edit directly</span>
+        <!-- Always-visible customization strip -->
+        <div style="padding:10px 14px;background:var(--surface);border:1.5px solid var(--border);border-top:none;border-bottom:none;">
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <!-- Color dots -->
+            <div style="display:flex;align-items:center;gap:5px;">
+              <span style="font-size:11px;font-weight:600;color:var(--text2);white-space:nowrap;">Color:</span>
+              <button onclick="setAccentColor('#2d6a4f')" style="width:18px;height:18px;background:#2d6a4f;border:2px solid transparent;border-radius:50%;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" title="Forest"></button>
+              <button onclick="setAccentColor('#1565c0')" style="width:18px;height:18px;background:#1565c0;border:2px solid transparent;border-radius:50%;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" title="Blue"></button>
+              <button onclick="setAccentColor('#7c3aed')" style="width:18px;height:18px;background:#7c3aed;border:2px solid transparent;border-radius:50%;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" title="Purple"></button>
+              <button onclick="setAccentColor('#c9a84c')" style="width:18px;height:18px;background:#c9a84c;border:2px solid transparent;border-radius:50%;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" title="Gold"></button>
+              <button onclick="setAccentColor('#e63946')" style="width:18px;height:18px;background:#e63946;border:2px solid transparent;border-radius:50%;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" title="Red"></button>
+              <button onclick="setAccentColor('#1a1814')" style="width:18px;height:18px;background:#1a1814;border:2px solid transparent;border-radius:50%;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" title="Dark"></button>
+              <input type="color" id="cvAccentInput" value="#2d6a4f" onchange="setAccentColor(this.value)" style="width:18px;height:18px;border:none;border-radius:50%;cursor:pointer;padding:0;background:none;" title="Custom color">
+            </div>
+            <!-- Font dropdown -->
+            <div style="display:flex;align-items:center;gap:5px;">
+              <span style="font-size:11px;font-weight:600;color:var(--text2);white-space:nowrap;">Font:</span>
+              <select id="cvFontSelector" onchange="setCVFont(this.value)" style="height:26px;border:1px solid var(--border);border-radius:6px;padding:0 6px;font-size:11px;cursor:pointer;background:white;max-width:130px;">
+                <optgroup label="── Sans Serif ──">
+                  <option value="">Default</option>
+                  <option value="'Inter',-apple-system,sans-serif">Inter</option>
+                  <option value="'Helvetica Neue',Arial,sans-serif">Helvetica</option>
+                  <option value="Arial,sans-serif">Arial</option>
+                  <option value="Verdana,sans-serif">Verdana</option>
+                </optgroup>
+                <optgroup label="── Serif ──">
+                  <option value="'Times New Roman',Times,serif">Times New Roman</option>
+                  <option value="Georgia,serif">Georgia</option>
+                  <option value="Garamond,serif">Garamond</option>
+                  <option value="Calibri,serif">Calibri</option>
+                  <option value="Cambria,serif">Cambria</option>
+                </optgroup>
+                <optgroup label="── Monospace ──">
+                  <option value="'Courier New',monospace">Courier New</option>
+                </optgroup>
+              </select>
+            </div>
+            <!-- Edit CV Text toggle -->
+            <button id="editModeBtn" onclick="toggleEditMode()" style="padding:4px 12px;background:white;border:1px solid var(--border);border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;color:var(--text2);transition:all 0.2s;margin-left:auto;white-space:nowrap;">✏️ Edit CV Text</button>
           </div>
         </div>
 
@@ -1441,32 +1425,32 @@ English — Native | Bengali — Fluent" style="width:100%;border:1.5px solid va
 </div><!-- /cv-main -->
 
 <!-- ══════════ JOB SEARCH LINKS ══════════ -->
-<div class="job-search-section" id="job-search-section" style="display:none;">
-  <div class="job-search-inner">
-    <div class="job-search-hdr">
-      <h2 id="job-search-heading">🔍 Find matching jobs</h2>
-      <p>Search open positions that match your target role and location.</p>
+<div id="job-search-section" style="display:none;background:white;border-top:1px solid var(--border);margin-top:48px;padding:40px 16px;">
+  <div style="max-width:820px;margin:0 auto;">
+    <div style="text-align:center;margin-bottom:24px;">
+      <h2 id="job-search-heading" style="font-family:'Syne',sans-serif;font-size:24px;font-weight:800;color:var(--text);margin-bottom:6px;">🔍 Find matching jobs</h2>
+      <p style="color:var(--text2);font-size:14px;">Search open positions that match your target role and location.</p>
     </div>
-    <div class="job-search-cards">
-      <a class="job-card" id="job-linkedin" href="#" target="_blank" rel="noopener noreferrer">
-        <span class="job-card-icon" style="background:#0077B5;color:white;">in</span>
-        <div><strong>LinkedIn Jobs</strong><div class="job-card-sub">World's largest professional network</div></div>
-        <span class="job-card-arrow">→</span>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;">
+      <a id="job-linkedin" href="#" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:14px;background:var(--bg);border:1.5px solid var(--border);border-radius:12px;padding:16px 18px;text-decoration:none;color:var(--text);transition:all .18s;" onmouseover="this.style.borderColor='#0077b5';this.style.background='#e8f4fd'" onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--bg)'">
+        <span style="display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:8px;background:#0077B5;color:white;font-weight:800;font-size:15px;flex-shrink:0;font-family:'Syne',sans-serif;">in</span>
+        <div><strong style="font-size:14px;font-weight:700;display:block;">LinkedIn Jobs</strong><div style="font-size:12px;color:var(--text2);margin-top:1px;">World's largest professional network</div></div>
+        <span style="margin-left:auto;color:var(--text2);font-size:18px;flex-shrink:0;">→</span>
       </a>
-      <a class="job-card" id="job-indeed" href="#" target="_blank" rel="noopener noreferrer">
-        <span class="job-card-icon" style="background:#003A9B;color:white;">I</span>
-        <div><strong>Indeed</strong><div class="job-card-sub">Millions of jobs worldwide</div></div>
-        <span class="job-card-arrow">→</span>
+      <a id="job-indeed" href="#" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:14px;background:var(--bg);border:1.5px solid var(--border);border-radius:12px;padding:16px 18px;text-decoration:none;color:var(--text);transition:all .18s;" onmouseover="this.style.borderColor='#003399';this.style.background='#eef2ff'" onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--bg)'">
+        <span style="display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:8px;background:#003A9B;color:white;font-weight:800;font-size:15px;flex-shrink:0;font-family:'Syne',sans-serif;">I</span>
+        <div><strong style="font-size:14px;font-weight:700;display:block;">Indeed</strong><div style="font-size:12px;color:var(--text2);margin-top:1px;">Millions of jobs worldwide</div></div>
+        <span style="margin-left:auto;color:var(--text2);font-size:18px;flex-shrink:0;">→</span>
       </a>
-      <a class="job-card" id="job-seek" href="#" target="_blank" rel="noopener noreferrer">
-        <span class="job-card-icon" style="background:#E60278;color:white;">S</span>
-        <div><strong>SEEK</strong><div class="job-card-sub">Top job board for Australia &amp; NZ</div></div>
-        <span class="job-card-arrow">→</span>
+      <a id="job-seek" href="#" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:14px;background:var(--bg);border:1.5px solid var(--border);border-radius:12px;padding:16px 18px;text-decoration:none;color:var(--text);transition:all .18s;" onmouseover="this.style.borderColor='#e60278';this.style.background='#fef0f7'" onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--bg)'">
+        <span style="display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:8px;background:#E60278;color:white;font-weight:800;font-size:15px;flex-shrink:0;font-family:'Syne',sans-serif;">S</span>
+        <div><strong style="font-size:14px;font-weight:700;display:block;">SEEK</strong><div style="font-size:12px;color:var(--text2);margin-top:1px;">Top job board for Australia &amp; NZ</div></div>
+        <span style="margin-left:auto;color:var(--text2);font-size:18px;flex-shrink:0;">→</span>
       </a>
-      <a class="job-card" id="job-google" href="#" target="_blank" rel="noopener noreferrer">
-        <span class="job-card-icon" style="background:#4285F4;color:white;">G</span>
-        <div><strong>Google Jobs</strong><div class="job-card-sub">Search all boards in one place</div></div>
-        <span class="job-card-arrow">→</span>
+      <a id="job-google" href="#" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:14px;background:var(--bg);border:1.5px solid var(--border);border-radius:12px;padding:16px 18px;text-decoration:none;color:var(--text);transition:all .18s;" onmouseover="this.style.borderColor='#4285f4';this.style.background='#f0f4ff'" onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--bg)'">
+        <span style="display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:8px;background:#4285F4;color:white;font-weight:800;font-size:15px;flex-shrink:0;">🔍</span>
+        <div><strong style="font-size:14px;font-weight:700;display:block;">Google Jobs</strong><div style="font-size:12px;color:var(--text2);margin-top:1px;">Search all boards in one place</div></div>
+        <span style="margin-left:auto;color:var(--text2);font-size:18px;flex-shrink:0;">→</span>
       </a>
     </div>
   </div>
@@ -3669,6 +3653,21 @@ function toggleTemplateGallery() {
   const btn = document.getElementById('templateGalleryBtn');
   if (gallery) gallery.style.display = _galleryOpen ? 'block' : 'none';
   if (btn) btn.textContent = _galleryOpen ? '✕ Close' : 'See all 36 →';
+}
+
+function highlightTemplate(el) {
+  document.querySelectorAll('[onclick*="setTemplate"]').forEach(card => {
+    card.classList.remove('tpl-active');
+    card.style.borderColor = 'var(--border)';
+    card.style.borderWidth = '1.5px';
+    card.style.background = 'white';
+  });
+  if (el) {
+    el.classList.add('tpl-active');
+    el.style.borderColor = 'var(--accent)';
+    el.style.borderWidth = '2px';
+    el.style.background = '#f0fdf4';
+  }
 }
 
 let _customizeOpen = false;
