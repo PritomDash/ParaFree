@@ -1122,12 +1122,12 @@ We are looking for a Software Engineer with:
             <div onclick="setTemplate('exec-pro');highlightTemplate(this)" style="border:1.5px solid var(--border);border-radius:8px;padding:8px 4px;cursor:pointer;text-align:center;background:white;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="if(!this.classList.contains('tpl-active'))this.style.borderColor='var(--border)'">
               <div style="height:36px;border-radius:4px;overflow:hidden;margin-bottom:4px;display:flex;"><div style="width:35%;background:#1a3a2a;"></div><div style="flex:1;background:#f7f5f0;padding:3px;display:flex;flex-direction:column;gap:2px;"><div style="height:3px;background:#e2ddd4;border-radius:1px;"></div><div style="height:2px;background:#e2ddd4;border-radius:1px;width:70%;"></div></div></div>
               <div style="font-size:10px;font-weight:700;color:var(--text);">Executive</div>
-              <div style="font-size:9px;color:var(--accent);font-weight:600;">✨ Premium</div>
+              <div style="font-size:9px;background:#f0fdf4;color:#2d6a4f;border:1px solid #86efac;padding:1px 5px;border-radius:4px;display:inline-block;margin-top:1px;">C-Suite</div>
             </div>
             <div onclick="setTemplate('modern-minimal');highlightTemplate(this)" style="border:1.5px solid var(--border);border-radius:8px;padding:8px 4px;cursor:pointer;text-align:center;background:white;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="if(!this.classList.contains('tpl-active'))this.style.borderColor='var(--border)'">
               <div style="height:36px;border-radius:4px;overflow:hidden;margin-bottom:4px;background:white;padding:4px;"><div style="height:5px;background:#1a1814;border-radius:1px;margin-bottom:3px;"></div><div style="height:1px;background:#e2ddd4;margin-bottom:2px;"></div><div style="height:1px;background:#e2ddd4;width:75%;"></div></div>
               <div style="font-size:10px;font-weight:700;color:var(--text);">Minimal</div>
-              <div style="font-size:9px;color:var(--accent);font-weight:600;">✨ Premium</div>
+              <div style="font-size:9px;background:#eff6ff;color:#1565c0;border:1px solid #bfdbfe;padding:1px 5px;border-radius:4px;display:inline-block;margin-top:1px;">Universal</div>
             </div>
             <div onclick="setTemplate('classic');highlightTemplate(this)" class="tpl-active" style="border:2px solid var(--accent);border-radius:8px;padding:8px 4px;cursor:pointer;text-align:center;background:#f0fdf4;transition:all 0.2s;">
               <div style="height:36px;border-radius:4px;overflow:hidden;margin-bottom:4px;background:white;padding:3px;"><div style="height:3px;background:#2d6a4f;border-radius:1px;margin-bottom:2px;"></div><div style="height:2px;background:#e2ddd4;margin-bottom:2px;"></div><div style="height:2px;background:#e2ddd4;width:80%;"></div></div>
@@ -1137,7 +1137,7 @@ We are looking for a Software Engineer with:
             <div onclick="setTemplate('modern-blue');highlightTemplate(this)" style="border:1.5px solid var(--border);border-radius:8px;padding:8px 4px;cursor:pointer;text-align:center;background:white;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="if(!this.classList.contains('tpl-active'))this.style.borderColor='var(--border)'">
               <div style="height:36px;border-radius:4px;overflow:hidden;margin-bottom:4px;"><div style="height:14px;background:#1565c0;"></div><div style="padding:2px 3px;"><div style="height:2px;background:#e2ddd4;margin-bottom:2px;border-radius:1px;"></div><div style="height:2px;background:#e2ddd4;border-radius:1px;width:70%;"></div></div></div>
               <div style="font-size:10px;font-weight:700;color:var(--text);">Blue</div>
-              <div style="font-size:9px;color:var(--accent);font-weight:600;">✨ Premium</div>
+              <div style="font-size:9px;background:#dbeafe;color:#1e40af;border:1px solid #93c5fd;padding:1px 5px;border-radius:4px;display:inline-block;margin-top:1px;">Corporate</div>
             </div>
           </div>
 
@@ -1170,28 +1170,75 @@ We are looking for a Software Engineer with:
             <!-- Font dropdown -->
             <div style="display:flex;align-items:center;gap:5px;">
               <span style="font-size:11px;font-weight:600;color:var(--text2);white-space:nowrap;">Font:</span>
-              <select id="cvFontSelector" onchange="setCVFont(this.value)" style="height:26px;border:1px solid var(--border);border-radius:6px;padding:0 6px;font-size:11px;cursor:pointer;background:white;max-width:130px;">
+              <select id="cvFontSelector" onchange="setCVFont(this.value)" style="height:26px;border:1px solid var(--border);border-radius:6px;padding:0 6px;font-size:11px;cursor:pointer;background:white;max-width:150px;">
                 <optgroup label="── Sans Serif ──">
                   <option value="">Default</option>
-                  <option value="'Inter',-apple-system,sans-serif">Inter</option>
-                  <option value="'Helvetica Neue',Arial,sans-serif">Helvetica</option>
-                  <option value="Arial,sans-serif">Arial</option>
-                  <option value="Verdana,sans-serif">Verdana</option>
+                  <option value="'Inter',-apple-system,sans-serif">Inter (Modern)</option>
+                  <option value="'Helvetica Neue',Arial,sans-serif">Helvetica (Clean)</option>
+                  <option value="Arial,sans-serif">Arial (Universal)</option>
+                  <option value="'Trebuchet MS',sans-serif">Trebuchet (Friendly)</option>
+                  <option value="Verdana,sans-serif">Verdana (Readable)</option>
+                  <option value="Tahoma,sans-serif">Tahoma (Corporate)</option>
+                  <option value="'Century Gothic',sans-serif">Century Gothic</option>
+                  <option value="Optima,sans-serif">Optima (Elegant)</option>
                 </optgroup>
                 <optgroup label="── Serif ──">
                   <option value="'Times New Roman',Times,serif">Times New Roman</option>
-                  <option value="Georgia,serif">Georgia</option>
-                  <option value="Garamond,serif">Garamond</option>
-                  <option value="Calibri,serif">Calibri</option>
-                  <option value="Cambria,serif">Cambria</option>
+                  <option value="Georgia,serif">Georgia (Editorial)</option>
+                  <option value="Garamond,serif">Garamond (Elegant)</option>
+                  <option value="Calibri,serif">Calibri (Default)</option>
+                  <option value="'Palatino Linotype','Book Antiqua',serif">Palatino (Literary)</option>
+                  <option value="Cambria,serif">Cambria (Professional)</option>
+                  <option value="'Baskerville','Baskerville Old Face',serif">Baskerville (Academic)</option>
                 </optgroup>
                 <optgroup label="── Monospace ──">
-                  <option value="'Courier New',monospace">Courier New</option>
+                  <option value="'Courier New',Courier,monospace">Courier New</option>
+                  <option value="'Lucida Console',Monaco,monospace">Lucida Console (Tech)</option>
+                  <option value="Consolas,'Courier New',monospace">Consolas (Developer)</option>
                 </optgroup>
               </select>
             </div>
             <!-- Edit CV Text toggle -->
             <button id="editModeBtn" onclick="toggleEditMode()" style="padding:4px 12px;background:white;border:1px solid var(--border);border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;color:var(--text2);transition:all 0.2s;margin-left:auto;white-space:nowrap;">✏️ Edit CV Text</button>
+          </div>
+        </div>
+
+        <!-- Decorators panel -->
+        <div style="padding:0 12px;background:var(--surface);border:1.5px solid var(--border);border-top:none;border-bottom:none;">
+          <div onclick="toggleDecorators()" style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;cursor:pointer;user-select:none;">
+            <span style="font-size:11px;font-weight:700;color:var(--text2);display:flex;align-items:center;gap:5px;">
+              ✦ Decorators &amp; Shapes
+              <span id="decoratorCount" style="font-size:10px;font-weight:400;color:var(--text3);">No decorators added</span>
+            </span>
+            <span id="decoratorArrow" style="color:var(--text3);font-size:11px;transition:transform 0.2s;">▶</span>
+          </div>
+          <div id="decoratorContent" style="display:none;padding-bottom:10px;">
+            <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Dividers</div>
+            <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;">
+              <button onclick="addDecorator('line-simple')" style="padding:5px 10px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">— Simple</button>
+              <button onclick="addDecorator('line-double')" style="padding:5px 10px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">═ Double</button>
+              <button onclick="addDecorator('line-dashed')" style="padding:5px 10px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">- - Dashed</button>
+              <button onclick="addDecorator('line-dotted')" style="padding:5px 10px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">· · Dotted</button>
+              <button onclick="addDecorator('line-accent')" style="padding:5px 10px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">▬ Accent</button>
+              <button onclick="addDecorator('line-diamond')" style="padding:5px 10px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">◆ Diamond</button>
+              <button onclick="addDecorator('line-wave')" style="padding:5px 10px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">∼ Wave</button>
+            </div>
+            <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Shapes &amp; Accents</div>
+            <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;">
+              <button onclick="addDecorator('shape-leftbar')" style="padding:5px 10px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">▌ Left Bar</button>
+              <button onclick="addDecorator('shape-badge')" style="padding:5px 10px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">■ Badge</button>
+              <button onclick="addDecorator('shape-circle')" style="padding:5px 10px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">● Circle</button>
+              <button onclick="addDecorator('shape-square')" style="padding:5px 10px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">◼ Square dot</button>
+              <button onclick="addDecorator('shape-tag')" style="padding:5px 10px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">🏷 Skill Tag</button>
+              <button onclick="addDecorator('shape-underline-heading')" style="padding:5px 10px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">U̲ Heading</button>
+            </div>
+            <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Spacing</div>
+            <div style="display:flex;flex-wrap:wrap;gap:5px;">
+              <button onclick="addDecorator('space-small')" style="padding:5px 10px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">↕ Small gap</button>
+              <button onclick="addDecorator('space-medium')" style="padding:5px 10px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">↕ Medium gap</button>
+              <button onclick="addDecorator('space-large')" style="padding:5px 10px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">↕ Large gap</button>
+              <button onclick="cvDecorators=[];updatePreview();showToast('Decorators cleared');" style="padding:5px 10px;background:white;border:1px solid #fca5a5;border-radius:6px;cursor:pointer;font-size:11px;color:#dc2626;transition:border-color 0.15s;" onmouseover="this.style.borderColor='#dc2626'" onmouseout="this.style.borderColor='#fca5a5'">✕ Clear all</button>
+            </div>
           </div>
         </div>
 
