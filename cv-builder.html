@@ -741,6 +741,20 @@ nav div a:hover::after { width: 100%; }
                 <input type="file" id="photoInput" accept="image/*" style="display:none;" onchange="handlePhotoUpload(this)">
               </div>
             </div>
+            <!-- Country format selector -->
+            <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+              <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:6px;">Applying in:</label>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;" id="countryBtnGroup">
+                <button onclick="setCountryFormat('🇦🇺 Australia')" class="country-btn" data-country="🇦🇺 Australia" style="padding:5px 11px;background:white;border:1.5px solid var(--border);border-radius:20px;font-size:12px;cursor:pointer;transition:all 0.2s;font-family:'DM Sans',sans-serif;">🇦🇺 Australia</button>
+                <button onclick="setCountryFormat('🇬🇧 UK')" class="country-btn" data-country="🇬🇧 UK" style="padding:5px 11px;background:white;border:1.5px solid var(--border);border-radius:20px;font-size:12px;cursor:pointer;transition:all 0.2s;font-family:'DM Sans',sans-serif;">🇬🇧 UK</button>
+                <button onclick="setCountryFormat('🇨🇦 Canada')" class="country-btn" data-country="🇨🇦 Canada" style="padding:5px 11px;background:white;border:1.5px solid var(--border);border-radius:20px;font-size:12px;cursor:pointer;transition:all 0.2s;font-family:'DM Sans',sans-serif;">🇨🇦 Canada</button>
+                <button onclick="setCountryFormat('🇺🇸 USA')" class="country-btn" data-country="🇺🇸 USA" style="padding:5px 11px;background:white;border:1.5px solid var(--border);border-radius:20px;font-size:12px;cursor:pointer;transition:all 0.2s;font-family:'DM Sans',sans-serif;">🇺🇸 USA</button>
+                <button onclick="setCountryFormat('🇫🇷 France')" class="country-btn" data-country="🇫🇷 France" style="padding:5px 11px;background:white;border:1.5px solid var(--border);border-radius:20px;font-size:12px;cursor:pointer;transition:all 0.2s;font-family:'DM Sans',sans-serif;">🇫🇷 France</button>
+                <button onclick="setCountryFormat('🇧🇩 Bangladesh')" class="country-btn" data-country="🇧🇩 Bangladesh" style="padding:5px 11px;background:white;border:1.5px solid var(--border);border-radius:20px;font-size:12px;cursor:pointer;transition:all 0.2s;font-family:'DM Sans',sans-serif;">🇧🇩 Bangladesh</button>
+                <button onclick="setCountryFormat('🌍 International')" class="country-btn" data-country="🌍 International" style="padding:5px 11px;background:white;border:1.5px solid var(--border);border-radius:20px;font-size:12px;cursor:pointer;transition:all 0.2s;font-family:'DM Sans',sans-serif;">🌍 International</button>
+              </div>
+              <div id="countryTip" style="margin-top:8px;padding:8px 12px;background:#f0fdf4;border-radius:6px;font-size:12px;color:#166534;display:none;line-height:1.5;"></div>
+            </div>
           </div>
         </div>
 
@@ -764,6 +778,8 @@ nav div a:hover::after { width: 100%; }
             <div class="form-row">
               <textarea id="f-summary" placeholder="Write 2-3 sentences about your experience, key strengths and what you bring to the role. Or click ✨ AI to generate." oninput="updatePreview()"></textarea>
             </div>
+            <button onclick="generateLinkedIn()" style="margin-top:8px;padding:7px 14px;background:white;border:1.5px solid #0077b5;border-radius:8px;font-size:12px;color:#0077b5;font-weight:600;cursor:pointer;width:100%;transition:all 0.2s;font-family:'DM Sans',sans-serif;" onmouseover="this.style.background='#0077b5';this.style.color='white'" onmouseout="this.style.background='white';this.style.color='#0077b5'">🔗 Generate LinkedIn Summary</button>
+            <div id="linkedinResult" style="display:none;margin-top:8px;padding:10px;background:#f0f7ff;border:1px solid #bfdbfe;border-radius:8px;font-size:12px;color:#1e3a5f;"></div>
           </div>
         </div>
 
@@ -1021,6 +1037,35 @@ nav div a:hover::after { width: 100%; }
           </div>
         </div>
 
+        <!-- Job Description Matcher -->
+        <div class="cv-section-card" style="margin-top:10px;">
+          <div class="cv-section-header" onclick="toggleSection('jobmatch')">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-size:18px;">🎯</span>
+              <div>
+                <div class="section-title">Tailor CV for Job</div>
+                <div class="section-preview-txt">AI matches your CV to a job description</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="background:#f0fdf4;color:#2d6a4f;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;">AI ✨</span>
+              <span id="jobmatch-arrow" class="section-arrow">▼</span>
+            </div>
+          </div>
+          <div id="section-jobmatch" style="display:none;padding:16px;border-top:1px solid var(--border);">
+            <textarea id="jobDescText" rows="5" placeholder="Paste the job description here...
+
+Example:
+We are looking for a Software Engineer with:
+- 3+ years Python experience
+- Strong SQL skills
+- Experience with AWS
+- Team collaboration skills" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:10px;font-size:13px;font-family:'DM Sans',sans-serif;resize:vertical;box-sizing:border-box;margin-bottom:10px;"></textarea>
+            <button onclick="tailorCVForJob()" style="width:100%;padding:11px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;">🎯 Tailor My CV for This Job</button>
+            <div id="jobMatchResult" style="display:none;margin-top:12px;padding:12px;background:#f0fdf4;border-radius:8px;border:1px solid #86efac;font-size:13px;"></div>
+          </div>
+        </div>
+
       </div><!-- /form-panel -->
 
 
@@ -1134,6 +1179,15 @@ nav div a:hover::after { width: 100%; }
             <button id="editModeBtn" onclick="toggleEditMode()" style="padding:6px 14px;background:var(--accent);color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;font-family:'DM Sans',sans-serif;">✒️ Enable Editing</button>
             <span style="font-size:11px;color:var(--text3);margin-left:8px;">Click any CV text to edit directly</span>
           </div>
+        </div>
+
+        <!-- CV Completeness Score -->
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;background:#f0fdf4;border:1.5px solid var(--border);border-top:none;border-bottom:none;">
+          <div style="flex:1;background:#e2ddd4;border-radius:4px;height:6px;overflow:hidden;">
+            <div id="cvScoreBar" style="height:100%;background:var(--accent);border-radius:4px;transition:width 0.5s ease;width:0%;"></div>
+          </div>
+          <span id="cvScoreText" style="font-size:12px;font-weight:700;color:var(--accent);white-space:nowrap;">0% complete</span>
+          <span id="cvScoreTip" style="font-size:11px;color:var(--text3);"></span>
         </div>
 
         <!-- Fill notice -->
@@ -1918,6 +1972,7 @@ const RENDER_MAP = {
 function updatePreview() {
   if (editModeOn) return; // Don't overwrite manual edits
   updateSectionPreviews();
+  calculateCVScore();
   const d = getFormData();
   const hasContent = d.name || d.title || d.summary || d.experience.some(e=>e.role||e.company);
   const preview = document.getElementById('cv-preview');
@@ -3589,7 +3644,153 @@ document.addEventListener('DOMContentLoaded', function() {
   initSections();
   buildTemplateGallery();
   updateSectionPreviews();
+  calculateCVScore();
 });
+
+// ── Feature 1: CV Completeness Score ──
+function calculateCVScore() {
+  const fields = [
+    {id:'f-name', weight:15, label:'name'},
+    {id:'f-jobtitle', weight:10, label:'job title'},
+    {id:'f-email', weight:10, label:'email'},
+    {id:'f-phone', weight:5, label:'phone'},
+    {id:'f-location', weight:5, label:'location'},
+    {id:'f-summary', weight:15, label:'summary'},
+    {id:'f-skills', weight:10, label:'skills'},
+  ];
+  const expEntries = document.querySelectorAll('.exp-entry').length;
+  const eduEntries = document.querySelectorAll('.edu-entry').length;
+  let score = 0;
+  let missingFields = [];
+  fields.forEach(f => {
+    const el = document.getElementById(f.id);
+    if (el && el.value && el.value.trim()) { score += f.weight; }
+    else { missingFields.push(f.label); }
+  });
+  if (expEntries > 0) score += 20; else missingFields.push('experience');
+  if (eduEntries > 0) score += 10; else missingFields.push('education');
+  if (cvPhotoData) score += 5;
+  score = Math.min(score, 100);
+  const bar = document.getElementById('cvScoreBar');
+  const text = document.getElementById('cvScoreText');
+  const tip = document.getElementById('cvScoreTip');
+  if (bar) { bar.style.width = score + '%'; bar.style.background = score < 40 ? '#ef4444' : score < 70 ? '#f59e0b' : '#2d6a4f'; }
+  if (text) { text.textContent = score + '% complete'; text.style.color = score < 40 ? '#ef4444' : score < 70 ? '#92400e' : '#2d6a4f'; }
+  if (tip) { tip.textContent = missingFields.length > 0 ? 'Add: ' + missingFields[0] : (score === 100 ? '🎉 Perfect!' : ''); }
+  return score;
+}
+
+// ── Feature 2: Country Format Selector ──
+const COUNTRY_TIPS = {
+  '🇦🇺 Australia': {tip:'Australian resumes: 2-3 pages, no photo needed, include 2 references, use SEEK.com.au for jobs'},
+  '🇬🇧 UK': {tip:'UK CVs: 2 pages max, personal statement at top, no photo, no DOB, Reed.co.uk and LinkedIn'},
+  '🇨🇦 Canada': {tip:'Canadian resumes: 1-2 pages, note work authorization (PGWP), Indeed Canada and LinkedIn'},
+  '🇺🇸 USA': {tip:'US resumes: 1 page preferred, no photo, no address needed, achievement-focused bullets'},
+  '🇫🇷 France': {tip:'French CVs: 1-2 pages, photo recommended, include DOB and nationality, French language preferred'},
+  '🇧🇩 Bangladesh': {tip:'Bangladeshi CVs: 2-3 pages, photo required, include DOB and marital status, Bdjobs.com and LinkedIn'},
+  '🌍 International': {tip:'International: Research target country format. When in doubt, use clean 1-2 page format without photo.'}
+};
+function setCountryFormat(country) {
+  window._cvCountry = country;
+  document.querySelectorAll('.country-btn').forEach(btn => {
+    const isActive = btn.dataset.country === country;
+    btn.style.background = isActive ? 'var(--accent)' : 'white';
+    btn.style.color = isActive ? 'white' : 'var(--text)';
+    btn.style.borderColor = isActive ? 'var(--accent)' : 'var(--border)';
+    btn.classList.toggle('active-country', isActive);
+  });
+  const tip = document.getElementById('countryTip');
+  const countryData = COUNTRY_TIPS[country];
+  if (tip && countryData) { tip.style.display = 'block'; tip.textContent = '💡 ' + countryData.tip; }
+  showToast('Format set for ' + country);
+}
+
+// ── Feature 3: Job Description Matcher ──
+function getCVAsText() {
+  const preview = document.getElementById('cv-preview');
+  return preview ? (preview.innerText || preview.textContent || '') : '';
+}
+async function tailorCVForJob() {
+  const jobDesc = document.getElementById('jobDescText') ? document.getElementById('jobDescText').value.trim() : '';
+  if (!jobDesc) { showToast('Please paste a job description'); return; }
+  const cvText = getCVAsText();
+  showToast('⏳ AI is analyzing your CV...');
+  try {
+    const response = await fetch('/api/process', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        type: 'cv_tailor',
+        text: `CV Content:\n${cvText}\n\nJob Description:\n${jobDesc}\n\nAnalyze this CV against the job description. Return JSON only:\n{"matchScore":75,"missingKeywords":["AWS","Docker"],"matchedKeywords":["Python","SQL"],"suggestedSummary":"Improved summary tailored to this job...","tips":["Add AWS experience","Mention team projects"]}`,
+        prompt: 'Analyze CV vs job description. Return JSON only.'
+      })
+    });
+    const data = await response.json();
+    let result;
+    try {
+      const json = data.result.replace(/```json/g,'').replace(/```/g,'');
+      result = JSON.parse(json.trim());
+    } catch(e) { showToast('❌ Could not parse analysis. Try again.'); return; }
+    const resultDiv = document.getElementById('jobMatchResult');
+    if (resultDiv) {
+      resultDiv.style.display = 'block';
+      const scoreColor = result.matchScore >= 70 ? '#2d6a4f' : '#f59e0b';
+      let html = `<div style="font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px;"><span style="font-size:22px;font-weight:900;color:${scoreColor};">${result.matchScore}%</span><span>Match Score</span></div>`;
+      if (result.missingKeywords && result.missingKeywords.length > 0) {
+        html += `<div style="margin-bottom:8px;"><strong style="color:#c62828;">Missing keywords:</strong><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">${result.missingKeywords.map(k=>`<span style="background:#fff1f2;border:1px solid #fecdd3;color:#9f1239;padding:2px 8px;border-radius:10px;font-size:11px;">+ ${k}</span>`).join('')}</div></div>`;
+      }
+      if (result.matchedKeywords && result.matchedKeywords.length > 0) {
+        html += `<div style="margin-bottom:8px;"><strong style="color:#166534;">Matched:</strong><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">${result.matchedKeywords.map(k=>`<span style="background:#f0fdf4;border:1px solid #86efac;color:#166534;padding:2px 8px;border-radius:10px;font-size:11px;">✓ ${k}</span>`).join('')}</div></div>`;
+      }
+      if (result.tips && result.tips.length > 0) {
+        html += `<div style="margin-bottom:10px;"><strong>Suggestions:</strong><ul style="margin:4px 0;padding-left:16px;">${result.tips.map(t=>`<li style="font-size:12px;margin-bottom:3px;">${t}</li>`).join('')}</ul></div>`;
+      }
+      if (result.suggestedSummary) {
+        html += `<div><strong>Tailored summary:</strong><p id="tailoredSummaryText" style="font-size:12px;color:#374151;margin:4px 0;line-height:1.6;padding:8px;background:white;border-radius:6px;border:1px solid #e2ddd4;">${result.suggestedSummary}</p><button onclick="applyTailoredSummary()" style="padding:5px 12px;background:var(--accent);color:white;border:none;border-radius:6px;font-size:11px;cursor:pointer;margin-top:4px;font-family:'DM Sans',sans-serif;">Apply This Summary</button></div>`;
+      }
+      resultDiv.innerHTML = html;
+    }
+    showToast('✅ ' + result.matchScore + '% match score!');
+  } catch(err) { showToast('❌ Error: ' + err.message); }
+}
+function applyTailoredSummary() {
+  const textEl = document.getElementById('tailoredSummaryText');
+  const summaryField = document.getElementById('f-summary');
+  if (summaryField && textEl) {
+    summaryField.value = textEl.textContent.trim();
+    summaryField.dispatchEvent(new Event('input', {bubbles: true}));
+    updatePreview();
+    showToast('✓ Summary updated!');
+  }
+}
+
+// ── Feature 4: LinkedIn Summary Generator ──
+async function generateLinkedIn() {
+  const name = (document.getElementById('f-name') || {}).value || '';
+  const title = (document.getElementById('f-jobtitle') || {}).value || '';
+  const summary = (document.getElementById('f-summary') || {}).value || '';
+  const skills = (document.getElementById('f-skills') || {}).value || '';
+  if (!name || !title) { showToast('Add your name and job title first'); return; }
+  showToast('⏳ Generating LinkedIn summary...');
+  try {
+    const response = await fetch('/api/process', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        type: 'cv_build',
+        text: `Write a compelling LinkedIn "About" section (300-400 words) for:\nName: ${name}\nTitle: ${title}\nSummary: ${summary || 'professional'}\nSkills: ${skills || 'various skills'}\n\nWrite in first person. Sound human and engaging. End with what opportunities they are open to. No hashtags.`,
+        prompt: 'Write LinkedIn About section. First person, engaging, 300-400 words.'
+      })
+    });
+    const data = await response.json();
+    const result = document.getElementById('linkedinResult');
+    if (result && data.result) {
+      result.style.display = 'block';
+      result.innerHTML = `<div style="font-weight:600;margin-bottom:6px;color:#0077b5;">🔗 LinkedIn About Section:</div><p id="linkedinText" style="margin:0 0 8px;line-height:1.7;">${data.result.replace(/\n/g,'<br>')}</p><button onclick="navigator.clipboard.writeText(document.getElementById('linkedinText').innerText);this.textContent='✓ Copied!';setTimeout(()=>this.textContent='📋 Copy',1500)" style="padding:5px 12px;background:#0077b5;color:white;border:none;border-radius:6px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;">📋 Copy</button>`;
+    }
+    showToast('✓ LinkedIn summary generated!');
+  } catch(err) { showToast('❌ Error: ' + err.message); }
+}
 </script>
 
 <button id="pf-scroll-top" aria-label="Scroll to top">↑</button>
