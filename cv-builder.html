@@ -650,23 +650,39 @@ nav div a:hover::after { width: 100%; }
 }
 /* ── Mobile responsive layout ── */
 @media (max-width: 900px) {
-  #cvBuilderLayout { grid-template-columns: 1fr !important; gap: 10px !important; padding: 10px 10px 80px !important; }
-  #cvFormPanel { position: static !important; height: auto !important; max-height: none !important; min-height: auto !important; order: 2 !important; border-radius: 12px !important; }
+  .builder-layout, #cvBuilderLayout { grid-template-columns: 1fr !important; padding: 8px 10px 90px !important; gap: 10px !important; }
+  #cvPreviewPanel { order: 1 !important; position: static !important; height: auto !important; min-height: auto !important; border-radius: 10px !important; }
+  #cvFormPanel { order: 2 !important; position: static !important; height: auto !important; max-height: none !important; min-height: auto !important; border-radius: 10px !important; }
   #cvFormScrollable { overflow: visible !important; max-height: none !important; height: auto !important; padding: 12px !important; }
-  #cvPreviewPanel { position: static !important; height: auto !important; order: 1 !important; border-radius: 12px !important; }
-  #cvPreviewWrapper { height: 320px !important; overflow-y: auto !important; overflow-x: hidden !important; padding: 8px !important; flex: none !important; }
-  #premiumTemplateGrid, #classicTemplateGrid { grid-template-columns: repeat(3,1fr) !important; }
-  #quickTplGrid { grid-template-columns: repeat(4,1fr) !important; }
-  .cv-main { padding-bottom: 80px !important; }
+  #cvPreviewWrapper { height: 280px !important; min-height: 280px !important; max-height: 280px !important; overflow: hidden !important; padding: 8px !important; }
+  #quickTemplates { grid-template-columns: repeat(2,1fr) !important; gap: 6px !important; }
+  #templateGallery { max-height: 300px; overflow-y: auto; }
+  #premiumTemplateGrid, #classicTemplateGrid { grid-template-columns: repeat(3,1fr) !important; gap: 5px !important; }
+  .form-row, [class*="form-row"] { grid-template-columns: 1fr !important; gap: 8px !important; }
+  .cv-section-card input, .cv-section-card textarea, .cv-section-card select { font-size: 16px !important; padding: 11px 12px !important; min-height: 44px !important; }
+  .cv-section-header, [class*="section-header"] { padding: 14px 14px !important; min-height: 52px !important; }
+  .country-btn, [class*="country-btn"] { padding: 6px 10px !important; font-size: 11px !important; }
+  #shapesPanel button, [class*="decorator"] button { min-width: 58px !important; padding: 5px 6px !important; font-size: 10px !important; }
+  #importCVSection > div > div { grid-template-columns: 1fr !important; }
+  .job-links, [id*="jobLink"] { flex-wrap: wrap !important; }
+  #cvFormPanel > div:first-child { padding: 10px 12px !important; flex-wrap: wrap !important; gap: 6px !important; }
+  #cvPreviewPanel > div:first-child { padding: 8px 12px !important; }
+  #cvPreviewPanel button[onclick*="Full"], #cvPreviewPanel button[title*="full"], #cvPreviewPanel button[title*="Full"] { display: none !important; }
+  #coverLetterSection > div { grid-template-columns: 1fr !important; }
+  #cvScoreBar, [id*="score"] { display: none !important; }
+  #mobileBar { display: flex !important; }
 }
 @media (max-width: 480px) {
+  .builder-layout, #cvBuilderLayout { padding: 6px 8px 90px !important; }
+  #cvPreviewWrapper { height: 240px !important; min-height: 240px !important; max-height: 240px !important; }
   #premiumTemplateGrid, #classicTemplateGrid { grid-template-columns: repeat(2,1fr) !important; }
   #quickTplGrid { grid-template-columns: repeat(2,1fr) !important; }
   #countryBtnGroup button { font-size: 11px !important; padding: 5px 8px !important; }
 }
 #mobileDownloadBar { display: none; }
+#mobileBar { display: none; }
 @media (max-width: 900px) {
-  #mobileDownloadBar { display: flex !important; position: fixed; bottom: 0; left: 0; right: 0; z-index: 150; background: white; border-top: 1px solid var(--border); padding: 10px 16px; gap: 10px; box-shadow: 0 -4px 16px rgba(0,0,0,.1); }
+  #mobileDownloadBar { display: none !important; }
   #mobileDownloadBar button { flex: 1; padding: 12px 8px; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; }
   #mobileDownloadBar button:first-child { background: var(--accent) !important; color: white !important; border: none !important; }
   #mobileDownloadBar button:last-child { background: white !important; color: var(--accent) !important; border: 2px solid var(--accent) !important; }
@@ -1267,11 +1283,12 @@ We are looking for a Software Engineer with:
       <div id="cvPreviewPanel">
 
         <!-- Preview header -->
-        <div style="padding:10px 16px;background:white;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;border-radius:12px 12px 0 0;">
-          <span style="font-size:13px;font-weight:700;color:var(--text);font-family:'Syne',sans-serif;">Live Preview</span>
-          <div style="display:flex;gap:8px;align-items:center;">
+        <div style="padding:10px 14px;background:white;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;border-radius:12px 12px 0 0;">
+          <span style="font-size:12px;font-weight:600;color:var(--text2);">Live Preview</span>
+          <div style="display:flex;gap:6px;align-items:center;">
             <span id="cvScoreDisplay" style="font-size:11px;font-weight:700;color:var(--accent);"></span>
-            <button onclick="openFullPreview()" title="Open full screen" style="padding:4px 9px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:13px;color:var(--text2);">⛶</button>
+            <button onclick="toggleEditMode()" id="previewEditBtn" style="padding:5px 12px;background:white;border:1.5px solid var(--border);border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;color:var(--text2);font-family:'DM Sans',sans-serif;transition:all 0.2s;display:flex;align-items:center;gap:4px;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">✏️ Edit</button>
+            <button onclick="openFullPreview()" title="Full screen" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:4px 6px;">⛶</button>
           </div>
         </div>
 
@@ -2439,54 +2456,78 @@ function copyCV() {
   });
 }
 
+// ── Script loader helper ──
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = src; s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
 // ── Download PDF ──
 async function downloadPDF() {
   const preview = document.getElementById('cv-preview');
-  if (!preview || !preview.innerHTML.trim() || preview.querySelector('.cv-empty')) {
-    alert('Please fill in your CV details first.'); return;
-  }
-  if (!window.html2canvas) { alert('PDF renderer not loaded yet. Please try again.'); return; }
-  const { jsPDF } = window.jspdf;
-  if (!jsPDF) { alert('PDF library not loaded yet. Please try again.'); return; }
-
-  const dlBtn = document.querySelector('.dl-btn');
-  const originalText = dlBtn ? dlBtn.textContent : '';
-  if (dlBtn) { dlBtn.textContent = '⏳ Generating…'; dlBtn.disabled = true; }
-
   const scaleEl = document.getElementById('cvPreviewScale');
+  if (!preview || !preview.innerHTML.trim() || preview.querySelector('.cv-empty')) {
+    showToast('Please fill in your CV details first.'); return;
+  }
+  if (typeof html2canvas === 'undefined') {
+    showToast('⏳ Loading renderer...');
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+  }
+  if (typeof window.jspdf === 'undefined') {
+    showToast('⏳ Loading PDF library...');
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  }
+  showToast('⏳ Creating PDF...');
   const originalTransform = scaleEl ? scaleEl.style.transform : '';
-  if (scaleEl) scaleEl.style.transform = 'scale(1)';
-
+  const originalOrigin = scaleEl ? scaleEl.style.transformOrigin : '';
   try {
+    if (scaleEl) { scaleEl.style.transform = 'scale(1)'; scaleEl.style.transformOrigin = 'top left'; }
+    preview.style.width = '794px';
+    preview.style.height = '1056px';
+    preview.style.overflow = 'visible';
+    await new Promise(r => setTimeout(r, 100));
     const canvas = await html2canvas(preview, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: '#ffffff',
-      width: 794,
-      height: 1056,
-      windowWidth: 794,
-      scrollX: 0,
-      scrollY: 0,
-      logging: false
+      scale: 2, useCORS: true, allowTaint: true,
+      backgroundColor: '#ffffff', width: 794, height: 1056,
+      scrollX: 0, scrollY: 0, logging: false,
+      removeContainer: true, foreignObjectRendering: false
     });
-
-    const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-    const imgData = canvas.toDataURL('image/jpeg', 0.95);
-    doc.addImage(imgData, 'JPEG', 0, 0, 210, 297, '', 'FAST');
-
-    const d = getFormData();
-    const fname = (d.name||'CV').replace(/\s+/g,'_') + '_Resume.pdf';
-    doc.save(fname);
-  } finally {
-    if (scaleEl) scaleEl.style.transform = originalTransform;
-    if (dlBtn) { dlBtn.textContent = originalText; dlBtn.disabled = false; }
+    if (scaleEl) { scaleEl.style.transform = originalTransform; scaleEl.style.transformOrigin = originalOrigin; }
+    preview.style.overflow = 'hidden';
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+    const imgData = canvas.toDataURL('image/jpeg', 0.92);
+    pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297, '', 'FAST');
+    const name = (document.getElementById('fullName')?.value || getFormData().name || 'CV').replace(/\s+/g, '-');
+    pdf.save(`${name}-CV.pdf`);
+    showToast('✓ PDF downloaded!');
+  } catch(err) {
+    if (scaleEl) { scaleEl.style.transform = originalTransform; scaleEl.style.transformOrigin = originalOrigin; }
+    preview.style.overflow = 'hidden';
+    console.error('PDF error:', err);
+    const styles = Array.from(document.styleSheets).map(s => { try { return Array.from(s.cssRules).map(r=>r.cssText).join(''); } catch(e){return '';} }).join('');
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width"><title>CV</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{width:210mm;background:white;}@media print{body{width:210mm;margin:0;padding:0;}@page{size:A4;margin:0;}}</style></head><body>${preview.outerHTML}<script>setTimeout(()=>window.print(),500)<\/script></body></html>`);
+      win.document.close();
+      showToast('💡 Print → Save as PDF');
+    } else {
+      showToast('❌ Error: ' + err.message);
+    }
   }
 }
 
 // ── Download DOCX ──
 async function downloadDOCX() {
-  if (!window.JSZip) { alert('JSZip not loaded. Please try again.'); return; }
+  if (typeof JSZip === 'undefined') {
+    showToast('⏳ Loading...');
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+    await new Promise(r => setTimeout(r, 500));
+  }
   const d = getFormData();
   const zip = new JSZip();
 
@@ -2893,25 +2934,49 @@ function renderExtraSections() {
 let editModeOn = false;
 
 function toggleEditMode() {
-  const preview = document.getElementById('cv-preview');
-  const btn = document.getElementById('editModeBtn');
-  if (!preview) return;
   editModeOn = !editModeOn;
+  const preview = document.getElementById('cv-preview');
+  const leftBtn = document.getElementById('editModeBtn');
+  const rightBtn = document.getElementById('previewEditBtn');
   const toolbar = document.getElementById('cvEditToolbar');
   if (editModeOn) {
-    preview.contentEditable = 'true';
-    preview.style.outline = '2px dashed var(--accent)';
-    preview.style.cursor = 'text';
-    btn.textContent = '💾 Save Changes';
-    btn.style.background = '#1565c0';
+    if (preview) {
+      preview.contentEditable = 'true';
+      preview.style.outline = '2px dashed var(--accent)';
+      preview.style.cursor = 'text';
+    }
+    if (leftBtn) {
+      leftBtn.textContent = '💾 Save';
+      leftBtn.style.background = 'var(--accent)';
+      leftBtn.style.color = 'white';
+      leftBtn.style.borderColor = 'var(--accent)';
+    }
+    if (rightBtn) {
+      rightBtn.innerHTML = '💾 Save';
+      rightBtn.style.background = 'var(--accent)';
+      rightBtn.style.color = 'white';
+      rightBtn.style.borderColor = 'var(--accent)';
+    }
     if (toolbar) toolbar.style.display = 'flex';
-    showToast('✏️ Edit mode ON — click any text to edit');
+    showToast('✏️ Click any text to edit directly');
   } else {
-    preview.contentEditable = 'false';
-    preview.style.outline = 'none';
-    preview.style.cursor = 'default';
-    btn.textContent = '✒️ Enable Editing';
-    btn.style.background = 'var(--accent)';
+    if (preview) {
+      preview.contentEditable = 'false';
+      preview.style.outline = 'none';
+      preview.style.cursor = 'default';
+    }
+    if (leftBtn) {
+      leftBtn.textContent = '✏️ Edit Text';
+      leftBtn.style.background = 'white';
+      leftBtn.style.color = 'var(--text2)';
+      leftBtn.style.borderColor = 'var(--border)';
+    }
+    if (rightBtn) {
+      rightBtn.innerHTML = '✏️ Edit';
+      rightBtn.style.background = 'white';
+      rightBtn.style.color = 'var(--text2)';
+      rightBtn.style.borderColor = 'var(--border)';
+    }
     if (toolbar) toolbar.style.display = 'none';
     showToast('✓ Changes saved');
   }
@@ -2944,7 +3009,9 @@ function resetToFormData() {
     const preview = document.getElementById('cv-preview');
     if (preview) { preview.contentEditable = 'false'; preview.style.outline = 'none'; preview.style.cursor = 'default'; }
     const btn = document.getElementById('editModeBtn');
-    if (btn) { btn.textContent = '✒️ Enable Editing'; btn.style.background = 'var(--accent)'; }
+    if (btn) { btn.textContent = '✏️ Edit Text'; btn.style.background = 'white'; btn.style.color = 'var(--text2)'; btn.style.borderColor = 'var(--border)'; }
+    const rBtn = document.getElementById('previewEditBtn');
+    if (rBtn) { rBtn.innerHTML = '✏️ Edit'; rBtn.style.background = 'white'; rBtn.style.color = 'var(--text2)'; rBtn.style.borderColor = 'var(--border)'; }
     const toolbar = document.getElementById('cvEditToolbar');
     if (toolbar) toolbar.style.display = 'none';
     updatePreview();
@@ -4664,6 +4731,10 @@ async function generateLinkedIn() {
 <div id="mobileDownloadBar" aria-label="Quick download">
   <button onclick="downloadPDF()" style="background:var(--accent);color:white;border:none;">⬇ PDF</button>
   <button onclick="downloadDOCX()" style="background:white;color:var(--accent);border:1.5px solid var(--accent);">⬇ Word</button>
+</div>
+<div id="mobileBar" style="position:fixed;bottom:0;left:0;right:0;background:white;border-top:2px solid var(--border);padding:10px 12px;z-index:999;box-shadow:0 -4px 20px rgba(0,0,0,0.12);gap:8px;">
+  <button onclick="downloadPDF()" style="flex:1;padding:13px 0;background:var(--accent);color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download PDF</button>
+  <button onclick="downloadDOCX()" style="flex:1;padding:13px 0;background:white;color:var(--accent);border:2px solid var(--accent);border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Word</button>
 </div>
 <button id="pf-scroll-top" aria-label="Scroll to top">↑</button>
 <script type="application/ld+json">
