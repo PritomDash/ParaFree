@@ -661,6 +661,12 @@ nav div a:hover::after { width: 100%; }
   #clTemplateCards { grid-template-columns: repeat(2,1fr) !important; }
   *{box-sizing:border-box;-webkit-text-size-adjust:100%;}
 }
+#mobileSaveBar { display: none; }
+@media (max-width: 768px) {
+  #mobileSaveBar { display: flex !important; position: fixed; bottom: 0; left: 0; right: 0; z-index: 150; background: white; border-top: 1px solid var(--border); padding: 10px 16px; gap: 10px; box-shadow: 0 -4px 16px rgba(0,0,0,.1); }
+  #mobileSaveBar button { flex: 1; padding: 12px 8px; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  body { padding-bottom: 80px; }
+}
 </style>
 </head>
 <body>
@@ -1535,7 +1541,8 @@ function switchTab(tab) {
 function setTemplate(tpl) {
   currentTemplate = tpl;
   document.querySelectorAll('.tpl-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('tpl-' + tpl).classList.add('active');
+  const btn = document.getElementById('tpl-' + tpl);
+  if (btn) btn.classList.add('active');
   const wrap = document.getElementById('cv-preview').parentElement;
   wrap.className = 'preview-wrap tpl-' + tpl;
   updatePreview();
@@ -1579,49 +1586,75 @@ function renderBullets(bulletsText, cls) {
   return `<ul class="${cls}">${items.map(b => `<li>${esc(b.replace(/^[•\-]\s*/,''))}</li>`).join('')}</ul>`;
 }
 
-// ── Classic template ──
+// ── Classic template (premium colored-header) ──
 function renderClassic(d) {
-  const contactParts = [
+  const accent = window._cvAccentColor || '#2d6a4f';
+  const accentFaint = accent + '18';
+  const accentBorder = accent + '44';
+  const photoHtml = cvPhotoData
+    ? `<img src="${cvPhotoData}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:3px solid rgba(255,255,255,0.55);flex-shrink:0;">`
+    : '';
+  let h = `<div style="background:${accent};padding:28px 32px 22px;margin:-40px -60px 0;display:flex;justify-content:space-between;align-items:center;gap:16px;">
+    <div>
+      <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:white;letter-spacing:-0.5px;line-height:1.1;">${esc(d.name || 'Your Name')}</div>
+      ${d.title ? `<div style="font-size:13px;color:rgba(255,255,255,0.82);font-weight:500;margin-top:5px;">${esc(d.title)}</div>` : ''}
+    </div>${photoHtml}
+  </div>`;
+  const cParts = [
     d.email    && `<span>✉&#xFE0E; ${esc(d.email)}</span>`,
     d.phone    && `<span>☎&#xFE0E; ${esc(d.phone)}</span>`,
     d.location && `<span>⌖ ${esc(d.location)}</span>`,
     d.linkedin && `<span>⊞ ${esc(d.linkedin)}</span>`
-  ].filter(Boolean).join('<span style="color:#ccc;margin:0 5px;">|</span>');
-  let h = `<div class="cv-name">${esc(d.name||'Your Name')}</div>`;
-  if (d.title) h += `<div class="cv-jobtitle">${esc(d.title)}</div>`;
-  if (contactParts) h += `<div class="cv-contact" style="display:flex;flex-wrap:wrap;align-items:center;gap:2px;">${contactParts}</div>`;
-  h += `<hr class="cv-divider">`;
-  if (d.summary) h += `<div class="cv-sec-title">Professional Summary</div><div class="cv-sec-body" style="text-align:justify;line-height:1.65;">${esc(d.summary)}</div>`;
-  const exps = d.experience.filter(e => e.company||e.role);
+  ].filter(Boolean);
+  if (cParts.length) {
+    h += `<div style="background:${accentFaint};padding:7px 32px;margin:0 -60px 16px;display:flex;flex-wrap:wrap;gap:5px 14px;font-size:11px;color:#444;">${cParts.join('<span style="color:#bbb;">|</span>')}</div>`;
+  } else {
+    h += `<div style="margin-top:16px;"></div>`;
+  }
+  const secTitle = t => `<div style="font-family:'Syne',sans-serif;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.9px;color:${accent};border-bottom:2px solid ${accent};padding-bottom:3px;margin:18px 0 8px;">${t}</div>`;
+  if (d.summary) {
+    h += secTitle('Professional Summary');
+    h += `<div style="font-size:13px;line-height:1.65;color:#3a3a3a;text-align:justify;">${esc(d.summary)}</div>`;
+  }
+  const exps = d.experience.filter(e => e.company || e.role);
   if (exps.length) {
-    h += `<div class="cv-sec-title">Work Experience</div>`;
+    h += secTitle('Work Experience');
     exps.forEach(e => {
-      const dates = [e.start,e.end].filter(Boolean).join(' – ');
+      const dates = [e.start, e.end].filter(Boolean).join(' – ');
       h += `<div style="margin-bottom:14px;">
-        <div class="cv-exp-hdr"><span class="cv-exp-role">${esc(e.role)}</span>${dates?`<span class="cv-exp-dates">${esc(dates)}</span>`:''}</div>
-        <div class="cv-exp-company">${esc(e.company)}</div>
-        ${renderBullets(e.bullets,'cv-bullets')}
+        <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:2px;">
+          <span style="font-weight:700;font-size:13.5px;color:#1a1814;">${esc(e.role)}</span>
+          ${dates ? `<span style="font-size:11px;color:#888;white-space:nowrap;">${esc(dates)}</span>` : ''}
+        </div>
+        <div style="font-size:12px;color:${accent};font-weight:600;margin-bottom:3px;">${esc(e.company)}</div>
+        ${renderBullets(e.bullets, 'cv-bullets')}
       </div>`;
     });
   }
-  const edus = d.education.filter(e => e.school||e.degree);
+  const edus = d.education.filter(e => e.school || e.degree);
   if (edus.length) {
-    h += `<div class="cv-sec-title">Education</div>`;
+    h += secTitle('Education');
     edus.forEach(e => {
-      const dates = [e.start,e.end].filter(Boolean).join(' – ');
-      h += `<div class="cv-edu-entry">
-        <div class="cv-exp-hdr"><span class="cv-exp-role">${esc(e.degree)}</span>${dates?`<span class="cv-exp-dates">${esc(dates)}</span>`:''}</div>
-        <div class="cv-exp-company">${esc(e.school)}</div>
+      const dates = [e.start, e.end].filter(Boolean).join(' – ');
+      h += `<div style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:2px;">
+          <span style="font-weight:700;font-size:13px;color:#1a1814;">${esc(e.degree)}</span>
+          ${dates ? `<span style="font-size:11px;color:#888;white-space:nowrap;">${esc(dates)}</span>` : ''}
+        </div>
+        <div style="font-size:12px;color:${accent};font-weight:600;">${esc(e.school)}</div>
       </div>`;
     });
   }
   if (d.skills) {
-    h += `<div class="cv-sec-title">Skills</div>`;
+    h += secTitle('Skills');
     const pills = d.skills.split(',').map(s => s.trim()).filter(Boolean)
-      .map(s => `<span class="cv-skill-pill">${esc(s)}</span>`).join('');
-    h += `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">${pills}</div>`;
+      .map(s => `<span style="display:inline-block;background:${accentFaint};color:${accent};border:1px solid ${accentBorder};border-radius:20px;padding:3px 11px;font-size:11px;font-weight:600;">${esc(s)}</span>`).join('');
+    h += `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:4px;">${pills}</div>`;
   }
-  if (d.certs) h += `<div class="cv-sec-title">Certifications</div><div class="cv-sec-body">${esc(d.certs)}</div>`;
+  if (d.certs) {
+    h += secTitle('Certifications');
+    h += `<div style="font-size:13px;color:#3a3a3a;line-height:1.7;">${esc(d.certs).replace(/\n/g, '<br>')}</div>`;
+  }
   return h;
 }
 
@@ -2104,8 +2137,30 @@ function updatePreview() {
   const dcEl = document.getElementById('decoratorCount');
   if (dcEl) dcEl.textContent = cvDecorators.length ? cvDecorators.length + ' decorator' + (cvDecorators.length > 1 ? 's' : '') + ' added' : 'No decorators added';
   updateJobSearch();
+  scalePreview();
 }
 const updateCV = updatePreview;
+
+// ── Auto-scale preview to fit its container ──
+function scalePreview() {
+  const wrap = document.querySelector('.preview-wrap');
+  const preview = document.getElementById('cv-preview');
+  if (!wrap || !preview) return;
+  const wrapW = wrap.clientWidth - 4;
+  const cvW = 794;
+  if (wrapW >= cvW) {
+    preview.style.transform = '';
+    preview.style.width = '';
+    preview.style.minHeight = '';
+  } else {
+    const scale = wrapW / cvW;
+    preview.style.transform = `scale(${scale.toFixed(3)})`;
+    preview.style.transformOrigin = 'top left';
+    preview.style.width = (100 / scale).toFixed(2) + '%';
+    preview.style.minHeight = '1100px';
+  }
+}
+window.addEventListener('resize', scalePreview, { passive: true });
 
 // ── Dynamic form sections ──
 function addExp() {
@@ -3777,6 +3832,7 @@ document.addEventListener('DOMContentLoaded', function() {
   updateSectionPreviews();
   calculateCVScore();
   updateCoverLetter();
+  scalePreview();
 });
 
 // ══════════ COVER LETTER ENGINE ══════════
@@ -4214,6 +4270,10 @@ async function generateLinkedIn() {
 }
 </script>
 
+<div id="mobileSaveBar" aria-label="Quick download">
+  <button onclick="downloadPDF()" style="background:var(--accent);color:white;border:none;">⬇ PDF</button>
+  <button onclick="downloadDOCX()" style="background:white;color:var(--accent);border:1.5px solid var(--accent);">⬇ Word</button>
+</div>
 <button id="pf-scroll-top" aria-label="Scroll to top">↑</button>
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"Organization","name":"ParaFree","url":"https://parafree.app","logo":"https://parafree.app/logo.png","description":"Free AI writing suite — paraphraser, humanizer, CV builder, grammar checker, summarizer and AI detector. No signup, no word limits, always free.","foundingDate":"2026","contactPoint":{"@type":"ContactPoint","email":"parafree.tool@gmail.com","contactType":"customer support"},"sameAs":["https://parafree.app","https://threads.net/@parafree"],"areaServed":["AU","US","GB","BD","IN","SG","CA","NZ"],"serviceType":["Paraphrasing Tool","AI Humanizer","CV Builder","Grammar Checker","AI Detector","Text Summarizer"]}
