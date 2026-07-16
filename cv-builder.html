@@ -116,6 +116,14 @@ nav .nav-links a.active { color: #52b788; font-weight: 600; }
 
 /* Form panel */
 .form-panel { display: flex; flex-direction: column; gap: 16px; }
+#cvFormPanel { position: sticky; top: 70px; height: calc(100vh - 90px); display: flex; flex-direction: column; overflow: hidden; border: 1.5px solid var(--border); border-radius: 12px; background: white; }
+#cvFormScrollable { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 12px 14px; -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+#cvFormScrollable::-webkit-scrollbar { width: 4px; }
+#cvFormScrollable::-webkit-scrollbar-track { background: transparent; }
+#cvFormScrollable::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+#cvPreviewPanel { position: sticky; top: 70px; height: calc(100vh - 90px); display: flex; flex-direction: column; overflow: hidden; border: 1.5px solid var(--border); border-radius: 12px; background: #e8e6e0; }
+#cvPreviewWrapper { flex: 1; overflow: hidden; display: flex; align-items: flex-start; justify-content: center; padding: 10px; position: relative; }
+#cvPreviewWrapper .preview-wrap { overflow: hidden; flex-shrink: 0; }
 .form-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
 .form-section-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
 .form-section-hdr h3 { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; color: var(--text); }
@@ -638,17 +646,27 @@ nav div a:hover::after { width: 100%; }
 @media (max-width: 600px) {
   #importCVSection > div:nth-child(3) { grid-template-columns: 1fr !important; }
 }
-/* ── Mobile: preview above form, scaled ── */
-@media (max-width: 1024px) {
-  .preview-panel { order: -1; }
-  .preview-wrap { min-height: auto !important; height: 380px !important; overflow: hidden !important; }
-  #cv-preview { transform: scale(0.45); transform-origin: top left; width: 222%; min-height: 1100px; }
+/* ── Mobile responsive layout ── */
+@media (max-width: 900px) {
+  #cvBuilderLayout { grid-template-columns: 1fr !important; gap: 12px !important; }
+  #cvFormPanel { position: static !important; height: auto !important; border-radius: 12px !important; }
+  #cvFormScrollable { overflow: visible !important; max-height: none !important; padding: 12px !important; }
+  #cvPreviewPanel { position: static !important; height: auto !important; order: -1; border-radius: 12px !important; }
+  #cvPreviewWrapper { height: 340px !important; padding: 8px !important; }
   #premiumTemplateGrid, #classicTemplateGrid { grid-template-columns: repeat(3,1fr) !important; }
+  #quickTplGrid { grid-template-columns: repeat(4,1fr) !important; }
+  .cv-main { padding-bottom: 80px !important; }
 }
-@media (max-width: 768px) {
-  .preview-wrap { height: 320px !important; }
+@media (max-width: 480px) {
+  #cvPreviewWrapper { height: 280px !important; }
+  #premiumTemplateGrid, #classicTemplateGrid { grid-template-columns: repeat(2,1fr) !important; }
   #quickTplGrid { grid-template-columns: repeat(2,1fr) !important; }
   #countryBtnGroup button { font-size: 11px !important; padding: 5px 8px !important; }
+}
+#mobileDownloadBar { display: none; }
+@media (max-width: 900px) {
+  #mobileDownloadBar { display: flex !important; position: fixed; bottom: 0; left: 0; right: 0; z-index: 150; background: white; border-top: 1px solid var(--border); padding: 10px 16px; gap: 10px; box-shadow: 0 -4px 16px rgba(0,0,0,.1); }
+  #mobileDownloadBar button { flex: 1; padding: 12px 8px; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; }
 }
 /* Premium card focus */
 .cv-section-card:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(45,106,79,0.08); }
@@ -661,12 +679,6 @@ nav div a:hover::after { width: 100%; }
   .cover-layout { grid-template-columns: 1fr !important; }
   #clTemplateCards { grid-template-columns: repeat(2,1fr) !important; }
   *{box-sizing:border-box;-webkit-text-size-adjust:100%;}
-}
-#mobileSaveBar { display: none; }
-@media (max-width: 768px) {
-  #mobileSaveBar { display: flex !important; position: fixed; bottom: 0; left: 0; right: 0; z-index: 150; background: white; border-top: 1px solid var(--border); padding: 10px 16px; gap: 10px; box-shadow: 0 -4px 16px rgba(0,0,0,.1); }
-  #mobileSaveBar button { flex: 1; padding: 12px 8px; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; }
-  body { padding-bottom: 80px; }
 }
 </style>
 </head>
@@ -726,12 +738,159 @@ nav div a:hover::after { width: 100%; }
 
   <!-- ══════════ TAB: BUILD CV ══════════ -->
   <div id="tab-build" class="tab-panel active">
-    <div class="builder-layout">
+    <div id="cvBuilderLayout" class="builder-layout">
 
-      <!-- LEFT: Form -->
-      <div class="form-panel">
+      <!-- LEFT: Form Panel -->
+      <div id="cvFormPanel">
 
-        <!-- Personal Information -->
+        <!-- Form header -->
+        <div style="padding:11px 16px;background:white;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;border-radius:12px 12px 0 0;">
+          <span style="font-size:14px;font-weight:700;color:var(--text);font-family:'Syne',sans-serif;">Your Details</span>
+          <div style="display:flex;gap:6px;">
+            <button onclick="downloadPDF()" style="padding:6px 13px;background:var(--accent);color:white;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;">⬇ PDF</button>
+            <button onclick="downloadDOCX()" style="padding:6px 13px;background:white;color:var(--accent);border:1.5px solid var(--accent);border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;">⬇ Word</button>
+          </div>
+        </div>
+
+        <!-- Scrollable form area -->
+        <div id="cvFormScrollable">
+
+          <!-- Template selector -->
+          <div style="margin-bottom:10px;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+              <span style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;">Template</span>
+              <button id="templateGalleryBtn" onclick="toggleTemplateGallery()" style="font-size:12px;color:var(--accent);background:none;border:none;cursor:pointer;font-weight:600;font-family:'DM Sans',sans-serif;padding:0;">See all 36 →</button>
+            </div>
+            <div id="quickTplGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px;">
+              <div onclick="setTemplate('exec-pro');highlightTemplate(this)" style="border:1.5px solid var(--border);border-radius:8px;padding:8px 4px;cursor:pointer;text-align:center;background:white;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="if(!this.classList.contains('tpl-active'))this.style.borderColor='var(--border)'">
+                <div style="height:36px;border-radius:4px;overflow:hidden;margin-bottom:4px;display:flex;"><div style="width:35%;background:#1a3a2a;"></div><div style="flex:1;background:#f7f5f0;padding:3px;display:flex;flex-direction:column;gap:2px;"><div style="height:3px;background:#e2ddd4;border-radius:1px;"></div><div style="height:2px;background:#e2ddd4;border-radius:1px;width:70%;"></div></div></div>
+                <div style="font-size:10px;font-weight:700;color:var(--text);">Executive</div>
+                <div style="font-size:9px;background:#f0fdf4;color:#2d6a4f;border:1px solid #86efac;padding:1px 5px;border-radius:4px;display:inline-block;margin-top:1px;">C-Suite</div>
+              </div>
+              <div onclick="setTemplate('modern-minimal');highlightTemplate(this)" style="border:1.5px solid var(--border);border-radius:8px;padding:8px 4px;cursor:pointer;text-align:center;background:white;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="if(!this.classList.contains('tpl-active'))this.style.borderColor='var(--border)'">
+                <div style="height:36px;border-radius:4px;overflow:hidden;margin-bottom:4px;background:white;padding:4px;"><div style="height:5px;background:#1a1814;border-radius:1px;margin-bottom:3px;"></div><div style="height:1px;background:#e2ddd4;margin-bottom:2px;"></div><div style="height:1px;background:#e2ddd4;width:75%;"></div></div>
+                <div style="font-size:10px;font-weight:700;color:var(--text);">Minimal</div>
+                <div style="font-size:9px;background:#eff6ff;color:#1565c0;border:1px solid #bfdbfe;padding:1px 5px;border-radius:4px;display:inline-block;margin-top:1px;">Universal</div>
+              </div>
+              <div onclick="setTemplate('classic');highlightTemplate(this)" class="tpl-active" style="border:2px solid var(--accent);border-radius:8px;padding:8px 4px;cursor:pointer;text-align:center;background:#f0fdf4;transition:all 0.2s;">
+                <div style="height:36px;border-radius:4px;overflow:hidden;margin-bottom:4px;background:white;padding:3px;"><div style="height:3px;background:#2d6a4f;border-radius:1px;margin-bottom:2px;"></div><div style="height:2px;background:#e2ddd4;margin-bottom:2px;"></div><div style="height:2px;background:#e2ddd4;width:80%;"></div></div>
+                <div style="font-size:10px;font-weight:700;color:var(--accent);">Classic ✓</div>
+                <div style="font-size:9px;color:var(--text2);">Default</div>
+              </div>
+              <div onclick="setTemplate('modern-blue');highlightTemplate(this)" style="border:1.5px solid var(--border);border-radius:8px;padding:8px 4px;cursor:pointer;text-align:center;background:white;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="if(!this.classList.contains('tpl-active'))this.style.borderColor='var(--border)'">
+                <div style="height:36px;border-radius:4px;overflow:hidden;margin-bottom:4px;"><div style="height:14px;background:#1565c0;"></div><div style="padding:2px 3px;"><div style="height:2px;background:#e2ddd4;margin-bottom:2px;border-radius:1px;"></div><div style="height:2px;background:#e2ddd4;border-radius:1px;width:70%;"></div></div></div>
+                <div style="font-size:10px;font-weight:700;color:var(--text);">Blue</div>
+                <div style="font-size:9px;background:#dbeafe;color:#1e40af;border:1px solid #93c5fd;padding:1px 5px;border-radius:4px;display:inline-block;margin-top:1px;">Corporate</div>
+              </div>
+            </div>
+            <div id="templateGallery" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                <span style="font-size:13px;font-weight:700;color:var(--text);">Choose Template</span>
+                <button onclick="toggleTemplateGallery()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);padding:4px 8px;border-radius:6px;transition:all 0.2s;" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='none'">✕</button>
+              </div>
+              <div style="max-height:260px;overflow-y:auto;padding-right:4px;">
+                <div style="font-size:10px;font-weight:700;color:var(--accent);letter-spacing:1px;text-transform:uppercase;margin-bottom:7px;">✨ Premium (19)</div>
+                <div id="premiumTemplateGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:12px;"></div>
+                <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:1px;text-transform:uppercase;margin-bottom:7px;">Classic (20)</div>
+                <div id="classicTemplateGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Color & Font -->
+          <div style="padding:9px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;margin-bottom:10px;">
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+              <div style="display:flex;align-items:center;gap:5px;">
+                <span style="font-size:11px;font-weight:600;color:var(--text2);white-space:nowrap;">Color:</span>
+                <button onclick="setAccentColor('#2d6a4f')" style="width:18px;height:18px;background:#2d6a4f;border:2px solid transparent;border-radius:50%;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" title="Forest"></button>
+                <button onclick="setAccentColor('#1565c0')" style="width:18px;height:18px;background:#1565c0;border:2px solid transparent;border-radius:50%;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" title="Blue"></button>
+                <button onclick="setAccentColor('#7c3aed')" style="width:18px;height:18px;background:#7c3aed;border:2px solid transparent;border-radius:50%;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" title="Purple"></button>
+                <button onclick="setAccentColor('#c9a84c')" style="width:18px;height:18px;background:#c9a84c;border:2px solid transparent;border-radius:50%;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" title="Gold"></button>
+                <button onclick="setAccentColor('#e63946')" style="width:18px;height:18px;background:#e63946;border:2px solid transparent;border-radius:50%;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" title="Red"></button>
+                <button onclick="setAccentColor('#1a1814')" style="width:18px;height:18px;background:#1a1814;border:2px solid transparent;border-radius:50%;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" title="Dark"></button>
+                <input type="color" id="cvAccentInput" value="#2d6a4f" onchange="setAccentColor(this.value)" style="width:18px;height:18px;border:none;border-radius:50%;cursor:pointer;padding:0;background:none;" title="Custom color">
+              </div>
+              <div style="display:flex;align-items:center;gap:5px;">
+                <span style="font-size:11px;font-weight:600;color:var(--text2);white-space:nowrap;">Font:</span>
+                <select id="cvFontSelector" onchange="setCVFont(this.value)" style="height:26px;border:1px solid var(--border);border-radius:6px;padding:0 6px;font-size:11px;cursor:pointer;background:white;max-width:150px;">
+                  <optgroup label="── Sans Serif ──">
+                    <option value="">Default</option>
+                    <option value="'Inter',-apple-system,sans-serif">Inter (Modern)</option>
+                    <option value="'Helvetica Neue',Arial,sans-serif">Helvetica (Clean)</option>
+                    <option value="Arial,sans-serif">Arial (Universal)</option>
+                    <option value="'Trebuchet MS',sans-serif">Trebuchet (Friendly)</option>
+                    <option value="Verdana,sans-serif">Verdana (Readable)</option>
+                    <option value="Tahoma,sans-serif">Tahoma (Corporate)</option>
+                    <option value="'Century Gothic',sans-serif">Century Gothic</option>
+                    <option value="Optima,sans-serif">Optima (Elegant)</option>
+                  </optgroup>
+                  <optgroup label="── Serif ──">
+                    <option value="'Times New Roman',Times,serif">Times New Roman</option>
+                    <option value="Georgia,serif">Georgia (Editorial)</option>
+                    <option value="Garamond,serif">Garamond (Elegant)</option>
+                    <option value="Calibri,serif">Calibri (Default)</option>
+                    <option value="'Palatino Linotype','Book Antiqua',serif">Palatino (Literary)</option>
+                    <option value="Cambria,serif">Cambria (Professional)</option>
+                    <option value="'Baskerville','Baskerville Old Face',serif">Baskerville (Academic)</option>
+                  </optgroup>
+                  <optgroup label="── Monospace ──">
+                    <option value="'Courier New',Courier,monospace">Courier New</option>
+                    <option value="'Lucida Console',Monaco,monospace">Lucida Console (Tech)</option>
+                    <option value="Consolas,'Courier New',monospace">Consolas (Developer)</option>
+                  </optgroup>
+                </select>
+              </div>
+              <button id="editModeBtn" onclick="toggleEditMode()" style="padding:4px 12px;background:white;border:1px solid var(--border);border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;color:var(--text2);transition:all 0.2s;margin-left:auto;white-space:nowrap;">✏️ Edit CV Text</button>
+            </div>
+          </div>
+
+          <!-- CV Decorators (click-to-insert) -->
+          <div style="border:1.5px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:10px;">
+            <div onclick="toggleDecorators()" style="background:var(--surface2);padding:8px 12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none;">
+              <span style="font-size:11px;font-weight:700;color:var(--text2);">✦ CV Decorators <span id="decoratorCount" style="font-weight:400;color:var(--text3);font-size:10px;"></span></span>
+              <span id="decoratorArrow" style="color:var(--text3);font-size:11px;transition:transform 0.2s;">▶</span>
+            </div>
+            <div id="decoratorContent" style="display:none;padding:10px 12px;">
+              <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Dividers</div>
+              <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;">
+                <button onclick="insertCVElement('line-thin')" style="padding:5px 10px;background:white;border:1.5px solid var(--border);border-radius:7px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:52px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"><span style="display:block;width:34px;height:1px;background:#999;"></span><span style="font-size:10px;color:var(--text2);">Thin</span></button>
+                <button onclick="insertCVElement('line-thick')" style="padding:5px 10px;background:white;border:1.5px solid var(--border);border-radius:7px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:52px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"><span style="display:block;width:34px;height:3px;background:#333;border-radius:1px;"></span><span style="font-size:10px;color:var(--text2);">Bold</span></button>
+                <button onclick="insertCVElement('line-accent')" style="padding:5px 10px;background:white;border:1.5px solid var(--border);border-radius:7px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:52px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"><span style="display:block;width:34px;height:2px;background:var(--accent);border-radius:1px;"></span><span style="font-size:10px;color:var(--accent);">Accent</span></button>
+                <button onclick="insertCVElement('line-double')" style="padding:5px 10px;background:white;border:1.5px solid var(--border);border-radius:7px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:52px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"><div style="display:flex;flex-direction:column;gap:2px;"><span style="display:block;width:34px;height:1px;background:#333;"></span><span style="display:block;width:34px;height:1px;background:#333;"></span></div><span style="font-size:10px;color:var(--text2);">Double</span></button>
+                <button onclick="insertCVElement('line-dashed')" style="padding:5px 10px;background:white;border:1.5px solid var(--border);border-radius:7px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:52px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"><span style="display:block;width:34px;height:0;border-top:2px dashed #888;"></span><span style="font-size:10px;color:var(--text2);">Dashed</span></button>
+                <button onclick="insertCVElement('line-diamond')" style="padding:5px 10px;background:white;border:1.5px solid var(--border);border-radius:7px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:52px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"><span style="font-size:14px;line-height:1.2;color:var(--accent);">◆</span><span style="font-size:10px;color:var(--text2);">Diamond</span></button>
+              </div>
+              <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Shapes</div>
+              <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;">
+                <button onclick="insertCVElement('shape-circle')" style="padding:5px 10px;background:white;border:1.5px solid var(--border);border-radius:7px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:52px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"><span style="display:block;width:16px;height:16px;border-radius:50%;border:2px solid var(--accent);"></span><span style="font-size:10px;color:var(--text2);">Circle</span></button>
+                <button onclick="insertCVElement('shape-square')" style="padding:5px 10px;background:white;border:1.5px solid var(--border);border-radius:7px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:52px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"><span style="display:block;width:14px;height:14px;border:2px solid var(--accent);"></span><span style="font-size:10px;color:var(--text2);">Square</span></button>
+                <button onclick="insertCVElement('shape-dot')" style="padding:5px 10px;background:white;border:1.5px solid var(--border);border-radius:7px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:52px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"><span style="font-size:13px;color:var(--accent);">•••</span><span style="font-size:10px;color:var(--text2);">Dots</span></button>
+                <button onclick="insertCVElement('shape-leftbar')" style="padding:5px 10px;background:white;border:1.5px solid var(--border);border-radius:7px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:52px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"><span style="font-size:16px;line-height:1;color:var(--accent);">▌</span><span style="font-size:10px;color:var(--text2);">Left Bar</span></button>
+                <button onclick="insertCVElement('shape-badge')" style="padding:5px 10px;background:white;border:1.5px solid var(--border);border-radius:7px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:52px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"><span style="background:var(--accent);color:white;font-size:9px;padding:2px 5px;border-radius:3px;">TAG</span><span style="font-size:10px;color:var(--text2);">Badge</span></button>
+                <button onclick="insertCVElement('space-small')" style="padding:5px 10px;background:white;border:1.5px solid var(--border);border-radius:7px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:52px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"><span style="font-size:14px;color:var(--text3);">↕</span><span style="font-size:10px;color:var(--text2);">Spacer</span></button>
+              </div>
+              <div id="decoratorList" style="display:flex;flex-wrap:wrap;gap:4px;min-height:0;"></div>
+              <button onclick="cvDecorators=[];updateDecoratorList();updatePreview();showToast('Cleared');" style="margin-top:8px;width:100%;padding:6px;background:white;border:1px solid #fca5a5;border-radius:6px;cursor:pointer;font-size:11px;color:#dc2626;" onmouseover="this.style.borderColor='#dc2626'" onmouseout="this.style.borderColor='#fca5a5'">✕ Remove all decorators</button>
+            </div>
+          </div>
+
+          <!-- CV Completeness Score -->
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#f0fdf4;border:1px solid #d1fae5;border-radius:8px;margin-bottom:10px;">
+            <div style="flex:1;background:#e2ddd4;border-radius:4px;height:6px;overflow:hidden;">
+              <div id="cvScoreBar" style="height:100%;background:var(--accent);border-radius:4px;transition:width 0.5s ease;width:0%;"></div>
+            </div>
+            <span id="cvScoreText" style="font-size:12px;font-weight:700;color:var(--accent);white-space:nowrap;">0% complete</span>
+            <span id="cvScoreTip" style="font-size:11px;color:var(--text3);"></span>
+          </div>
+
+          <!-- Fill notice -->
+          <div id="cv-fill-notice" class="cv-fill-notice" style="display:none;margin-bottom:10px;">
+            <span>💡</span>
+            <span>Your CV looks a bit light — add more work experience details, bullet points, or skills for a fuller, more competitive resume.</span>
+            <button class="cv-fill-notice-close" onclick="dismissFillNotice()" aria-label="Dismiss">×</button>
+          </div>
+
+          <!-- Personal Information -->
         <div class="cv-section-card">
           <div class="cv-section-header" onclick="toggleSection('personal')">
             <div style="display:flex;align-items:center;gap:10px;">
@@ -1097,191 +1256,24 @@ We are looking for a Software Engineer with:
           </div>
         </div>
 
-      </div><!-- /form-panel -->
+        </div><!-- /cvFormScrollable -->
 
+      </div><!-- /cvFormPanel -->
 
-
-      <!-- RIGHT: Preview -->
-      <div class="preview-panel">
+      <!-- RIGHT: Preview Panel -->
+      <div id="cvPreviewPanel">
 
         <!-- Preview header -->
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius) var(--radius) 0 0;border-bottom:none;">
+        <div style="padding:10px 16px;background:white;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;border-radius:12px 12px 0 0;">
           <span style="font-size:13px;font-weight:700;color:var(--text);font-family:'Syne',sans-serif;">Live Preview</span>
-          <div style="display:flex;gap:6px;">
-            <button onclick="openFullPreview()" title="Open full screen" style="padding:5px 10px;background:white;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;font-size:13px;">⛶</button>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <span id="cvScoreDisplay" style="font-size:11px;font-weight:700;color:var(--accent);"></span>
+            <button onclick="openFullPreview()" title="Open full screen" style="padding:4px 9px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:13px;color:var(--text2);">⛶</button>
           </div>
-        </div>
-
-        <!-- Template selector -->
-        <div style="padding:10px 12px;background:var(--surface);border:1.5px solid var(--border);border-top:none;border-bottom:none;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-            <span style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;">Template</span>
-            <button id="templateGalleryBtn" onclick="toggleTemplateGallery()" style="font-size:12px;color:var(--accent);background:none;border:none;cursor:pointer;font-weight:600;font-family:'DM Sans',sans-serif;padding:0;">See all 36 →</button>
-          </div>
-          <!-- Quick 4 — premium first -->
-          <div id="quickTplGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px;">
-            <div onclick="setTemplate('exec-pro');highlightTemplate(this)" style="border:1.5px solid var(--border);border-radius:8px;padding:8px 4px;cursor:pointer;text-align:center;background:white;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="if(!this.classList.contains('tpl-active'))this.style.borderColor='var(--border)'">
-              <div style="height:36px;border-radius:4px;overflow:hidden;margin-bottom:4px;display:flex;"><div style="width:35%;background:#1a3a2a;"></div><div style="flex:1;background:#f7f5f0;padding:3px;display:flex;flex-direction:column;gap:2px;"><div style="height:3px;background:#e2ddd4;border-radius:1px;"></div><div style="height:2px;background:#e2ddd4;border-radius:1px;width:70%;"></div></div></div>
-              <div style="font-size:10px;font-weight:700;color:var(--text);">Executive</div>
-              <div style="font-size:9px;background:#f0fdf4;color:#2d6a4f;border:1px solid #86efac;padding:1px 5px;border-radius:4px;display:inline-block;margin-top:1px;">C-Suite</div>
-            </div>
-            <div onclick="setTemplate('modern-minimal');highlightTemplate(this)" style="border:1.5px solid var(--border);border-radius:8px;padding:8px 4px;cursor:pointer;text-align:center;background:white;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="if(!this.classList.contains('tpl-active'))this.style.borderColor='var(--border)'">
-              <div style="height:36px;border-radius:4px;overflow:hidden;margin-bottom:4px;background:white;padding:4px;"><div style="height:5px;background:#1a1814;border-radius:1px;margin-bottom:3px;"></div><div style="height:1px;background:#e2ddd4;margin-bottom:2px;"></div><div style="height:1px;background:#e2ddd4;width:75%;"></div></div>
-              <div style="font-size:10px;font-weight:700;color:var(--text);">Minimal</div>
-              <div style="font-size:9px;background:#eff6ff;color:#1565c0;border:1px solid #bfdbfe;padding:1px 5px;border-radius:4px;display:inline-block;margin-top:1px;">Universal</div>
-            </div>
-            <div onclick="setTemplate('classic');highlightTemplate(this)" class="tpl-active" style="border:2px solid var(--accent);border-radius:8px;padding:8px 4px;cursor:pointer;text-align:center;background:#f0fdf4;transition:all 0.2s;">
-              <div style="height:36px;border-radius:4px;overflow:hidden;margin-bottom:4px;background:white;padding:3px;"><div style="height:3px;background:#2d6a4f;border-radius:1px;margin-bottom:2px;"></div><div style="height:2px;background:#e2ddd4;margin-bottom:2px;"></div><div style="height:2px;background:#e2ddd4;width:80%;"></div></div>
-              <div style="font-size:10px;font-weight:700;color:var(--accent);">Classic ✓</div>
-              <div style="font-size:9px;color:var(--text2);">Default</div>
-            </div>
-            <div onclick="setTemplate('modern-blue');highlightTemplate(this)" style="border:1.5px solid var(--border);border-radius:8px;padding:8px 4px;cursor:pointer;text-align:center;background:white;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="if(!this.classList.contains('tpl-active'))this.style.borderColor='var(--border)'">
-              <div style="height:36px;border-radius:4px;overflow:hidden;margin-bottom:4px;"><div style="height:14px;background:#1565c0;"></div><div style="padding:2px 3px;"><div style="height:2px;background:#e2ddd4;margin-bottom:2px;border-radius:1px;"></div><div style="height:2px;background:#e2ddd4;border-radius:1px;width:70%;"></div></div></div>
-              <div style="font-size:10px;font-weight:700;color:var(--text);">Blue</div>
-              <div style="font-size:9px;background:#dbeafe;color:#1e40af;border:1px solid #93c5fd;padding:1px 5px;border-radius:4px;display:inline-block;margin-top:1px;">Corporate</div>
-            </div>
-          </div>
-
-          <!-- Full gallery (hidden) -->
-          <div id="templateGallery" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-              <span style="font-size:13px;font-weight:700;color:var(--text);">Choose Template</span>
-              <button onclick="toggleTemplateGallery()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);padding:4px 8px;border-radius:6px;transition:all 0.2s;" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='none'">✕</button>
-            </div>
-            <div style="max-height:280px;overflow-y:auto;padding-right:4px;">
-              <div style="font-size:10px;font-weight:700;color:var(--accent);letter-spacing:1px;text-transform:uppercase;margin-bottom:7px;">✨ Premium (19)</div>
-              <div id="premiumTemplateGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:12px;"></div>
-              <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:1px;text-transform:uppercase;margin-bottom:7px;">Classic (20)</div>
-              <div id="classicTemplateGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Always-visible customization strip -->
-        <div style="padding:10px 14px;background:var(--surface);border:1.5px solid var(--border);border-top:none;border-bottom:none;">
-          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-            <!-- Color dots -->
-            <div style="display:flex;align-items:center;gap:5px;">
-              <span style="font-size:11px;font-weight:600;color:var(--text2);white-space:nowrap;">Color:</span>
-              <button onclick="setAccentColor('#2d6a4f')" style="width:18px;height:18px;background:#2d6a4f;border:2px solid transparent;border-radius:50%;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" title="Forest"></button>
-              <button onclick="setAccentColor('#1565c0')" style="width:18px;height:18px;background:#1565c0;border:2px solid transparent;border-radius:50%;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" title="Blue"></button>
-              <button onclick="setAccentColor('#7c3aed')" style="width:18px;height:18px;background:#7c3aed;border:2px solid transparent;border-radius:50%;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" title="Purple"></button>
-              <button onclick="setAccentColor('#c9a84c')" style="width:18px;height:18px;background:#c9a84c;border:2px solid transparent;border-radius:50%;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" title="Gold"></button>
-              <button onclick="setAccentColor('#e63946')" style="width:18px;height:18px;background:#e63946;border:2px solid transparent;border-radius:50%;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" title="Red"></button>
-              <button onclick="setAccentColor('#1a1814')" style="width:18px;height:18px;background:#1a1814;border:2px solid transparent;border-radius:50%;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" title="Dark"></button>
-              <input type="color" id="cvAccentInput" value="#2d6a4f" onchange="setAccentColor(this.value)" style="width:18px;height:18px;border:none;border-radius:50%;cursor:pointer;padding:0;background:none;" title="Custom color">
-            </div>
-            <!-- Font dropdown -->
-            <div style="display:flex;align-items:center;gap:5px;">
-              <span style="font-size:11px;font-weight:600;color:var(--text2);white-space:nowrap;">Font:</span>
-              <select id="cvFontSelector" onchange="setCVFont(this.value)" style="height:26px;border:1px solid var(--border);border-radius:6px;padding:0 6px;font-size:11px;cursor:pointer;background:white;max-width:150px;">
-                <optgroup label="── Sans Serif ──">
-                  <option value="">Default</option>
-                  <option value="'Inter',-apple-system,sans-serif">Inter (Modern)</option>
-                  <option value="'Helvetica Neue',Arial,sans-serif">Helvetica (Clean)</option>
-                  <option value="Arial,sans-serif">Arial (Universal)</option>
-                  <option value="'Trebuchet MS',sans-serif">Trebuchet (Friendly)</option>
-                  <option value="Verdana,sans-serif">Verdana (Readable)</option>
-                  <option value="Tahoma,sans-serif">Tahoma (Corporate)</option>
-                  <option value="'Century Gothic',sans-serif">Century Gothic</option>
-                  <option value="Optima,sans-serif">Optima (Elegant)</option>
-                </optgroup>
-                <optgroup label="── Serif ──">
-                  <option value="'Times New Roman',Times,serif">Times New Roman</option>
-                  <option value="Georgia,serif">Georgia (Editorial)</option>
-                  <option value="Garamond,serif">Garamond (Elegant)</option>
-                  <option value="Calibri,serif">Calibri (Default)</option>
-                  <option value="'Palatino Linotype','Book Antiqua',serif">Palatino (Literary)</option>
-                  <option value="Cambria,serif">Cambria (Professional)</option>
-                  <option value="'Baskerville','Baskerville Old Face',serif">Baskerville (Academic)</option>
-                </optgroup>
-                <optgroup label="── Monospace ──">
-                  <option value="'Courier New',Courier,monospace">Courier New</option>
-                  <option value="'Lucida Console',Monaco,monospace">Lucida Console (Tech)</option>
-                  <option value="Consolas,'Courier New',monospace">Consolas (Developer)</option>
-                </optgroup>
-              </select>
-            </div>
-            <!-- Edit CV Text toggle -->
-            <button id="editModeBtn" onclick="toggleEditMode()" style="padding:4px 12px;background:white;border:1px solid var(--border);border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;color:var(--text2);transition:all 0.2s;margin-left:auto;white-space:nowrap;">✏️ Edit CV Text</button>
-          </div>
-        </div>
-
-        <!-- Shapes & Decorators panel -->
-        <div style="padding:0 12px;background:var(--surface);border:1.5px solid var(--border);border-top:none;border-bottom:none;">
-          <div onclick="toggleDecorators()" style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;cursor:pointer;user-select:none;">
-            <span style="font-size:11px;font-weight:700;color:var(--text2);display:flex;align-items:center;gap:5px;">
-              ✦ Shapes &amp; Decorators
-              <span id="decoratorCount" style="font-size:10px;font-weight:400;color:var(--text3);">No decorators added</span>
-            </span>
-            <span id="decoratorArrow" style="color:var(--text3);font-size:11px;transition:transform 0.2s;">▶</span>
-          </div>
-          <div id="decoratorContent" style="display:none;padding-bottom:10px;">
-            <div id="shapesPanel" style="border:1.5px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:8px;">
-              <!-- Shapes toolbar -->
-              <div style="background:var(--surface2);padding:7px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
-                <span style="font-size:11px;font-weight:600;color:var(--text2);margin-right:3px;">Draw:</span>
-                <button id="shapeLine" onclick="setDrawTool('line')" title="Line" style="width:30px;height:30px;background:white;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="if(currentDrawTool!=='line')this.style.borderColor='var(--border)'">─</button>
-                <button id="shapeRect" onclick="setDrawTool('rect')" title="Rectangle" style="width:30px;height:30px;background:white;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="if(currentDrawTool!=='rect')this.style.borderColor='var(--border)'">□</button>
-                <button id="shapeCircle" onclick="setDrawTool('circle')" title="Circle" style="width:30px;height:30px;background:white;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="if(currentDrawTool!=='circle')this.style.borderColor='var(--border)'">○</button>
-                <button id="shapeTri" onclick="setDrawTool('triangle')" title="Triangle" style="width:30px;height:30px;background:white;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="if(currentDrawTool!=='triangle')this.style.borderColor='var(--border)'">△</button>
-                <button id="shapeArrow" onclick="setDrawTool('arrow')" title="Arrow" style="width:30px;height:30px;background:white;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="if(currentDrawTool!=='arrow')this.style.borderColor='var(--border)'">→</button>
-                <div style="width:1px;height:20px;background:var(--border);margin:0 2px;"></div>
-                <button onclick="insertDivider('solid')" title="Insert line divider" style="padding:0 8px;height:30px;background:white;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">─ Line</button>
-                <button onclick="insertDivider('double')" title="Insert double line" style="padding:0 8px;height:30px;background:white;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">═ Double</button>
-                <button onclick="insertDivider('diamond')" title="Insert diamond divider" style="padding:0 8px;height:30px;background:white;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">◆ Diamond</button>
-                <button onclick="clearAllShapes()" style="padding:0 8px;height:30px;background:none;border:1.5px solid #fca5a5;border-radius:6px;cursor:pointer;font-size:11px;color:#dc2626;margin-left:auto;transition:all 0.2s;" onmouseover="this.style.background='#fff5f5'" onmouseout="this.style.background='none'">✕ Clear</button>
-              </div>
-              <!-- Canvas area -->
-              <div style="background:white;padding:8px;">
-                <div id="shapeInstructions" style="font-size:11px;color:var(--text3);margin-bottom:6px;text-align:center;">Select a shape above, then click and drag below to draw</div>
-                <canvas id="shapeCanvas" width="700" height="180" style="border:1.5px dashed var(--border);border-radius:6px;cursor:crosshair;display:block;width:100%;touch-action:none;"></canvas>
-                <div style="display:flex;align-items:center;gap:8px;margin-top:7px;flex-wrap:wrap;">
-                  <span style="font-size:11px;color:var(--text3);">Color:</span>
-                  <input type="color" id="shapeColor" value="#2d6a4f" style="width:26px;height:26px;border:none;border-radius:4px;cursor:pointer;padding:0;background:none;">
-                  <span style="font-size:11px;color:var(--text3);">Size:</span>
-                  <select id="shapeThickness" style="height:26px;padding:0 6px;border:1px solid var(--border);border-radius:6px;font-size:11px;">
-                    <option value="1">Thin</option>
-                    <option value="2" selected>Normal</option>
-                    <option value="4">Thick</option>
-                    <option value="8">Extra</option>
-                  </select>
-                  <label style="font-size:11px;color:var(--text3);display:flex;align-items:center;gap:4px;cursor:pointer;">
-                    <input type="checkbox" id="shapeFill"> Fill
-                  </label>
-                </div>
-                <button onclick="addCanvasToCV()" style="width:100%;margin-top:7px;padding:8px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;">✓ Add Drawing to CV</button>
-              </div>
-            </div>
-            <!-- Quick decorator buttons -->
-            <div style="display:flex;flex-wrap:wrap;gap:5px;">
-              <button onclick="addDecorator('shape-leftbar')" style="padding:4px 9px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">▌ Bar</button>
-              <button onclick="addDecorator('shape-badge')" style="padding:4px 9px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">■ Badge</button>
-              <button onclick="addDecorator('shape-underline-heading')" style="padding:4px 9px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">U̲ Heading</button>
-              <button onclick="addDecorator('space-small')" style="padding:4px 9px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">↕ Gap</button>
-              <button onclick="cvDecorators=[];updatePreview();showToast('Cleared');" style="padding:4px 9px;background:white;border:1px solid #fca5a5;border-radius:6px;cursor:pointer;font-size:11px;color:#dc2626;transition:border-color 0.15s;" onmouseover="this.style.borderColor='#dc2626'" onmouseout="this.style.borderColor='#fca5a5'">✕ All</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- CV Completeness Score -->
-        <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;background:#f0fdf4;border:1.5px solid var(--border);border-top:none;border-bottom:none;">
-          <div style="flex:1;background:#e2ddd4;border-radius:4px;height:6px;overflow:hidden;">
-            <div id="cvScoreBar" style="height:100%;background:var(--accent);border-radius:4px;transition:width 0.5s ease;width:0%;"></div>
-          </div>
-          <span id="cvScoreText" style="font-size:12px;font-weight:700;color:var(--accent);white-space:nowrap;">0% complete</span>
-          <span id="cvScoreTip" style="font-size:11px;color:var(--text3);"></span>
-        </div>
-
-        <!-- Fill notice -->
-        <div id="cv-fill-notice" class="cv-fill-notice" style="display:none;border-radius:0;border-left:1.5px solid var(--border);border-right:1.5px solid var(--border);">
-          <span>💡</span>
-          <span>Your CV looks a bit light — add more work experience details, bullet points, or skills for a fuller, more competitive resume.</span>
-          <button class="cv-fill-notice-close" onclick="dismissFillNotice()" aria-label="Dismiss">×</button>
         </div>
 
         <!-- Quick-edit toolbar (shown when edit mode is on) -->
-        <div id="cvEditToolbar" style="display:none;gap:8px;padding:8px 12px;background:var(--surface2);border:1.5px solid var(--border);border-top:none;border-bottom:none;align-items:center;flex-wrap:wrap;">
+        <div id="cvEditToolbar" style="display:none;gap:8px;padding:8px 12px;background:var(--surface2);border-bottom:1px solid var(--border);align-items:center;flex-wrap:wrap;flex-shrink:0;">
           <span style="font-size:12px;font-weight:600;color:var(--text2);margin-right:2px;">Edit:</span>
           <button onclick="cvFormat('bold')" title="Bold" style="width:28px;height:28px;border:1px solid var(--border);border-radius:5px;background:white;cursor:pointer;font-weight:700;font-size:13px;">B</button>
           <button onclick="cvFormat('italic')" title="Italic" style="width:28px;height:28px;border:1px solid var(--border);border-radius:5px;background:white;cursor:pointer;font-style:italic;font-size:13px;">I</button>
@@ -1301,24 +1293,26 @@ We are looking for a Software Engineer with:
           <button onclick="resetToFormData()" style="padding:4px 10px;border:1px solid var(--border);border-radius:5px;background:white;cursor:pointer;font-size:11px;color:var(--text2);">⟳ Reset</button>
         </div>
 
-        <!-- CV Preview -->
-        <div class="preview-wrap tpl-classic" style="border-top:none;border-radius:0 0 var(--radius) var(--radius);">
-          <div id="cv-preview" class="cv-sheet">
-            <div class="cv-empty">
-              <div style="font-size:40px;">📄</div>
-              <p>Start filling in the form and your CV will appear here live.</p>
+        <!-- CV Preview wrapper -->
+        <div id="cvPreviewWrapper">
+          <div class="preview-wrap tpl-classic">
+            <div id="cv-preview" class="cv-sheet">
+              <div class="cv-empty">
+                <div style="font-size:40px;">📄</div>
+                <p>Start filling in the form and your CV will appear here live.</p>
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- Download buttons (always-visible sticky bottom) -->
-        <div id="dlGrid" style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;padding:10px 12px;background:var(--surface);border:1.5px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);flex-shrink:0;">
-          <button onclick="downloadPDF()" style="padding:10px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background .15s;" onmouseover="this.style.background='#235a40'" onmouseout="this.style.background='var(--accent)'">⬇ PDF</button>
-          <button onclick="downloadDOCX()" style="padding:10px;background:white;color:var(--accent);border:1.5px solid var(--accent);border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;" onmouseover="this.style.background='var(--accent-light)'" onmouseout="this.style.background='white'">⬇ Word</button>
-          <button onclick="copyCV()" title="Copy CV text" style="padding:10px 14px;background:white;color:var(--text2);border:1px solid var(--border);border-radius:8px;font-size:14px;cursor:pointer;transition:all .15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">⎘</button>
+        <!-- Download footer -->
+        <div id="dlGrid" style="display:flex;gap:8px;padding:10px 14px;background:white;border-top:1px solid var(--border);flex-shrink:0;border-radius:0 0 12px 12px;">
+          <button onclick="downloadPDF()" style="flex:1;padding:9px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background .15s;" onmouseover="this.style.background='#235a40'" onmouseout="this.style.background='var(--accent)'">⬇ PDF</button>
+          <button onclick="downloadDOCX()" style="flex:1;padding:9px;background:white;color:var(--accent);border:1.5px solid var(--accent);border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;" onmouseover="this.style.background='var(--accent-light)'" onmouseout="this.style.background='white'">⬇ Word</button>
+          <button onclick="copyCV()" title="Copy CV text" style="padding:9px 14px;background:white;color:var(--text2);border:1px solid var(--border);border-radius:8px;font-size:14px;cursor:pointer;transition:all .15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">⎘</button>
         </div>
 
-      </div><!-- /preview-panel -->
+      </div><!-- /cvPreviewPanel -->
 
 
     </div><!-- /builder-layout -->
@@ -2206,24 +2200,28 @@ function updatePreview() {
       (mainCol || preview).insertAdjacentHTML('beforeend', decoHtml);
     }
   }
-  const dcEl = document.getElementById('decoratorCount');
-  if (dcEl) dcEl.textContent = cvDecorators.length ? cvDecorators.length + ' decorator' + (cvDecorators.length > 1 ? 's' : '') + ' added' : 'No decorators added';
+  updateDecoratorList();
   updateJobSearch();
   scalePreview();
+  const scoreDisplay = document.getElementById('cvScoreDisplay');
+  if (scoreDisplay) {
+    const scoreEl = document.getElementById('cvScoreText');
+    if (scoreEl) scoreDisplay.textContent = scoreEl.textContent;
+  }
 }
 const updateCV = updatePreview;
 
 // ── Auto-scale preview to fit its container ──
 function scalePreview() {
-  const wrap = document.querySelector('.preview-wrap');
+  const wrapper = document.getElementById('cvPreviewWrapper');
   const preview = document.getElementById('cv-preview');
-  if (!wrap || !preview) return;
-  const wrapW = wrap.clientWidth - 4;
-  const wrapH = wrap.clientHeight - 4;
+  if (!preview) return;
+  const availW = (wrapper ? wrapper.offsetWidth : 600) - 24;
+  const availH = (wrapper ? wrapper.offsetHeight : 0) - 24;
   const cvW = 794;
   const cvH = 1056;
-  const scaleW = wrapW / cvW;
-  const scaleH = wrapH > 0 ? wrapH / cvH : scaleW;
+  const scaleW = availW / cvW;
+  const scaleH = availH > 0 ? availH / cvH : scaleW;
   const scale = Math.min(scaleW, scaleH);
   if (scale >= 1) {
     preview.style.transform = '';
@@ -3974,46 +3972,86 @@ function toggleDecorators() {
   if (arrow) arrow.textContent = isVisible ? '▶' : '▼';
 }
 
-function addDecorator(type) {
+function insertCVElement(type) {
   cvDecorators.push({ type, id: Date.now(), color: window._cvAccentColor || '#2d6a4f' });
+  updateDecoratorList();
   updatePreview();
   showToast('✓ Added to CV!');
 }
 
+function addDecorator(type) {
+  insertCVElement(type);
+}
+
 function removeDecorator(id) {
   cvDecorators = cvDecorators.filter(d => d.id !== id);
+  updateDecoratorList();
   updatePreview();
+}
+
+function getDecoratorLabel(type) {
+  const labels = {
+    'line-thin':'Thin Line','line-thick':'Bold Line','line-accent':'Accent Line',
+    'line-double':'Double Line','line-dashed':'Dashed Line','line-diamond':'◆ Diamond',
+    'shape-circle':'○ Circle','shape-square':'□ Square','shape-dot':'••• Dots',
+    'shape-leftbar':'▌ Left Bar','shape-badge':'Badge','space-small':'↕ Spacer',
+    'line-simple':'Line','line-dotted':'Dotted','line-wave':'Wave',
+    'shape-tag':'Tag','shape-underline-heading':'U̲ Heading',
+    'space-medium':'Medium Gap','space-large':'Large Gap'
+  };
+  return labels[type] || type;
+}
+
+function updateDecoratorList() {
+  const list = document.getElementById('decoratorList');
+  const count = document.getElementById('decoratorCount');
+  if (list) {
+    list.innerHTML = cvDecorators.map(d =>
+      `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:var(--accent-light);border:1px solid #86efac;border-radius:12px;font-size:11px;color:#166534;">
+        ${getDecoratorLabel(d.type)}
+        <span onclick="removeDecorator(${d.id})" style="cursor:pointer;font-size:13px;color:#dc2626;margin-left:2px;line-height:1;">×</span>
+      </span>`
+    ).join('');
+  }
+  if (count) {
+    count.textContent = cvDecorators.length ? `(${cvDecorators.length} added)` : '';
+  }
+}
+
+function renderDecoratorHTML(d) {
+  const c = d.color || '#2d6a4f';
+  const id = d.id;
+  const rm = `<span onclick="removeDecorator(${id})" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);cursor:pointer;color:#e63946;font-size:14px;opacity:0.6;display:none;" class="decorator-remove">×</span>`;
+  const wrap = `position:relative;margin:8px 0;cursor:default;`;
+  const hover = `onmouseover="this.querySelector('.decorator-remove').style.display='block'" onmouseout="this.querySelector('.decorator-remove').style.display='none'"`;
+  switch (d.type) {
+    case 'line-thin':      return `<div style="${wrap}" ${hover}><hr style="border:none;border-top:1px solid #999;margin:8px 0;">${rm}</div>`;
+    case 'line-thick':     return `<div style="${wrap}" ${hover}><hr style="border:none;border-top:3px solid #333;margin:8px 0;">${rm}</div>`;
+    case 'line-simple':    return `<div style="${wrap}" ${hover}><hr style="border:none;border-top:1px solid #1a1814;margin:8px 0;">${rm}</div>`;
+    case 'line-double':    return `<div style="${wrap}" ${hover}><div style="border-top:2px solid #333;border-bottom:1px solid #333;height:4px;margin:8px 0;"></div>${rm}</div>`;
+    case 'line-dashed':    return `<div style="${wrap}" ${hover}><hr style="border:none;border-top:2px dashed #888;margin:8px 0;">${rm}</div>`;
+    case 'line-dotted':    return `<div style="${wrap}" ${hover}><hr style="border:none;border-top:2px dotted #6b6660;margin:8px 0;">${rm}</div>`;
+    case 'line-accent':    return `<div style="${wrap}" ${hover}><div style="height:2px;background:${c};border-radius:1px;margin:8px 0;"></div>${rm}</div>`;
+    case 'line-diamond':   return `<div style="${wrap}" ${hover}><div style="display:flex;align-items:center;gap:8px;margin:8px 0;"><div style="flex:1;height:1px;background:#333;"></div><span style="color:${c};font-size:10px;">◆</span><div style="flex:1;height:1px;background:#333;"></div></div>${rm}</div>`;
+    case 'line-wave':      return `<div style="${wrap}" ${hover}><div style="text-align:center;color:${c};letter-spacing:4px;margin:8px 0;font-size:12px;">∼∼∼∼∼∼∼∼∼∼</div>${rm}</div>`;
+    case 'shape-leftbar':  return `<div style="${wrap}" ${hover}><div style="display:flex;gap:10px;align-items:center;padding:6px 0;"><div style="width:4px;height:20px;background:${c};border-radius:2px;flex-shrink:0;"></div><span style="font-size:13px;font-weight:700;color:#1a1814;text-transform:uppercase;letter-spacing:1px;">Section Title</span></div>${rm}</div>`;
+    case 'shape-badge':    return `<div style="${wrap}" ${hover}><div style="margin:8px 0;"><span style="background:${c};color:white;padding:4px 12px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;">Section</span></div>${rm}</div>`;
+    case 'shape-circle':   return `<div style="${wrap}" ${hover}><div style="display:flex;align-items:center;gap:10px;margin:6px 0;"><div style="width:24px;height:24px;border-radius:50%;border:2px solid ${c};flex-shrink:0;"></div><span style="font-size:13px;color:#374151;">Achievement or point here</span></div>${rm}</div>`;
+    case 'shape-square':   return `<div style="${wrap}" ${hover}><div style="display:flex;align-items:center;gap:8px;margin:6px 0;"><div style="width:12px;height:12px;border:2px solid ${c};flex-shrink:0;"></div><span style="font-size:13px;color:#374151;">Key point or achievement</span></div>${rm}</div>`;
+    case 'shape-dot':      return `<div style="${wrap}" ${hover}><div style="text-align:center;color:${c};font-size:16px;letter-spacing:6px;margin:6px 0;">•••</div>${rm}</div>`;
+    case 'shape-tag':      return `<div style="${wrap}" ${hover}><div style="margin:6px 0;"><span style="background:#f0fdf4;border:1px solid #86efac;color:#166534;padding:4px 12px;border-radius:16px;font-size:12px;font-weight:500;">Skill Tag</span></div>${rm}</div>`;
+    case 'shape-underline-heading': return `<div style="${wrap}" ${hover}><div style="font-size:14px;font-weight:800;color:#1a1814;text-transform:uppercase;letter-spacing:1.5px;padding-bottom:4px;border-bottom:2px solid ${c};margin:10px 0 8px;">Section Heading</div>${rm}</div>`;
+    case 'space-small':    return `<div style="height:8px;margin:2px 0;position:relative;" ${hover}>${rm}</div>`;
+    case 'space-medium':   return `<div style="height:16px;margin:2px 0;position:relative;" ${hover}>${rm}</div>`;
+    case 'space-large':    return `<div style="height:28px;margin:2px 0;position:relative;" ${hover}>${rm}</div>`;
+    case 'canvas-image':   return `<div style="margin:8px 0;position:relative;" ${hover}><img src="${d.data}" style="max-width:100%;display:block;border-radius:4px;">${rm}</div>`;
+    default: return '';
+  }
 }
 
 function renderDecorators() {
   if (!cvDecorators.length) return '';
-  return cvDecorators.map(d => {
-    const c = d.color || '#2d6a4f';
-    const id = d.id;
-    const rm = `<span onclick="removeDecorator(${id})" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);cursor:pointer;color:#e63946;font-size:14px;opacity:0.6;display:none;" class="decorator-remove">×</span>`;
-    const wrap = `position:relative;margin:8px 0;cursor:default;`;
-    const hover = `onmouseover="this.querySelector('.decorator-remove').style.display='block'" onmouseout="this.querySelector('.decorator-remove').style.display='none'"`;
-    switch (d.type) {
-      case 'line-simple':    return `<div style="${wrap}" ${hover}><hr style="border:none;border-top:1px solid #1a1814;margin:8px 0;">${rm}</div>`;
-      case 'line-double':    return `<div style="${wrap}" ${hover}><div style="border-top:2px solid #1a1814;border-bottom:1px solid #1a1814;height:4px;margin:8px 0;"></div>${rm}</div>`;
-      case 'line-dashed':    return `<div style="${wrap}" ${hover}><hr style="border:none;border-top:2px dashed #6b6660;margin:8px 0;">${rm}</div>`;
-      case 'line-dotted':    return `<div style="${wrap}" ${hover}><hr style="border:none;border-top:2px dotted #6b6660;margin:8px 0;">${rm}</div>`;
-      case 'line-accent':    return `<div style="${wrap}" ${hover}><div style="height:3px;background:${c};border-radius:2px;margin:8px 0;"></div>${rm}</div>`;
-      case 'line-diamond':   return `<div style="${wrap}" ${hover}><div style="display:flex;align-items:center;gap:8px;margin:8px 0;"><div style="flex:1;height:1px;background:#1a1814;"></div><span style="color:${c};font-size:10px;">◆</span><div style="flex:1;height:1px;background:#1a1814;"></div></div>${rm}</div>`;
-      case 'line-wave':      return `<div style="${wrap}" ${hover}><div style="text-align:center;color:${c};letter-spacing:4px;margin:8px 0;font-size:12px;">∼∼∼∼∼∼∼∼∼∼</div>${rm}</div>`;
-      case 'shape-leftbar':  return `<div style="${wrap}" ${hover}><div style="display:flex;gap:10px;align-items:center;padding:6px 0;"><div style="width:4px;height:20px;background:${c};border-radius:2px;flex-shrink:0;"></div><span style="font-size:13px;font-weight:700;color:#1a1814;text-transform:uppercase;letter-spacing:1px;">Section Title</span></div>${rm}</div>`;
-      case 'shape-badge':    return `<div style="${wrap}" ${hover}><div style="margin:8px 0;"><span style="background:${c};color:white;padding:4px 12px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;">Section</span></div>${rm}</div>`;
-      case 'shape-circle':   return `<div style="${wrap}" ${hover}><div style="display:flex;align-items:center;gap:10px;margin:6px 0;"><div style="width:28px;height:28px;border-radius:50%;background:${c};color:white;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">1</div><span style="font-size:13px;color:#374151;">Achievement or point here</span></div>${rm}</div>`;
-      case 'shape-square':   return `<div style="${wrap}" ${hover}><div style="display:flex;align-items:center;gap:8px;margin:6px 0;"><div style="width:8px;height:8px;background:${c};flex-shrink:0;"></div><span style="font-size:13px;color:#374151;">Key point or achievement</span></div>${rm}</div>`;
-      case 'shape-tag':      return `<div style="${wrap}" ${hover}><div style="margin:6px 0;"><span style="background:#f0fdf4;border:1px solid #86efac;color:#166534;padding:4px 12px;border-radius:16px;font-size:12px;font-weight:500;">Skill Tag</span></div>${rm}</div>`;
-      case 'shape-underline-heading': return `<div style="${wrap}" ${hover}><div style="font-size:14px;font-weight:800;color:#1a1814;text-transform:uppercase;letter-spacing:1.5px;padding-bottom:4px;border-bottom:2px solid ${c};margin:10px 0 8px;">Section Heading</div>${rm}</div>`;
-      case 'space-small':    return `<div style="height:8px;margin:2px 0;position:relative;" ${hover}>${rm}</div>`;
-      case 'space-medium':   return `<div style="height:16px;margin:2px 0;position:relative;" ${hover}>${rm}</div>`;
-      case 'space-large':    return `<div style="height:28px;margin:2px 0;position:relative;" ${hover}>${rm}</div>`;
-      case 'canvas-image':   return `<div style="margin:8px 0;position:relative;" ${hover}><img src="${d.data}" style="max-width:100%;display:block;border-radius:4px;">${rm}</div>`;
-      default: return '';
-    }
-  }).join('');
+  return cvDecorators.map(d => renderDecoratorHTML(d)).join('');
 }
 
 // Initialise with one experience and one education entry
@@ -4606,7 +4644,7 @@ async function generateLinkedIn() {
 }
 </script>
 
-<div id="mobileSaveBar" aria-label="Quick download">
+<div id="mobileDownloadBar" aria-label="Quick download">
   <button onclick="downloadPDF()" style="background:var(--accent);color:white;border:none;">⬇ PDF</button>
   <button onclick="downloadDOCX()" style="background:white;color:var(--accent);border:1.5px solid var(--accent);">⬇ Word</button>
 </div>
