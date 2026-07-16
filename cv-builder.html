@@ -637,6 +637,30 @@ nav div a:hover::after { width: 100%; }
 @media (max-width: 600px) {
   #importCVSection > div:nth-child(3) { grid-template-columns: 1fr !important; }
 }
+/* ── Mobile: preview above form, scaled ── */
+@media (max-width: 1024px) {
+  .preview-panel { order: -1; }
+  .preview-wrap { min-height: auto !important; height: 380px !important; overflow: hidden !important; }
+  #cv-preview { transform: scale(0.45); transform-origin: top left; width: 222%; min-height: 1100px; }
+  #premiumTemplateGrid, #classicTemplateGrid { grid-template-columns: repeat(3,1fr) !important; }
+}
+@media (max-width: 768px) {
+  .preview-wrap { height: 320px !important; }
+  #quickTplGrid { grid-template-columns: repeat(2,1fr) !important; }
+  #countryBtnGroup button { font-size: 11px !important; padding: 5px 8px !important; }
+}
+/* Premium card focus */
+.cv-section-card:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(45,106,79,0.08); }
+.cv-section-card input:focus, .cv-section-card textarea:focus, .cv-section-card select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(45,106,79,0.1); }
+/* Download grid → column on mobile */
+@media (max-width: 600px) {
+  #dlGrid { display: flex !important; flex-direction: column !important; }
+  #dlGrid button { width: 100% !important; }
+  #importCVSection > div:first-of-type > div { grid-template-columns: 1fr !important; }
+  .cover-layout { grid-template-columns: 1fr !important; }
+  #clTemplateCards { grid-template-columns: repeat(2,1fr) !important; }
+  *{box-sizing:border-box;-webkit-text-size-adjust:100%;}
+}
 </style>
 </head>
 <body>
@@ -1088,7 +1112,7 @@ We are looking for a Software Engineer with:
             <button id="templateGalleryBtn" onclick="toggleTemplateGallery()" style="font-size:12px;color:var(--accent);background:none;border:none;cursor:pointer;font-weight:600;font-family:'DM Sans',sans-serif;padding:0;">See all 36 →</button>
           </div>
           <!-- Quick 4 — premium first -->
-          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px;">
+          <div id="quickTplGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px;">
             <div onclick="setTemplate('exec-pro');highlightTemplate(this)" style="border:1.5px solid var(--border);border-radius:8px;padding:8px 4px;cursor:pointer;text-align:center;background:white;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="if(!this.classList.contains('tpl-active'))this.style.borderColor='var(--border)'">
               <div style="height:36px;border-radius:4px;overflow:hidden;margin-bottom:4px;display:flex;"><div style="width:35%;background:#1a3a2a;"></div><div style="flex:1;background:#f7f5f0;padding:3px;display:flex;flex-direction:column;gap:2px;"><div style="height:3px;background:#e2ddd4;border-radius:1px;"></div><div style="height:2px;background:#e2ddd4;border-radius:1px;width:70%;"></div></div></div>
               <div style="font-size:10px;font-weight:700;color:var(--text);">Executive</div>
@@ -1213,7 +1237,7 @@ We are looking for a Software Engineer with:
         </div>
 
         <!-- Download buttons -->
-        <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-top:12px;">
+        <div id="dlGrid" style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-top:12px;">
           <button onclick="downloadPDF()" style="padding:10px;background:var(--accent);color:white;border:none;border-radius:var(--radius);font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background .15s;" onmouseover="this.style.background='#235a40'" onmouseout="this.style.background='var(--accent)'">⬇ PDF</button>
           <button onclick="downloadDOCX()" style="padding:10px;background:white;color:var(--accent);border:1.5px solid var(--accent);border-radius:var(--radius);font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;" onmouseover="this.style.background='var(--accent-light)'" onmouseout="this.style.background='white'">⬇ Word</button>
           <button onclick="copyCV()" title="Copy CV text" style="padding:10px 14px;background:white;color:var(--text2);border:1px solid var(--border);border-radius:var(--radius);font-size:14px;cursor:pointer;transition:all .15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">⎘</button>
