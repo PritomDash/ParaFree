@@ -670,7 +670,6 @@ nav div a:hover::after { width: 100%; }
   #cvPreviewPanel button[onclick*="Full"], #cvPreviewPanel button[title*="full"], #cvPreviewPanel button[title*="Full"] { display: none !important; }
   #coverLetterSection > div { grid-template-columns: 1fr !important; }
   #cvScoreBar, [id*="score"] { display: none !important; }
-  #mobileBar { display: flex !important; }
 }
 @media (max-width: 480px) {
   .builder-layout, #cvBuilderLayout { padding: 6px 8px 90px !important; }
@@ -679,13 +678,16 @@ nav div a:hover::after { width: 100%; }
   #quickTplGrid { grid-template-columns: repeat(2,1fr) !important; }
   #countryBtnGroup button { font-size: 11px !important; padding: 5px 8px !important; }
 }
-#mobileDownloadBar { display: none; }
-#mobileBar { display: none; }
+#mobileDownloadBar { display: none !important; }
+#mobileBar { display: none !important; }
 @media (max-width: 900px) {
-  #mobileDownloadBar { display: none !important; }
-  #mobileDownloadBar button { flex: 1; padding: 12px 8px; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; }
-  #mobileDownloadBar button:first-child { background: var(--accent) !important; color: white !important; border: none !important; }
-  #mobileDownloadBar button:last-child { background: white !important; color: var(--accent) !important; border: 2px solid var(--accent) !important; }
+  #mobileBar {
+    display: flex !important;
+    background: white !important;
+    border-top: 2px solid var(--border) !important;
+  }
+  #mobileBar button:first-child { background: var(--accent) !important; color: white !important; border: none !important; }
+  #mobileBar button:last-child { background: white !important; color: var(--accent) !important; border: 2px solid var(--accent) !important; }
 }
 /* Premium card focus */
 .cv-section-card:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(45,106,79,0.08); }
@@ -4732,7 +4734,7 @@ async function generateLinkedIn() {
   <button onclick="downloadPDF()" style="background:var(--accent);color:white;border:none;">⬇ PDF</button>
   <button onclick="downloadDOCX()" style="background:white;color:var(--accent);border:1.5px solid var(--accent);">⬇ Word</button>
 </div>
-<div id="mobileBar" style="position:fixed;bottom:0;left:0;right:0;background:white;border-top:2px solid var(--border);padding:10px 12px;z-index:999;box-shadow:0 -4px 20px rgba(0,0,0,0.12);gap:8px;">
+<div id="mobileBar" style="position:fixed;bottom:0;left:0;right:0;padding:10px 12px;z-index:999;box-shadow:0 -4px 20px rgba(0,0,0,0.12);gap:8px;">
   <button onclick="downloadPDF()" style="flex:1;padding:13px 0;background:var(--accent);color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download PDF</button>
   <button onclick="downloadDOCX()" style="flex:1;padding:13px 0;background:white;color:var(--accent);border:2px solid var(--accent);border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Word</button>
 </div>
