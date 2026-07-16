@@ -116,16 +116,16 @@ nav .nav-links a.active { color: #52b788; font-weight: 600; }
 
 /* Form panel */
 .form-panel { display: flex; flex-direction: column; gap: 16px; }
-#cvFormPanel { position: sticky; top: 70px; height: calc(100vh - 90px); display: flex; flex-direction: column; overflow: hidden; border: 1.5px solid var(--border); border-radius: 12px; background: white; }
+#cvFormPanel { position: sticky; top: 70px; max-height: calc(100vh - 90px); display: flex; flex-direction: column; overflow: hidden; border: 1.5px solid var(--border); border-radius: 12px; background: white; }
 #cvFormScrollable { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 12px 14px; -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
 #cvFormScrollable::-webkit-scrollbar { width: 4px; }
 #cvFormScrollable::-webkit-scrollbar-track { background: transparent; }
 #cvFormScrollable::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-#cvPreviewPanel { position: sticky; top: 70px; height: calc(100vh - 90px); display: flex; flex-direction: column; overflow: hidden; border: 1.5px solid var(--border); border-radius: 12px; background: #e8e6e0; }
-#cvPreviewWrapper { overflow: hidden; display: flex; align-items: flex-start; justify-content: center; padding: 12px; }
+#cvPreviewPanel { position: sticky; top: 70px; display: flex; flex-direction: column; overflow: visible; border: 1.5px solid var(--border); border-radius: 12px; background: #e8e6e0; }
+#cvPreviewWrapper { overflow: visible; display: flex; justify-content: center; padding: 12px; }
 #cvPreviewWrapper .preview-wrap { overflow: hidden; flex-shrink: 0; }
-#cvPreviewScale { transform-origin: top center !important; width: 794px !important; }
-#cv-preview { width: 794px !important; min-height: 1056px !important; background: white !important; box-sizing: border-box !important; }
+#cvPreviewScale { transform-origin: top center !important; width: 794px !important; display: block; }
+#cv-preview { width: 794px !important; min-height: 1056px !important; height: 1056px !important; background: white !important; box-sizing: border-box !important; overflow: hidden !important; position: relative !important; }
 .form-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
 .form-section-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
 .form-section-hdr h3 { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; color: var(--text); }
@@ -653,14 +653,13 @@ nav div a:hover::after { width: 100%; }
   #cvBuilderLayout { grid-template-columns: 1fr !important; gap: 12px !important; }
   #cvFormPanel { position: static !important; height: auto !important; border-radius: 12px !important; }
   #cvFormScrollable { overflow: visible !important; max-height: none !important; padding: 12px !important; }
-  #cvPreviewPanel { position: static !important; height: auto !important; order: -1; border-radius: 12px !important; }
-  #cvPreviewWrapper { height: 340px !important; padding: 8px !important; }
+  #cvPreviewPanel { position: static !important; order: -1; border-radius: 12px !important; }
+  #cvPreviewWrapper { padding: 8px !important; }
   #premiumTemplateGrid, #classicTemplateGrid { grid-template-columns: repeat(3,1fr) !important; }
   #quickTplGrid { grid-template-columns: repeat(4,1fr) !important; }
   .cv-main { padding-bottom: 80px !important; }
 }
 @media (max-width: 480px) {
-  #cvPreviewWrapper { height: 280px !important; }
   #premiumTemplateGrid, #classicTemplateGrid { grid-template-columns: repeat(2,1fr) !important; }
   #quickTplGrid { grid-template-columns: repeat(2,1fr) !important; }
   #countryBtnGroup button { font-size: 11px !important; padding: 5px 8px !important; }
@@ -2219,34 +2218,26 @@ const updateCV = updatePreview;
 function scalePreview() {
   const wrapper = document.getElementById('cvPreviewWrapper');
   const scaleEl = document.getElementById('cvPreviewScale');
-  if (!wrapper || !scaleEl) return;
+  const preview = document.getElementById('cv-preview');
+  const panel = document.getElementById('cvPreviewPanel');
+  if (!wrapper || !scaleEl || !preview) return;
   const A4_W = 794;
   const A4_H = 1056;
-  const availW = wrapper.offsetWidth - 24;
+  const panelWidth = panel ? panel.offsetWidth : wrapper.offsetWidth;
+  const availW = panelWidth - 24;
   const scale = availW / A4_W;
   scaleEl.style.transform = `scale(${scale})`;
   scaleEl.style.transformOrigin = 'top center';
   scaleEl.style.width = A4_W + 'px';
-  scaleEl.style.height = A4_H + 'px';
-  scaleEl.style.flexShrink = '0';
-  const scaledHeight = A4_H * scale + 24;
-  wrapper.style.height = scaledHeight + 'px';
-  wrapper.style.minHeight = scaledHeight + 'px';
-  const preview = document.getElementById('cv-preview');
-  if (preview) {
-    preview.style.width = A4_W + 'px';
-    preview.style.minHeight = A4_H + 'px';
-    preview.style.height = A4_H + 'px';
-    preview.style.overflow = 'hidden';
-    preview.style.background = 'white';
-    preview.style.boxSizing = 'border-box';
-  }
+  const scaledH = Math.ceil(A4_H * scale);
+  wrapper.style.height = (scaledH + 24) + 'px';
+  wrapper.style.overflow = 'hidden';
+  preview.style.width = A4_W + 'px';
+  preview.style.minHeight = A4_H + 'px';
+  preview.style.boxSizing = 'border-box';
+  preview.style.background = 'white';
 }
 window.addEventListener('resize', scalePreview);
-window.addEventListener('load', () => {
-  setTimeout(scalePreview, 200);
-  setTimeout(scalePreview, 500);
-});
 
 // ── Dynamic form sections ──
 function addExp() {
@@ -2441,43 +2432,33 @@ async function downloadPDF() {
   const originalText = dlBtn ? dlBtn.textContent : '';
   if (dlBtn) { dlBtn.textContent = '⏳ Generating…'; dlBtn.disabled = true; }
 
+  const scaleEl = document.getElementById('cvPreviewScale');
+  const originalTransform = scaleEl ? scaleEl.style.transform : '';
+  if (scaleEl) scaleEl.style.transform = 'scale(1)';
+
   try {
     const canvas = await html2canvas(preview, {
       scale: 2,
       useCORS: true,
+      allowTaint: true,
       backgroundColor: '#ffffff',
+      width: 794,
+      height: 1056,
+      windowWidth: 794,
       scrollX: 0,
       scrollY: 0,
-      width: preview.scrollWidth,
-      height: preview.scrollHeight,
-      windowWidth: preview.scrollWidth,
-      windowHeight: preview.scrollHeight
+      logging: false
     });
 
     const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-    const pageW = doc.internal.pageSize.getWidth();
-    const pageH = doc.internal.pageSize.getHeight();
-    const imgW = pageW;
-    const imgH = (canvas.height * imgW) / canvas.width;
-    const imgData = canvas.toDataURL('image/png');
-
-    if (imgH <= pageH) {
-      doc.addImage(imgData, 'PNG', 0, 0, imgW, imgH);
-    } else {
-      let remaining = imgH;
-      let yOffset = 0;
-      while (remaining > 0) {
-        doc.addImage(imgData, 'PNG', 0, -yOffset, imgW, imgH);
-        remaining -= pageH;
-        yOffset += pageH;
-        if (remaining > 0) doc.addPage();
-      }
-    }
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    doc.addImage(imgData, 'JPEG', 0, 0, 210, 297, '', 'FAST');
 
     const d = getFormData();
     const fname = (d.name||'CV').replace(/\s+/g,'_') + '_Resume.pdf';
     doc.save(fname);
   } finally {
+    if (scaleEl) scaleEl.style.transform = originalTransform;
     if (dlBtn) { dlBtn.textContent = originalText; dlBtn.disabled = false; }
   }
 }
@@ -2531,7 +2512,7 @@ async function downloadDOCX() {
   if (d.skills) { body += hdr('Skills'); body += p(d.skills); body += '<w:p/>'; }
   if (d.certs)  { body += hdr('Certifications'); body += p(d.certs); }
 
-  zip.file('word/document.xml', `<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body}<w:sectPr><w:pgMar w:top="1080" w:right="1080" w:bottom="1080" w:left="1080"/></w:sectPr></w:body></w:document>`);
+  zip.file('word/document.xml', `<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body}<w:sectPr><w:pgSz w:w="11906" w:h="16838" w:orient="portrait"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="709" w:footer="709" w:gutter="0"/></w:sectPr></w:body></w:document>`);
 
   const blob = await zip.generateAsync({ type:'blob', mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
   const url = URL.createObjectURL(blob);
@@ -3290,7 +3271,7 @@ function renderPremiumExecutive(data) {
   const accent = window._cvAccentColor || '#2d6a4f';
   const font = window._cvFont || 'Georgia, serif';
   const photo = cvPhotoData ? `<img src="${cvPhotoData}" style="width:88px;height:88px;border-radius:50%;object-fit:cover;border:3px solid ${accent};display:block;margin:0 auto 14px;">` : '';
-  return `<div style="font-family:${font};min-height:1056px;background:white;display:grid;grid-template-columns:220px 1fr;">
+  return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:white;display:grid;grid-template-columns:220px 1fr;overflow:hidden;position:relative;">
     <div style="background:${accent};padding:28px 16px;color:white;box-sizing:border-box;">
       ${photo}
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;opacity:.65;margin-bottom:12px;">Contact</div>
@@ -3318,7 +3299,7 @@ function renderModernBlue(data) {
   const accent = window._cvAccentColor || '#1565c0';
   const font = window._cvFont || 'Arial, sans-serif';
   const photo = cvPhotoData ? `<img src="${cvPhotoData}" style="width:74px;height:74px;border-radius:8px;object-fit:cover;border:3px solid white;flex-shrink:0;">` : '';
-  return `<div style="font-family:${font};min-height:1056px;background:white;">
+  return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:white;overflow:hidden;position:relative;">
     <div style="background:linear-gradient(135deg,${accent} 0%,#1976d2 100%);padding:28px 42px 24px;color:white;">
       <div style="display:flex;align-items:center;gap:16px;">
         ${photo}
@@ -3345,7 +3326,7 @@ function renderMinimalSerif(data) {
   const accent = window._cvAccentColor || '#8b4513';
   const font = window._cvFont || 'Georgia, serif';
   const photo = cvPhotoData ? `<img src="${cvPhotoData}" style="width:68px;height:68px;border-radius:4px;object-fit:cover;float:right;margin:0 0 12px 14px;">` : '';
-  return `<div style="font-family:${font};min-height:1056px;background:white;padding:50px 58px;box-sizing:border-box;color:#2c2c2c;">
+  return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:white;padding:50px 58px;box-sizing:border-box;color:#2c2c2c;overflow:hidden;position:relative;">
     <div style="border-bottom:1.5px solid #2c2c2c;padding-bottom:16px;margin-bottom:24px;overflow:hidden;">
       ${photo}
       <div style="font-size:26px;font-weight:700;letter-spacing:-0.5px;line-height:1.1;">${esc(data.name || 'Your Name')}</div>
@@ -3364,7 +3345,7 @@ function renderBoldTech(data) {
   const accent = window._cvAccentColor || '#00ff87';
   const font = window._cvFont || 'monospace';
   const photo = cvPhotoData ? `<img src="${cvPhotoData}" style="width:76px;height:76px;border-radius:8px;object-fit:cover;border:2px solid ${accent};flex-shrink:0;">` : '';
-  return `<div style="font-family:${font};min-height:1056px;background:#0d1117;color:#e6edf3;">
+  return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:#0d1117;color:#e6edf3;overflow:hidden;position:relative;">
     <div style="padding:26px 34px;border-bottom:1px solid #30363d;">
       <div style="display:flex;align-items:center;gap:16px;">
         ${photo}
@@ -3395,7 +3376,7 @@ function renderElegantGold(data) {
   const accent = window._cvAccentColor || '#c9a84c';
   const font = window._cvFont || 'Georgia, serif';
   const photo = cvPhotoData ? `<img src="${cvPhotoData}" style="width:86px;height:86px;border-radius:50%;object-fit:cover;border:3px solid ${accent};display:block;margin:0 auto 12px;">` : '';
-  return `<div style="font-family:${font};min-height:1056px;background:#fafaf7;color:#1c1c1c;">
+  return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:#fafaf7;color:#1c1c1c;overflow:hidden;position:relative;">
     <div style="background:#1c1c1c;padding:34px 50px;text-align:center;">
       ${photo}
       <div style="font-size:26px;font-weight:700;color:white;letter-spacing:2px;text-transform:uppercase;">${esc(data.name || 'Your Name')}</div>
@@ -3419,7 +3400,7 @@ function renderModernMinimal(data) {
   const accent = window._cvAccentColor || '#e63946';
   const font = window._cvFont || 'Arial, sans-serif';
   const photo = cvPhotoData ? `<img src="${cvPhotoData}" style="width:68px;height:68px;border-radius:4px;object-fit:cover;flex-shrink:0;">` : '';
-  return `<div style="font-family:${font};min-height:1056px;background:white;padding:46px 54px;box-sizing:border-box;">
+  return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:white;padding:46px 54px;box-sizing:border-box;overflow:hidden;position:relative;">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:26px;gap:14px;">
       <div style="flex:1;min-width:0;">
         <div style="font-size:28px;font-weight:300;color:#1a1a1a;letter-spacing:-1px;line-height:1.1;">${esc(data.name || 'Your Name')}</div>
@@ -3443,7 +3424,7 @@ function renderVibrantPurple(data) {
   const accent = window._cvAccentColor || '#7c3aed';
   const font = window._cvFont || 'Arial, sans-serif';
   const photo = cvPhotoData ? `<img src="${cvPhotoData}" style="width:84px;height:84px;border-radius:50%;object-fit:cover;border:4px solid white;flex-shrink:0;">` : '';
-  return `<div style="font-family:${font};min-height:1056px;background:white;">
+  return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:white;overflow:hidden;position:relative;">
     <div style="background:linear-gradient(160deg,${accent} 0%,#a855f7 100%);padding:30px 38px;color:white;border-radius:0 0 26px 26px;margin-bottom:22px;">
       <div style="display:flex;align-items:center;gap:16px;">
         ${photo}
@@ -3470,7 +3451,7 @@ function renderCreativeSplit(data) {
   const accent = window._cvAccentColor || '#f97316';
   const font = window._cvFont || 'Arial, sans-serif';
   const photo = cvPhotoData ? `<img src="${cvPhotoData}" style="width:76px;height:76px;border-radius:8px;object-fit:cover;display:block;margin-bottom:12px;">` : '';
-  return `<div style="font-family:${font};min-height:1056px;background:white;">
+  return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:white;overflow:hidden;position:relative;">
     <div style="height:5px;background:linear-gradient(90deg,${accent},#fb923c,#fbbf24);"></div>
     <div style="display:grid;grid-template-columns:200px 1fr;">
       <div style="background:#1f2937;padding:26px 18px;box-sizing:border-box;">
@@ -3496,7 +3477,7 @@ function renderCreativeSplit(data) {
 function renderTimelineCV(data) {
   const accent = window._cvAccentColor || '#2d6a4f';
   const font = window._cvFont || 'Calibri,serif';
-  return `<div style="font-family:${font};min-height:1056px;background:white;padding:48px;">
+  return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:white;padding:48px;box-sizing:border-box;overflow:hidden;position:relative;">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;padding-bottom:24px;border-bottom:3px solid ${accent};">
       <div>
         <h1 style="font-size:40px;font-weight:900;color:#1a1814;margin:0 0 6px;letter-spacing:-1.5px;">${data.name||'Your Name'}</h1>
@@ -3537,7 +3518,7 @@ function renderSkillBubbles(data) {
   const font = window._cvFont || 'Helvetica Neue,Arial,sans-serif';
   const skillList = data.skills ? data.skills.split(',').map(s=>s.trim()).filter(s=>s) : [];
   const bubbleColors = [{bg:'#dbeafe',c:'#1e40af'},{bg:'#dcfce7',c:'#166534'},{bg:'#fef3c7',c:'#92400e'},{bg:'#fce7f3',c:'#9d174d'},{bg:'#ede9fe',c:'#5b21b6'},{bg:'#ffedd5',c:'#9a3412'}];
-  return `<div style="font-family:${font};min-height:1056px;background:#FAFAF8;">
+  return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:#FAFAF8;overflow:hidden;position:relative;">
     <div style="background:${accent};padding:40px 48px;position:relative;overflow:hidden;">
       <div style="position:absolute;right:-30px;top:-30px;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,0.08);"></div>
       <div style="position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:20px;">
@@ -3565,7 +3546,7 @@ function renderGradientHeader(data) {
   const barStyle = `display:flex;align-items:center;gap:10px;margin-bottom:12px;`;
   const bar = `<div style="width:4px;height:20px;background:${accent};border-radius:2px;"></div>`;
   const secTitle = label => `<div style="${barStyle}">${bar}<div style="font-size:13px;font-weight:700;color:#1a1814;text-transform:uppercase;letter-spacing:1.5px;">${label}</div></div>`;
-  return `<div style="font-family:${font};min-height:1056px;background:white;">
+  return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:white;overflow:hidden;position:relative;">
     <div style="background:linear-gradient(135deg,#0d1b2a 0%,${accent} 50%,#52b788 100%);padding:48px 52px 80px;position:relative;clip-path:polygon(0 0,100% 0,100% 80%,0 100%);">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;">
         <div>
@@ -3592,7 +3573,7 @@ function renderGradientHeader(data) {
 function renderTwoTone(data) {
   const accent = window._cvAccentColor || '#2d6a4f';
   const font = window._cvFont || 'Calibri,serif';
-  return `<div style="font-family:${font};min-height:1056px;background:white;display:flex;">
+  return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:white;display:flex;overflow:hidden;position:relative;">
     <div style="width:38%;background:#0d1b2a;padding:40px 28px;display:flex;flex-direction:column;min-height:1056px;box-sizing:border-box;">
       ${cvPhotoData?`<div style="width:100%;aspect-ratio:1;border-radius:10px;overflow:hidden;border:3px solid ${accent};margin-bottom:20px;"><img src="${cvPhotoData}" style="width:100%;height:100%;object-fit:cover;display:block;"></div>`:''}
       <h1 style="font-size:24px;font-weight:800;color:white;margin:0 0 4px;line-height:1.2;">${data.name||'Your Name'}</h1>
@@ -3617,7 +3598,7 @@ function renderTwoTone(data) {
 function renderNewspaper(data) {
   const accent = window._cvAccentColor || '#1a1814';
   const font = window._cvFont || 'Georgia,Times New Roman,serif';
-  return `<div style="font-family:${font};min-height:1056px;background:white;padding:48px 52px;">
+  return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:white;padding:48px 52px;box-sizing:border-box;overflow:hidden;position:relative;">
     <div style="text-align:center;border-top:4px solid #1a1814;border-bottom:4px solid #1a1814;padding:20px 0;margin-bottom:20px;">
       <h1 style="font-size:48px;font-weight:700;color:#1a1814;margin:0 0 4px;letter-spacing:4px;text-transform:uppercase;">${data.name||'Your Name'}</h1>
       <div style="font-size:14px;color:#6b6660;letter-spacing:3px;text-transform:uppercase;font-style:italic;">${data.title||''}</div>
@@ -3643,7 +3624,7 @@ function renderCornerAccent(data) {
   const font = window._cvFont || 'Helvetica Neue,Arial,sans-serif';
   const hex = accent.replace('#','');
   const r = parseInt(hex.substring(0,2),16)||45, g = parseInt(hex.substring(2,4),16)||106, b2 = parseInt(hex.substring(4,6),16)||79;
-  return `<div style="font-family:${font};min-height:1056px;background:white;position:relative;overflow:hidden;">
+  return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:white;position:relative;overflow:hidden;">
     <div style="position:absolute;top:0;left:0;width:180px;height:180px;background:${accent};clip-path:polygon(0 0,100% 0,0 100%);"></div>
     <div style="position:absolute;top:0;right:0;width:60px;height:60px;background:rgba(${r},${g},${b2},0.2);clip-path:polygon(100% 0,0 0,100% 100%);"></div>
     <div style="position:relative;z-index:1;padding:40px 48px 48px;">
@@ -3671,7 +3652,7 @@ function renderCornerAccent(data) {
 function renderBorderFrame(data) {
   const accent = window._cvAccentColor || '#b8960c';
   const font = window._cvFont || 'Garamond,Georgia,serif';
-  return `<div style="font-family:${font};min-height:1056px;background:#FFFEF9;padding:20px;">
+  return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:#FFFEF9;padding:20px;box-sizing:border-box;overflow:hidden;position:relative;">
     <div style="border:2px solid ${accent};min-height:calc(1056px - 40px);padding:32px 40px;position:relative;box-sizing:border-box;">
       <div style="position:absolute;top:8px;left:8px;width:20px;height:20px;border-top:3px solid ${accent};border-left:3px solid ${accent};"></div>
       <div style="position:absolute;top:8px;right:8px;width:20px;height:20px;border-top:3px solid ${accent};border-right:3px solid ${accent};"></div>
@@ -3699,7 +3680,7 @@ function renderModernPhoto(data) {
   const accent = window._cvAccentColor || '#2d6a4f';
   const font = window._cvFont || 'Helvetica Neue,Arial,sans-serif';
   const hdr = label => `<div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${accent};margin-bottom:12px;display:flex;align-items:center;gap:8px;">${label}<div style="flex:1;height:2px;background:#f0ede8;"></div></div>`;
-  return `<div style="font-family:${font};min-height:1056px;background:white;display:flex;">
+  return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:white;display:flex;overflow:hidden;position:relative;">
     <div style="width:35%;order:2;background:#f7f5f0;padding:40px 24px;border-left:3px solid ${accent};box-sizing:border-box;">
       ${cvPhotoData?`<div style="width:100%;aspect-ratio:1;overflow:hidden;border-radius:12px;border:4px solid ${accent};margin-bottom:20px;box-shadow:0 8px 24px rgba(0,0,0,0.12);"><img src="${cvPhotoData}" style="width:100%;height:100%;object-fit:cover;display:block;"></div>`:
       `<div style="width:100%;aspect-ratio:1;background:rgba(45,106,79,0.1);border-radius:12px;border:3px dashed ${accent};display:flex;align-items:center;justify-content:center;font-size:48px;margin-bottom:20px;">👤</div>`}
@@ -3728,7 +3709,7 @@ function renderColorSidebar(data) {
   const exp = data.experience || [];
   const edu = data.education || [];
   const photo = data.photoData || cvPhotoData;
-  return `<div style="font-family:${font};display:flex;min-height:1056px;width:794px;background:white;">
+  return `<div style="font-family:${font};display:flex;width:794px;min-height:1056px;height:1056px;background:white;overflow:hidden;position:relative;">
     <div style="width:255px;flex-shrink:0;background:${accent};padding:36px 22px;display:flex;flex-direction:column;gap:18px;box-sizing:border-box;">
       ${photo ? `<div style="width:108px;height:108px;border-radius:10px;overflow:hidden;margin:0 auto;border:3px solid rgba(255,255,255,0.3);"><img src="${photo}" style="width:100%;height:100%;object-fit:cover;"></div>` : ''}
       <div>
@@ -3777,7 +3758,7 @@ function renderTopStrip(data) {
   const exp = data.experience || [];
   const edu = data.education || [];
   const photo = data.photoData || cvPhotoData;
-  return `<div style="font-family:${font};background:white;min-height:1056px;width:794px;">
+  return `<div style="font-family:${font};background:white;width:794px;min-height:1056px;height:1056px;overflow:hidden;position:relative;">
     <div style="height:8px;background:${accent};"></div>
     <div style="padding:28px 44px 20px;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;">
@@ -3821,7 +3802,7 @@ function renderPhotoLeft(data) {
   const exp = data.experience || [];
   const edu = data.education || [];
   const photo = data.photoData || cvPhotoData;
-  return `<div style="font-family:${font};background:white;min-height:1056px;width:794px;">
+  return `<div style="font-family:${font};background:white;width:794px;min-height:1056px;height:1056px;overflow:hidden;position:relative;">
     <div style="display:flex;background:#f7f5f0;border-bottom:4px solid ${accent};">
       ${photo ? `<div style="width:140px;flex-shrink:0;overflow:hidden;"><img src="${photo}" style="width:140px;height:140px;object-fit:cover;display:block;"></div>` : ''}
       <div style="flex:1;padding:26px 30px;display:flex;flex-direction:column;justify-content:center;">
@@ -4219,6 +4200,9 @@ document.addEventListener('DOMContentLoaded', function() {
   calculateCVScore();
   updateCoverLetter();
   scalePreview();
+  setTimeout(scalePreview, 100);
+  setTimeout(scalePreview, 300);
+  setTimeout(scalePreview, 600);
 });
 
 // ══════════ COVER LETTER ENGINE ══════════
