@@ -121,10 +121,10 @@ nav .nav-links a.active { color: #52b788; font-weight: 600; }
 #cvFormScrollable::-webkit-scrollbar { width: 4px; }
 #cvFormScrollable::-webkit-scrollbar-track { background: transparent; }
 #cvFormScrollable::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-#cvPreviewPanel { position: sticky; top: 70px; height: calc(100vh - 90px); display: flex; flex-direction: column; overflow: hidden; border: 1.5px solid var(--border); border-radius: 12px; background: #e8e6e0; }
-#cvPreviewWrapper { flex: 1; overflow: hidden; display: flex; align-items: flex-start; justify-content: center; padding: 12px; }
+#cvPreviewPanel { position: sticky; top: 70px; height: calc(100vh - 90px); display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; border: 1.5px solid var(--border); border-radius: 12px; background: #e8e6e0; }
+#cvPreviewWrapper { overflow: hidden; display: flex; align-items: flex-start; justify-content: center; padding: 12px; }
 #cvPreviewWrapper .preview-wrap { overflow: hidden; flex-shrink: 0; }
-#cvPreviewScale { transform-origin: top center !important; width: 794px !important; display: block; }
+#cvPreviewScale { transform-origin: top center !important; width: 794px !important; display: block !important; flex-shrink: 0 !important; }
 #cv-preview { width: 794px !important; min-height: 1056px !important; height: 1056px !important; background: white !important; box-sizing: border-box !important; overflow: hidden !important; position: relative !important; display: block !important; }
 .form-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
 .form-section-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
@@ -2205,7 +2205,7 @@ function updatePreview() {
   }
   updateDecoratorList();
   updateJobSearch();
-  scalePreview();
+  requestAnimationFrame(() => scalePreview());
   const scoreDisplay = document.getElementById('cvScoreDisplay');
   if (scoreDisplay) {
     const scoreEl = document.getElementById('cvScoreText');
@@ -2223,23 +2223,20 @@ function scalePreview() {
   const A4_W = 794;
   const A4_H = 1056;
   const availW = wrapper.offsetWidth - 24;
-  const availH = wrapper.offsetHeight - 24;
-  const scaleW = availW / A4_W;
-  const scaleH = availH / A4_H;
-  const scale = Math.min(scaleW, scaleH);
+  const scale = availW / A4_W;
   scaleEl.style.transform = `scale(${scale})`;
   scaleEl.style.transformOrigin = 'top center';
   scaleEl.style.width = A4_W + 'px';
-  scaleEl.style.height = A4_H + 'px';
   scaleEl.style.display = 'block';
-  scaleEl.style.flexShrink = '0';
+  const scaledH = Math.ceil(A4_H * scale);
+  wrapper.style.height = (scaledH + 24) + 'px';
   preview.style.width = A4_W + 'px';
   preview.style.minHeight = A4_H + 'px';
   preview.style.height = A4_H + 'px';
-  preview.style.background = 'white';
-  preview.style.overflow = 'hidden';
-  preview.style.boxSizing = 'border-box';
   preview.style.display = 'block';
+  preview.style.overflow = 'hidden';
+  preview.style.background = 'white';
+  preview.style.boxSizing = 'border-box';
 }
 window.addEventListener('resize', () => {
   clearTimeout(window._scaleTimer);
