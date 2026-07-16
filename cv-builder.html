@@ -654,7 +654,7 @@ nav div a:hover::after { width: 100%; }
   #cvPreviewPanel { order: 1 !important; position: static !important; height: auto !important; min-height: auto !important; border-radius: 10px !important; }
   #cvFormPanel { order: 2 !important; position: static !important; height: auto !important; max-height: none !important; min-height: auto !important; border-radius: 10px !important; }
   #cvFormScrollable { overflow: visible !important; max-height: none !important; height: auto !important; padding: 12px !important; }
-  #cvPreviewWrapper { height: 280px !important; min-height: 280px !important; max-height: 280px !important; overflow: hidden !important; padding: 8px !important; }
+  #cvPreviewWrapper { height: 320px !important; min-height: 320px !important; overflow-y: auto !important; overflow-x: hidden !important; -webkit-overflow-scrolling: touch !important; scroll-behavior: smooth !important; padding: 8px !important; }
   #quickTemplates { grid-template-columns: repeat(2,1fr) !important; gap: 6px !important; }
   #templateGallery { max-height: 300px; overflow-y: auto; }
   #premiumTemplateGrid, #classicTemplateGrid { grid-template-columns: repeat(3,1fr) !important; gap: 5px !important; }
@@ -673,7 +673,7 @@ nav div a:hover::after { width: 100%; }
 }
 @media (max-width: 480px) {
   .builder-layout, #cvBuilderLayout { padding: 6px 8px 90px !important; }
-  #cvPreviewWrapper { height: 240px !important; min-height: 240px !important; max-height: 240px !important; }
+  #cvPreviewWrapper { height: 240px !important; min-height: 240px !important; overflow-y: auto !important; overflow-x: hidden !important; }
   #premiumTemplateGrid, #classicTemplateGrid { grid-template-columns: repeat(2,1fr) !important; }
   #quickTplGrid { grid-template-columns: repeat(2,1fr) !important; }
   #countryBtnGroup button { font-size: 11px !important; padding: 5px 8px !important; }
@@ -688,6 +688,8 @@ nav div a:hover::after { width: 100%; }
   }
   #mobileBar button:first-child { background: var(--accent) !important; color: white !important; border: none !important; }
   #mobileBar button:last-child { background: white !important; color: var(--accent) !important; border: 2px solid var(--accent) !important; }
+  #cvPreviewScale { display: block !important; transform-origin: top left !important; }
+  #cvPreviewWrapper::after { content: '↕ Scroll to see full CV'; display: block; text-align: center; font-size: 11px; color: #9e9890; padding: 6px; background: white; position: sticky; bottom: 0; }
 }
 /* Premium card focus */
 .cv-section-card:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(45,106,79,0.08); }
@@ -980,15 +982,15 @@ nav div a:hover::after { width: 100%; }
               </div>
             </div>
             <div style="display:flex;align-items:center;gap:8px;">
-              <button class="ai-btn" id="ai-summary-btn" onclick="aiGenSummary();event.stopPropagation();" style="padding:5px 10px;font-size:11px;">✨ AI</button>
               <span id="summary-arrow" class="section-arrow">▼</span>
             </div>
           </div>
           <div id="section-summary" style="padding:16px;border-top:1px solid var(--border);display:none;">
             <div class="cv-status" id="summary-status"></div>
             <div class="form-row">
-              <textarea id="f-summary" placeholder="Write 2-3 sentences about your experience, key strengths and what you bring to the role. Or click ✨ AI to generate." oninput="updatePreview()"></textarea>
+              <textarea id="f-summary" placeholder="Write 2-3 sentences about your experience, key strengths and what you bring to the role." oninput="updatePreview()"></textarea>
             </div>
+            <button id="ai-summary-btn" onclick="aiGenSummary()" style="width:100%;padding:10px 16px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px;" onmouseover="this.style.background='#1e4d35'" onmouseout="this.style.background='var(--accent)'"><span style="font-size:16px;">✨</span> Generate with AI</button>
             <button onclick="generateLinkedIn()" style="margin-top:8px;padding:7px 14px;background:white;border:1.5px solid #0077b5;border-radius:8px;font-size:12px;color:#0077b5;font-weight:600;cursor:pointer;width:100%;transition:all 0.2s;font-family:'DM Sans',sans-serif;" onmouseover="this.style.background='#0077b5';this.style.color='white'" onmouseout="this.style.background='white';this.style.color='#0077b5'">🔗 Generate LinkedIn Summary</button>
             <div id="linkedinResult" style="display:none;margin-top:8px;padding:10px;background:#f0f7ff;border:1px solid #bfdbfe;border-radius:8px;font-size:12px;color:#1e3a5f;"></div>
           </div>
@@ -1289,7 +1291,7 @@ We are looking for a Software Engineer with:
           <span style="font-size:12px;font-weight:600;color:var(--text2);">Live Preview</span>
           <div style="display:flex;gap:6px;align-items:center;">
             <span id="cvScoreDisplay" style="font-size:11px;font-weight:700;color:var(--accent);"></span>
-            <button onclick="toggleEditMode()" id="previewEditBtn" style="padding:5px 12px;background:white;border:1.5px solid var(--border);border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;color:var(--text2);font-family:'DM Sans',sans-serif;transition:all 0.2s;display:flex;align-items:center;gap:4px;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">✏️ Edit</button>
+            <button onclick="toggleEditMode()" id="previewEditBtn" style="padding:5px 12px;background:white;border:1.5px solid #e2ddd4;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;color:#6b6660;font-family:'DM Sans',sans-serif;transition:all 0.2s;display:flex;align-items:center;gap:4px;">✏️ Edit</button>
             <button onclick="openFullPreview()" title="Full screen" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:4px 6px;">⛶</button>
           </div>
         </div>
@@ -2259,10 +2261,8 @@ function scalePreview() {
   scaleEl.style.transformOrigin = 'top left';
   scaleEl.style.width = A4_W + 'px';
   scaleEl.style.height = A4_H + 'px';
-  scaleEl.style.display = 'inline-block';
+  scaleEl.style.display = 'block';
   scaleEl.style.position = 'relative';
-  const scaledH = Math.ceil(A4_H * scale);
-  wrapper.style.minHeight = (scaledH + 24) + 'px';
   preview.style.width = A4_W + 'px';
   preview.style.height = A4_H + 'px';
   preview.style.minHeight = A4_H + 'px';
@@ -2272,7 +2272,14 @@ function scalePreview() {
   preview.style.margin = '0';
   preview.style.boxSizing = 'border-box';
   preview.style.display = 'block';
-  console.log('scalePreview:', 'availW='+availW, 'scale='+scale.toFixed(3), 'scaledH='+scaledH);
+  const isMobile = window.innerWidth <= 900;
+  if (!isMobile) {
+    const scaledH = Math.ceil(A4_H * scale);
+    wrapper.style.minHeight = (scaledH + 24) + 'px';
+  } else {
+    wrapper.style.minHeight = '';
+  }
+  console.log('scalePreview:', 'availW='+availW, 'scale='+scale.toFixed(3), 'mobile='+isMobile);
 }
 window.addEventListener('resize', () => {
   clearTimeout(window._scaleTimer);
@@ -2302,7 +2309,7 @@ function addExp() {
       <textarea class="exp-bullets" style="min-height:90px;" placeholder="Led cross-functional team of 8 people&#10;Increased revenue by 35% YoY&#10;Launched 3 product campaigns..." oninput="updatePreview()"></textarea>
     </div>
     <div style="margin-top:8px;">
-      <button class="ai-btn" onclick="aiGenBullets(${id})" style="font-size:12px;">✨ Generate bullet points from rough notes</button>
+      <button onclick="aiGenBullets(${id})" style="padding:8px 14px;background:white;color:var(--accent);border:1.5px solid var(--accent);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.2s;display:flex;align-items:center;gap:6px;margin-top:6px;" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='white'"><span>✨</span> Generate with AI</button>
       <div class="cv-status" id="exp-status-${id}"></div>
     </div>`;
   document.getElementById('exp-list').appendChild(div);
@@ -2976,8 +2983,8 @@ function toggleEditMode() {
     if (rightBtn) {
       rightBtn.innerHTML = '✏️ Edit';
       rightBtn.style.background = 'white';
-      rightBtn.style.color = 'var(--text2)';
-      rightBtn.style.borderColor = 'var(--border)';
+      rightBtn.style.color = '#6b6660';
+      rightBtn.style.borderColor = '#e2ddd4';
     }
     if (toolbar) toolbar.style.display = 'none';
     showToast('✓ Changes saved');
