@@ -96,7 +96,7 @@ nav .nav-links a.active { color: #52b788; font-weight: 600; }
 .tab-panel.active { display: block; }
 
 /* Builder layout */
-.builder-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+.builder-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: stretch; }
 @media (max-width: 1024px) { .builder-layout { grid-template-columns: 1fr; } }
 @media (max-width: 768px) {
   nav .nav-links { display: none !important; }
@@ -116,16 +116,16 @@ nav .nav-links a.active { color: #52b788; font-weight: 600; }
 
 /* Form panel */
 .form-panel { display: flex; flex-direction: column; gap: 16px; }
-#cvFormPanel { position: sticky; top: 70px; max-height: calc(100vh - 90px); display: flex; flex-direction: column; overflow: hidden; border: 1.5px solid var(--border); border-radius: 12px; background: white; }
+#cvFormPanel { position: sticky; top: 70px; height: calc(100vh - 90px); display: flex; flex-direction: column; overflow: hidden; border: 1.5px solid var(--border); border-radius: 12px; background: white; }
 #cvFormScrollable { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 12px 14px; -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
 #cvFormScrollable::-webkit-scrollbar { width: 4px; }
 #cvFormScrollable::-webkit-scrollbar-track { background: transparent; }
 #cvFormScrollable::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-#cvPreviewPanel { position: sticky; top: 70px; display: flex; flex-direction: column; overflow: visible; border: 1.5px solid var(--border); border-radius: 12px; background: #e8e6e0; }
-#cvPreviewWrapper { overflow: visible; display: flex; justify-content: center; padding: 12px; }
+#cvPreviewPanel { position: sticky; top: 70px; height: calc(100vh - 90px); display: flex; flex-direction: column; overflow: hidden; border: 1.5px solid var(--border); border-radius: 12px; background: #e8e6e0; }
+#cvPreviewWrapper { flex: 1; overflow: hidden; display: flex; align-items: flex-start; justify-content: center; padding: 12px; }
 #cvPreviewWrapper .preview-wrap { overflow: hidden; flex-shrink: 0; }
 #cvPreviewScale { transform-origin: top center !important; width: 794px !important; display: block; }
-#cv-preview { width: 794px !important; min-height: 1056px !important; height: 1056px !important; background: white !important; box-sizing: border-box !important; overflow: hidden !important; position: relative !important; }
+#cv-preview { width: 794px !important; min-height: 1056px !important; height: 1056px !important; background: white !important; box-sizing: border-box !important; overflow: hidden !important; position: relative !important; display: block !important; }
 .form-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
 .form-section-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
 .form-section-hdr h3 { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; color: var(--text); }
@@ -650,11 +650,11 @@ nav div a:hover::after { width: 100%; }
 }
 /* ── Mobile responsive layout ── */
 @media (max-width: 900px) {
-  #cvBuilderLayout { grid-template-columns: 1fr !important; gap: 12px !important; }
-  #cvFormPanel { position: static !important; height: auto !important; border-radius: 12px !important; }
-  #cvFormScrollable { overflow: visible !important; max-height: none !important; padding: 12px !important; }
-  #cvPreviewPanel { position: static !important; order: -1; border-radius: 12px !important; }
-  #cvPreviewWrapper { padding: 8px !important; }
+  #cvBuilderLayout { grid-template-columns: 1fr !important; gap: 10px !important; padding: 10px 10px 80px !important; }
+  #cvFormPanel { position: static !important; height: auto !important; max-height: none !important; min-height: auto !important; order: 2 !important; border-radius: 12px !important; }
+  #cvFormScrollable { overflow: visible !important; max-height: none !important; height: auto !important; padding: 12px !important; }
+  #cvPreviewPanel { position: static !important; height: auto !important; order: 1 !important; border-radius: 12px !important; }
+  #cvPreviewWrapper { height: 320px !important; overflow: hidden !important; padding: 8px !important; }
   #premiumTemplateGrid, #classicTemplateGrid { grid-template-columns: repeat(3,1fr) !important; }
   #quickTplGrid { grid-template-columns: repeat(4,1fr) !important; }
   .cv-main { padding-bottom: 80px !important; }
@@ -2219,25 +2219,32 @@ function scalePreview() {
   const wrapper = document.getElementById('cvPreviewWrapper');
   const scaleEl = document.getElementById('cvPreviewScale');
   const preview = document.getElementById('cv-preview');
-  const panel = document.getElementById('cvPreviewPanel');
   if (!wrapper || !scaleEl || !preview) return;
   const A4_W = 794;
   const A4_H = 1056;
-  const panelWidth = panel ? panel.offsetWidth : wrapper.offsetWidth;
-  const availW = panelWidth - 24;
-  const scale = availW / A4_W;
+  const availW = wrapper.offsetWidth - 24;
+  const availH = wrapper.offsetHeight - 24;
+  const scaleW = availW / A4_W;
+  const scaleH = availH / A4_H;
+  const scale = Math.min(scaleW, scaleH);
   scaleEl.style.transform = `scale(${scale})`;
   scaleEl.style.transformOrigin = 'top center';
   scaleEl.style.width = A4_W + 'px';
-  const scaledH = Math.ceil(A4_H * scale);
-  wrapper.style.height = (scaledH + 24) + 'px';
-  wrapper.style.overflow = 'hidden';
+  scaleEl.style.height = A4_H + 'px';
+  scaleEl.style.display = 'block';
+  scaleEl.style.flexShrink = '0';
   preview.style.width = A4_W + 'px';
   preview.style.minHeight = A4_H + 'px';
-  preview.style.boxSizing = 'border-box';
+  preview.style.height = A4_H + 'px';
   preview.style.background = 'white';
+  preview.style.overflow = 'hidden';
+  preview.style.boxSizing = 'border-box';
+  preview.style.display = 'block';
 }
-window.addEventListener('resize', scalePreview);
+window.addEventListener('resize', () => {
+  clearTimeout(window._scaleTimer);
+  window._scaleTimer = setTimeout(scalePreview, 100);
+});
 
 // ── Dynamic form sections ──
 function addExp() {
