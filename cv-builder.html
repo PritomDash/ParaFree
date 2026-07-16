@@ -121,11 +121,11 @@ nav .nav-links a.active { color: #52b788; font-weight: 600; }
 #cvFormScrollable::-webkit-scrollbar { width: 4px; }
 #cvFormScrollable::-webkit-scrollbar-track { background: transparent; }
 #cvFormScrollable::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-#cvPreviewPanel { position: sticky; top: 70px; height: calc(100vh - 90px); display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; border: 1.5px solid var(--border); border-radius: 12px; background: #e8e6e0; }
-#cvPreviewWrapper { overflow: hidden; display: flex; align-items: flex-start; justify-content: center; padding: 12px; }
+#cvPreviewPanel { position: sticky; top: 70px; height: calc(100vh - 90px); display: flex; flex-direction: column; overflow: hidden; border: 1.5px solid var(--border); border-radius: 12px; background: #e8e6e0; }
+#cvPreviewWrapper { display: block; overflow-y: auto; overflow-x: hidden; padding: 12px; text-align: center; flex: 1; -webkit-overflow-scrolling: touch; }
 #cvPreviewWrapper .preview-wrap { overflow: hidden; flex-shrink: 0; }
-#cvPreviewScale { transform-origin: top center !important; width: 794px !important; display: block !important; flex-shrink: 0 !important; }
-#cv-preview { width: 794px !important; min-height: 1056px !important; height: 1056px !important; background: white !important; box-sizing: border-box !important; overflow: hidden !important; position: relative !important; display: block !important; }
+#cvPreviewScale { transform-origin: top left !important; display: inline-block !important; width: 794px !important; height: 1056px !important; vertical-align: top; }
+#cv-preview { width: 794px !important; min-height: 1056px !important; height: 1056px !important; background: white !important; box-sizing: border-box !important; overflow: hidden !important; position: relative !important; display: block !important; padding: 0 !important; margin: 0 !important; }
 .form-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
 .form-section-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
 .form-section-hdr h3 { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; color: var(--text); }
@@ -254,7 +254,7 @@ nav .nav-links a.active { color: #52b788; font-weight: 600; }
 
 /* ── EXECUTIVE TEMPLATE ── */
 .tpl-executive .cv-sheet { font-family: 'DM Sans', sans-serif; }
-.tpl-executive .cv-header-band { background: #1a2744; color: white; padding: 26px 60px 20px; margin: -40px -60px 22px; }
+.tpl-executive .cv-header-band { background: #1a2744; color: white; padding: 26px 44px 20px; margin: 0 0 22px; }
 .tpl-executive .cv-name { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 800; color: white; letter-spacing: -0.5px; }
 .tpl-executive .cv-jobtitle { font-size: 12px; color: #a0b4d6; font-weight: 500; text-transform: uppercase; letter-spacing: 2px; margin-top: 4px; }
 .tpl-executive .cv-contact { font-size: 11px; color: rgba(255,255,255,0.55); margin-top: 8px; }
@@ -384,7 +384,7 @@ nav .nav-links a.active { color: #52b788; font-weight: 600; }
 
 /* ── TEAL TEMPLATE ── */
 .tpl-teal .cv-sheet { font-family: 'DM Sans', sans-serif; }
-.tpl-teal .cv-header-band { background: #0f766e; color: white; padding: 26px 60px 20px; margin: -40px -60px 22px; }
+.tpl-teal .cv-header-band { background: #0f766e; color: white; padding: 26px 44px 20px; margin: 0 0 22px; }
 .tpl-teal .cv-name { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 800; color: white; }
 .tpl-teal .cv-jobtitle { font-size: 12px; color: rgba(255,255,255,.75); font-weight: 400; text-transform: uppercase; letter-spacing: 2px; margin-top: 4px; }
 .tpl-teal .cv-contact { font-size: 11px; color: rgba(255,255,255,.6); margin-top: 8px; }
@@ -506,7 +506,7 @@ nav .nav-links a.active { color: #52b788; font-weight: 600; }
 
 /* ── WARM TEMPLATE ── */
 .tpl-warm .cv-sheet { font-family: 'DM Sans', sans-serif; }
-.tpl-warm .cv-header-band { background: #991b1b; color: white; padding: 26px 60px 20px; margin: -40px -60px 22px; }
+.tpl-warm .cv-header-band { background: #991b1b; color: white; padding: 26px 44px 20px; margin: 0 0 22px; }
 .tpl-warm .cv-name { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800; color: white; letter-spacing: -0.5px; }
 .tpl-warm .cv-jobtitle { font-size: 12px; color: #fca5a5; font-weight: 400; margin-top: 3px; }
 .tpl-warm .cv-contact { font-size: 11px; color: rgba(255,255,255,.55); margin-top: 7px; }
@@ -543,7 +543,7 @@ nav .nav-links a.active { color: #52b788; font-weight: 600; }
 
 /* ── GRADIENT TEMPLATE ── */
 .tpl-gradient .cv-sheet { font-family: 'DM Sans', sans-serif; }
-.tpl-gradient .cv-gradient-header { background: linear-gradient(135deg, #1a3a2a 0%, #2d6a4f 65%, #52b788 100%); color: white; padding: 26px 60px 22px; margin: -40px -60px 22px; }
+.tpl-gradient .cv-gradient-header { background: linear-gradient(135deg, #1a3a2a 0%, #2d6a4f 65%, #52b788 100%); color: white; padding: 26px 44px 22px; margin: 0 0 22px; }
 .tpl-gradient .cv-name { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800; color: white; letter-spacing: -0.5px; }
 .tpl-gradient .cv-jobtitle { font-size: 12px; color: #a7f3d0; font-weight: 500; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 4px; }
 .tpl-gradient .cv-contact { font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 8px; }
@@ -654,7 +654,7 @@ nav div a:hover::after { width: 100%; }
   #cvFormPanel { position: static !important; height: auto !important; max-height: none !important; min-height: auto !important; order: 2 !important; border-radius: 12px !important; }
   #cvFormScrollable { overflow: visible !important; max-height: none !important; height: auto !important; padding: 12px !important; }
   #cvPreviewPanel { position: static !important; height: auto !important; order: 1 !important; border-radius: 12px !important; }
-  #cvPreviewWrapper { height: 320px !important; overflow: hidden !important; padding: 8px !important; }
+  #cvPreviewWrapper { height: 320px !important; overflow-y: auto !important; overflow-x: hidden !important; padding: 8px !important; flex: none !important; }
   #premiumTemplateGrid, #classicTemplateGrid { grid-template-columns: repeat(3,1fr) !important; }
   #quickTplGrid { grid-template-columns: repeat(4,1fr) !important; }
   .cv-main { padding-bottom: 80px !important; }
@@ -1660,7 +1660,7 @@ function renderClassic(d) {
   const photoHtml = cvPhotoData
     ? `<img src="${cvPhotoData}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:3px solid rgba(255,255,255,0.55);flex-shrink:0;">`
     : '';
-  let h = `<div style="background:${accent};padding:28px 32px 22px;margin:-40px -60px 0;display:flex;justify-content:space-between;align-items:center;gap:16px;">
+  let h = `<div style="background:${accent};padding:28px 44px 22px;margin:0;display:flex;justify-content:space-between;align-items:center;gap:16px;">
     <div>
       <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:white;letter-spacing:-0.5px;line-height:1.1;">${esc(d.name || 'Your Name')}</div>
       ${d.title ? `<div style="font-size:13px;color:rgba(255,255,255,0.82);font-weight:500;margin-top:5px;">${esc(d.title)}</div>` : ''}
@@ -1673,10 +1673,11 @@ function renderClassic(d) {
     d.linkedin && `<span>⊞ ${esc(d.linkedin)}</span>`
   ].filter(Boolean);
   if (cParts.length) {
-    h += `<div style="background:${accentFaint};padding:7px 32px;margin:0 -60px 16px;display:flex;flex-wrap:wrap;gap:5px 14px;font-size:11px;color:#444;">${cParts.join('<span style="color:#bbb;">|</span>')}</div>`;
+    h += `<div style="background:${accentFaint};padding:7px 44px;margin:0 0 0;display:flex;flex-wrap:wrap;gap:5px 14px;font-size:11px;color:#444;">${cParts.join('<span style="color:#bbb;">|</span>')}</div>`;
   } else {
-    h += `<div style="margin-top:16px;"></div>`;
+    h += `<div style="margin-top:0;"></div>`;
   }
+  h += `<div style="padding:16px 44px 32px;">`;
   const secTitle = t => `<div style="font-family:'Syne',sans-serif;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.9px;color:${accent};border-bottom:2px solid ${accent};padding-bottom:3px;margin:18px 0 8px;">${t}</div>`;
   if (d.summary) {
     h += secTitle('Professional Summary');
@@ -1721,6 +1722,7 @@ function renderClassic(d) {
     h += secTitle('Certifications');
     h += `<div style="font-size:13px;color:#3a3a3a;line-height:1.7;">${esc(d.certs).replace(/\n/g, '<br>')}</div>`;
   }
+  h += `</div>`;
   return h;
 }
 
@@ -1815,7 +1817,7 @@ function renderGradient(d) {
     <div class="cv-name">${esc(d.name||'Your Name')}</div>
     ${d.title?`<div class="cv-jobtitle">${esc(d.title)}</div>`:''}
     ${contact?`<div class="cv-contact">${contact}</div>`:''}
-  </div>`;
+  </div><div style="padding:0 44px 32px">`;
   if (d.summary) h += `<div class="cv-sec-title">About</div><div class="cv-sec-body">${esc(d.summary)}</div>`;
   const exps = d.experience.filter(e => e.company||e.role);
   if (exps.length) {
@@ -1851,13 +1853,14 @@ function renderGradient(d) {
     }</div>`;
   }
   if (d.certs) h += `<div class="cv-sec-title">Certifications</div><div class="cv-sec-body">${esc(d.certs)}</div>`;
+  h += `</div>`;
   return h;
 }
 
 // ── Minimal template ──
 function renderMinimal(d) {
   const contact = [d.email,d.phone,d.location,d.linkedin].filter(Boolean).map(esc).join(' · ');
-  let h = `<div class="cv-name">${esc(d.name||'Your Name')}</div>`;
+  let h = `<div style="padding:40px 60px"><div class="cv-name">${esc(d.name||'Your Name')}</div>`;
   if (d.title) h += `<div class="cv-jobtitle">${esc(d.title)}</div>`;
   if (contact) h += `<div class="cv-contact">${contact}</div>`;
   h += `<hr class="cv-divider">`;
@@ -1887,6 +1890,7 @@ function renderMinimal(d) {
   }
   if (d.skills) h += `<div class="cv-sec-title">Skills</div><div class="cv-sec-body">${esc(d.skills)}</div>`;
   if (d.certs) h += `<div class="cv-sec-title">Certifications</div><div class="cv-sec-body">${esc(d.certs)}</div>`;
+  h += `</div>`;
   return h;
 }
 
@@ -1897,7 +1901,7 @@ function renderExecutive(d) {
     <div class="cv-name">${esc(d.name||'Your Name')}</div>
     ${d.title?`<div class="cv-jobtitle">${esc(d.title)}</div>`:''}
     ${contact?`<div class="cv-contact">${contact}</div>`:''}
-  </div>`;
+  </div><div style="padding:0 44px 32px">`;
   if (d.summary) h += `<div class="cv-sec-title">Executive Summary</div><div class="cv-sec-body">${esc(d.summary)}</div>`;
   const exps = d.experience.filter(e=>e.company||e.role);
   if (exps.length) {
@@ -1917,6 +1921,7 @@ function renderExecutive(d) {
   }
   if (d.skills) h += `<div class="cv-sec-title">Core Competencies</div><div class="cv-sec-body">${esc(d.skills)}</div>`;
   if (d.certs)  h += `<div class="cv-sec-title">Certifications</div><div class="cv-sec-body">${esc(d.certs)}</div>`;
+  h += `</div>`;
   return h;
 }
 
@@ -1956,7 +1961,7 @@ function renderCreative(d) {
 // ── Compact template ──
 function renderCompact(d) {
   const contact = [d.email,d.phone,d.location,d.linkedin].filter(Boolean).map(esc).join(' · ');
-  let h = `<div class="cv-name">${esc(d.name||'Your Name')}</div>`;
+  let h = `<div style="padding:40px 60px"><div class="cv-name">${esc(d.name||'Your Name')}</div>`;
   if (d.title) h += `<div class="cv-jobtitle">${esc(d.title)}</div>`;
   if (contact) h += `<div class="cv-contact">${contact}</div>`;
   h += `<hr class="cv-divider">`;
@@ -1979,13 +1984,14 @@ function renderCompact(d) {
   }
   if (d.skills) h += `<div class="cv-sec-title">Skills</div><div class="cv-sec-body">${esc(d.skills)}</div>`;
   if (d.certs)  h += `<div class="cv-sec-title">Certifications</div><div class="cv-sec-body">${esc(d.certs)}</div>`;
+  h += `</div>`;
   return h;
 }
 
 // ── Timeline template ──
 function renderTimeline(d) {
   const contact = [d.email,d.phone,d.location,d.linkedin].filter(Boolean).map(esc).join(' · ');
-  let h = `<div class="cv-name">${esc(d.name||'Your Name')}</div>`;
+  let h = `<div style="padding:40px 60px"><div class="cv-name">${esc(d.name||'Your Name')}</div>`;
   if (d.title) h += `<div class="cv-jobtitle">${esc(d.title)}</div>`;
   if (contact) h += `<div class="cv-contact">${contact}</div>`;
   h += `<hr class="cv-divider">`;
@@ -2010,13 +2016,14 @@ function renderTimeline(d) {
   }
   if (d.skills) h += `<div class="cv-sec-title">Skills</div><div class="cv-sec-body">${esc(d.skills)}</div>`;
   if (d.certs)  h += `<div class="cv-sec-title">Certifications</div><div class="cv-sec-body">${esc(d.certs)}</div>`;
+  h += `</div>`;
   return h;
 }
 
 // ── Tech template ──
 function renderTech(d) {
   const contact = [d.email,d.phone,d.location,d.linkedin].filter(Boolean).map(esc).join(' · ');
-  let h = `<div class="cv-name">${esc(d.name||'Your Name')}</div>`;
+  let h = `<div style="padding:40px 60px"><div class="cv-name">${esc(d.name||'Your Name')}</div>`;
   if (d.title) h += `<div class="cv-jobtitle">${esc(d.title)}</div>`;
   if (contact) h += `<div class="cv-contact">${contact}</div>`;
   h += `<hr class="cv-divider">`;
@@ -2042,13 +2049,14 @@ function renderTech(d) {
     });
   }
   if (d.certs)  h += `<div class="cv-sec-title">Certifications</div><div class="cv-sec-body">${esc(d.certs)}</div>`;
+  h += `</div>`;
   return h;
 }
 
 // ── Bold template (centered header) ──
 function renderBold(d) {
   const contact = [d.email,d.phone,d.location,d.linkedin].filter(Boolean).map(esc).join(' · ');
-  let h = `<div class="cv-header">
+  let h = `<div style="padding:40px 60px"><div class="cv-header">
     <div class="cv-name">${esc(d.name||'Your Name')}</div>
     ${d.title?`<div class="cv-jobtitle">${esc(d.title)}</div>`:''}
     ${contact?`<div class="cv-contact">${contact}</div>`:''}
@@ -2072,13 +2080,14 @@ function renderBold(d) {
   }
   if (d.skills) h += `<div class="cv-sec-title">Skills</div><div class="cv-sec-body">${esc(d.skills)}</div>`;
   if (d.certs)  h += `<div class="cv-sec-title">Certifications</div><div class="cv-sec-body">${esc(d.certs)}</div>`;
+  h += `</div>`;
   return h;
 }
 
 // ── Academic template (education first) ──
 function renderAcademic(d) {
   const contact = [d.email,d.phone,d.location,d.linkedin].filter(Boolean).map(esc).join(' · ');
-  let h = `<div class="cv-name">${esc(d.name||'Your Name')}</div>`;
+  let h = `<div style="padding:40px 60px"><div class="cv-name">${esc(d.name||'Your Name')}</div>`;
   if (d.title) h += `<div class="cv-jobtitle">${esc(d.title)}</div>`;
   if (contact) h += `<div class="cv-contact">${contact}</div>`;
   h += `<hr class="cv-divider">`;
@@ -2101,6 +2110,7 @@ function renderAcademic(d) {
   }
   if (d.skills) h += `<div class="cv-sec-title">Skills & Methods</div><div class="cv-sec-body">${esc(d.skills)}</div>`;
   if (d.certs)  h += `<div class="cv-sec-title">Certifications</div><div class="cv-sec-body">${esc(d.certs)}</div>`;
+  h += `</div>`;
   return h;
 }
 
@@ -2222,21 +2232,28 @@ function scalePreview() {
   if (!wrapper || !scaleEl || !preview) return;
   const A4_W = 794;
   const A4_H = 1056;
-  const availW = wrapper.offsetWidth - 24;
+  const wrapW = wrapper.clientWidth || wrapper.offsetWidth;
+  const availW = wrapW - 24;
+  if (availW <= 0) return;
   const scale = availW / A4_W;
   scaleEl.style.transform = `scale(${scale})`;
-  scaleEl.style.transformOrigin = 'top center';
+  scaleEl.style.transformOrigin = 'top left';
   scaleEl.style.width = A4_W + 'px';
-  scaleEl.style.display = 'block';
+  scaleEl.style.height = A4_H + 'px';
+  scaleEl.style.display = 'inline-block';
+  scaleEl.style.position = 'relative';
   const scaledH = Math.ceil(A4_H * scale);
-  wrapper.style.height = (scaledH + 24) + 'px';
+  wrapper.style.minHeight = (scaledH + 24) + 'px';
   preview.style.width = A4_W + 'px';
-  preview.style.minHeight = A4_H + 'px';
   preview.style.height = A4_H + 'px';
-  preview.style.display = 'block';
+  preview.style.minHeight = A4_H + 'px';
   preview.style.overflow = 'hidden';
   preview.style.background = 'white';
+  preview.style.padding = '0';
+  preview.style.margin = '0';
   preview.style.boxSizing = 'border-box';
+  preview.style.display = 'block';
+  console.log('scalePreview:', 'availW='+availW, 'scale='+scale.toFixed(3), 'scaledH='+scaledH);
 }
 window.addEventListener('resize', () => {
   clearTimeout(window._scaleTimer);
