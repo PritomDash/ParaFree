@@ -122,8 +122,10 @@ nav .nav-links a.active { color: #52b788; font-weight: 600; }
 #cvFormScrollable::-webkit-scrollbar-track { background: transparent; }
 #cvFormScrollable::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 #cvPreviewPanel { position: sticky; top: 70px; height: calc(100vh - 90px); display: flex; flex-direction: column; overflow: hidden; border: 1.5px solid var(--border); border-radius: 12px; background: #e8e6e0; }
-#cvPreviewWrapper { flex: 1; overflow: hidden; display: flex; align-items: flex-start; justify-content: center; padding: 10px; position: relative; }
+#cvPreviewWrapper { overflow: hidden; display: flex; align-items: flex-start; justify-content: center; padding: 12px; }
 #cvPreviewWrapper .preview-wrap { overflow: hidden; flex-shrink: 0; }
+#cvPreviewScale { transform-origin: top center !important; width: 794px !important; }
+#cv-preview { width: 794px !important; min-height: 1056px !important; background: white !important; box-sizing: border-box !important; }
 .form-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
 .form-section-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
 .form-section-hdr h3 { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; color: var(--text); }
@@ -667,6 +669,8 @@ nav div a:hover::after { width: 100%; }
 @media (max-width: 900px) {
   #mobileDownloadBar { display: flex !important; position: fixed; bottom: 0; left: 0; right: 0; z-index: 150; background: white; border-top: 1px solid var(--border); padding: 10px 16px; gap: 10px; box-shadow: 0 -4px 16px rgba(0,0,0,.1); }
   #mobileDownloadBar button { flex: 1; padding: 12px 8px; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  #mobileDownloadBar button:first-child { background: var(--accent) !important; color: white !important; border: none !important; }
+  #mobileDownloadBar button:last-child { background: white !important; color: var(--accent) !important; border: 2px solid var(--accent) !important; }
 }
 /* Premium card focus */
 .cv-section-card:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(45,106,79,0.08); }
@@ -1295,7 +1299,7 @@ We are looking for a Software Engineer with:
 
         <!-- CV Preview wrapper -->
         <div id="cvPreviewWrapper">
-          <div class="preview-wrap tpl-classic">
+          <div id="cvPreviewScale" class="preview-wrap tpl-classic">
             <div id="cv-preview" class="cv-sheet">
               <div class="cv-empty">
                 <div style="font-size:40px;">📄</div>
@@ -2214,27 +2218,35 @@ const updateCV = updatePreview;
 // ── Auto-scale preview to fit its container ──
 function scalePreview() {
   const wrapper = document.getElementById('cvPreviewWrapper');
+  const scaleEl = document.getElementById('cvPreviewScale');
+  if (!wrapper || !scaleEl) return;
+  const A4_W = 794;
+  const A4_H = 1056;
+  const availW = wrapper.offsetWidth - 24;
+  const scale = availW / A4_W;
+  scaleEl.style.transform = `scale(${scale})`;
+  scaleEl.style.transformOrigin = 'top center';
+  scaleEl.style.width = A4_W + 'px';
+  scaleEl.style.height = A4_H + 'px';
+  scaleEl.style.flexShrink = '0';
+  const scaledHeight = A4_H * scale + 24;
+  wrapper.style.height = scaledHeight + 'px';
+  wrapper.style.minHeight = scaledHeight + 'px';
   const preview = document.getElementById('cv-preview');
-  if (!preview) return;
-  const availW = (wrapper ? wrapper.offsetWidth : 600) - 24;
-  const availH = (wrapper ? wrapper.offsetHeight : 0) - 24;
-  const cvW = 794;
-  const cvH = 1056;
-  const scaleW = availW / cvW;
-  const scaleH = availH > 0 ? availH / cvH : scaleW;
-  const scale = Math.min(scaleW, scaleH);
-  if (scale >= 1) {
-    preview.style.transform = '';
-    preview.style.width = '';
-    preview.style.minHeight = '';
-  } else {
-    preview.style.transform = `scale(${scale.toFixed(3)})`;
-    preview.style.transformOrigin = 'top left';
-    preview.style.width = (cvW / scale).toFixed(0) + 'px';
-    preview.style.minHeight = cvH + 'px';
+  if (preview) {
+    preview.style.width = A4_W + 'px';
+    preview.style.minHeight = A4_H + 'px';
+    preview.style.height = A4_H + 'px';
+    preview.style.overflow = 'hidden';
+    preview.style.background = 'white';
+    preview.style.boxSizing = 'border-box';
   }
 }
-window.addEventListener('resize', scalePreview, { passive: true });
+window.addEventListener('resize', scalePreview);
+window.addEventListener('load', () => {
+  setTimeout(scalePreview, 200);
+  setTimeout(scalePreview, 500);
+});
 
 // ── Dynamic form sections ──
 function addExp() {
