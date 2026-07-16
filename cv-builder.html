@@ -147,7 +147,8 @@ nav .nav-links a.active { color: #52b788; font-weight: 600; }
 .entry-card-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 13px; font-weight: 600; color: var(--text2); }
 
 /* Preview panel */
-.preview-panel { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.preview-panel { position: sticky; top: 70px; height: calc(100vh - 90px); display: flex; flex-direction: column; gap: 0; min-width: 0; overflow: hidden; }
+.preview-panel .preview-wrap { flex: 1 1 0; min-height: 0; overflow: hidden; border-radius: 0; }
 .preview-top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
 .tpl-selector { display: flex; gap: 6px; }
 .tpl-btn { background: var(--surface); border: 1.5px solid var(--border); border-radius: 8px; padding: 6px 14px; font-size: 13px; font-weight: 600; color: var(--text2); cursor: pointer; transition: all .15s; }
@@ -1143,13 +1144,16 @@ We are looking for a Software Engineer with:
 
           <!-- Full gallery (hidden) -->
           <div id="templateGallery" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+              <span style="font-size:13px;font-weight:700;color:var(--text);">Choose Template</span>
+              <button onclick="toggleTemplateGallery()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);padding:4px 8px;border-radius:6px;transition:all 0.2s;" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='none'">✕</button>
+            </div>
             <div style="max-height:280px;overflow-y:auto;padding-right:4px;">
-              <div style="font-size:10px;font-weight:700;color:var(--accent);letter-spacing:1px;text-transform:uppercase;margin-bottom:7px;">✨ Premium (16)</div>
+              <div style="font-size:10px;font-weight:700;color:var(--accent);letter-spacing:1px;text-transform:uppercase;margin-bottom:7px;">✨ Premium (19)</div>
               <div id="premiumTemplateGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:12px;"></div>
               <div style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:1px;text-transform:uppercase;margin-bottom:7px;">Classic (20)</div>
               <div id="classicTemplateGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;"></div>
             </div>
-            <button onclick="toggleTemplateGallery()" style="margin-top:8px;width:100%;padding:6px;background:none;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;color:var(--text2);font-family:'DM Sans',sans-serif;">✕ Close gallery</button>
           </div>
         </div>
 
@@ -1203,41 +1207,59 @@ We are looking for a Software Engineer with:
           </div>
         </div>
 
-        <!-- Decorators panel -->
+        <!-- Shapes & Decorators panel -->
         <div style="padding:0 12px;background:var(--surface);border:1.5px solid var(--border);border-top:none;border-bottom:none;">
           <div onclick="toggleDecorators()" style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;cursor:pointer;user-select:none;">
             <span style="font-size:11px;font-weight:700;color:var(--text2);display:flex;align-items:center;gap:5px;">
-              ✦ Decorators &amp; Shapes
+              ✦ Shapes &amp; Decorators
               <span id="decoratorCount" style="font-size:10px;font-weight:400;color:var(--text3);">No decorators added</span>
             </span>
             <span id="decoratorArrow" style="color:var(--text3);font-size:11px;transition:transform 0.2s;">▶</span>
           </div>
           <div id="decoratorContent" style="display:none;padding-bottom:10px;">
-            <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Dividers</div>
-            <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;">
-              <button onclick="addDecorator('line-simple')" style="padding:5px 10px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">— Simple</button>
-              <button onclick="addDecorator('line-double')" style="padding:5px 10px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">═ Double</button>
-              <button onclick="addDecorator('line-dashed')" style="padding:5px 10px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">- - Dashed</button>
-              <button onclick="addDecorator('line-dotted')" style="padding:5px 10px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">· · Dotted</button>
-              <button onclick="addDecorator('line-accent')" style="padding:5px 10px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">▬ Accent</button>
-              <button onclick="addDecorator('line-diamond')" style="padding:5px 10px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">◆ Diamond</button>
-              <button onclick="addDecorator('line-wave')" style="padding:5px 10px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">∼ Wave</button>
+            <div id="shapesPanel" style="border:1.5px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:8px;">
+              <!-- Shapes toolbar -->
+              <div style="background:var(--surface2);padding:7px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
+                <span style="font-size:11px;font-weight:600;color:var(--text2);margin-right:3px;">Draw:</span>
+                <button id="shapeLine" onclick="setDrawTool('line')" title="Line" style="width:30px;height:30px;background:white;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="if(currentDrawTool!=='line')this.style.borderColor='var(--border)'">─</button>
+                <button id="shapeRect" onclick="setDrawTool('rect')" title="Rectangle" style="width:30px;height:30px;background:white;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="if(currentDrawTool!=='rect')this.style.borderColor='var(--border)'">□</button>
+                <button id="shapeCircle" onclick="setDrawTool('circle')" title="Circle" style="width:30px;height:30px;background:white;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="if(currentDrawTool!=='circle')this.style.borderColor='var(--border)'">○</button>
+                <button id="shapeTri" onclick="setDrawTool('triangle')" title="Triangle" style="width:30px;height:30px;background:white;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="if(currentDrawTool!=='triangle')this.style.borderColor='var(--border)'">△</button>
+                <button id="shapeArrow" onclick="setDrawTool('arrow')" title="Arrow" style="width:30px;height:30px;background:white;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="if(currentDrawTool!=='arrow')this.style.borderColor='var(--border)'">→</button>
+                <div style="width:1px;height:20px;background:var(--border);margin:0 2px;"></div>
+                <button onclick="insertDivider('solid')" title="Insert line divider" style="padding:0 8px;height:30px;background:white;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">─ Line</button>
+                <button onclick="insertDivider('double')" title="Insert double line" style="padding:0 8px;height:30px;background:white;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">═ Double</button>
+                <button onclick="insertDivider('diamond')" title="Insert diamond divider" style="padding:0 8px;height:30px;background:white;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">◆ Diamond</button>
+                <button onclick="clearAllShapes()" style="padding:0 8px;height:30px;background:none;border:1.5px solid #fca5a5;border-radius:6px;cursor:pointer;font-size:11px;color:#dc2626;margin-left:auto;transition:all 0.2s;" onmouseover="this.style.background='#fff5f5'" onmouseout="this.style.background='none'">✕ Clear</button>
+              </div>
+              <!-- Canvas area -->
+              <div style="background:white;padding:8px;">
+                <div id="shapeInstructions" style="font-size:11px;color:var(--text3);margin-bottom:6px;text-align:center;">Select a shape above, then click and drag below to draw</div>
+                <canvas id="shapeCanvas" width="700" height="180" style="border:1.5px dashed var(--border);border-radius:6px;cursor:crosshair;display:block;width:100%;touch-action:none;"></canvas>
+                <div style="display:flex;align-items:center;gap:8px;margin-top:7px;flex-wrap:wrap;">
+                  <span style="font-size:11px;color:var(--text3);">Color:</span>
+                  <input type="color" id="shapeColor" value="#2d6a4f" style="width:26px;height:26px;border:none;border-radius:4px;cursor:pointer;padding:0;background:none;">
+                  <span style="font-size:11px;color:var(--text3);">Size:</span>
+                  <select id="shapeThickness" style="height:26px;padding:0 6px;border:1px solid var(--border);border-radius:6px;font-size:11px;">
+                    <option value="1">Thin</option>
+                    <option value="2" selected>Normal</option>
+                    <option value="4">Thick</option>
+                    <option value="8">Extra</option>
+                  </select>
+                  <label style="font-size:11px;color:var(--text3);display:flex;align-items:center;gap:4px;cursor:pointer;">
+                    <input type="checkbox" id="shapeFill"> Fill
+                  </label>
+                </div>
+                <button onclick="addCanvasToCV()" style="width:100%;margin-top:7px;padding:8px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;">✓ Add Drawing to CV</button>
+              </div>
             </div>
-            <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Shapes &amp; Accents</div>
-            <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;">
-              <button onclick="addDecorator('shape-leftbar')" style="padding:5px 10px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">▌ Left Bar</button>
-              <button onclick="addDecorator('shape-badge')" style="padding:5px 10px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">■ Badge</button>
-              <button onclick="addDecorator('shape-circle')" style="padding:5px 10px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">● Circle</button>
-              <button onclick="addDecorator('shape-square')" style="padding:5px 10px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">◼ Square dot</button>
-              <button onclick="addDecorator('shape-tag')" style="padding:5px 10px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">🏷 Skill Tag</button>
-              <button onclick="addDecorator('shape-underline-heading')" style="padding:5px 10px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">U̲ Heading</button>
-            </div>
-            <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Spacing</div>
+            <!-- Quick decorator buttons -->
             <div style="display:flex;flex-wrap:wrap;gap:5px;">
-              <button onclick="addDecorator('space-small')" style="padding:5px 10px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">↕ Small gap</button>
-              <button onclick="addDecorator('space-medium')" style="padding:5px 10px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">↕ Medium gap</button>
-              <button onclick="addDecorator('space-large')" style="padding:5px 10px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">↕ Large gap</button>
-              <button onclick="cvDecorators=[];updatePreview();showToast('Decorators cleared');" style="padding:5px 10px;background:white;border:1px solid #fca5a5;border-radius:6px;cursor:pointer;font-size:11px;color:#dc2626;transition:border-color 0.15s;" onmouseover="this.style.borderColor='#dc2626'" onmouseout="this.style.borderColor='#fca5a5'">✕ Clear all</button>
+              <button onclick="addDecorator('shape-leftbar')" style="padding:4px 9px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">▌ Bar</button>
+              <button onclick="addDecorator('shape-badge')" style="padding:4px 9px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">■ Badge</button>
+              <button onclick="addDecorator('shape-underline-heading')" style="padding:4px 9px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">U̲ Heading</button>
+              <button onclick="addDecorator('space-small')" style="padding:4px 9px;background:white;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">↕ Gap</button>
+              <button onclick="cvDecorators=[];updatePreview();showToast('Cleared');" style="padding:4px 9px;background:white;border:1px solid #fca5a5;border-radius:6px;cursor:pointer;font-size:11px;color:#dc2626;transition:border-color 0.15s;" onmouseover="this.style.borderColor='#dc2626'" onmouseout="this.style.borderColor='#fca5a5'">✕ All</button>
             </div>
           </div>
         </div>
@@ -1289,11 +1311,11 @@ We are looking for a Software Engineer with:
           </div>
         </div>
 
-        <!-- Download buttons -->
-        <div id="dlGrid" style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-top:12px;">
-          <button onclick="downloadPDF()" style="padding:10px;background:var(--accent);color:white;border:none;border-radius:var(--radius);font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background .15s;" onmouseover="this.style.background='#235a40'" onmouseout="this.style.background='var(--accent)'">⬇ PDF</button>
-          <button onclick="downloadDOCX()" style="padding:10px;background:white;color:var(--accent);border:1.5px solid var(--accent);border-radius:var(--radius);font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;" onmouseover="this.style.background='var(--accent-light)'" onmouseout="this.style.background='white'">⬇ Word</button>
-          <button onclick="copyCV()" title="Copy CV text" style="padding:10px 14px;background:white;color:var(--text2);border:1px solid var(--border);border-radius:var(--radius);font-size:14px;cursor:pointer;transition:all .15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">⎘</button>
+        <!-- Download buttons (always-visible sticky bottom) -->
+        <div id="dlGrid" style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;padding:10px 12px;background:var(--surface);border:1.5px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);flex-shrink:0;">
+          <button onclick="downloadPDF()" style="padding:10px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background .15s;" onmouseover="this.style.background='#235a40'" onmouseout="this.style.background='var(--accent)'">⬇ PDF</button>
+          <button onclick="downloadDOCX()" style="padding:10px;background:white;color:var(--accent);border:1.5px solid var(--accent);border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;" onmouseover="this.style.background='var(--accent-light)'" onmouseout="this.style.background='white'">⬇ Word</button>
+          <button onclick="copyCV()" title="Copy CV text" style="padding:10px 14px;background:white;color:var(--text2);border:1px solid var(--border);border-radius:8px;font-size:14px;cursor:pointer;transition:all .15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">⎘</button>
         </div>
 
       </div><!-- /preview-panel -->
@@ -2146,7 +2168,10 @@ const RENDER_MAP = {
   'newspaper': d => renderNewspaper(toPremium(d)),
   'corner-accent': d => renderCornerAccent(toPremium(d)),
   'border-frame': d => renderBorderFrame(toPremium(d)),
-  'modern-photo': d => renderModernPhoto(toPremium(d))
+  'modern-photo': d => renderModernPhoto(toPremium(d)),
+  'color-sidebar': d => renderColorSidebar(toPremium(d)),
+  'top-strip': d => renderTopStrip(toPremium(d)),
+  'photo-left': d => renderPhotoLeft(toPremium(d))
 };
 
 function updatePreview() {
@@ -2166,7 +2191,7 @@ function updatePreview() {
   const renderer = RENDER_MAP[currentTemplate] || renderClassic;
   wrap.className = 'preview-wrap tpl-' + currentTemplate;
   preview.innerHTML = renderer(d);
-  const premiumTpls = new Set(['exec-pro','modern-blue','minimal-serif','bold-tech','elegant-gold','modern-minimal','vibrant-purple','creative-split','timeline-cv','skill-bubbles','gradient-header','two-tone','newspaper','corner-accent','border-frame','modern-photo']);
+  const premiumTpls = new Set(['exec-pro','modern-blue','minimal-serif','bold-tech','elegant-gold','modern-minimal','vibrant-purple','creative-split','timeline-cv','skill-bubbles','gradient-header','two-tone','newspaper','corner-accent','border-frame','modern-photo','color-sidebar','top-strip','photo-left']);
   if (!premiumTpls.has(currentTemplate)) {
     const extraHtml = renderExtraSections();
     if (extraHtml) {
@@ -2194,17 +2219,21 @@ function scalePreview() {
   const preview = document.getElementById('cv-preview');
   if (!wrap || !preview) return;
   const wrapW = wrap.clientWidth - 4;
+  const wrapH = wrap.clientHeight - 4;
   const cvW = 794;
-  if (wrapW >= cvW) {
+  const cvH = 1056;
+  const scaleW = wrapW / cvW;
+  const scaleH = wrapH > 0 ? wrapH / cvH : scaleW;
+  const scale = Math.min(scaleW, scaleH);
+  if (scale >= 1) {
     preview.style.transform = '';
     preview.style.width = '';
     preview.style.minHeight = '';
   } else {
-    const scale = wrapW / cvW;
     preview.style.transform = `scale(${scale.toFixed(3)})`;
     preview.style.transformOrigin = 'top left';
-    preview.style.width = (100 / scale).toFixed(2) + '%';
-    preview.style.minHeight = '1100px';
+    preview.style.width = (cvW / scale).toFixed(0) + 'px';
+    preview.style.minHeight = cvH + 'px';
   }
 }
 window.addEventListener('resize', scalePreview, { passive: true });
@@ -3233,6 +3262,8 @@ function toPremium(d) {
     name: d.name, title: d.title, email: d.email, phone: d.phone,
     location: d.location, linkedin: d.linkedin, summary: d.summary,
     skills: d.skills, certifications: d.certs,
+    photoData: cvPhotoData,
+    languages: getLanguagesData(),
     experience: d.experience.filter(e => e.role || e.company).map(e => ({
       title: e.role, company: e.company, startDate: e.start, endDate: e.end,
       bullets: e.bullets ? e.bullets.split('\n').filter(b => b.trim()).map(b => b.replace(/^[•\-]\s*/,'')) : []
@@ -3679,6 +3710,260 @@ function renderModernPhoto(data) {
   </div>`;
 }
 
+// ── New template: Color Sidebar (Canva-style most popular) ──
+function renderColorSidebar(data) {
+  const accent = window._cvAccentColor || '#2d6a4f';
+  const font = window._cvFont || 'Calibri,serif';
+  const skills = (data.skills || '').split(',').map(s => s.trim()).filter(Boolean);
+  const exp = data.experience || [];
+  const edu = data.education || [];
+  const photo = data.photoData || cvPhotoData;
+  return `<div style="font-family:${font};display:flex;min-height:1056px;width:794px;background:white;">
+    <div style="width:255px;flex-shrink:0;background:${accent};padding:36px 22px;display:flex;flex-direction:column;gap:18px;box-sizing:border-box;">
+      ${photo ? `<div style="width:108px;height:108px;border-radius:10px;overflow:hidden;margin:0 auto;border:3px solid rgba(255,255,255,0.3);"><img src="${photo}" style="width:100%;height:100%;object-fit:cover;"></div>` : ''}
+      <div>
+        <h1 style="font-size:20px;font-weight:900;color:white;margin:0 0 4px;line-height:1.2;">${esc(data.name || 'Your Name')}</h1>
+        <div style="font-size:12px;color:rgba(255,255,255,0.75);font-weight:500;">${esc(data.title || '')}</div>
+      </div>
+      <div style="height:1px;background:rgba(255,255,255,0.2);"></div>
+      <div>
+        <div style="font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.5);margin-bottom:10px;">Contact</div>
+        ${[{v:data.email,i:'✉'},{v:data.phone,i:'📞'},{v:data.location,i:'📍'},{v:data.linkedin,i:'🔗'}].filter(x=>x.v).map(x=>`<div style="font-size:11.5px;color:rgba(255,255,255,0.8);margin-bottom:7px;word-break:break-all;line-height:1.4;">${x.i} ${esc(x.v)}</div>`).join('')}
+      </div>
+      ${skills.length ? `<div>
+        <div style="font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.5);margin-bottom:10px;">Skills</div>
+        ${skills.map(s => `<div style="margin-bottom:7px;"><div style="font-size:11.5px;color:rgba(255,255,255,0.85);margin-bottom:3px;">${esc(s)}</div><div style="height:4px;background:rgba(255,255,255,0.15);border-radius:2px;overflow:hidden;"><div style="height:100%;width:75%;background:rgba(255,255,255,0.55);border-radius:2px;"></div></div></div>`).join('')}
+      </div>` : ''}
+      ${edu.length ? `<div>
+        <div style="font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.5);margin-bottom:10px;">Education</div>
+        ${edu.map(e => `<div style="margin-bottom:10px;"><div style="font-size:12px;font-weight:700;color:white;line-height:1.3;">${esc(e.degree||'')}</div><div style="font-size:11px;color:rgba(255,255,255,0.65);">${esc(e.school||'')}</div><div style="font-size:10px;color:rgba(255,255,255,0.45);">${esc(e.endYear||'')}</div></div>`).join('')}
+      </div>` : ''}
+      ${data.languages && data.languages.length ? `<div>
+        <div style="font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.5);margin-bottom:8px;">Languages</div>
+        ${data.languages.map(l => `<div style="font-size:11.5px;color:rgba(255,255,255,0.8);margin-bottom:4px;">${esc(l.language||'')}${l.level?`<span style="color:rgba(255,255,255,0.5);font-size:10px;"> — ${esc(l.level)}</span>`:''}</div>`).join('')}
+      </div>` : ''}
+    </div>
+    <div style="flex:1;padding:36px 30px;min-height:1056px;box-sizing:border-box;">
+      ${data.summary ? `<div style="margin-bottom:22px;"><div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${accent};border-bottom:2px solid ${accent};padding-bottom:5px;margin-bottom:10px;">Profile</div><p style="font-size:13px;color:#374151;line-height:1.8;margin:0;text-align:justify;">${esc(data.summary)}</p></div>` : ''}
+      ${exp.length ? `<div style="margin-bottom:22px;"><div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${accent};border-bottom:2px solid ${accent};padding-bottom:5px;margin-bottom:12px;">Experience</div>
+        ${exp.map(e => `<div style="margin-bottom:16px;padding-left:14px;border-left:3px solid ${accent}30;">
+          <div style="display:flex;justify-content:space-between;gap:8px;">
+            <div><div style="font-size:14px;font-weight:700;color:#1a1814;">${esc(e.title||'')}</div><div style="font-size:12.5px;color:${accent};font-style:italic;">${esc(e.company||'')}</div></div>
+            <div style="font-size:11px;color:#9e9890;white-space:nowrap;padding-top:2px;">${esc(e.startDate||'')}${e.endDate?' – '+esc(e.endDate):' – Present'}</div>
+          </div>
+          ${e.bullets && e.bullets.length ? `<ul style="margin:6px 0 0;padding-left:14px;">${e.bullets.map(b=>`<li style="font-size:12.5px;color:#374151;line-height:1.65;margin-bottom:3px;">${esc(b)}</li>`).join('')}</ul>` : ''}
+        </div>`).join('')}
+      </div>` : ''}
+      ${data.certifications ? `<div><div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${accent};border-bottom:2px solid ${accent};padding-bottom:5px;margin-bottom:8px;">Certifications</div><p style="font-size:13px;color:#374151;line-height:1.7;margin:0;">${esc(data.certifications)}</p></div>` : ''}
+    </div>
+  </div>`;
+}
+
+// ── New template: Top Strip (clean professional) ──
+function renderTopStrip(data) {
+  const accent = window._cvAccentColor || '#2d6a4f';
+  const font = window._cvFont || 'Helvetica Neue,Arial,sans-serif';
+  const skills = (data.skills || '').split(',').map(s => s.trim()).filter(Boolean);
+  const exp = data.experience || [];
+  const edu = data.education || [];
+  const photo = data.photoData || cvPhotoData;
+  return `<div style="font-family:${font};background:white;min-height:1056px;width:794px;">
+    <div style="height:8px;background:${accent};"></div>
+    <div style="padding:28px 44px 20px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;">
+        <div style="flex:1;">
+          <h1 style="font-size:36px;font-weight:900;color:#1a1814;margin:0 0 4px;letter-spacing:-1.5px;line-height:1;">${esc(data.name || 'Your Name')}</h1>
+          <div style="font-size:15px;color:${accent};font-weight:600;margin-bottom:12px;">${esc(data.title || '')}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:#6b6660;">${[data.email,data.phone,data.location,data.linkedin].filter(Boolean).map(c=>`<span>${esc(c)}</span>`).join('')}</div>
+        </div>
+        ${photo ? `<div style="width:88px;height:88px;border-radius:8px;overflow:hidden;border:2px solid ${accent};flex-shrink:0;"><img src="${photo}" style="width:100%;height:100%;object-fit:cover;"></div>` : ''}
+      </div>
+    </div>
+    <div style="height:2px;background:linear-gradient(to right,${accent},transparent);margin:0 44px 24px;"></div>
+    <div style="display:grid;grid-template-columns:1fr 0.8fr;gap:28px;padding:0 44px 44px;">
+      <div>
+        ${data.summary ? `<div style="margin-bottom:22px;"><div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${accent};margin-bottom:8px;">About Me</div><p style="font-size:13px;color:#374151;line-height:1.8;margin:0;">${esc(data.summary)}</p></div>` : ''}
+        ${exp.length ? `<div><div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${accent};margin-bottom:12px;">Experience</div>
+          ${exp.map(e=>`<div style="margin-bottom:16px;">
+            <div style="display:flex;justify-content:space-between;">
+              <div><div style="font-size:13.5px;font-weight:700;color:#1a1814;">${esc(e.title||'')}</div><div style="font-size:12px;color:${accent};">${esc(e.company||'')}</div></div>
+              <div style="font-size:11px;color:#9e9890;white-space:nowrap;">${esc(e.startDate||'')}${e.endDate?' – '+esc(e.endDate):' – Now'}</div>
+            </div>
+            ${e.bullets&&e.bullets.length?`<ul style="margin:5px 0 0;padding-left:14px;">${e.bullets.map(b=>`<li style="font-size:12px;color:#374151;line-height:1.65;margin-bottom:2px;">${esc(b)}</li>`).join('')}</ul>`:''}
+          </div>`).join('')}
+        </div>` : ''}
+      </div>
+      <div>
+        ${skills.length ? `<div style="margin-bottom:22px;"><div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${accent};margin-bottom:10px;">Skills</div><div style="display:flex;flex-wrap:wrap;gap:5px;">${skills.map(s=>`<span style="background:${accent}12;color:${accent};border:1px solid ${accent}30;padding:4px 10px;border-radius:12px;font-size:12px;">${esc(s)}</span>`).join('')}</div></div>` : ''}
+        ${edu.length ? `<div style="margin-bottom:22px;"><div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${accent};margin-bottom:10px;">Education</div>${edu.map(e=>`<div style="margin-bottom:10px;"><div style="font-size:13.5px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</div><div style="font-size:12px;color:${accent};">${esc(e.school||'')}</div><div style="font-size:11px;color:#9e9890;">${esc(e.endYear||'')}</div></div>`).join('')}</div>` : ''}
+        ${data.certifications ? `<div style="margin-bottom:22px;"><div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${accent};margin-bottom:8px;">Certifications</div><p style="font-size:12.5px;color:#374151;line-height:1.7;margin:0;">${esc(data.certifications)}</p></div>` : ''}
+        ${data.languages&&data.languages.length ? `<div><div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${accent};margin-bottom:8px;">Languages</div>${data.languages.map(l=>`<div style="font-size:12.5px;color:#374151;margin-bottom:4px;">${esc(l.language||'')}${l.level?`<span style="color:#9e9890;"> — ${esc(l.level)}</span>`:''}</div>`).join('')}</div>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── New template: Photo Left (LinkedIn-style) ──
+function renderPhotoLeft(data) {
+  const accent = window._cvAccentColor || '#2d6a4f';
+  const font = window._cvFont || 'Calibri,serif';
+  const skills = (data.skills || '').split(',').map(s => s.trim()).filter(Boolean);
+  const exp = data.experience || [];
+  const edu = data.education || [];
+  const photo = data.photoData || cvPhotoData;
+  return `<div style="font-family:${font};background:white;min-height:1056px;width:794px;">
+    <div style="display:flex;background:#f7f5f0;border-bottom:4px solid ${accent};">
+      ${photo ? `<div style="width:140px;flex-shrink:0;overflow:hidden;"><img src="${photo}" style="width:140px;height:140px;object-fit:cover;display:block;"></div>` : ''}
+      <div style="flex:1;padding:26px 30px;display:flex;flex-direction:column;justify-content:center;">
+        <h1 style="font-size:32px;font-weight:900;color:#1a1814;margin:0 0 4px;letter-spacing:-1px;">${esc(data.name || 'Your Name')}</h1>
+        <div style="font-size:14px;color:${accent};font-weight:600;margin-bottom:10px;">${esc(data.title || '')}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:11.5px;color:#6b6660;">${[data.email,data.phone,data.location].filter(Boolean).map(c=>`<span>${esc(c)}</span>`).join('')}</div>
+      </div>
+    </div>
+    <div style="padding:26px 34px;">
+      ${data.summary ? `<div style="margin-bottom:20px;"><div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><div style="width:4px;height:20px;background:${accent};border-radius:2px;"></div><div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#1a1814;">Summary</div></div><p style="font-size:13px;color:#374151;line-height:1.8;margin:0;">${esc(data.summary)}</p></div>` : ''}
+      ${exp.length ? `<div style="margin-bottom:20px;"><div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;"><div style="width:4px;height:20px;background:${accent};border-radius:2px;"></div><div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#1a1814;">Experience</div></div>
+        ${exp.map(e=>`<div style="margin-bottom:14px;display:grid;grid-template-columns:100px 1fr;gap:14px;">
+          <div style="font-size:11px;color:#9e9890;padding-top:2px;text-align:right;">${esc(e.startDate||'')}${e.endDate?'<br>'+esc(e.endDate):'<br>Present'}</div>
+          <div style="border-left:2px solid ${accent}30;padding-left:14px;">
+            <div style="font-size:13.5px;font-weight:700;color:#1a1814;">${esc(e.title||'')}</div>
+            <div style="font-size:12px;color:${accent};margin-bottom:4px;">${esc(e.company||'')}</div>
+            ${e.bullets&&e.bullets.length?`<ul style="margin:0;padding-left:14px;">${e.bullets.map(b=>`<li style="font-size:12px;color:#374151;line-height:1.6;margin-bottom:2px;">${esc(b)}</li>`).join('')}</ul>`:''}
+          </div>
+        </div>`).join('')}
+      </div>` : ''}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:26px;">
+        ${edu.length ? `<div><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;"><div style="width:4px;height:16px;background:${accent};border-radius:2px;"></div><div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#1a1814;">Education</div></div>${edu.map(e=>`<div style="margin-bottom:8px;"><div style="font-size:13px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</div><div style="font-size:12px;color:${accent};">${esc(e.school||'')}</div><div style="font-size:11px;color:#9e9890;">${esc(e.endYear||'')}</div></div>`).join('')}</div>` : ''}
+        ${skills.length ? `<div><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;"><div style="width:4px;height:16px;background:${accent};border-radius:2px;"></div><div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#1a1814;">Skills</div></div><div style="display:flex;flex-wrap:wrap;gap:5px;">${skills.map(s=>`<span style="background:${accent}12;color:${accent};border:1px solid ${accent}25;padding:3px 9px;border-radius:10px;font-size:11.5px;">${esc(s)}</span>`).join('')}</div></div>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── Canvas shape drawing ──
+let currentDrawTool = null;
+let isCanvasDrawing = false;
+let canvasStartX = 0, canvasStartY = 0;
+let drawnShapes = [];
+let canvasSnapshot = null;
+
+function setDrawTool(tool) {
+  currentDrawTool = tool;
+  ['Line','Rect','Circle','Tri','Arrow'].forEach(n => {
+    const b = document.getElementById('shape' + n);
+    if (b) { b.style.background = 'white'; b.style.borderColor = 'var(--border)'; }
+  });
+  const keyMap = {line:'Line',rect:'Rect',circle:'Circle',triangle:'Tri',arrow:'Arrow'};
+  const active = document.getElementById('shape' + keyMap[tool]);
+  if (active) { active.style.background = '#f0fdf4'; active.style.borderColor = 'var(--accent)'; }
+  const instr = document.getElementById('shapeInstructions');
+  if (instr) instr.textContent = 'Click and drag on canvas to draw ' + tool;
+}
+
+function _canvasDrawShape(ctx, x1, y1, x2, y2, tool, color, thickness, fill) {
+  ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = thickness; ctx.lineCap = 'round';
+  ctx.beginPath();
+  switch (tool) {
+    case 'line': ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); break;
+    case 'rect':
+      if (fill) ctx.fillRect(x1,y1,x2-x1,y2-y1);
+      ctx.strokeRect(x1,y1,x2-x1,y2-y1); break;
+    case 'circle': {
+      const rx=(x2-x1)/2, ry=(y2-y1)/2;
+      ctx.ellipse(x1+rx,y1+ry,Math.abs(rx),Math.abs(ry),0,0,Math.PI*2);
+      if (fill) ctx.fill(); ctx.stroke(); break;
+    }
+    case 'triangle':
+      ctx.moveTo((x1+x2)/2,y1); ctx.lineTo(x2,y2); ctx.lineTo(x1,y2); ctx.closePath();
+      if (fill) ctx.fill(); ctx.stroke(); break;
+    case 'arrow': {
+      const ang = Math.atan2(y2-y1,x2-x1), hl = 14;
+      ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x2,y2);
+      ctx.lineTo(x2-hl*Math.cos(ang-Math.PI/6),y2-hl*Math.sin(ang-Math.PI/6));
+      ctx.lineTo(x2-hl*Math.cos(ang+Math.PI/6),y2-hl*Math.sin(ang+Math.PI/6));
+      ctx.closePath(); ctx.fill(); break;
+    }
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  const canvas = document.getElementById('shapeCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  function getCanvasPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const sx = canvas.width / rect.width, sy = canvas.height / rect.height;
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: (cx-rect.left)*sx, y: (cy-rect.top)*sy };
+  }
+
+  canvas.addEventListener('mousedown', function(e) {
+    if (!currentDrawTool) { showToast('Select a shape tool first'); return; }
+    isCanvasDrawing = true;
+    const p = getCanvasPos(e); canvasStartX = p.x; canvasStartY = p.y;
+    canvasSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  });
+
+  canvas.addEventListener('mousemove', function(e) {
+    if (!isCanvasDrawing) return;
+    const p = getCanvasPos(e);
+    ctx.putImageData(canvasSnapshot, 0, 0);
+    const col = document.getElementById('shapeColor').value;
+    const th = parseInt(document.getElementById('shapeThickness').value);
+    const fill = document.getElementById('shapeFill').checked;
+    _canvasDrawShape(ctx, canvasStartX, canvasStartY, p.x, p.y, currentDrawTool, col, th, fill);
+  });
+
+  canvas.addEventListener('mouseup', function(e) {
+    if (!isCanvasDrawing) return;
+    isCanvasDrawing = false;
+    const p = getCanvasPos(e);
+    const col = document.getElementById('shapeColor').value;
+    const th = parseInt(document.getElementById('shapeThickness').value);
+    const fill = document.getElementById('shapeFill').checked;
+    drawnShapes.push({x1:canvasStartX,y1:canvasStartY,x2:p.x,y2:p.y,tool:currentDrawTool,color:col,thickness:th,fill});
+  });
+
+  canvas.addEventListener('touchstart', function(e) {
+    e.preventDefault();
+    canvas.dispatchEvent(new MouseEvent('mousedown',{clientX:e.touches[0].clientX,clientY:e.touches[0].clientY}));
+  }, {passive:false});
+  canvas.addEventListener('touchmove', function(e) {
+    e.preventDefault();
+    canvas.dispatchEvent(new MouseEvent('mousemove',{clientX:e.touches[0].clientX,clientY:e.touches[0].clientY}));
+  }, {passive:false});
+  canvas.addEventListener('touchend', function(e) {
+    e.preventDefault();
+    canvas.dispatchEvent(new MouseEvent('mouseup',{clientX:e.changedTouches[0].clientX,clientY:e.changedTouches[0].clientY}));
+  }, {passive:false});
+});
+
+function clearAllShapes() {
+  drawnShapes = [];
+  const canvas = document.getElementById('shapeCanvas');
+  if (canvas) canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height);
+}
+
+function insertDivider(type) {
+  cvDecorators.push({ type: 'line-' + type, color: window._cvAccentColor || '#2d6a4f', id: Date.now() });
+  updatePreview();
+  showToast('Divider added to CV!');
+}
+
+function addCanvasToCV() {
+  const canvas = document.getElementById('shapeCanvas');
+  if (!canvas) return;
+  const dataURL = canvas.toDataURL('image/png');
+  cvDecorators.push({ type: 'canvas-image', data: dataURL, id: Date.now() });
+  clearAllShapes();
+  updatePreview();
+  showToast('✓ Drawing added to CV!');
+}
+
 // ── Decorators ──
 function toggleDecorators() {
   const content = document.getElementById('decoratorContent');
@@ -3725,6 +4010,7 @@ function renderDecorators() {
       case 'space-small':    return `<div style="height:8px;margin:2px 0;position:relative;" ${hover}>${rm}</div>`;
       case 'space-medium':   return `<div style="height:16px;margin:2px 0;position:relative;" ${hover}>${rm}</div>`;
       case 'space-large':    return `<div style="height:28px;margin:2px 0;position:relative;" ${hover}>${rm}</div>`;
+      case 'canvas-image':   return `<div style="margin:8px 0;position:relative;" ${hover}><img src="${d.data}" style="max-width:100%;display:block;border-radius:4px;">${rm}</div>`;
       default: return '';
     }
   }).join('');
@@ -3737,6 +4023,9 @@ updateJobSearch();
 
 // ── Template gallery ──
 const PREMIUM_TEMPLATES = [
+  {key:'color-sidebar', label:'Sidebar Pro', tag:'Most Popular'},
+  {key:'top-strip', label:'Top Strip', tag:'Corporate'},
+  {key:'photo-left', label:'Photo Left', tag:'LinkedIn'},
   {key:'exec-pro', label:'Executive Pro', tag:'C-Suite'},
   {key:'modern-blue', label:'Modern Blue', tag:'Corporate'},
   {key:'minimal-serif', label:'Minimal Serif', tag:'Academic'},
@@ -3768,8 +4057,8 @@ function buildTemplateGallery() {
   const pGrid = document.getElementById('premiumTemplateGrid');
   const cGrid = document.getElementById('classicTemplateGrid');
   if (!pGrid || !cGrid) return;
-  pGrid.innerHTML = PREMIUM_TEMPLATES.map(t => `<div onclick="setTemplate('${t.key}');toggleTemplateGallery();" style="border:1.5px solid var(--border);border-radius:7px;padding:6px 4px;cursor:pointer;text-align:center;background:white;transition:border-color .15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"><div style="height:26px;background:#f8f7f4;border:1px solid #e2ddd4;border-radius:3px;margin-bottom:3px;"></div><div style="font-size:9px;font-weight:700;color:var(--text);line-height:1.3;">${t.label}</div><div style="font-size:8px;color:var(--accent);">${t.tag}</div></div>`).join('');
-  cGrid.innerHTML = CLASSIC_TEMPLATES.map(t => `<div onclick="setTemplate('${t.key}');toggleTemplateGallery();" style="border:1.5px solid var(--border);border-radius:7px;padding:6px 4px;cursor:pointer;text-align:center;background:white;transition:border-color .15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"><div style="height:26px;background:#f8f7f4;border:1px solid #e2ddd4;border-radius:3px;margin-bottom:3px;"></div><div style="font-size:9px;font-weight:700;color:var(--text);">${t.label}</div></div>`).join('');
+  pGrid.innerHTML = PREMIUM_TEMPLATES.map(t => `<div onclick="setTemplate('${t.key}');highlightTemplate(this);" style="border:1.5px solid var(--border);border-radius:7px;padding:6px 4px;cursor:pointer;text-align:center;background:white;transition:border-color .15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"><div style="height:26px;background:#f8f7f4;border:1px solid #e2ddd4;border-radius:3px;margin-bottom:3px;"></div><div style="font-size:9px;font-weight:700;color:var(--text);line-height:1.3;">${t.label}</div><div style="font-size:8px;color:var(--accent);">${t.tag}</div></div>`).join('');
+  cGrid.innerHTML = CLASSIC_TEMPLATES.map(t => `<div onclick="setTemplate('${t.key}');highlightTemplate(this);" style="border:1.5px solid var(--border);border-radius:7px;padding:6px 4px;cursor:pointer;text-align:center;background:white;transition:border-color .15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"><div style="height:26px;background:#f8f7f4;border:1px solid #e2ddd4;border-radius:3px;margin-bottom:3px;"></div><div style="font-size:9px;font-weight:700;color:var(--text);">${t.label}</div></div>`).join('');
 }
 
 let _galleryOpen = false;
