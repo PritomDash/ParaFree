@@ -1321,29 +1321,120 @@ English — Native | Bengali — Fluent" style="width:100%;border:1.5px solid va
   <!-- ══════════ TAB: COVER LETTER ══════════ -->
   <div id="tab-cover" class="tab-panel">
     <div class="cover-layout">
-      <div class="form-panel">
-        <div class="form-section">
-          <div class="form-section-hdr"><h3>Cover Letter Details</h3></div>
-          <p style="font-size:13px;color:var(--text2);margin-bottom:14px;">Uses your CV information from the Build tab. Fill in the details below and click Generate.</p>
-          <div class="form-row"><label>Company Name</label><input id="c-company" placeholder="Google, McKinsey, ANZ Bank..."></div>
-          <div class="form-row" style="margin-top:10px;"><label>Hiring Manager Name (optional)</label><input id="c-manager" placeholder="e.g. Sarah Johnson (leave blank for 'Hiring Manager')"></div>
-          <div class="form-row" style="margin-top:10px;"><label>Job Description (paste below)</label><textarea id="c-jd" style="min-height:160px;" placeholder="Paste the full job description here for a tailored cover letter..."></textarea></div>
-          <button class="dl-btn" style="margin-top:14px;padding:12px 24px;width:100%;" id="cover-btn" onclick="generateCoverLetter()">✨ Generate Cover Letter</button>
-          <div class="cv-status" id="cover-status"></div>
-        </div>
-      </div>
+
+      <!-- LEFT: Cover Letter Form -->
       <div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
-          <span style="font-family:'Syne',sans-serif;font-weight:700;font-size:15px;">Cover Letter Preview</span>
-          <div class="dl-row">
-            <button class="dl-btn" onclick="downloadCoverPDF()">⬇ PDF</button>
-            <button class="dl-btn secondary" onclick="copyCover()">⎘ Copy</button>
+
+        <!-- Logo Upload -->
+        <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;">
+          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;font-family:'Syne',sans-serif;">Company / Personal Logo <span style="font-weight:400;font-size:11px;color:var(--text3);">(optional)</span></div>
+          <div style="display:flex;gap:12px;align-items:center;">
+            <div id="clLogoPreview" onclick="document.getElementById('clLogoInput').click()" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'" style="width:80px;height:80px;border-radius:8px;background:var(--surface2);border:2px dashed var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;flex-shrink:0;transition:border-color 0.2s;">
+              <span id="clLogoIcon" style="font-size:24px;">🏢</span>
+              <span id="clLogoText" style="font-size:10px;color:var(--text3);margin-top:4px;text-align:center;">Add Logo</span>
+              <img id="clLogoImg" src="" alt="Logo" style="display:none;width:100%;height:100%;object-fit:contain;padding:8px;box-sizing:border-box;">
+            </div>
+            <div>
+              <input type="file" id="clLogoInput" accept="image/*" style="display:none;" onchange="handleLogoUpload(this)">
+              <button type="button" onclick="document.getElementById('clLogoInput').click()" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'" style="padding:8px 14px;background:white;border:1.5px solid var(--border);border-radius:8px;font-size:12px;cursor:pointer;display:block;margin-bottom:6px;font-family:'DM Sans',sans-serif;transition:border-color 0.2s;">📎 Upload Logo</button>
+              <button id="clLogoRemove" onclick="removeLogo()" type="button" style="display:none;padding:5px 0;background:none;border:none;color:#e63946;cursor:pointer;font-size:11px;">× Remove logo</button>
+              <div style="font-size:11px;color:var(--text3);line-height:1.6;margin-top:4px;"><div>✓ PNG, JPG or SVG · Max 2MB</div><div>✓ Appears at top of letter</div></div>
+            </div>
           </div>
         </div>
-        <div class="cover-preview" id="cover-preview">
-          <span style="color:var(--text3);font-size:13px;">Fill in the form and click Generate — your tailored cover letter will appear here.</span>
+
+        <!-- Letter Details -->
+        <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;">
+          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;font-family:'Syne',sans-serif;">Letter Details</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+            <div>
+              <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px;">Your Name</label>
+              <input type="text" id="clYourName" placeholder="John Smith" oninput="updateCoverLetter()" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;box-sizing:border-box;font-family:'DM Sans',sans-serif;">
+            </div>
+            <div>
+              <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px;">Your Email</label>
+              <input type="text" id="clYourEmail" placeholder="john@email.com" oninput="updateCoverLetter()" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;box-sizing:border-box;font-family:'DM Sans',sans-serif;">
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+            <div>
+              <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px;">Hiring Manager Name</label>
+              <input type="text" id="clHiringManager" placeholder="Sarah Johnson" oninput="updateCoverLetter()" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;box-sizing:border-box;font-family:'DM Sans',sans-serif;">
+            </div>
+            <div>
+              <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px;">Company Name</label>
+              <input type="text" id="clCompany" placeholder="Google Australia" oninput="updateCoverLetter()" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;box-sizing:border-box;font-family:'DM Sans',sans-serif;">
+            </div>
+          </div>
+          <div style="margin-bottom:10px;">
+            <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px;">Job Title Applying For</label>
+            <input type="text" id="clJobTitle" placeholder="Software Engineer" oninput="updateCoverLetter()" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;box-sizing:border-box;font-family:'DM Sans',sans-serif;">
+          </div>
+          <div style="margin-bottom:12px;">
+            <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px;">Job Description <span style="font-weight:400;color:var(--text3);">(optional — for better AI matching)</span></label>
+            <textarea id="clJobDesc" rows="3" placeholder="Paste the job description here for a more tailored letter..." style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;resize:vertical;box-sizing:border-box;font-family:'DM Sans',sans-serif;"></textarea>
+          </div>
+          <!-- Letter Tone -->
+          <div style="margin-bottom:12px;">
+            <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px;">Letter Tone</label>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+              <button onclick="setCoverLetterStyle('Professional')" class="cl-style-btn" data-style="Professional" style="padding:6px 14px;background:var(--accent);color:white;border:1.5px solid var(--accent);border-radius:16px;font-size:12px;cursor:pointer;transition:all 0.2s;font-family:'DM Sans',sans-serif;">Professional</button>
+              <button onclick="setCoverLetterStyle('Enthusiastic')" class="cl-style-btn" data-style="Enthusiastic" style="padding:6px 14px;background:white;color:var(--text);border:1.5px solid var(--border);border-radius:16px;font-size:12px;cursor:pointer;transition:all 0.2s;font-family:'DM Sans',sans-serif;">Enthusiastic</button>
+              <button onclick="setCoverLetterStyle('Creative')" class="cl-style-btn" data-style="Creative" style="padding:6px 14px;background:white;color:var(--text);border:1.5px solid var(--border);border-radius:16px;font-size:12px;cursor:pointer;transition:all 0.2s;font-family:'DM Sans',sans-serif;">Creative</button>
+              <button onclick="setCoverLetterStyle('Concise')" class="cl-style-btn" data-style="Concise" style="padding:6px 14px;background:white;color:var(--text);border:1.5px solid var(--border);border-radius:16px;font-size:12px;cursor:pointer;transition:all 0.2s;font-family:'DM Sans',sans-serif;">Concise</button>
+              <button onclick="setCoverLetterStyle('Academic')" class="cl-style-btn" data-style="Academic" style="padding:6px 14px;background:white;color:var(--text);border:1.5px solid var(--border);border-radius:16px;font-size:12px;cursor:pointer;transition:all 0.2s;font-family:'DM Sans',sans-serif;">Academic</button>
+            </div>
+          </div>
+          <!-- Generate button -->
+          <button onclick="generateCoverLetter()" id="cover-btn" onmouseover="this.style.background='#1e4d35'" onmouseout="this.style.background='var(--accent)'" style="width:100%;padding:12px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif;transition:background 0.2s;">✨ Generate Cover Letter</button>
+          <div class="cv-status" id="cover-status" style="margin-top:8px;"></div>
+        </div>
+
+        <!-- Letter Design -->
+        <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;">
+          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px;font-family:'Syne',sans-serif;">Letter Design <span style="font-size:11px;font-weight:400;color:var(--text3);">— matches your CV accent color</span></div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+            <div onclick="setCLTemplate('Classic')" class="cl-template-card active-cl-template" data-template="Classic" style="border:2px solid var(--accent);border-radius:8px;padding:8px 6px;cursor:pointer;text-align:center;background:#f0fdf4;transition:all 0.2s;">
+              <div style="height:44px;background:#f7f5f0;border-radius:4px;margin-bottom:5px;overflow:hidden;"><div style="height:7px;background:var(--accent);"></div><div style="padding:2px 4px;"><div style="height:2px;background:#e2ddd4;margin-bottom:2px;border-radius:1px;"></div><div style="height:2px;background:#e2ddd4;margin-bottom:2px;border-radius:1px;width:80%;"></div><div style="height:2px;background:#e2ddd4;border-radius:1px;width:55%;"></div></div></div>
+              <div style="font-size:10px;font-weight:700;color:var(--text);">Classic</div>
+            </div>
+            <div onclick="setCLTemplate('Modern')" class="cl-template-card" data-template="Modern" onmouseover="if(!this.classList.contains('active-cl-template'))this.style.borderColor='var(--accent)'" onmouseout="if(!this.classList.contains('active-cl-template'))this.style.borderColor='var(--border)'" style="border:1.5px solid var(--border);border-radius:8px;padding:8px 6px;cursor:pointer;text-align:center;background:white;transition:all 0.2s;">
+              <div style="height:44px;background:#f7f5f0;border-radius:4px;margin-bottom:5px;overflow:hidden;"><div style="height:16px;background:#1a3a2a;display:flex;align-items:center;padding:0 4px;"><div style="height:2px;background:rgba(255,255,255,0.4);width:55%;border-radius:1px;"></div></div><div style="padding:2px 4px;margin-top:2px;"><div style="height:2px;background:#e2ddd4;margin-bottom:2px;border-radius:1px;width:80%;"></div><div style="height:2px;background:#e2ddd4;border-radius:1px;width:55%;"></div></div></div>
+              <div style="font-size:10px;font-weight:700;color:var(--text);">Modern</div>
+            </div>
+            <div onclick="setCLTemplate('Minimal')" class="cl-template-card" data-template="Minimal" onmouseover="if(!this.classList.contains('active-cl-template'))this.style.borderColor='var(--accent)'" onmouseout="if(!this.classList.contains('active-cl-template'))this.style.borderColor='var(--border)'" style="border:1.5px solid var(--border);border-radius:8px;padding:8px 6px;cursor:pointer;text-align:center;background:white;transition:all 0.2s;">
+              <div style="height:44px;background:#f7f5f0;border-radius:4px;margin-bottom:5px;overflow:hidden;"><div style="padding:4px 4px 0;"><div style="height:4px;background:#1a1814;margin-bottom:3px;border-radius:1px;width:65%;"></div><div style="height:1px;background:#1a1814;margin-bottom:3px;"></div><div style="height:2px;background:#e2ddd4;margin-bottom:2px;border-radius:1px;width:80%;"></div><div style="height:2px;background:#e2ddd4;border-radius:1px;width:55%;"></div></div></div>
+              <div style="font-size:10px;font-weight:700;color:var(--text);">Minimal</div>
+            </div>
+            <div onclick="setCLTemplate('Bold')" class="cl-template-card" data-template="Bold" onmouseover="if(!this.classList.contains('active-cl-template'))this.style.borderColor='var(--accent)'" onmouseout="if(!this.classList.contains('active-cl-template'))this.style.borderColor='var(--border)'" style="border:1.5px solid var(--border);border-radius:8px;padding:8px 6px;cursor:pointer;text-align:center;background:white;transition:all 0.2s;">
+              <div style="height:44px;background:#f7f5f0;border-radius:4px;margin-bottom:5px;overflow:hidden;"><div style="padding:3px 4px 0;"><div style="font-size:5px;letter-spacing:1px;color:var(--accent);font-weight:700;margin-bottom:2px;font-family:'Syne',sans-serif;">COVER</div><div style="height:5px;background:#1a1814;border-radius:1px;width:85%;margin-bottom:3px;"></div><div style="height:2px;background:#e2ddd4;border-radius:1px;width:65%;"></div></div><div style="height:3px;background:var(--accent);margin-top:4px;"></div></div>
+              <div style="font-size:10px;font-weight:700;color:var(--text);">Bold</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Download / Copy row -->
+        <div style="display:flex;gap:8px;">
+          <button onclick="downloadCLasPDF()" onmouseover="this.style.background='#1e4d35'" onmouseout="this.style.background='var(--accent)'" style="flex:1;padding:11px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background .15s;">⬇ PDF</button>
+          <button onclick="downloadCLasDOCX()" onmouseover="this.style.background='var(--accent-light)'" onmouseout="this.style.background='white'" style="flex:1;padding:11px;background:white;color:var(--accent);border:1.5px solid var(--accent);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;">⬇ Word</button>
+          <button onclick="copyCover()" style="padding:11px 14px;background:white;color:var(--text2);border:1.5px solid var(--border);border-radius:8px;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;">⎘ Copy</button>
+        </div>
+
+      </div>
+
+      <!-- RIGHT: Cover Letter Preview -->
+      <div style="position:sticky;top:80px;">
+        <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+          <span>Live Preview</span>
+          <span style="font-size:11px;font-weight:400;color:var(--text3);">Updates automatically</span>
+        </div>
+        <div style="border:1.5px solid var(--border);border-radius:var(--radius);overflow:hidden;background:white;box-shadow:0 4px 16px rgba(0,0,0,0.08);">
+          <div style="overflow:hidden;height:620px;position:relative;">
+            <div id="coverLetterPreview" style="transform-origin:top left;transform:scale(0.55);width:182%;min-height:1123px;background:white;"></div>
+          </div>
         </div>
       </div>
+
     </div>
   </div><!-- /tab-cover -->
 
@@ -1429,6 +1520,7 @@ function switchTab(tab) {
   document.getElementById('tab-' + tab).classList.add('active');
   const idx = ['build','improve','cover'].indexOf(tab);
   document.querySelectorAll('.tab-btn')[idx].classList.add('active');
+  if (tab === 'cover') syncFromCV();
 }
 
 // ── Template ──
@@ -2358,47 +2450,63 @@ function copyImproved() {
 
 // ── Cover letter tab ──
 async function generateCoverLetter() {
-  const company = document.getElementById('c-company').value.trim();
-  const manager = document.getElementById('c-manager').value.trim();
-  const jd = document.getElementById('c-jd').value.trim();
-  if (!company) { showStatus('cover-status', 'Please enter the company name.', 'error'); return; }
+  const company = (document.getElementById('clCompany')||{value:''}).value.trim();
+  const manager = (document.getElementById('clHiringManager')||{value:''}).value.trim();
+  const jobTitle = (document.getElementById('clJobTitle')||{value:''}).value.trim();
+  const jd = (document.getElementById('clJobDesc')||{value:''}).value.trim();
+  if (!company || !jobTitle) { showStatus('cover-status', 'Please add company name and job title.', 'error'); return; }
   const d = getFormData();
   const btn = document.getElementById('cover-btn');
-  btn.disabled = true; btn.textContent = 'Generating...';
-  showStatus('cover-status', 'Generating tailored cover letter...', 'info');
-  const cvSummary = `Candidate: ${d.name||'(name not provided)'}\nTarget Role: ${d.title||'(not specified)'}\nSkills: ${d.skills||''}\nBackground: ${d.summary||''}\nExperience: ${d.experience.filter(e=>e.role||e.company).map(e=>`${e.role} at ${e.company}`).join(', ')||''}`;
-  const input = `${cvSummary}\n\nCompany: ${company}\nHiring Manager: ${manager||'Hiring Manager'}\n${jd?'Job Description:\n'+jd:''}`;
+  if (btn) { btn.disabled = true; btn.textContent = 'Writing...'; }
+  showStatus('cover-status', 'AI is writing your cover letter...', 'info');
+  const cvSummary = [
+    d.name && 'Name: ' + d.name,
+    d.title && 'Current/Target Role: ' + d.title,
+    d.skills && 'Skills: ' + d.skills,
+    d.summary && 'Background: ' + d.summary,
+    d.experience.filter(e=>e.role||e.company).length && 'Experience: ' + d.experience.filter(e=>e.role||e.company).map(e=>`${e.role} at ${e.company}`).join(', ')
+  ].filter(Boolean).join('\n');
+  const prompt = `Write a ${clStyle.toLowerCase()} cover letter for this applicant.
+
+${cvSummary}
+
+Applying for: ${jobTitle}
+Company: ${company}
+Hiring Manager: ${manager || 'Hiring Manager'}
+${jd ? '\nJob Description:\n' + jd : ''}
+
+Instructions:
+- 3 paragraphs only, no more
+- Opening: compelling hook that expresses enthusiasm — never start with "I am writing to"
+- Middle: 2-3 specific achievements or skills matching the role with concrete examples
+- Closing: confident call to action for an interview
+- Tone: ${clStyle}
+- Write in first person, professional but human
+- Maximum 250 words
+- Return ONLY the letter body paragraphs — no salutation, no sign-off`;
   try {
-    const result = await callAPI('cover_letter', input);
-    document.getElementById('cover-preview').textContent = result;
+    const result = await callAPI('cover_letter', prompt);
+    coverLetterText = result;
+    updateCoverLetter();
     hideStatus('cover-status');
+    showToast('✓ Cover letter generated!');
   } catch(e) {
     showStatus('cover-status', e.message, 'error');
   } finally {
-    btn.disabled = false; btn.textContent = '✨ Generate Cover Letter';
+    if (btn) { btn.disabled = false; btn.textContent = '✨ Generate Cover Letter'; }
   }
 }
 
 function copyCover() {
-  const text = document.getElementById('cover-preview').textContent;
+  const text = coverLetterText || (document.getElementById('coverLetterPreview') || {}).innerText || '';
+  if (!text.trim()) { showToast('Generate a cover letter first'); return; }
   navigator.clipboard.writeText(text).then(() => {
     const btn = event.target; btn.textContent = '✓ Copied!';
     setTimeout(() => { btn.textContent = '⎘ Copy'; }, 2000);
   });
 }
 
-async function downloadCoverPDF() {
-  const { jsPDF } = window.jspdf;
-  if (!jsPDF) { alert('PDF library not loaded.'); return; }
-  const text = document.getElementById('cover-preview').textContent;
-  if (!text || text.includes('Fill in the form')) { alert('Generate a cover letter first.'); return; }
-  const doc = new jsPDF({ unit:'mm', format:'a4' });
-  doc.setFont('helvetica','normal'); doc.setFontSize(11);
-  const lines = doc.splitTextToSize(text, 180);
-  let y = 20;
-  lines.forEach(ln => { if (y > 275) { doc.addPage(); y = 20; } doc.text(ln, 15, y); y += 6; });
-  doc.save('Cover_Letter.pdf');
-}
+async function downloadCoverPDF() { downloadCLasPDF(); }
 
 // ── Job Search Links ──
 function updateJobSearch() {
@@ -3645,7 +3753,297 @@ document.addEventListener('DOMContentLoaded', function() {
   buildTemplateGallery();
   updateSectionPreviews();
   calculateCVScore();
+  updateCoverLetter();
 });
+
+// ══════════ COVER LETTER ENGINE ══════════
+
+let clLogoData = null;
+let clStyle = 'Professional';
+let clTemplate = 'Classic';
+let coverLetterText = '';
+
+function handleLogoUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) { showToast('Logo too large. Max 2MB.'); return; }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    clLogoData = e.target.result;
+    const img = document.getElementById('clLogoImg');
+    const icon = document.getElementById('clLogoIcon');
+    const text = document.getElementById('clLogoText');
+    const removeBtn = document.getElementById('clLogoRemove');
+    if (img) { img.src = clLogoData; img.style.display = 'block'; }
+    if (icon) icon.style.display = 'none';
+    if (text) text.style.display = 'none';
+    if (removeBtn) removeBtn.style.display = 'block';
+    updateCoverLetter();
+    showToast('✓ Logo uploaded!');
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+
+function removeLogo() {
+  clLogoData = null;
+  const img = document.getElementById('clLogoImg');
+  const icon = document.getElementById('clLogoIcon');
+  const text = document.getElementById('clLogoText');
+  const removeBtn = document.getElementById('clLogoRemove');
+  const input = document.getElementById('clLogoInput');
+  if (img) { img.src = ''; img.style.display = 'none'; }
+  if (icon) icon.style.display = 'block';
+  if (text) text.style.display = 'block';
+  if (removeBtn) removeBtn.style.display = 'none';
+  if (input) input.value = '';
+  updateCoverLetter();
+  showToast('Logo removed');
+}
+
+function setCoverLetterStyle(style) {
+  clStyle = style;
+  document.querySelectorAll('.cl-style-btn').forEach(btn => {
+    const active = btn.dataset.style === style;
+    btn.style.background = active ? 'var(--accent)' : 'white';
+    btn.style.color = active ? 'white' : 'var(--text)';
+    btn.style.borderColor = active ? 'var(--accent)' : 'var(--border)';
+  });
+}
+
+function setCLTemplate(template) {
+  clTemplate = template;
+  document.querySelectorAll('.cl-template-card').forEach(card => {
+    const active = card.dataset.template === template;
+    card.style.borderColor = active ? 'var(--accent)' : 'var(--border)';
+    card.style.borderWidth = active ? '2px' : '1.5px';
+    card.style.background = active ? '#f0fdf4' : 'white';
+    card.classList.toggle('active-cl-template', active);
+  });
+  updateCoverLetter();
+}
+
+function syncFromCV() {
+  const cvName = (document.getElementById('f-name') || {}).value || '';
+  const cvEmail = (document.getElementById('f-email') || {}).value || '';
+  const nameField = document.getElementById('clYourName');
+  const emailField = document.getElementById('clYourEmail');
+  if (nameField && !nameField.value && cvName) nameField.value = cvName;
+  if (emailField && !emailField.value && cvEmail) emailField.value = cvEmail;
+  updateCoverLetter();
+}
+
+function _clGet(id) { return ((document.getElementById(id) || {}).value || '').trim(); }
+
+function updateCoverLetter() {
+  const preview = document.getElementById('coverLetterPreview');
+  if (!preview) return;
+  const name = _clGet('clYourName') || _clGet('f-name') || 'Your Name';
+  const email = _clGet('clYourEmail') || _clGet('f-email') || '';
+  const phone = _clGet('f-phone') || '';
+  const location = _clGet('f-location') || '';
+  const company = _clGet('clCompany') || 'Company Name';
+  const jobTitle = _clGet('clJobTitle') || 'Job Title';
+  const hiringManager = _clGet('clHiringManager') || '';
+  const accent = window._cvAccentColor || '#2d6a4f';
+  const font = window._cvFont || 'Calibri, Georgia, serif';
+  const today = new Date().toLocaleDateString('en-AU', {day:'numeric', month:'long', year:'numeric'});
+  const d = { name, email, phone, location, company, jobTitle, hiringManager, today, accent, font, body: coverLetterText };
+  const renderers = { Classic: renderClassicCoverLetter, Modern: renderModernCoverLetter, Minimal: renderMinimalCoverLetter, Bold: renderBoldCoverLetter };
+  preview.innerHTML = (renderers[clTemplate] || renderClassicCoverLetter)(d);
+}
+
+function _clBody(body, paraStyle) {
+  if (!body) return `<p style="${paraStyle};color:#9e9890;font-style:italic;margin:0;">Click "✨ Generate Cover Letter" to write your letter...</p>`;
+  return body.split(/\n\n+/).filter(p => p.trim()).map(p => `<p style="${paraStyle}">${p.trim().replace(/\n/g,'<br>')}</p>`).join('');
+}
+
+function renderClassicCoverLetter(d) {
+  const bodyStyle = 'font-size:13.5px;color:#374151;line-height:1.85;margin:0 0 14px;text-align:justify;';
+  return `<div style="font-family:${d.font};color:#1a1814;padding:48px 52px;min-height:1056px;background:white;box-sizing:border-box;">
+    ${clLogoData ? `<div style="margin-bottom:24px;"><img src="${clLogoData}" alt="Logo" style="max-height:60px;max-width:180px;object-fit:contain;display:block;"></div>` : ''}
+    <div style="border-bottom:2.5px solid ${d.accent};padding-bottom:16px;margin-bottom:24px;">
+      <h1 style="font-size:28px;font-weight:800;color:#1a1814;margin:0 0 4px;letter-spacing:-0.5px;font-family:'Syne',sans-serif;">${d.name}</h1>
+      <div style="display:flex;flex-wrap:wrap;gap:16px;font-size:12px;color:#6b6660;margin-top:6px;">
+        ${d.email ? `<span>✉ ${d.email}</span>` : ''}${d.phone ? `<span>📞 ${d.phone}</span>` : ''}${d.location ? `<span>📍 ${d.location}</span>` : ''}
+      </div>
+    </div>
+    <div style="font-size:13px;color:#6b6660;margin-bottom:20px;">${d.today}</div>
+    <div style="margin-bottom:20px;">
+      <div style="font-size:13.5px;font-weight:700;color:#1a1814;">${d.hiringManager || 'Hiring Manager'}</div>
+      <div style="font-size:13px;color:#374151;">${d.company}</div>
+    </div>
+    <div style="font-size:14px;font-weight:600;color:#1a1814;margin-bottom:12px;">Dear ${d.hiringManager || 'Hiring Manager'},</div>
+    <div style="font-size:13.5px;font-weight:700;color:${d.accent};margin-bottom:20px;padding-bottom:8px;border-bottom:1px solid #e2ddd4;">Re: Application for ${d.jobTitle}${d.company ? ' at ' + d.company : ''}</div>
+    <div style="margin-bottom:28px;">${_clBody(d.body, bodyStyle)}</div>
+    <div style="font-size:13.5px;color:#1a1814;margin-bottom:8px;">Yours sincerely,</div>
+    <div style="font-size:15px;font-weight:700;color:#1a1814;margin-bottom:4px;">${d.name}</div>
+    <div style="font-size:12px;color:#6b6660;">${d.email}</div>
+  </div>`;
+}
+
+function renderModernCoverLetter(d) {
+  const bodyStyle = 'font-size:13.5px;color:#374151;line-height:1.85;margin:0 0 14px;text-align:justify;';
+  return `<div style="font-family:${d.font};color:#1a1814;min-height:1056px;background:white;box-sizing:border-box;">
+    <div style="background:${d.accent};padding:32px 48px;position:relative;overflow:hidden;">
+      <div style="position:absolute;right:-20px;top:-20px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,0.08);"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:20px;">
+        <div>
+          <h1 style="font-size:26px;font-weight:900;color:white;margin:0 0 4px;font-family:'Syne',sans-serif;">${d.name}</h1>
+          <div style="font-size:12px;color:rgba(255,255,255,0.85);display:flex;flex-wrap:wrap;gap:12px;margin-top:6px;">
+            ${d.email ? `<span>✉ ${d.email}</span>` : ''}${d.phone ? `<span>📞 ${d.phone}</span>` : ''}${d.location ? `<span>📍 ${d.location}</span>` : ''}
+          </div>
+        </div>
+        ${clLogoData ? `<img src="${clLogoData}" alt="Logo" style="max-height:50px;max-width:120px;object-fit:contain;background:white;padding:6px;border-radius:6px;">` : ''}
+      </div>
+    </div>
+    <div style="padding:36px 48px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:24px;align-items:flex-start;">
+        <div><div style="font-size:13px;font-weight:700;color:#1a1814;">${d.hiringManager || 'Hiring Manager'}</div><div style="font-size:12.5px;color:#6b6660;">${d.company}</div></div>
+        <div style="font-size:12px;color:#9e9890;white-space:nowrap;">${d.today}</div>
+      </div>
+      <div style="background:${d.accent}1a;border-left:4px solid ${d.accent};padding:12px 16px;border-radius:0 8px 8px 0;margin-bottom:20px;font-size:14px;font-weight:700;color:${d.accent};">Application: ${d.jobTitle}${d.company ? ' — ' + d.company : ''}</div>
+      <div style="font-size:14px;font-weight:600;color:#1a1814;margin-bottom:14px;">Dear ${d.hiringManager || 'Hiring Manager'},</div>
+      <div style="margin-bottom:28px;">${_clBody(d.body, bodyStyle)}</div>
+      <div style="font-size:13.5px;color:#1a1814;margin-bottom:6px;">Kind regards,</div>
+      <div style="font-size:15px;font-weight:800;color:${d.accent};font-family:'Syne',sans-serif;">${d.name}</div>
+      <div style="font-size:12px;color:#6b6660;margin-top:2px;">${d.email}</div>
+    </div>
+  </div>`;
+}
+
+function renderMinimalCoverLetter(d) {
+  const bodyStyle = 'font-size:13.5px;color:#374151;line-height:1.9;margin:0 0 16px;text-align:justify;';
+  const contacts = [d.email, d.phone, d.location].filter(Boolean).join(' · ');
+  return `<div style="font-family:${d.font};color:#1a1814;padding:64px 56px;min-height:1056px;background:white;box-sizing:border-box;">
+    ${clLogoData ? `<img src="${clLogoData}" alt="Logo" style="max-height:48px;max-width:160px;object-fit:contain;display:block;margin-bottom:32px;">` : ''}
+    <h1 style="font-size:32px;font-weight:800;color:#1a1814;margin:0 0 4px;letter-spacing:-1px;font-family:'Syne',sans-serif;">${d.name}</h1>
+    <div style="font-size:12px;color:#9e9890;margin-bottom:32px;">${contacts}</div>
+    <div style="height:1px;background:#1a1814;margin-bottom:32px;"></div>
+    <div style="font-size:12px;color:#9e9890;margin-bottom:24px;">${d.today}</div>
+    <div style="margin-bottom:24px;">
+      <div style="font-size:13.5px;font-weight:700;color:#1a1814;">${d.hiringManager || 'Hiring Manager'}</div>
+      <div style="font-size:13px;color:#6b6660;">${d.company}</div>
+    </div>
+    <div style="font-size:13.5px;font-weight:700;color:#1a1814;margin-bottom:20px;">Re: ${d.jobTitle}</div>
+    <div style="margin-bottom:32px;">${_clBody(d.body, bodyStyle)}</div>
+    <div style="height:1px;background:#e2ddd4;margin-bottom:24px;"></div>
+    <div style="font-size:13px;color:#6b6660;margin-bottom:6px;">Regards,</div>
+    <div style="font-size:16px;font-weight:800;color:#1a1814;font-family:'Syne',sans-serif;">${d.name}</div>
+  </div>`;
+}
+
+function renderBoldCoverLetter(d) {
+  const bodyStyle = 'font-size:13.5px;color:#374151;line-height:1.85;margin:0 0 14px;text-align:justify;';
+  const nameParts = d.name.split(' ');
+  const firstName = nameParts[0] || '';
+  const lastName = nameParts.slice(1).join(' ') || '';
+  return `<div style="font-family:${d.font};color:#1a1814;min-height:1056px;background:white;box-sizing:border-box;">
+    <div style="padding:40px 52px 28px;border-bottom:4px solid ${d.accent};">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;">
+        <div>
+          <div style="font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:${d.accent};margin-bottom:6px;font-family:'Syne',sans-serif;">Cover Letter</div>
+          <h1 style="font-size:42px;font-weight:900;color:#1a1814;margin:0;letter-spacing:-2px;line-height:0.95;font-family:'Syne',sans-serif;">${firstName}<br><span style="color:${d.accent};">${lastName || '&nbsp;'}</span></h1>
+        </div>
+        <div style="text-align:right;">
+          ${clLogoData ? `<img src="${clLogoData}" alt="Logo" style="max-height:56px;max-width:140px;object-fit:contain;display:block;margin-left:auto;margin-bottom:8px;">` : ''}
+          <div style="font-size:12px;color:#6b6660;line-height:1.8;">${d.email ? `<div>${d.email}</div>` : ''}${d.phone ? `<div>${d.phone}</div>` : ''}</div>
+        </div>
+      </div>
+    </div>
+    <div style="padding:32px 52px;">
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;flex-wrap:wrap;">
+        <div style="background:${d.accent};color:white;padding:9px 18px;border-radius:6px;font-size:13px;font-weight:700;white-space:nowrap;">${d.jobTitle}</div>
+        <div style="font-size:13px;color:#6b6660;">${d.company} · ${d.today}</div>
+      </div>
+      <div style="font-size:14px;font-weight:600;color:#1a1814;margin-bottom:18px;">Dear ${d.hiringManager || 'Hiring Manager'},</div>
+      <div style="margin-bottom:28px;">${_clBody(d.body, bodyStyle)}</div>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <div style="width:36px;height:4px;background:${d.accent};border-radius:2px;flex-shrink:0;"></div>
+        <div>
+          <div style="font-size:16px;font-weight:900;color:#1a1814;font-family:'Syne',sans-serif;">${d.name}</div>
+          <div style="font-size:12px;color:#9e9890;">${d.email}</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function downloadCLasPDF() {
+  const preview = document.getElementById('coverLetterPreview');
+  if (!preview || !preview.innerHTML.trim()) { showToast('Generate a cover letter first'); return; }
+  showToast('⏳ Creating PDF...');
+  if (window.html2canvas && window.jspdf) {
+    try {
+      const canvas = await html2canvas(preview, { scale: 2, useCORS: true, backgroundColor: '#ffffff', width: preview.scrollWidth, height: preview.scrollHeight });
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const imgWidth = 210;
+      const imgHeight = (canvas.height * 210) / canvas.width;
+      pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight, '', 'FAST');
+      const name = (_clGet('clYourName') || 'Cover-Letter').replace(/\s+/g, '-');
+      pdf.save(name + '-Cover-Letter.pdf');
+      showToast('✓ PDF downloaded!');
+      return;
+    } catch(e) { /* fall through to print */ }
+  }
+  const win = window.open('', '_blank');
+  if (win) {
+    const styles = Array.from(document.querySelectorAll('style')).map(s => s.outerHTML).join('\n');
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">${styles}<style>body{margin:0;padding:0;}@media print{body{margin:0;}@page{size:A4;margin:0;}}</style></head><body>${preview.innerHTML}<script>window.print()<\/script></body></html>`);
+    win.document.close();
+    showToast('💡 Print → Save as PDF');
+  }
+}
+
+async function downloadCLasDOCX() {
+  if (!coverLetterText) { showToast('Generate a cover letter first'); return; }
+  if (!window.JSZip) { showToast('❌ JSZip not available'); return; }
+  showToast('⏳ Creating Word document...');
+  const name = _clGet('clYourName') || _clGet('f-name') || 'Applicant';
+  const email = _clGet('clYourEmail') || _clGet('f-email') || '';
+  const company = _clGet('clCompany') || '';
+  const jobTitle = _clGet('clJobTitle') || '';
+  const hiringManager = _clGet('clHiringManager') || 'Hiring Manager';
+  const today = new Date().toLocaleDateString('en-AU', {day:'numeric', month:'long', year:'numeric'});
+  const accentHex = (window._cvAccentColor || '#2d6a4f').replace('#', '');
+  function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  const bodyParas = coverLetterText.split(/\n\n+/).filter(p=>p.trim()).map(para => `<w:p><w:pPr><w:spacing w:after="200" w:line="360" w:lineRule="auto"/><w:jc w:val="both"/></w:pPr><w:r><w:rPr><w:sz w:val="22"/><w:szCs w:val="22"/><w:color w:val="374151"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t xml:space="preserve">${esc(para.trim())}</w:t></w:r></w:p>`).join('');
+  const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>
+<w:p><w:pPr><w:spacing w:after="80"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="48"/><w:color w:val="1A3A2A"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t>${esc(name)}</w:t></w:r></w:p>
+<w:p><w:pPr><w:spacing w:after="60"/></w:pPr><w:r><w:rPr><w:sz w:val="20"/><w:color w:val="6B6660"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t xml:space="preserve">${esc(email)}</w:t></w:r></w:p>
+<w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="6" w:space="4" w:color="${accentHex}"/></w:pBdr><w:spacing w:after="200"/></w:pPr></w:p>
+<w:p><w:pPr><w:spacing w:after="120"/></w:pPr><w:r><w:rPr><w:sz w:val="20"/><w:color w:val="9E9890"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t>${esc(today)}</w:t></w:r></w:p>
+<w:p><w:pPr><w:spacing w:after="80"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="22"/><w:color w:val="1A1814"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t>${esc(hiringManager)}</w:t></w:r></w:p>
+<w:p><w:pPr><w:spacing w:after="200"/></w:pPr><w:r><w:rPr><w:sz w:val="22"/><w:color w:val="374151"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t>${esc(company)}</w:t></w:r></w:p>
+<w:p><w:pPr><w:spacing w:after="120"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="22"/><w:color w:val="1A1814"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t xml:space="preserve">Dear ${esc(hiringManager)},</w:t></w:r></w:p>
+<w:p><w:pPr><w:spacing w:after="120"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="${accentHex}"/><w:sz w:val="22"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t xml:space="preserve">Re: Application for ${esc(jobTitle)}${company ? ' at ' + esc(company) : ''}</w:t></w:r></w:p>
+${bodyParas}
+<w:p><w:pPr><w:spacing w:after="80"/></w:pPr><w:r><w:rPr><w:sz w:val="22"/><w:color w:val="1A1814"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t>Yours sincerely,</w:t></w:r></w:p>
+<w:p><w:pPr><w:spacing w:after="60"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="26"/><w:color w:val="1A1814"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t>${esc(name)}</w:t></w:r></w:p>
+<w:p><w:r><w:rPr><w:sz w:val="20"/><w:color w:val="6B6660"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t>${esc(email)}</w:t></w:r></w:p>
+<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1260" w:bottom="1440" w:left="1260"/></w:sectPr>
+</w:body></w:document>`;
+  const relsXML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`;
+  const stylesXML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr></w:rPrDefault></w:docDefaults></w:styles>`;
+  const typesXML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>`;
+  const pkgRelsXML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`;
+  const zip = new JSZip();
+  zip.file('[Content_Types].xml', typesXML);
+  zip.file('_rels/.rels', pkgRelsXML);
+  zip.file('word/document.xml', docXml);
+  zip.file('word/styles.xml', stylesXML);
+  zip.file('word/_rels/document.xml.rels', relsXML);
+  const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+  const fileName = name.replace(/\s+/g, '-') + '-Cover-Letter.docx';
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = fileName;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  showToast('✓ Word document downloaded!');
+}
 
 // ── Feature 1: CV Completeness Score ──
 function calculateCVScore() {
