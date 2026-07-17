@@ -651,10 +651,10 @@ nav div a:hover::after { width: 100%; }
 /* ── Mobile responsive layout ── */
 @media (max-width: 900px) {
   .builder-layout, #cvBuilderLayout { grid-template-columns: 1fr !important; padding: 8px 10px 90px !important; gap: 10px !important; }
-  #cvPreviewPanel { order: 1 !important; position: static !important; height: auto !important; min-height: auto !important; border-radius: 10px !important; }
+  #cvPreviewPanel { order: 1 !important; position: static !important; height: auto !important; min-height: auto !important; border-radius: 10px !important; overflow: hidden !important; }
   #cvFormPanel { order: 2 !important; position: static !important; height: auto !important; max-height: none !important; min-height: auto !important; border-radius: 10px !important; }
   #cvFormScrollable { overflow: visible !important; max-height: none !important; height: auto !important; padding: 12px !important; }
-  #cvPreviewWrapper { height: 320px !important; min-height: 320px !important; overflow-y: auto !important; overflow-x: hidden !important; -webkit-overflow-scrolling: touch !important; scroll-behavior: smooth !important; padding: 8px !important; }
+  #cvPreviewWrapper { height: 300px !important; min-height: 300px !important; max-height: 300px !important; overflow-y: auto !important; overflow-x: hidden !important; -webkit-overflow-scrolling: touch !important; padding: 8px !important; display: block !important; }
   #quickTemplates { grid-template-columns: repeat(2,1fr) !important; gap: 6px !important; }
   #templateGallery { max-height: 300px; overflow-y: auto; }
   #premiumTemplateGrid, #classicTemplateGrid { grid-template-columns: repeat(3,1fr) !important; gap: 5px !important; }
@@ -673,7 +673,7 @@ nav div a:hover::after { width: 100%; }
 }
 @media (max-width: 480px) {
   .builder-layout, #cvBuilderLayout { padding: 6px 8px 90px !important; }
-  #cvPreviewWrapper { height: 240px !important; min-height: 240px !important; overflow-y: auto !important; overflow-x: hidden !important; }
+  #cvPreviewWrapper { height: 260px !important; min-height: 260px !important; max-height: 260px !important; overflow-y: auto !important; overflow-x: hidden !important; }
   #premiumTemplateGrid, #classicTemplateGrid { grid-template-columns: repeat(2,1fr) !important; }
   #quickTplGrid { grid-template-columns: repeat(2,1fr) !important; }
   #countryBtnGroup button { font-size: 11px !important; padding: 5px 8px !important; }
@@ -689,7 +689,7 @@ nav div a:hover::after { width: 100%; }
   #mobileBar button:first-child { background: var(--accent) !important; color: white !important; border: none !important; }
   #mobileBar button:last-child { background: white !important; color: var(--accent) !important; border: 2px solid var(--accent) !important; }
   #cvPreviewScale { display: block !important; transform-origin: top left !important; }
-  #cvPreviewWrapper::after { content: '↕ Scroll to see full CV'; display: block; text-align: center; font-size: 11px; color: #9e9890; padding: 6px; background: white; position: sticky; bottom: 0; }
+  #cvPreviewWrapper::after { content: '↕ Scroll to see full CV'; display: block; text-align: center; font-size: 11px; color: #9e9890; padding: 4px; background: #e8e6e0; position: sticky; bottom: 0; left: 0; right: 0; width: 100%; }
 }
 /* Premium card focus */
 .cv-section-card:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(45,106,79,0.08); }
@@ -2309,7 +2309,7 @@ function addExp() {
       <textarea class="exp-bullets" style="min-height:90px;" placeholder="Led cross-functional team of 8 people&#10;Increased revenue by 35% YoY&#10;Launched 3 product campaigns..." oninput="updatePreview()"></textarea>
     </div>
     <div style="margin-top:8px;">
-      <button onclick="aiGenBullets(${id})" style="padding:8px 14px;background:white;color:var(--accent);border:1.5px solid var(--accent);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.2s;display:flex;align-items:center;gap:6px;margin-top:6px;" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='white'"><span>✨</span> Generate with AI</button>
+      <button type="button" onclick="aiGenBullets(this)" style="padding:8px 14px;background:white;color:var(--accent);border:1.5px solid var(--accent);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.2s;display:flex;align-items:center;gap:6px;margin-top:6px;" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='white'"><span>✨</span> Generate with AI</button>
       <div class="cv-status" id="exp-status-${id}"></div>
     </div>`;
   document.getElementById('exp-list').appendChild(div);
@@ -2389,35 +2389,47 @@ async function aiGenSummary() {
 }
 
 // ── AI: Generate bullets ──
-async function aiGenBullets(id) {
-  const card = document.getElementById('exp-' + id);
+async function aiGenBullets(buttonEl) {
+  const card = buttonEl.closest('[id^="exp-"], .exp-entry, .experience-entry, [data-type="exp"]');
+  if (!card) { showToast('Could not find experience card'); return; }
+
   const bulletsTA = card.querySelector('.exp-bullets');
-  const role = card.querySelector('.exp-role').value.trim();
-  const company = card.querySelector('.exp-company').value.trim();
-  const rough = bulletsTA.value.trim();
-  if (!rough && !role) { showStatus('exp-status-' + id, 'Enter a rough description of your responsibilities first.', 'error'); return; }
-  const btn = card.querySelector('.ai-btn');
-  btn.disabled = true; btn.textContent = '...';
-  showStatus('exp-status-' + id, 'Generating bullet points...', 'info');
-  const input = `Role: ${role || 'Professional'}\nCompany: ${company || ''}\nRough notes: ${rough || role}`;
+  const role = (card.querySelector('.exp-role')?.value || '').trim();
+  const company = (card.querySelector('.exp-company')?.value || '').trim();
+  const rough = (bulletsTA?.value || '').trim();
+
+  if (!rough && !role) { showToast('Add a job title or notes first'); return; }
+
+  const originalHTML = buttonEl.innerHTML;
+  buttonEl.disabled = true;
+  buttonEl.innerHTML = '<span>⏳</span> Generating...';
+  buttonEl.style.opacity = '0.7';
+
+  const statusId = card.id ? card.id.replace('exp-', 'exp-status-') : '';
+  if (statusId) showStatus(statusId, 'Generating bullet points...', 'info');
+
+  const instruction =
+    'Write 3-5 polished CV bullet points for this role.\n\n' +
+    'Rules:\n' +
+    '- Start each bullet with a strong action verb (e.g. Led, Designed, Delivered, Built, Managed, Grew)\n' +
+    '- Be specific to the role and company provided — no generic filler\n' +
+    '- Quantify where the notes suggest metrics (%, $, headcount, time saved, etc.)\n' +
+    '- Transform rough notes into professional, ATS-optimized language\n' +
+    '- Return ONLY the bullet points, one per line, no numbering or extra labels\n\n' +
+    `Role: ${role || 'Professional'}\nCompany: ${company || ''}\nRough notes: ${rough || role}`;
+
   try {
-    const instruction =
-      'Write 3-5 polished CV bullet points for this role.\n\n' +
-      'Rules:\n' +
-      '- Start each bullet with a strong action verb (e.g. Led, Designed, Delivered, Built, Managed, Grew)\n' +
-      '- Be specific to the role and company provided — no generic filler\n' +
-      '- Quantify where the notes suggest metrics (%, $, headcount, time saved, etc.)\n' +
-      '- Transform rough notes into professional, ATS-optimized language\n' +
-      '- Return ONLY the bullet points, one per line, no numbering or extra labels\n\n' +
-      input;
     const result = await callAPI('cv_build', instruction);
-    bulletsTA.value = result.trim();
-    updatePreview();
-    hideStatus('exp-status-' + id);
+    if (bulletsTA) { bulletsTA.value = result.trim(); updatePreview(); }
+    if (statusId) hideStatus(statusId);
+    showToast('✓ Bullet points generated!');
   } catch(e) {
-    showStatus('exp-status-' + id, e.message, 'error');
+    if (statusId) showStatus(statusId, e.message, 'error');
+    else showToast('❌ ' + e.message);
   } finally {
-    btn.disabled = false; btn.textContent = '✨ Generate bullet points from rough notes';
+    buttonEl.disabled = false;
+    buttonEl.innerHTML = originalHTML;
+    buttonEl.style.opacity = '1';
   }
 }
 

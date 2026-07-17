@@ -2223,10 +2223,26 @@ async function handleFileUpload(event) {
       return;
     } else if (ext === 'docx' || ext === 'doc') {
       try {
-        const arrayBuffer = await file.arrayBuffer();
         window.originalDocxFile = file;
         window.originalDocxName = file.name;
         showStatus("Reading Word document...", "info");
+
+        // Store JSZip for format-preserving download
+        if (typeof JSZip !== 'undefined') {
+          try {
+            const zipBuf = await file.arrayBuffer();
+            docxZip = await JSZip.loadAsync(zipBuf);
+            docxOriginalXml = await docxZip.file('word/document.xml').async('text');
+            console.log('✓ DOCX zip stored, XML length:', docxOriginalXml.length);
+          } catch(zipErr) {
+            console.warn('JSZip store failed:', zipErr);
+            docxZip = null;
+            docxOriginalXml = null;
+          }
+        }
+
+        // Extract plain text with mammoth for display
+        const arrayBuffer = await file.arrayBuffer();
         const result = await mammoth.extractRawText({arrayBuffer});
         let text = (result.value || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
         if (!text) { showStatus('❌ Could not read document text', 'error'); return; }
