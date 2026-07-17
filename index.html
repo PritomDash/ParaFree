@@ -100,8 +100,25 @@
 }
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script>if (typeof pdfjsLib !== 'undefined') { pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+<script>
+  if (typeof pdfjsLib !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+    console.log('PDF.js loaded:', pdfjsLib.version);
+  } else {
+    console.error('PDF.js failed to load');
+  }
+</script>
+<script>
+window.addEventListener('load', () => {
+  if (typeof pdfjsLib !== 'undefined') {
+    console.log('✅ PDF.js ready, version:', pdfjsLib.version);
+  } else {
+    console.error('❌ PDF.js NOT loaded');
+  }
+});
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://unpkg.com/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
@@ -2190,35 +2207,69 @@ async function handleFileUpload(event) {
       const words = countWords(text);
       document.getElementById("inputCount").textContent = words + " words";
     } else if (ext === 'pdf') {
+      showStatus("Reading PDF...", "info");
       try {
-        if (typeof pdfjsLib !== 'undefined') {
-          showStatus("Reading PDF file...", "info");
-          const arrayBuffer = await file.arrayBuffer();
-          const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
-          let fullText = '';
-          for (let i = 1; i <= pdf.numPages; i++) {
-            const page = await pdf.getPage(i);
-            const content = await page.getTextContent();
-            let lastY = null, pageText = '';
-            for (const item of content.items) {
-              if (lastY !== null && Math.abs(item.transform[5] - lastY) > 5) pageText += '\n';
-              pageText += item.str;
-              lastY = item.transform[5];
-            }
-            fullText += pageText + '\n\n';
-          }
-          fullText = fullText.replace(/\n{3,}/g, '\n\n').trim();
-          if (fullText.length > 20) {
-            document.getElementById("inputText").value = fullText;
-            document.getElementById("inputCount").textContent = countWords(fullText) + " words";
-            hideStatus();
-            return;
-          }
+        const arrayBuffer = await file.arrayBuffer();
+        if (typeof pdfjsLib === 'undefined') {
+          throw new Error('PDF.js not loaded');
         }
-        showStatus("❌ Could not read PDF. Please copy and paste text instead.", "error");
+        const loadingTask = pdfjsLib.getDocument({
+          data: new Uint8Array(arrayBuffer),
+          useWorkerFetch: false,
+          isEvalSupported: false,
+          useSystemFonts: true,
+        });
+        const pdf = await loadingTask.promise;
+        console.log('PDF pages:', pdf.numPages);
+        let fullText = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          let lastY = null, pageText = '';
+          for (const item of content.items) {
+            if (lastY !== null && Math.abs(item.transform[5] - lastY) > 5) pageText += '\n';
+            pageText += item.str;
+            lastY = item.transform[5];
+          }
+          fullText += pageText.trim() + '\n\n';
+        }
+        fullText = fullText.replace(/\n{3,}/g, '\n\n').trim();
+        console.log('PDF text length:', fullText.length);
+        console.log('PDF text preview:', fullText.slice(0, 100));
+        if (fullText.length > 10) {
+          document.getElementById("inputText").value = fullText;
+          const words = countWords(fullText);
+          document.getElementById("inputCount").textContent = words + " words";
+          hideStatus();
+          showStatus('✓ PDF loaded — ' + words + ' words', 'success');
+        } else {
+          showStatus("❌ This PDF has no selectable text. It may be a scanned image. Please copy and paste the text.", "error");
+        }
       } catch(err) {
-        console.error('PDF error:', err);
-        showStatus("❌ PDF error. Try copy-paste instead.", "error");
+        console.error('PDF read error:', err);
+        // Fallback: raw byte extraction for when PDF.js fails
+        try {
+          const arrayBuffer2 = await file.arrayBuffer();
+          const bytes = new Uint8Array(arrayBuffer2);
+          let rawText = '';
+          for (let i = 0; i < bytes.length; i++) {
+            const b = bytes[i];
+            if (b >= 32 && b <= 126) rawText += String.fromCharCode(b);
+            else if (b === 10 || b === 13) rawText += '\n';
+          }
+          const chunks = rawText.match(/[A-Za-z][A-Za-z0-9\s,.\-:;'"!?()]{15,}/g) || [];
+          const extracted = chunks.join(' ').replace(/\s{2,}/g, ' ').trim();
+          if (extracted.length > 50) {
+            document.getElementById("inputText").value = extracted;
+            document.getElementById("inputCount").textContent = countWords(extracted) + " words";
+            hideStatus();
+            showStatus('✓ PDF loaded (basic extraction)', 'success');
+          } else {
+            showStatus("❌ Could not read this PDF. Please copy and paste the text.", "error");
+          }
+        } catch(e) {
+          showStatus("❌ PDF error: " + err.message + ". Please copy and paste.", "error");
+        }
       }
       return;
     } else if (ext === 'docx' || ext === 'doc') {
