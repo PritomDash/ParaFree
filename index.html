@@ -4467,6 +4467,36 @@ function replaceHtmlText(html, newText) {
 // ════════════════════════════════════════════
 // DOCX DOWNLOAD
 // ════════════════════════════════════════════
+// Paragraph-level DOCX text replacement.
+// Replaces meaningful paragraph text only — skips short/date/garbage paras.
+// Puts full new text in the first non-empty <w:t> of each paragraph,
+// clears subsequent runs so formatting structure is preserved.
+function docxReplaceParas(xml, newParaTexts) {
+  let segIdx = 0;
+  return xml.replace(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g, (para) => {
+    const origText = para.replace(/<[^>]+>/g, '').trim();
+    if (!origText || origText.length < 3) return para;
+    // Skip garbage (repeating char patterns like "jknjknjkn")
+    if (/^[jkmnlJKMNL]{3,}/.test(origText) || /(.)\1{4,}/.test(origText)) return para;
+    // Skip date-only lines (e.g. "2020 – 2023", "Jan 2022")
+    if (/^\d{4}\s*[-–]\s*(\d{4}|present)$/i.test(origText) ||
+        /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4}/i.test(origText)) return para;
+    // Pool exhausted — keep original
+    if (segIdx >= newParaTexts.length) return para;
+    const newText = newParaTexts[segIdx];
+    // Refuse replacement if new text is < 30% of original length (pool tail-off)
+    if (!newText || newText.length < origText.length * 0.3) return para;
+    segIdx++;
+    // Put full new text in first non-empty <w:t>, clear the rest
+    let firstDone = false;
+    return para.replace(/(<w:t[^>]*>)([\s\S]*?)(<\/w:t>)/g, (m, open, txt, close) => {
+      if (!txt.trim()) return m; // preserve whitespace-only spacing nodes
+      if (!firstDone) { firstDone = true; return open + pptxEncodeXml(newText) + close; }
+      return open + close;
+    });
+  });
+}
+
 async function downloadAsDOCX() {
   if (!fullOutputText) return;
   setDlBtnLoading('downloadDOCXBtn');
@@ -4475,7 +4505,13 @@ async function downloadAsDOCX() {
   if (docxZip && docxOriginalXml) {
     try {
       showStatus('⏳ Building document...', 'info');
-      const newSegments = stripMarkdown(fullOutputText)
+
+      // Strip markdown and clean output before building segments
+      const cleanedOutput = stripMarkdown(fullOutputText)
+        .replace(/`{1,3}[^`]*`{1,3}/g, '$&'.replace(/`/g, ''))
+        .replace(/`+/g, '')
+        .trim();
+      const newSegments = cleanedOutput
         .split(/\n+/)
         .map(s => s.trim())
         .filter(s => s.length > 0);
@@ -4487,14 +4523,8 @@ async function downloadAsDOCX() {
         return '\x00TBL' + (tblStash.length - 1) + '\x00';
       });
 
-      // Replace only <w:t> content — ALL other XML (rPr, b, color, sz, pPr) untouched
-      let segIdx = 0;
-      xml = xml.replace(/(<w:t[^>]*>)([\s\S]*?)(<\/w:t>)/g, (match, open, text, close) => {
-        if (!text.trim()) return match; // preserve whitespace-only spacing nodes
-        const newSeg = segIdx < newSegments.length ? newSegments[segIdx] : text;
-        segIdx++;
-        return open + pptxEncodeXml(newSeg) + close;
-      });
+      // Replace at paragraph level (skips short/date/garbage paras, handles pool exhaustion)
+      xml = docxReplaceParas(xml, newSegments);
 
       // Restore tables unchanged
       tblStash.forEach((tbl, i) => {
