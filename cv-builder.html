@@ -1627,6 +1627,7 @@ function switchTab(tab) {
 // ── Template ──
 function setTemplate(tpl) {
   currentTemplate = tpl;
+  window.currentTemplate = tpl;
   document.querySelectorAll('.tpl-btn').forEach(b => b.classList.remove('active'));
   const btn = document.getElementById('tpl-' + tpl);
   if (btn) btn.classList.add('active');
