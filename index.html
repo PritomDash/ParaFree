@@ -2178,6 +2178,7 @@ STRICT RULES:
 5. No ** bold markers. No ## heading markers. No * bullet markers.
 6. Keep ALL of these UNCHANGED: names, numbers, dates, technical terms, addresses, passport numbers, amounts, university names, company names, country names
 7. Only rephrase the sentence structure and word choice
+8. Do NOT ask questions. Do NOT request more information. Do NOT add commentary. Just paraphrase the text as given.
 
 Output must have same paragraph count as input. This is critical.`;
 
@@ -4395,28 +4396,27 @@ async function downloadAsPDF() {
       await downloadPDFFromDocx(originalDocxFile, originalDocxName, fullOutputText);
       return;
     }
-    // Fallback: jsPDF plain text
+    // Fallback: smart CV or plain text PDF
     if (typeof window.jspdf === 'undefined') {
       showStatus("PDF library is still loading. Please try again.", "error");
       return;
     }
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(12);
-    const lines = doc.splitTextToSize(fullOutputText, 180);
-    const lineH = 7;
-    const pageH = doc.internal.pageSize.height - 25;
-    let y = 20;
-    for (const line of lines) {
-      if (y > pageH) { doc.addPage(); y = 20; }
-      doc.text(line, 15, y);
-      y += lineH;
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageW = 210, pageH = 297, margin = 20, maxW = pageW - (margin * 2);
+    const isCV = /WORK EXPERIENCE|EDUCATION|PROFESSIONAL SUMMARY|SKILLS|EMPLOYMENT/i.test(fullOutputText);
+    if (isCV) {
+      renderCVPDF(pdf, fullOutputText, margin, maxW, pageW, pageH);
+    } else {
+      renderPlainPDF(pdf, fullOutputText, margin, maxW, pageW, pageH);
     }
-    const names = { paraphrase: 'paraphrased', humanize: 'humanized', summarize: 'summary', grammar: 'grammar_checked', detect: 'ai_detection' };
-    const base = pptxMode ? 'paraphrased_presentation' : (names[currentTool] || 'result');
-    doc.save(base + '.pdf');
-    showStatus("✓ PDF downloaded!", "success");
+    const origName = originalDocxName || '';
+    const toolNames = { paraphrase: 'paraphrased', humanize: 'humanized', summarize: 'summary', grammar: 'grammar_checked', detect: 'ai_detection' };
+    const baseName = origName
+      ? origName.replace(/\.[^.]+$/, '').replace(/\s+/g, '-') + '-paraphrased'
+      : (pptxMode ? 'paraphrased_presentation' : (toolNames[currentTool] || 'result'));
+    pdf.save(baseName + '.pdf');
+    showStatus('✓ PDF downloaded!', 'success');
   } finally {
     restoreDlBtn('downloadPDFBtn');
   }
@@ -4462,6 +4462,115 @@ function replaceHtmlText(html, newText) {
     paraIdx++;
     return open + newContent + close;
   });
+}
+
+function renderCVPDF(pdf, outputText, margin, maxW, pageW, pageH) {
+  const lines = outputText.split('\n');
+  const accent = [45, 106, 79]; // #2d6a4f
+  let y = margin;
+  let isFirstLine = true;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) { y += 4; continue; }
+    if (y > pageH - margin) { pdf.addPage(); y = margin; }
+
+    // Name — first non-empty line
+    if (isFirstLine) {
+      isFirstLine = false;
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(22);
+      pdf.setTextColor(26, 24, 20);
+      pdf.text(line, margin, y);
+      y += 10;
+      continue;
+    }
+
+    // Contact line (has @ or phone number or ·)
+    if (line.includes('@') || /\+\d/.test(line) || line.includes('·')) {
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(9);
+      pdf.setTextColor(107, 102, 96);
+      const split = pdf.splitTextToSize(line, maxW);
+      pdf.text(split, margin, y);
+      y += split.length * 4 + 4;
+      pdf.setDrawColor(...accent);
+      pdf.setLineWidth(0.8);
+      pdf.line(margin, y, pageW - margin, y);
+      y += 6;
+      continue;
+    }
+
+    // Section headings — ALL CAPS, not a bullet, not a date
+    if (line === line.toUpperCase() && line.length > 3 && !/^\d/.test(line) && !/^[•\-]/.test(line)) {
+      y += 4;
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(10);
+      pdf.setTextColor(...accent);
+      pdf.text(line, margin, y);
+      y += 2;
+      pdf.setDrawColor(...accent);
+      pdf.setLineWidth(0.5);
+      pdf.line(margin, y, pageW - margin, y);
+      y += 5;
+      continue;
+    }
+
+    // Job title line with dates (contains — or – and a year)
+    if (/[—–-]/.test(line) && /\d{4}/.test(line) && !line.startsWith('•')) {
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(11);
+      pdf.setTextColor(26, 24, 20);
+      const split = pdf.splitTextToSize(line, maxW);
+      pdf.text(split, margin, y);
+      y += split.length * 5;
+      continue;
+    }
+
+    // Company name — short line after a job title line (previous line had dates)
+    if (!line.startsWith('•') && !line.startsWith('-') && !/\d{4}/.test(line) &&
+        line.length < 50 && i > 0 && /[—–-]/.test(lines[i - 1] || '') && /\d{4}/.test(lines[i - 1] || '')) {
+      pdf.setFont('helvetica', 'italic');
+      pdf.setFontSize(10);
+      pdf.setTextColor(...accent);
+      pdf.text(line, margin, y);
+      y += 5;
+      continue;
+    }
+
+    // Bullet points
+    if (line.startsWith('•') || line.startsWith('-') || line.startsWith('*')) {
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(10);
+      pdf.setTextColor(55, 65, 81);
+      const bulletText = line.replace(/^[•\-*]\s*/, '');
+      const split = pdf.splitTextToSize('• ' + bulletText, maxW - 4);
+      pdf.text(split, margin + 2, y);
+      y += split.length * 4.5 + 1;
+      continue;
+    }
+
+    // Regular paragraph text
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(10);
+    pdf.setTextColor(55, 65, 81);
+    const split = pdf.splitTextToSize(line, maxW);
+    pdf.text(split, margin, y);
+    y += split.length * 4.5 + 2;
+  }
+}
+
+function renderPlainPDF(pdf, outputText, margin, maxW, pageW, pageH) {
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(11);
+  pdf.setTextColor(26, 24, 20);
+  const lines = pdf.splitTextToSize(outputText, maxW);
+  let y = margin;
+  for (const line of lines) {
+    if (y > pageH - margin) { pdf.addPage(); y = margin; }
+    pdf.text(line, margin, y);
+    y += 6;
+  }
 }
 
 // ════════════════════════════════════════════
