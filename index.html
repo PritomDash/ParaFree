@@ -119,6 +119,7 @@ window.addEventListener('load', () => {
   }
 });
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://unpkg.com/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
@@ -2243,7 +2244,46 @@ async function handleFileUpload(event) {
           hideStatus();
           showStatus('✓ PDF loaded — ' + words + ' words', 'success');
         } else {
-          showStatus("❌ This PDF has no selectable text. It may be a scanned image. Please copy and paste the text.", "error");
+          // No selectable text — scanned PDF. Try OCR via Tesseract.js.
+          showStatus('🔍 Scanned PDF detected. Running OCR... this may take 30–60 seconds.', 'info');
+          try {
+            let ocrText = '';
+            for (let i = 1; i <= pdf.numPages; i++) {
+              showStatus(`🔍 OCR: Reading page ${i} of ${pdf.numPages}...`, 'info');
+              const ocrPage = await pdf.getPage(i);
+              const viewport = ocrPage.getViewport({scale: 2.0});
+              const canvas = document.createElement('canvas');
+              const ctx = canvas.getContext('2d');
+              canvas.height = viewport.height;
+              canvas.width = viewport.width;
+              await ocrPage.render({canvasContext: ctx, viewport: viewport}).promise;
+              const imageData = canvas.toDataURL('image/png');
+              if (typeof Tesseract !== 'undefined') {
+                const result = await Tesseract.recognize(imageData, 'eng', {
+                  logger: m => {
+                    if (m.status === 'recognizing text') {
+                      showStatus(`🔍 OCR page ${i}: ${Math.round(m.progress * 100)}%`, 'info');
+                    }
+                  }
+                });
+                ocrText += result.data.text + '\n\n';
+              }
+              canvas.remove();
+            }
+            ocrText = ocrText.replace(/\n{3,}/g, '\n\n').trim();
+            if (ocrText.length > 20) {
+              document.getElementById("inputText").value = ocrText;
+              const ocrWords = countWords(ocrText);
+              document.getElementById("inputCount").textContent = ocrWords + ' words';
+              hideStatus();
+              showStatus('✓ PDF scanned with OCR — ' + ocrWords + ' words', 'success');
+            } else {
+              showStatus('❌ Could not read this PDF. Please copy and paste the text.', 'error');
+            }
+          } catch(ocrErr) {
+            console.error('OCR error:', ocrErr);
+            showStatus('❌ Could not read this PDF. Please copy and paste the text.', 'error');
+          }
         }
       } catch(err) {
         console.error('PDF read error:', err);
