@@ -2556,44 +2556,154 @@ async function downloadDOCX() {
   zip.file('_rels/.rels', '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
   zip.file('word/_rels/document.xml.rels', '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>');
 
-  const p = (text, bold, size, color) => {
-    const rPr = `<w:rPr>${bold?'<w:b/>':''}<w:sz w:val="${size||22}"/>${color?`<w:color w:val="${color}"/>`:''}` +
-      `<w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr>`;
-    return `<w:p><w:r>${rPr}<w:t xml:space="preserve">${escXml(text)}</w:t></w:r></w:p>`;
+  const accentHex = (window._cvAccentColor || '#2d6a4f').replace('#', '').toUpperCase();
+  const isSidebar = ['modern','professional','navy','purple'].includes(currentTemplate);
+  const isMinimal = ['minimal','academic'].includes(currentTemplate);
+
+  const para = (text, {bold=false,size=22,color='2A2A2A',italic=false,align='left',before=0,after=80,indent=0,fill=''}={}) => {
+    const shd = fill ? `<w:shd w:val="clear" w:color="auto" w:fill="${fill}"/>` : '';
+    const ind = indent ? `<w:ind w:left="${indent}"/>` : '';
+    return `<w:p><w:pPr>${shd}<w:jc w:val="${align}"/><w:spacing w:before="${before}" w:after="${after}"/>${ind}</w:pPr>` +
+      `<w:r><w:rPr>${bold?'<w:b/>':''}${italic?'<w:i/>':''}<w:sz w:val="${size}"/>` +
+      `<w:color w:val="${color}"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr>` +
+      `<w:t xml:space="preserve">${escXml(text)}</w:t></w:r></w:p>`;
   };
-  const hdr = (text) => `<w:p><w:pPr><w:spacing w:before="160" w:after="80"/><w:jc w:val="left"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="22"/><w:color w:val="2D6A4F"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t>${escXml(text.toUpperCase())}</w:t></w:r></w:p><w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="4" w:space="1" w:color="2D6A4F"/></w:pBdr><w:spacing w:after="80"/></w:pPr></w:p>`;
-  const bul = (text) => `<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:after="60"/></w:pPr><w:r><w:rPr><w:sz w:val="20"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t xml:space="preserve">• ${escXml(text.replace(/^[•\-]\s*/,''))}</w:t></w:r></w:p>`;
+
+  const hdr = (text, light=false) => {
+    const c = light ? 'FFFFFF' : accentHex;
+    return `<w:p><w:pPr><w:spacing w:before="160" w:after="80"/>` +
+      `<w:pBdr><w:bottom w:val="single" w:sz="4" w:space="1" w:color="${c}"/></w:pBdr></w:pPr>` +
+      `<w:r><w:rPr><w:b/><w:sz w:val="22"/><w:color w:val="${c}"/>` +
+      `<w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t>${escXml(text.toUpperCase())}</w:t></w:r></w:p>`;
+  };
+
+  const bul = (text) => `<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:after="60"/></w:pPr>` +
+    `<w:r><w:rPr><w:sz w:val="20"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr>` +
+    `<w:t xml:space="preserve">• ${escXml(text.replace(/^[•\-]\s*/,''))}</w:t></w:r></w:p>`;
 
   let body = '';
-  body += `<w:p><w:r><w:rPr><w:b/><w:sz w:val="44"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t>${escXml(d.name||'Your Name')}</w:t></w:r></w:p>`;
-  if (d.title) body += p(d.title, false, 26, '2D6A4F');
-  const cp = [d.email,d.phone,d.location,d.linkedin].filter(Boolean);
-  if (cp.length) body += p(cp.join(' · '), false, 18, '6B6660');
-  body += '<w:p/>';
-  if (d.summary) { body += hdr('Professional Summary'); body += p(d.summary); body += '<w:p/>'; }
-  const exps = d.experience.filter(e=>e.role||e.company);
-  if (exps.length) {
-    body += hdr('Work Experience');
-    exps.forEach(e => {
-      const dates = [e.start,e.end].filter(Boolean).join(' – ');
-      body += p(`${e.role||''}${dates?' — '+dates:''}`, true, 22);
-      if (e.company) body += p(e.company, false, 20, '6B6660');
-      if (e.bullets) e.bullets.split('\n').filter(b=>b.trim()).forEach(b => { body += bul(b); });
-      body += '<w:p/>';
-    });
+
+  if (isSidebar) {
+    const cp = [d.email,d.phone,d.location,d.linkedin].filter(Boolean);
+    let L = '';
+    L += para(d.name||'Your Name', {bold:true,size:28,color:'FFFFFF',after:80});
+    if (d.title) L += para(d.title, {size:20,color:'E8F5E9',after:120});
+    if (cp.length) {
+      L += hdr('Contact', true);
+      cp.forEach(c => { L += para(c, {size:18,color:'E8F5E9',after:40}); });
+      L += '<w:p/>';
+    }
+    if (d.skills) {
+      L += hdr('Skills', true);
+      d.skills.split(',').map(s=>s.trim()).filter(Boolean).forEach(s => { L += para('• '+s, {size:18,color:'E8F5E9',after:40}); });
+      L += '<w:p/>';
+    }
+    if (d.certs) { L += hdr('Certifications', true); L += para(d.certs, {size:18,color:'E8F5E9',after:40}); }
+
+    let R = '';
+    if (d.summary) { R += hdr('Professional Summary'); R += para(d.summary,{size:21,after:80}); R += '<w:p/>'; }
+    const exps = d.experience.filter(e=>e.role||e.company);
+    if (exps.length) {
+      R += hdr('Work Experience');
+      exps.forEach(e => {
+        const dates = [e.start,e.end].filter(Boolean).join(' – ');
+        R += para(`${e.role||''}${dates?' — '+dates:''}`, {bold:true,size:22,after:40});
+        if (e.company) R += para(e.company, {size:20,color:'6B6660',italic:true,after:40});
+        if (e.bullets) e.bullets.split('\n').filter(b=>b.trim()).forEach(b => { R += bul(b); });
+        R += '<w:p/>';
+      });
+    }
+    const edus = d.education.filter(e=>e.school||e.degree);
+    if (edus.length) {
+      R += hdr('Education');
+      edus.forEach(e => {
+        const dates = [e.start,e.end].filter(Boolean).join(' – ');
+        R += para(`${e.degree||''}${dates?' — '+dates:''}`, {bold:true,size:22,after:40});
+        if (e.school) R += para(e.school, {size:20,color:'6B6660',italic:true,after:40});
+        R += '<w:p/>';
+      });
+    }
+
+    body = `<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/>` +
+      `<w:tblBorders>` +
+      `<w:top w:val="none" w:sz="0" w:space="0" w:color="auto"/>` +
+      `<w:left w:val="none" w:sz="0" w:space="0" w:color="auto"/>` +
+      `<w:bottom w:val="none" w:sz="0" w:space="0" w:color="auto"/>` +
+      `<w:right w:val="none" w:sz="0" w:space="0" w:color="auto"/>` +
+      `<w:insideH w:val="none" w:sz="0" w:space="0" w:color="auto"/>` +
+      `<w:insideV w:val="none" w:sz="0" w:space="0" w:color="auto"/>` +
+      `</w:tblBorders>` +
+      `<w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:left w:w="360" w:type="dxa"/>` +
+      `<w:bottom w:w="0" w:type="dxa"/><w:right w:w="360" w:type="dxa"/></w:tblCellMar>` +
+      `</w:tblPr><w:tblGrid><w:gridCol w:w="2520"/><w:gridCol w:w="6390"/></w:tblGrid><w:tr>` +
+      `<w:tc><w:tcPr><w:tcW w:w="2520" w:type="dxa"/>` +
+      `<w:shd w:val="clear" w:color="auto" w:fill="${accentHex}"/></w:tcPr>${L}</w:tc>` +
+      `<w:tc><w:tcPr><w:tcW w:w="6390" w:type="dxa"/></w:tcPr>${R}</w:tc>` +
+      `</w:tr></w:tbl>`;
+
+  } else if (isMinimal) {
+    const cp = [d.email,d.phone,d.location,d.linkedin].filter(Boolean);
+    body += para(d.name||'Your Name', {bold:true,size:36,color:'1A1814',align:'center',after:60});
+    if (d.title) body += para(d.title, {size:22,color:accentHex,align:'center',after:40});
+    if (cp.length) body += para(cp.join(' · '), {size:18,color:'6B6660',align:'center',after:120});
+    body += `<w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="4" w:space="1" w:color="CCCCCC"/></w:pBdr><w:spacing w:after="80"/></w:pPr></w:p>`;
+    if (d.summary) { body += hdr('Profile'); body += para(d.summary,{size:21,after:80}); body += '<w:p/>'; }
+    const exps = d.experience.filter(e=>e.role||e.company);
+    if (exps.length) {
+      body += hdr('Experience');
+      exps.forEach(e => {
+        const dates = [e.start,e.end].filter(Boolean).join(' – ');
+        body += para(`${e.role||''}${dates?' — '+dates:''}`, {bold:true,size:22,after:40});
+        if (e.company) body += para(e.company,{size:20,color:'6B6660',italic:true,after:40});
+        if (e.bullets) e.bullets.split('\n').filter(b=>b.trim()).forEach(b=>{ body += bul(b); });
+        body += '<w:p/>';
+      });
+    }
+    const edus = d.education.filter(e=>e.school||e.degree);
+    if (edus.length) {
+      body += hdr('Education');
+      edus.forEach(e => {
+        const dates = [e.start,e.end].filter(Boolean).join(' – ');
+        body += para(`${e.degree||''}${dates?' — '+dates:''}`, {bold:true,size:22,after:40});
+        if (e.school) body += para(e.school,{size:20,color:'6B6660',italic:true,after:40});
+        body += '<w:p/>';
+      });
+    }
+    if (d.skills) { body += hdr('Skills'); body += para(d.skills,{size:21,after:80}); }
+    if (d.certs) { body += hdr('Certifications'); body += para(d.certs,{size:21}); }
+
+  } else {
+    // Classic / Executive / Bold / etc. — colored header band
+    body += para(d.name||'Your Name', {bold:true,size:44,color:'FFFFFF',fill:accentHex,before:200,after:60});
+    if (d.title) body += para(d.title, {size:24,color:'FFFFFF',fill:accentHex,after:200});
+    const cp = [d.email,d.phone,d.location,d.linkedin].filter(Boolean);
+    if (cp.length) body += para(cp.join(' · '), {size:18,color:'6B6660',after:120});
+    body += '<w:p/>';
+    if (d.summary) { body += hdr('Professional Summary'); body += para(d.summary,{size:21,after:80}); body += '<w:p/>'; }
+    const exps = d.experience.filter(e=>e.role||e.company);
+    if (exps.length) {
+      body += hdr('Work Experience');
+      exps.forEach(e => {
+        const dates = [e.start,e.end].filter(Boolean).join(' – ');
+        body += para(`${e.role||''}${dates?' — '+dates:''}`, {bold:true,size:22,after:40});
+        if (e.company) body += para(e.company,{size:20,color:accentHex,after:40});
+        if (e.bullets) e.bullets.split('\n').filter(b=>b.trim()).forEach(b=>{ body += bul(b); });
+        body += '<w:p/>';
+      });
+    }
+    const edus = d.education.filter(e=>e.school||e.degree);
+    if (edus.length) {
+      body += hdr('Education');
+      edus.forEach(e => {
+        const dates = [e.start,e.end].filter(Boolean).join(' – ');
+        body += para(`${e.degree||''}${dates?' — '+dates:''}`, {bold:true,size:22,after:40});
+        if (e.school) body += para(e.school,{size:20,color:'6B6660',after:40});
+        body += '<w:p/>';
+      });
+    }
+    if (d.skills) { body += hdr('Skills'); body += para(d.skills,{size:21,after:80}); }
+    if (d.certs) { body += hdr('Certifications'); body += para(d.certs,{size:21}); }
   }
-  const edus = d.education.filter(e=>e.school||e.degree);
-  if (edus.length) {
-    body += hdr('Education');
-    edus.forEach(e => {
-      const dates = [e.start,e.end].filter(Boolean).join(' – ');
-      body += p(`${e.degree||''}${dates?' — '+dates:''}`, true, 22);
-      if (e.school) body += p(e.school, false, 20, '6B6660');
-      body += '<w:p/>';
-    });
-  }
-  if (d.skills) { body += hdr('Skills'); body += p(d.skills); body += '<w:p/>'; }
-  if (d.certs)  { body += hdr('Certifications'); body += p(d.certs); }
 
   zip.file('word/document.xml', `<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body}<w:sectPr><w:pgSz w:w="11906" w:h="16838" w:orient="portrait"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="709" w:footer="709" w:gutter="0"/></w:sectPr></w:body></w:document>`);
 
