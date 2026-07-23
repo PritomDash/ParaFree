@@ -1,8 +1,20 @@
 {
   "version": 2,
+  "cleanUrls": true,
+  "trailingSlash": false,
   "functions": {
     "api/process.js": {
       "maxDuration": 60
     }
-  }
+  },
+  "routes": [
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "status": 404,
+      "dest": "/404.html"
+    }
+  ]
 }
