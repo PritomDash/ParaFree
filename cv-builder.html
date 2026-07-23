@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Free CV Builder — 36 Templates, No Watermark | ParaFree</title>
+<title>Free CV Builder — 50+ Templates, No Watermark | ParaFree</title>
 <meta name="description" content="Build a professional CV free with 36 premium templates, AI-written bullet points, cover letters, and job matching. Like Canva but 100% free — no signup, no watermark, PDF &amp; Word download.">
 <meta name="keywords" content="free cv builder, free resume builder, free cv builder no signup, free resume builder unlimited, ats resume checker free, job match analyzer free, ai resume builder free, free cv maker no watermark, free cover letter generator, resume builder no watermark, cv builder australia free, free resume templates, ats friendly resume builder free, resume score checker free, job description match checker free, free cv builder for students, unlimited resume downloads free, cv builder unlimited free, resume keyword optimizer free, free cv templates download, ai cv writer free, cv improver free, upload cv improve free, cv builder free 2026, resume builder free 2026, free cv maker australia, free resume maker india, free cv builder bangladesh, ats friendly cv free, job application tools free, career tools free, free professional cv builder, resume templates free 2026">
 <meta name="robots" content="index, follow">
@@ -11,7 +11,7 @@
 <meta name="author" content="ParaFree">
 <meta property="og:locale" content="en_AU">
 <meta name="category" content="Career Tools, CV Builder, Resume Builder">
-<meta property="og:title" content="Free CV Builder Like Canva — 36 Templates, AI Writing, No Watermark | ParaFree">
+<meta property="og:title" content="Free CV Builder Like Canva — 50+ Templates, AI Writing, No Watermark | ParaFree">
 <meta property="og:description" content="Build a professional CV free with 36 premium templates, AI-written bullet points, cover letters, and job matching. No signup, no watermark.">
 <meta property="og:url" content="https://parafree.app/cv-builder.html">
 <meta property="og:type" content="website">
@@ -19,8 +19,8 @@
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Free CV Builder — 36 Templates, No Watermark | ParaFree">
-<meta name="twitter:description" content="Build a professional CV free. 36 templates, AI writing, no watermark, no signup.">
+<meta name="twitter:title" content="Free CV Builder — 50+ Templates, No Watermark | ParaFree">
+<meta name="twitter:description" content="Build a professional CV free. 50+ templates, AI writing, no watermark, no signup.">
 <meta name="twitter:image" content="https://parafree.app/og-image.png">
 <script type="application/ld+json">
 [
@@ -749,7 +749,7 @@ nav div a:hover::after { width: 100%; }
 </nav>
 
 <div class="cv-hero">
-  <h1>Free CV Builder — 36 Templates, AI Writing, No Watermark</h1>
+  <h1>Free CV Builder — 50+ Templates, AI Writing, No Watermark</h1>
   <p>Build a professional CV in minutes. Like Canva but 100% free — AI writes your bullet points, generates a cover letter, and links you to matching jobs.</p>
   <div class="hero-badges">
     <span class="hero-badge">✓ No Signup</span>
@@ -2256,7 +2256,22 @@ const RENDER_MAP = {
   'modern-photo': d => renderModernPhoto(toPremium(d)),
   'color-sidebar': d => renderColorSidebar(toPremium(d)),
   'top-strip': d => renderTopStrip(toPremium(d)),
-  'photo-left': d => renderPhotoLeft(toPremium(d))
+  'photo-left': d => renderPhotoLeft(toPremium(d)),
+  'midnight': d => renderMidnight(toPremium(d)),
+  'blush': d => renderBlush(toPremium(d)),
+  'monogram': d => renderMonogram(toPremium(d)),
+  'swiss': d => renderSwiss(toPremium(d)),
+  'slate-premium': d => renderSlatePremium(toPremium(d)),
+  'terra': d => renderTerra(toPremium(d)),
+  'metro': d => renderMetro(toPremium(d)),
+  'ivory': d => renderIvory(toPremium(d)),
+  'circuit': d => renderCircuit(toPremium(d)),
+  'aurora': d => renderAurora(toPremium(d)),
+  'ledger': d => renderLedger(toPremium(d)),
+  'prism': d => renderPrism(toPremium(d)),
+  'haven': d => renderHaven(toPremium(d)),
+  'vertex': d => renderVertex(toPremium(d)),
+  'standard-plus': d => renderStandardPlus(toPremium(d))
 };
 
 function updatePreview() {
@@ -2276,7 +2291,7 @@ function updatePreview() {
   const renderer = RENDER_MAP[currentTemplate] || renderClassic;
   wrap.className = 'preview-wrap tpl-' + currentTemplate;
   preview.innerHTML = renderer(d);
-  const premiumTpls = new Set(['exec-pro','modern-blue','minimal-serif','bold-tech','elegant-gold','modern-minimal','vibrant-purple','creative-split','timeline-cv','skill-bubbles','gradient-header','two-tone','newspaper','corner-accent','border-frame','modern-photo','color-sidebar','top-strip','photo-left']);
+  const premiumTpls = new Set(['exec-pro','modern-blue','minimal-serif','bold-tech','elegant-gold','modern-minimal','vibrant-purple','creative-split','timeline-cv','skill-bubbles','gradient-header','two-tone','newspaper','corner-accent','border-frame','modern-photo','color-sidebar','top-strip','photo-left','midnight','blush','monogram','swiss','slate-premium','terra','metro','ivory','circuit','aurora','ledger','prism','haven','vertex','standard-plus']);
   if (!premiumTpls.has(currentTemplate)) {
     const extraHtml = renderExtraSections();
     if (extraHtml) {
@@ -2614,8 +2629,8 @@ async function downloadDOCX() {
   zip.file('word/_rels/document.xml.rels', '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>');
 
   const accentHex = (window._cvAccentColor || '#2d6a4f').replace('#', '').toUpperCase();
-  const isSidebar = ['modern','professional','navy','purple'].includes(currentTemplate);
-  const isMinimal = ['minimal','academic'].includes(currentTemplate);
+  const isSidebar = ['modern','professional','navy','purple','midnight','slate-premium','vertex'].includes(currentTemplate);
+  const isMinimal = ['minimal','academic','swiss','ivory','standard-plus','ledger'].includes(currentTemplate);
 
   const para = (text, {bold=false,size=22,color='2A2A2A',italic=false,align='left',before=0,after=80,indent=0,fill=''}={}) => {
     const shd = fill ? `<w:shd w:val="clear" w:color="auto" w:fill="${fill}"/>` : '';
@@ -4107,6 +4122,520 @@ function renderPhotoLeft(data) {
   </div>`;
 }
 
+// ── NEW: Midnight ──
+function renderMidnight(data) {
+  const accent = window._cvAccentColor || '#0d2137';
+  const font = window._cvFont || 'Calibri, Arial, sans-serif';
+  const photo = data.photoData || cvPhotoData;
+  const skills = (data.skills || '').split(',').map(s => s.trim()).filter(Boolean);
+  const sw = [90,82,78,95,70,85,75,88,72,80,92,68];
+  const exp = data.experience || []; const edu = data.education || [];
+  const langs = data.languages || []; const certs = data.certifications || '';
+  const mSec = t => `<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${accent};border-bottom:2px solid ${accent};padding-bottom:5px;margin:16px 0 9px;">${t}</div>`;
+  return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:white;display:grid;grid-template-columns:270px 524px;overflow:hidden;">
+    <div style="background:${accent};padding:28px 18px 24px;box-sizing:border-box;color:white;overflow:hidden;">
+      ${photo ? `<div style="margin:0 auto 16px;width:108px;height:108px;border-radius:10px;overflow:hidden;border:3px solid rgba(255,255,255,0.22);"><img src="${photo}" style="width:108px;height:108px;object-fit:cover;display:block;"></div>` : `<div style="margin:0 auto 16px;width:108px;height:108px;border-radius:10px;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:700;color:rgba(255,255,255,0.3);">${esc((data.name||'?').charAt(0))}</div>`}
+      <div style="font-size:15px;font-weight:700;color:white;text-align:center;line-height:1.2;margin-bottom:3px;">${esc(data.name||'Your Name')}</div>
+      ${data.title?`<div style="font-size:9.5px;color:rgba(255,255,255,0.55);text-align:center;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:16px;">${esc(data.title)}</div>`:'<div style="margin-bottom:16px;"></div>'}
+      <div style="border-top:1px solid rgba(255,255,255,0.14);padding-top:14px;margin-bottom:12px;">
+        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:rgba(255,255,255,0.4);margin-bottom:9px;">Contact</div>
+        ${data.email?`<div style="font-size:10.5px;color:rgba(255,255,255,0.82);margin-bottom:6px;word-break:break-all;">${esc(data.email)}</div>`:''}
+        ${data.phone?`<div style="font-size:10.5px;color:rgba(255,255,255,0.82);margin-bottom:6px;">${esc(data.phone)}</div>`:''}
+        ${data.location?`<div style="font-size:10.5px;color:rgba(255,255,255,0.82);margin-bottom:6px;">${esc(data.location)}</div>`:''}
+        ${data.linkedin?`<div style="font-size:10px;color:rgba(255,255,255,0.6);margin-bottom:6px;word-break:break-all;">${esc(data.linkedin)}</div>`:''}
+      </div>
+      ${skills.length?`<div style="border-top:1px solid rgba(255,255,255,0.14);padding-top:12px;margin-bottom:12px;">
+        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:rgba(255,255,255,0.4);margin-bottom:10px;">Skills</div>
+        ${skills.slice(0,10).map((s,i)=>`<div style="margin-bottom:8px;"><div style="font-size:10.5px;color:rgba(255,255,255,0.85);margin-bottom:3px;">${esc(s)}</div><div style="background:rgba(255,255,255,0.15);border-radius:3px;height:3px;"><div style="height:3px;width:${sw[i%sw.length]}%;background:rgba(255,255,255,0.8);border-radius:3px;"></div></div></div>`).join('')}
+      </div>`:''}
+      ${langs.length?`<div style="border-top:1px solid rgba(255,255,255,0.14);padding-top:12px;margin-bottom:12px;">
+        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:rgba(255,255,255,0.4);margin-bottom:8px;">Languages</div>
+        ${langs.map(l=>`<div style="display:flex;justify-content:space-between;margin-bottom:5px;"><span style="font-size:10.5px;color:rgba(255,255,255,0.85);">${esc(l.language)}</span><span style="font-size:10px;color:rgba(255,255,255,0.45);">${esc(l.level)}</span></div>`).join('')}
+      </div>`:''}
+      ${certs?`<div style="border-top:1px solid rgba(255,255,255,0.14);padding-top:12px;"><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:rgba(255,255,255,0.4);margin-bottom:7px;">Certifications</div><div style="font-size:10.5px;color:rgba(255,255,255,0.72);line-height:1.7;">${esc(certs).replace(/\n/g,'<br>')}</div></div>`:''}
+    </div>
+    <div style="padding:30px 26px 24px;box-sizing:border-box;overflow:hidden;">
+      ${data.summary?`${mSec('Profile')}<div style="font-size:12.5px;color:#374151;line-height:1.75;">${esc(data.summary)}</div>`:''}
+      ${exp.length?`${mSec('Work Experience')}${exp.map(e=>`<div style="margin-bottom:13px;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13px;font-weight:700;color:#1a1814;">${esc(e.title||'')}</span><span style="font-size:11px;color:#9e9890;white-space:nowrap;">${[e.startDate,e.endDate].filter(Boolean).join(' – ')}</span></div><div style="font-size:12px;color:${accent};font-weight:600;margin-bottom:3px;">${esc(e.company||'')}</div>${e.bullets&&e.bullets.length?`<ul style="margin:0;padding-left:13px;">${e.bullets.map(b=>`<li style="font-size:12px;color:#374151;line-height:1.5;margin-bottom:2px;">${esc(b)}</li>`).join('')}</ul>`:''}</div>`).join('')}`:''}
+      ${edu.length?`${mSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</span><span style="font-size:11px;color:#9e9890;">${esc(e.endYear||'')}</span></div><div style="font-size:12px;color:${accent};font-weight:600;">${esc(e.school||'')}</div></div>`).join('')}`:''}
+    </div>
+  </div>`;
+}
+
+// ── NEW: Blush ──
+function renderBlush(data) {
+  const accent = window._cvAccentColor || '#c9748a';
+  const font = window._cvFont || 'Georgia, serif';
+  const photo = data.photoData || cvPhotoData;
+  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const exp = data.experience||[]; const edu = data.education||[];
+  const langs = data.languages||[]; const certs = data.certifications||'';
+  const div = `<div style="border-top:1px solid ${accent}35;margin:13px 0;"></div>`;
+  const bSec = t => `<div style="font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:${accent};margin-bottom:9px;">${t}</div>`;
+  return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:#fffdf9;color:#2c2c2c;overflow:hidden;position:relative;">
+    <div style="background:${accent}1a;padding:32px 50px 22px;border-bottom:1.5px solid ${accent}30;display:flex;align-items:center;gap:22px;">
+      ${photo?`<img src="${photo}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid ${accent}45;flex-shrink:0;">`:''}
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:30px;font-weight:700;color:#1a1814;letter-spacing:-0.5px;line-height:1.1;">${esc(data.name||'Your Name')}</div>
+        ${data.title?`<div style="font-size:13px;color:${accent};font-style:italic;margin-top:4px;">${esc(data.title)}</div>`:''}
+        <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:9px;font-size:11px;color:#6b6660;">${[data.email,data.phone,data.location,data.linkedin].filter(Boolean).map(c=>`<span>${esc(c)}</span>`).join('<span style="color:#ddd;"> · </span>')}</div>
+      </div>
+    </div>
+    <div style="padding:20px 50px 30px;box-sizing:border-box;">
+      ${data.summary?`${div}<div style="font-size:12.5px;line-height:1.82;color:#444;font-style:italic;">${esc(data.summary)}</div>${div}`:div}
+      ${exp.length?`<div style="margin-bottom:16px;">${bSec('Experience')}${exp.map(e=>`<div style="margin-bottom:13px;padding-left:13px;border-left:2px solid ${accent}30;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;"><span style="font-size:13.5px;font-weight:700;color:#1a1814;">${esc(e.title||'')}</span><span style="font-size:11px;color:#9e9890;font-style:italic;">${[e.startDate,e.endDate].filter(Boolean).join(' – ')}</span></div><div style="font-size:12px;color:${accent};margin-bottom:4px;">${esc(e.company||'')}</div>${e.bullets&&e.bullets.length?`<ul style="margin:0;padding-left:12px;">${e.bullets.map(b=>`<li style="font-size:12px;color:#555;line-height:1.6;margin-bottom:2px;">${esc(b)}</li>`).join('')}</ul>`:''}</div>`).join('')}</div>`:''}
+      ${div}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px;">
+        ${edu.length?`<div>${bSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;"><div style="font-size:13px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</div><div style="font-size:11.5px;color:#777;font-style:italic;">${esc(e.school||'')}${e.endYear?' · '+esc(e.endYear):''}</div></div>`).join('')}</div>`:''}
+        <div>
+          ${skills.length?`<div style="margin-bottom:13px;">${bSec('Skills')}<div style="display:flex;flex-wrap:wrap;gap:5px;">${skills.map(s=>`<span style="background:${accent}1a;color:${accent};border:1px solid ${accent}30;border-radius:20px;padding:3px 10px;font-size:11px;">${esc(s)}</span>`).join('')}</div></div>`:''}
+          ${langs.length?`<div style="margin-bottom:12px;">${bSec('Languages')}${langs.map(l=>`<div style="font-size:11.5px;color:#555;margin-bottom:4px;">${esc(l.language)}${l.level?` — <em>${esc(l.level)}</em>`:''}</div>`).join('')}</div>`:''}
+          ${certs?`${bSec('Certifications')}<div style="font-size:11.5px;color:#555;line-height:1.7;">${esc(certs).replace(/\n/g,'<br>')}</div>`:''}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── NEW: Monogram ──
+function renderMonogram(data) {
+  const accent = window._cvAccentColor || '#2d6a4f';
+  const font = window._cvFont || 'Calibri, Arial, sans-serif';
+  const photo = data.photoData || cvPhotoData;
+  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const exp = data.experience||[]; const edu = data.education||[];
+  const langs = data.languages||[]; const certs = data.certifications||'';
+  const initials = (data.name||'YN').split(' ').map(w=>w.charAt(0)).slice(0,2).join('');
+  const mSec = t => `<div style="display:flex;align-items:center;gap:9px;margin:16px 0 9px;"><div style="width:3px;height:17px;background:${accent};border-radius:2px;"></div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.8px;color:#1a1814;">${t}</div></div>`;
+  return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:white;padding:38px 48px 30px;box-sizing:border-box;color:#2c2c2c;overflow:hidden;">
+    <div style="display:flex;align-items:center;gap:18px;margin-bottom:26px;padding-bottom:22px;border-bottom:1.5px solid #e2ddd4;">
+      ${photo?`<img src="${photo}" style="width:74px;height:74px;border-radius:50%;object-fit:cover;border:3px solid ${accent}28;flex-shrink:0;">`:`<div style="width:70px;height:70px;border-radius:50%;background:${accent}12;border:2.5px solid ${accent};display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:${accent};flex-shrink:0;">${esc(initials)}</div>`}
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:27px;font-weight:700;color:#1a1814;letter-spacing:-0.5px;line-height:1.1;">${esc(data.name||'Your Name')}</div>
+        ${data.title?`<div style="font-size:13px;color:${accent};font-weight:600;margin-top:4px;">${esc(data.title)}</div>`:''}
+        <div style="display:flex;flex-wrap:wrap;gap:11px;margin-top:8px;font-size:11px;color:#6b6660;">${[data.email,data.phone,data.location,data.linkedin].filter(Boolean).map(c=>`<span>${esc(c)}</span>`).join('<span style="color:#d4d0cb;">|</span>')}</div>
+      </div>
+    </div>
+    ${data.summary?`${mSec('Professional Summary')}<div style="font-size:12.5px;color:#374151;line-height:1.78;padding-left:12px;">${esc(data.summary)}</div>`:''}
+    ${exp.length?`${mSec('Work Experience')}${exp.map(e=>`<div style="margin-bottom:13px;padding-left:12px;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13.5px;font-weight:700;color:#1a1814;">${esc(e.title||'')}</span><span style="font-size:11px;color:#9e9890;white-space:nowrap;">${[e.startDate,e.endDate].filter(Boolean).join(' – ')}</span></div><div style="font-size:12px;color:${accent};font-weight:600;margin-bottom:3px;">${esc(e.company||'')}</div>${e.bullets&&e.bullets.length?`<ul style="margin:0;padding-left:13px;">${e.bullets.map(b=>`<li style="font-size:12px;color:#374151;line-height:1.55;margin-bottom:2px;">${esc(b)}</li>`).join('')}</ul>`:''}</div>`).join('')}`:''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:4px;">
+      ${edu.length?`<div>${mSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;padding-left:12px;"><div style="font-size:13px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</div><div style="font-size:11.5px;color:${accent};">${esc(e.school||'')}</div><div style="font-size:11px;color:#9e9890;">${esc(e.endYear||'')}</div></div>`).join('')}</div>`:''}
+      <div>
+        ${skills.length?`${mSec('Skills')}<div style="padding-left:12px;display:flex;flex-wrap:wrap;gap:5px;margin-bottom:11px;">${skills.map(s=>`<span style="background:${accent}10;color:${accent};border:1px solid ${accent}25;border-radius:4px;padding:3px 9px;font-size:11px;font-weight:600;">${esc(s)}</span>`).join('')}</div>`:''}
+        ${langs.length?`${mSec('Languages')}${langs.map(l=>`<div style="padding-left:12px;font-size:11.5px;color:#444;margin-bottom:4px;">${esc(l.language)}${l.level?` <span style="color:#9e9890;">· ${esc(l.level)}</span>`:''}</div>`).join('')}`:''}
+        ${certs?`${mSec('Certifications')}<div style="padding-left:12px;font-size:12px;color:#374151;line-height:1.7;">${esc(certs).replace(/\n/g,'<br>')}</div>`:''}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── NEW: Swiss ──
+function renderSwiss(data) {
+  const accent = window._cvAccentColor || '#cc0000';
+  const font = window._cvFont || 'Arial, Helvetica, sans-serif';
+  const photo = data.photoData || cvPhotoData;
+  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const exp = data.experience||[]; const edu = data.education||[];
+  const langs = data.languages||[]; const certs = data.certifications||'';
+  const swSec = t => `<div style="display:flex;align-items:center;gap:11px;margin:20px 0 9px;"><div style="width:26px;height:2px;background:${accent};flex-shrink:0;"></div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:3px;color:#1a1814;">${t}</div></div>`;
+  return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:white;padding:50px 58px 38px;box-sizing:border-box;color:#1a1814;overflow:hidden;">
+    <div style="margin-bottom:8px;">
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:44px;font-weight:900;color:#1a1814;letter-spacing:-2px;line-height:0.92;">${esc(data.name||'Your Name')}</div>
+          ${data.title?`<div style="font-size:13px;color:#6b6660;margin-top:8px;">${esc(data.title)}</div>`:''}
+        </div>
+        ${photo?`<img src="${photo}" style="width:70px;height:70px;border-radius:3px;object-fit:cover;flex-shrink:0;">`:''}
+      </div>
+      <div style="height:2px;background:${accent};margin:13px 0 9px;"></div>
+      <div style="display:flex;flex-wrap:wrap;gap:14px;font-size:11px;color:#6b6660;">${[data.email,data.phone,data.location,data.linkedin].filter(Boolean).map(c=>`<span>${esc(c)}</span>`).join('<span style="color:#d4d0cb;"> / </span>')}</div>
+    </div>
+    ${data.summary?`${swSec('Profile')}<div style="font-size:12.5px;color:#374151;line-height:1.8;">${esc(data.summary)}</div>`:''}
+    ${exp.length?`${swSec('Experience')}${exp.map(e=>`<div style="margin-bottom:13px;display:grid;grid-template-columns:125px 1fr;gap:15px;"><div style="font-size:11px;color:#9e9890;padding-top:2px;text-align:right;line-height:1.6;">${[e.startDate,e.endDate].filter(Boolean).join('<br>')}</div><div><div style="font-size:13.5px;font-weight:700;color:#1a1814;">${esc(e.title||'')}</div><div style="font-size:12px;color:#6b6660;margin-bottom:3px;">${esc(e.company||'')}</div>${e.bullets&&e.bullets.length?`<ul style="margin:0;padding-left:13px;">${e.bullets.map(b=>`<li style="font-size:12px;color:#374151;line-height:1.55;margin-bottom:2px;">${esc(b)}</li>`).join('')}</ul>`:''}</div></div>`).join('')}`:''}
+    ${edu.length?`${swSec('Education')}${edu.map(e=>`<div style="display:grid;grid-template-columns:125px 1fr;gap:15px;margin-bottom:9px;"><div style="font-size:11px;color:#9e9890;text-align:right;">${esc(e.endYear||'')}</div><div><div style="font-size:13px;font-weight:700;">${esc(e.degree||'')}</div><div style="font-size:11.5px;color:#6b6660;">${esc(e.school||'')}</div></div></div>`).join('')}`:''}
+    ${skills.length?`${swSec('Skills')}<div style="font-size:12px;color:#374151;line-height:2;">${skills.map(s=>esc(s)).join(' &nbsp;·&nbsp; ')}</div>`:''}
+    ${langs.length?`${swSec('Languages')}<div style="display:flex;flex-wrap:wrap;gap:16px;">${langs.map(l=>`<span style="font-size:12px;color:#374151;">${esc(l.language)}${l.level?` <span style="color:#9e9890;">(${esc(l.level)})</span>`:''}</span>`).join('')}</div>`:''}
+    ${certs?`${swSec('Certifications')}<div style="font-size:12px;color:#374151;line-height:1.7;">${esc(certs).replace(/\n/g,'<br>')}</div>`:''}
+  </div>`;
+}
+
+// ── NEW: Slate ──
+function renderSlatePremium(data) {
+  const accent = window._cvAccentColor || '#37474f';
+  const font = window._cvFont || 'Calibri, Arial, sans-serif';
+  const photo = data.photoData || cvPhotoData;
+  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const exp = data.experience||[]; const edu = data.education||[];
+  const langs = data.languages||[]; const certs = data.certifications||'';
+  const slSec = t => `<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${accent};border-bottom:1.5px solid ${accent}38;padding-bottom:4px;margin:16px 0 9px;">${t}</div>`;
+  return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:white;overflow:hidden;">
+    <div style="background:${accent};padding:32px 42px 26px;color:white;display:flex;align-items:center;gap:20px;">
+      ${photo?`<img src="${photo}" style="width:88px;height:88px;border-radius:50%;object-fit:cover;border:3px solid rgba(255,255,255,0.28);flex-shrink:0;">`:''}
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:29px;font-weight:700;color:white;letter-spacing:-0.5px;line-height:1.1;">${esc(data.name||'Your Name')}</div>
+        ${data.title?`<div style="font-size:13px;color:rgba(255,255,255,0.72);margin-top:4px;font-weight:500;">${esc(data.title)}</div>`:''}
+        <div style="display:flex;flex-wrap:wrap;gap:13px;margin-top:9px;font-size:11px;color:rgba(255,255,255,0.68);">${[data.email,data.phone,data.location,data.linkedin].filter(Boolean).map(c=>`<span>${esc(c)}</span>`).join('')}</div>
+      </div>
+    </div>
+    <div style="padding:20px 42px 30px;display:grid;grid-template-columns:1fr 225px;gap:22px;box-sizing:border-box;">
+      <div>
+        ${data.summary?`${slSec('Profile')}<div style="font-size:12.5px;color:#374151;line-height:1.78;">${esc(data.summary)}</div>`:''}
+        ${exp.length?`${slSec('Work Experience')}${exp.map(e=>`<div style="margin-bottom:13px;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13.5px;font-weight:700;color:#1a1814;">${esc(e.title||'')}</span><span style="font-size:11px;color:#9e9890;white-space:nowrap;">${[e.startDate,e.endDate].filter(Boolean).join(' – ')}</span></div><div style="font-size:12px;color:${accent};font-weight:600;margin-bottom:3px;">${esc(e.company||'')}</div>${e.bullets&&e.bullets.length?`<ul style="margin:0;padding-left:13px;">${e.bullets.map(b=>`<li style="font-size:12px;color:#374151;line-height:1.55;margin-bottom:2px;">${esc(b)}</li>`).join('')}</ul>`:''}</div>`).join('')}`:''}
+      </div>
+      <div>
+        ${edu.length?`${slSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;"><div style="font-size:12.5px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</div><div style="font-size:11.5px;color:${accent};">${esc(e.school||'')}</div><div style="font-size:11px;color:#9e9890;">${esc(e.endYear||'')}</div></div>`).join('')}`:''}
+        ${skills.length?`${slSec('Skills')}<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px;">${skills.map(s=>`<span style="background:${accent}10;color:${accent};border:1px solid ${accent}25;border-radius:4px;padding:3px 8px;font-size:11px;font-weight:600;">${esc(s)}</span>`).join('')}</div>`:''}
+        ${langs.length?`${slSec('Languages')}${langs.map(l=>`<div style="font-size:11.5px;color:#444;margin-bottom:4px;">${esc(l.language)}${l.level?` <span style="color:#9e9890;">· ${esc(l.level)}</span>`:''}</div>`).join('')}`:''}
+        ${certs?`${slSec('Certifications')}<div style="font-size:11px;color:#374151;line-height:1.7;">${esc(certs).replace(/\n/g,'<br>')}</div>`:''}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── NEW: Terra ──
+function renderTerra(data) {
+  const accent = window._cvAccentColor || '#b5541c';
+  const font = window._cvFont || 'Georgia, serif';
+  const photo = data.photoData || cvPhotoData;
+  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const exp = data.experience||[]; const edu = data.education||[];
+  const langs = data.languages||[]; const certs = data.certifications||'';
+  const tCard = c => `<div style="background:#fdf8f4;border:1px solid ${accent}20;border-radius:10px;padding:14px 18px;margin-bottom:12px;">${c}</div>`;
+  const tSec = t => `<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2.5px;color:${accent};margin-bottom:10px;">${t}</div>`;
+  return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:#fffcf9;color:#2c2c2c;overflow:hidden;">
+    <div style="background:${accent}12;border-bottom:3px solid ${accent};padding:30px 44px 22px;display:flex;align-items:center;gap:20px;">
+      ${photo?`<img src="${photo}" style="width:82px;height:82px;border-radius:10px;object-fit:cover;border:2px solid ${accent}38;flex-shrink:0;">`:''}
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:28px;font-weight:700;color:#1a1814;letter-spacing:-0.5px;line-height:1.1;">${esc(data.name||'Your Name')}</div>
+        ${data.title?`<div style="font-size:13px;color:${accent};font-weight:600;margin-top:4px;">${esc(data.title)}</div>`:''}
+        <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:9px;font-size:11px;color:#6b6660;">${[data.email,data.phone,data.location,data.linkedin].filter(Boolean).map(c=>`<span>${esc(c)}</span>`).join('<span style="color:#ccc;"> · </span>')}</div>
+      </div>
+    </div>
+    <div style="padding:20px 44px 30px;display:grid;grid-template-columns:1fr 210px;gap:18px;box-sizing:border-box;">
+      <div>
+        ${data.summary?tCard(`${tSec('Profile')}<div style="font-size:12.5px;color:#444;line-height:1.78;">${esc(data.summary)}</div>`):''}
+        ${exp.length?`${tSec('Work Experience')}${exp.map(e=>tCard(`<div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;margin-bottom:2px;"><span style="font-size:13.5px;font-weight:700;color:#1a1814;">${esc(e.title||'')}</span><span style="font-size:11px;color:#9e9890;white-space:nowrap;">${[e.startDate,e.endDate].filter(Boolean).join(' – ')}</span></div><div style="font-size:12px;color:${accent};font-weight:600;margin-bottom:4px;">${esc(e.company||'')}</div>${e.bullets&&e.bullets.length?`<ul style="margin:0;padding-left:13px;">${e.bullets.map(b=>`<li style="font-size:12px;color:#444;line-height:1.55;margin-bottom:2px;">${esc(b)}</li>`).join('')}</ul>`:''}`)).join('')}`:''}
+      </div>
+      <div>
+        ${edu.length?tCard(`${tSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;"><div style="font-size:12.5px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</div><div style="font-size:11.5px;color:${accent};">${esc(e.school||'')}</div><div style="font-size:11px;color:#9e9890;">${esc(e.endYear||'')}</div></div>`).join('')}`):''}
+        ${skills.length?tCard(`${tSec('Skills')}<div style="display:flex;flex-wrap:wrap;gap:5px;">${skills.map(s=>`<span style="background:${accent}16;color:${accent};border-radius:5px;padding:3px 9px;font-size:11px;">${esc(s)}</span>`).join('')}</div>`):''}
+        ${langs.length?tCard(`${tSec('Languages')}${langs.map(l=>`<div style="font-size:11.5px;color:#444;margin-bottom:4px;">${esc(l.language)}${l.level?` · <em style="color:#9e9890;">${esc(l.level)}</em>`:''}</div>`).join('')}`):''}
+        ${certs?tCard(`${tSec('Certifications')}<div style="font-size:11px;color:#444;line-height:1.7;">${esc(certs).replace(/\n/g,'<br>')}</div>`):''}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── NEW: Metro ──
+function renderMetro(data) {
+  const accent = window._cvAccentColor || '#e63946';
+  const font = window._cvFont || 'Arial, Helvetica, sans-serif';
+  const photo = data.photoData || cvPhotoData;
+  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const exp = data.experience||[]; const edu = data.education||[];
+  const langs = data.languages||[]; const certs = data.certifications||'';
+  const mSec = t => `<div style="display:inline-flex;align-items:center;background:${accent};padding:4px 14px 4px 10px;clip-path:polygon(0 0,100% 0,calc(100% - 7px) 100%,0 100%);margin:18px 0 11px;"><div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:white;">${t}</div></div>`;
+  return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:white;overflow:hidden;">
+    <div style="padding:30px 42px 0;">
+      <div style="display:flex;align-items:center;gap:18px;margin-bottom:4px;">
+        ${photo?`<img src="${photo}" style="width:78px;height:78px;border-radius:4px;object-fit:cover;border:3px solid ${accent};flex-shrink:0;">`:''}
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:34px;font-weight:900;color:#1a1814;letter-spacing:-1.5px;line-height:0.95;">${esc(data.name||'Your Name')}</div>
+          ${data.title?`<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${accent};margin-top:6px;">${esc(data.title)}</div>`:''}
+        </div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:15px;margin-top:9px;font-size:11px;color:#6b6660;padding:7px 0;border-top:1px solid #e2ddd4;border-bottom:1px solid #e2ddd4;">${[data.email,data.phone,data.location,data.linkedin].filter(Boolean).map(c=>`<span>${esc(c)}</span>`).join('<span style="color:#d4d0cb;"> / </span>')}</div>
+    </div>
+    <div style="padding:2px 42px 30px;display:grid;grid-template-columns:1fr 205px;gap:20px;box-sizing:border-box;">
+      <div>
+        ${data.summary?`${mSec('Profile')}<div style="font-size:12.5px;color:#374151;line-height:1.78;">${esc(data.summary)}</div>`:''}
+        ${exp.length?`${mSec('Experience')}${exp.map(e=>`<div style="margin-bottom:13px;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13.5px;font-weight:700;color:#1a1814;">${esc(e.title||'')}</span><span style="font-size:11px;color:#9e9890;white-space:nowrap;background:#f7f5f0;padding:2px 6px;border-radius:3px;">${[e.startDate,e.endDate].filter(Boolean).join(' – ')}</span></div><div style="font-size:12px;color:${accent};font-weight:700;margin-bottom:4px;">${esc(e.company||'')}</div>${e.bullets&&e.bullets.length?`<ul style="margin:0;padding-left:13px;">${e.bullets.map(b=>`<li style="font-size:12px;color:#374151;line-height:1.55;margin-bottom:2px;">${esc(b)}</li>`).join('')}</ul>`:''}</div>`).join('')}`:''}
+      </div>
+      <div>
+        ${skills.length?`${mSec('Skills')}<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px;">${skills.map(s=>`<span style="background:${accent}12;color:#1a1814;border:1.5px solid ${accent}28;border-radius:3px;padding:4px 8px;font-size:11px;font-weight:600;">${esc(s)}</span>`).join('')}</div>`:''}
+        ${edu.length?`${mSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;"><div style="font-size:12.5px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</div><div style="font-size:11.5px;color:${accent};">${esc(e.school||'')}</div><div style="font-size:11px;color:#9e9890;">${esc(e.endYear||'')}</div></div>`).join('')}`:''}
+        ${langs.length?`${mSec('Languages')}${langs.map(l=>`<div style="font-size:11.5px;color:#444;margin-bottom:4px;">${esc(l.language)}${l.level?` <span style="color:#9e9890;">· ${esc(l.level)}</span>`:''}</div>`).join('')}`:''}
+        ${certs?`${mSec('Certs')}<div style="font-size:11px;color:#374151;line-height:1.7;">${esc(certs).replace(/\n/g,'<br>')}</div>`:''}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── NEW: Ivory ──
+function renderIvory(data) {
+  const accent = window._cvAccentColor || '#8b7355';
+  const font = window._cvFont || 'Georgia, "Times New Roman", serif';
+  const photo = data.photoData || cvPhotoData;
+  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const exp = data.experience||[]; const edu = data.education||[];
+  const langs = data.languages||[]; const certs = data.certifications||'';
+  const hl = `<div style="border-top:0.5px solid #d4cfc8;margin:14px 0;"></div>`;
+  const iSec = t => `<div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:4px;color:${accent};text-align:center;margin:18px 0 10px;">${t}</div>${hl}`;
+  return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:#fefcf8;color:#2c2c2c;overflow:hidden;padding:48px 66px 38px;box-sizing:border-box;">
+    ${hl}
+    <div style="text-align:center;margin-bottom:6px;">
+      ${photo?`<img src="${photo}" style="width:70px;height:70px;border-radius:50%;object-fit:cover;border:1px solid #d4cfc8;display:inline-block;margin-bottom:10px;"><br>`:''}
+      <div style="font-size:31px;font-weight:700;color:#1a1814;letter-spacing:0.5px;line-height:1.1;">${esc(data.name||'Your Name')}</div>
+      ${data.title?`<div style="font-size:12px;color:${accent};letter-spacing:2.5px;text-transform:uppercase;margin-top:5px;font-style:italic;">${esc(data.title)}</div>`:''}
+      <div style="display:flex;justify-content:center;flex-wrap:wrap;gap:13px;margin-top:9px;font-size:11px;color:#6b6660;">${[data.email,data.phone,data.location,data.linkedin].filter(Boolean).map(c=>`<span>${esc(c)}</span>`).join('<span style="color:#d4cfc8;"> · </span>')}</div>
+    </div>
+    ${hl}
+    ${data.summary?`${iSec('Profile')}<div style="font-size:12.5px;line-height:1.85;color:#444;text-align:justify;font-style:italic;">${esc(data.summary)}</div>`:''}
+    ${exp.length?`${iSec('Experience')}${exp.map(e=>`<div style="margin-bottom:15px;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;"><span style="font-size:13.5px;font-weight:700;color:#1a1814;">${esc(e.title||'')}${e.company?` — <span style="font-style:italic;font-weight:400;font-size:13px;color:#6b6660;">${esc(e.company)}</span>`:''}</span><span style="font-size:11px;color:#9e9890;font-style:italic;">${[e.startDate,e.endDate].filter(Boolean).join(' – ')}</span></div>${e.bullets&&e.bullets.length?`<ul style="margin:4px 0 0;padding-left:15px;">${e.bullets.map(b=>`<li style="font-size:12px;color:#444;line-height:1.65;margin-bottom:2px;">${esc(b)}</li>`).join('')}</ul>`:''}</div>`).join('')}`:''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:26px;">
+      ${edu.length?`<div>${iSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;text-align:center;"><div style="font-size:13px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</div><div style="font-size:11.5px;color:${accent};font-style:italic;">${esc(e.school||'')}${e.endYear?' · '+esc(e.endYear):''}</div></div>`).join('')}</div>`:''}
+      <div>
+        ${skills.length?`${iSec('Skills')}<div style="font-size:11.5px;color:#444;line-height:2;text-align:center;">${skills.map(s=>esc(s)).join(' · ')}</div>`:''}
+        ${langs.length?`${iSec('Languages')}<div style="text-align:center;">${langs.map(l=>`<div style="font-size:11.5px;color:#444;margin-bottom:3px;">${esc(l.language)}${l.level?` <em style="color:#9e9890;">(${esc(l.level)})</em>`:''}</div>`).join('')}</div>`:''}
+      </div>
+    </div>
+    ${certs?`${iSec('Certifications')}<div style="font-size:11.5px;color:#444;line-height:1.7;text-align:center;">${esc(certs).replace(/\n/g,'<br>')}</div>`:''}
+    ${hl}
+  </div>`;
+}
+
+// ── NEW: Circuit ──
+function renderCircuit(data) {
+  const accent = window._cvAccentColor || '#00b894';
+  const font = window._cvFont || '"Courier New", Courier, monospace';
+  const photo = data.photoData || cvPhotoData;
+  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const exp = data.experience||[]; const edu = data.education||[];
+  const langs = data.languages||[]; const certs = data.certifications||'';
+  const cSec = t => `<div style="display:flex;align-items:center;gap:7px;margin:18px 0 9px;"><span style="font-size:11px;font-weight:700;color:${accent};">//</span><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#1a1814;">${t}</span><div style="flex:1;height:1px;background:#e2ddd4;"></div></div>`;
+  return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:white;overflow:hidden;">
+    <div style="padding:26px 38px 18px;background-image:radial-gradient(circle,#d0d0d0 1px,transparent 1px);background-size:18px 18px;background-color:#f8f8f8;border-bottom:2px solid ${accent};">
+      <div style="display:flex;align-items:center;gap:16px;">
+        ${photo?`<img src="${photo}" style="width:78px;height:78px;border-radius:6px;object-fit:cover;border:2px solid ${accent};flex-shrink:0;">`:''}
+        <div style="flex:1;min-width:0;background:rgba(255,255,255,0.93);padding:13px 16px;border-radius:8px;border:1px solid ${accent}38;">
+          <div style="font-size:23px;font-weight:700;color:#1a1814;letter-spacing:-0.5px;">${esc(data.name||'Your Name')}</div>
+          ${data.title?`<div style="font-size:12px;color:${accent};margin-top:3px;">&gt; ${esc(data.title)}</div>`:''}
+          <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:7px;">${[data.email,data.phone,data.location,data.linkedin].filter(Boolean).map(c=>`<span style="font-size:10px;background:#f0f0f0;border:1px solid #ddd;padding:2px 7px;border-radius:3px;color:#555;">${esc(c)}</span>`).join('')}</div>
+        </div>
+      </div>
+    </div>
+    <div style="padding:14px 38px 30px;display:grid;grid-template-columns:1fr 195px;gap:20px;box-sizing:border-box;">
+      <div>
+        ${data.summary?`${cSec('About')}<div style="font-size:12px;color:#374151;line-height:1.78;border-left:2px solid ${accent};padding-left:9px;">${esc(data.summary)}</div>`:''}
+        ${exp.length?`${cSec('Experience')}${exp.map(e=>`<div style="margin-bottom:12px;background:#fafafa;border:1px solid #e8e8e8;border-radius:6px;padding:11px 13px;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13px;font-weight:700;color:#1a1814;">${esc(e.title||'')}</span><span style="font-size:10.5px;color:${accent};background:${accent}10;padding:2px 7px;border-radius:3px;">${[e.startDate,e.endDate].filter(Boolean).join(' → ')}</span></div><div style="font-size:11.5px;color:#6b6660;margin-bottom:5px;">${esc(e.company||'')}</div>${e.bullets&&e.bullets.length?`<ul style="margin:0;padding-left:13px;list-style:none;">${e.bullets.map(b=>`<li style="font-size:11.5px;color:#374151;line-height:1.55;margin-bottom:2px;">» ${esc(b)}</li>`).join('')}</ul>`:''}</div>`).join('')}`:''}
+        ${edu.length?`${cSec('Education')}${edu.map(e=>`<div style="margin-bottom:8px;font-size:12px;"><span style="font-weight:700;color:#1a1814;">${esc(e.degree||'')}</span> <span style="color:#6b6660;">@ ${esc(e.school||'')}</span>${e.endYear?` <span style="color:${accent};">[${esc(e.endYear)}]</span>`:''}</div>`).join('')}`:''}
+      </div>
+      <div>
+        ${skills.length?`${cSec('Stack')}<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:11px;">${skills.map(s=>`<span style="font-size:10.5px;background:${accent}10;color:${accent};border:1px solid ${accent}28;padding:3px 7px;border-radius:4px;">\`${esc(s)}\`</span>`).join('')}</div>`:''}
+        ${langs.length?`${cSec('Languages')}${langs.map(l=>`<div style="font-size:11px;color:#374151;margin-bottom:4px;">${esc(l.language)}${l.level?` <span style="color:${accent};">//${esc(l.level)}</span>`:''}</div>`).join('')}`:''}
+        ${certs?`${cSec('Certs')}<div style="font-size:11px;color:#374151;line-height:1.7;">${esc(certs).replace(/\n/g,'<br>')}</div>`:''}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── NEW: Aurora ──
+function renderAurora(data) {
+  const accent = window._cvAccentColor || '#6c63ff';
+  const font = window._cvFont || 'Calibri, Arial, sans-serif';
+  const photo = data.photoData || cvPhotoData;
+  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const exp = data.experience||[]; const edu = data.education||[];
+  const langs = data.languages||[]; const certs = data.certifications||'';
+  const h = accent.replace('#','');
+  const accentDark = '#'+((h.match(/../g)||['2d','6a','4f']).map(c=>Math.max(0,Math.round(parseInt(c,16)*0.62)).toString(16).padStart(2,'0')).join(''));
+  const aSec = t => `<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${accent};border-bottom:2px solid ${accent}30;padding-bottom:4px;margin:16px 0 9px;">${t}</div>`;
+  return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:white;overflow:hidden;">
+    <div style="background:linear-gradient(135deg,${accent} 0%,${accentDark} 100%);padding:34px 42px 58px;">
+      <div style="display:flex;align-items:center;gap:18px;">
+        ${photo?`<img src="${photo}" style="width:84px;height:84px;border-radius:50%;object-fit:cover;border:3px solid rgba(255,255,255,0.38);flex-shrink:0;">`:''}
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:29px;font-weight:700;color:white;letter-spacing:-0.5px;line-height:1.1;">${esc(data.name||'Your Name')}</div>
+          ${data.title?`<div style="font-size:13px;color:rgba(255,255,255,0.78);font-weight:500;margin-top:4px;">${esc(data.title)}</div>`:''}
+        </div>
+      </div>
+    </div>
+    <div style="margin:-26px 32px 8px;position:relative;z-index:2;background:white;border-radius:10px;padding:13px 18px;box-shadow:0 4px 20px rgba(0,0,0,0.10);display:flex;flex-wrap:wrap;gap:7px 16px;">
+      ${[data.email,data.phone,data.location,data.linkedin].filter(Boolean).map(c=>`<span style="font-size:11px;color:#6b6660;">${esc(c)}</span>`).join('<span style="color:#d4d0cb;">·</span>')}
+    </div>
+    <div style="padding:6px 42px 30px;display:grid;grid-template-columns:1fr 212px;gap:20px;box-sizing:border-box;">
+      <div>
+        ${data.summary?`${aSec('Profile')}<div style="font-size:12.5px;color:#374151;line-height:1.78;">${esc(data.summary)}</div>`:''}
+        ${exp.length?`${aSec('Experience')}${exp.map(e=>`<div style="margin-bottom:13px;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13.5px;font-weight:700;color:#1a1814;">${esc(e.title||'')}</span><span style="font-size:11px;color:#9e9890;white-space:nowrap;">${[e.startDate,e.endDate].filter(Boolean).join(' – ')}</span></div><div style="font-size:12px;color:${accent};font-weight:600;margin-bottom:3px;">${esc(e.company||'')}</div>${e.bullets&&e.bullets.length?`<ul style="margin:0;padding-left:13px;">${e.bullets.map(b=>`<li style="font-size:12px;color:#374151;line-height:1.55;margin-bottom:2px;">${esc(b)}</li>`).join('')}</ul>`:''}</div>`).join('')}`:''}
+      </div>
+      <div>
+        ${edu.length?`${aSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;"><div style="font-size:12.5px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</div><div style="font-size:11.5px;color:${accent};">${esc(e.school||'')}</div><div style="font-size:11px;color:#9e9890;">${esc(e.endYear||'')}</div></div>`).join('')}`:''}
+        ${skills.length?`${aSec('Skills')}<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px;">${skills.map(s=>`<span style="background:${accent}12;color:${accent};border:1px solid ${accent}25;border-radius:20px;padding:3px 9px;font-size:11px;font-weight:600;">${esc(s)}</span>`).join('')}</div>`:''}
+        ${langs.length?`${aSec('Languages')}${langs.map(l=>`<div style="font-size:11.5px;color:#444;margin-bottom:4px;">${esc(l.language)}${l.level?` <span style="color:#9e9890;">· ${esc(l.level)}</span>`:''}</div>`).join('')}`:''}
+        ${certs?`${aSec('Certifications')}<div style="font-size:11px;color:#374151;line-height:1.7;">${esc(certs).replace(/\n/g,'<br>')}</div>`:''}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── NEW: Ledger ──
+function renderLedger(data) {
+  const accent = window._cvAccentColor || '#1a237e';
+  const font = window._cvFont || '"Times New Roman", Georgia, serif';
+  const photo = data.photoData || cvPhotoData;
+  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const exp = data.experience||[]; const edu = data.education||[];
+  const langs = data.languages||[]; const certs = data.certifications||'';
+  const lSec = t => `<div style="border-top:2.5px solid #1a1814;border-bottom:0.5px solid #1a1814;padding:3px 0 2px;margin:16px 0 10px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:3px;color:#1a1814;">${t}</div></div>`;
+  return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:white;padding:44px 54px 38px;box-sizing:border-box;color:#1a1814;overflow:hidden;">
+    <div style="text-align:center;margin-bottom:4px;">
+      <div style="border-top:2.5px solid #1a1814;margin-bottom:9px;"></div>
+      <div style="display:inline-flex;align-items:center;gap:14px;justify-content:center;">
+        ${photo?`<img src="${photo}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:1.5px solid #d4d0cb;">`:''}
+        <div>
+          <div style="font-size:28px;font-weight:700;color:#1a1814;letter-spacing:0.5px;">${esc(data.name||'Your Name')}</div>
+          ${data.title?`<div style="font-size:12px;color:${accent};letter-spacing:2px;text-transform:uppercase;">${esc(data.title)}</div>`:''}
+        </div>
+      </div>
+      <div style="border-top:0.5px solid #1a1814;border-bottom:2.5px solid #1a1814;padding:4px 0;margin-top:9px;">
+        <div style="display:flex;justify-content:center;flex-wrap:wrap;gap:15px;font-size:11px;color:#555;">${[data.email,data.phone,data.location,data.linkedin].filter(Boolean).map(c=>`<span>${esc(c)}</span>`).join('<span style="color:#bbb;"> · </span>')}</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 200px;gap:24px;margin-top:4px;">
+      <div>
+        ${data.summary?`${lSec('Profile')}<div style="font-size:12.5px;line-height:1.82;color:#333;text-align:justify;">${esc(data.summary)}</div>`:''}
+        ${exp.length?`${lSec('Work Experience')}${exp.map(e=>`<div style="margin-bottom:13px;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;"><span style="font-size:13.5px;font-weight:700;">${esc(e.title||'')}</span><span style="font-size:11px;color:#888;font-style:italic;">${[e.startDate,e.endDate].filter(Boolean).join(' – ')}</span></div><div style="font-size:12px;color:${accent};margin-bottom:4px;font-style:italic;">${esc(e.company||'')}</div>${e.bullets&&e.bullets.length?`<ul style="margin:0;padding-left:14px;">${e.bullets.map(b=>`<li style="font-size:12px;color:#333;line-height:1.65;margin-bottom:2px;text-align:justify;">${esc(b)}</li>`).join('')}</ul>`:''}</div>`).join('')}`:''}
+      </div>
+      <div>
+        ${edu.length?`${lSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;"><div style="font-size:12.5px;font-weight:700;">${esc(e.degree||'')}</div><div style="font-size:11.5px;color:${accent};font-style:italic;">${esc(e.school||'')}</div><div style="font-size:11px;color:#888;">${esc(e.endYear||'')}</div></div>`).join('')}`:''}
+        ${skills.length?`${lSec('Skills')}<div style="font-size:12px;color:#333;line-height:1.9;">${skills.map(s=>esc(s)).join(' · ')}</div>`:''}
+        ${langs.length?`${lSec('Languages')}${langs.map(l=>`<div style="font-size:11.5px;color:#333;margin-bottom:3px;">${esc(l.language)}${l.level?` <em style="color:#888;">(${esc(l.level)})</em>`:''}</div>`).join('')}`:''}
+        ${certs?`${lSec('Certifications')}<div style="font-size:11px;color:#333;line-height:1.7;">${esc(certs).replace(/\n/g,'<br>')}</div>`:''}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── NEW: Prism ──
+function renderPrism(data) {
+  const accent = window._cvAccentColor || '#7c3aed';
+  const font = window._cvFont || 'Calibri, Arial, sans-serif';
+  const photo = data.photoData || cvPhotoData;
+  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const exp = data.experience||[]; const edu = data.education||[];
+  const langs = data.languages||[]; const certs = data.certifications||'';
+  let pIdx=0;
+  const pSec = t => { pIdx++; return `<div style="display:flex;align-items:baseline;gap:9px;margin:18px 0 9px;"><span style="font-size:10px;font-weight:700;color:${accent};min-width:20px;">${String(pIdx).padStart(2,'0')}</span><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#1a1814;flex:1;border-bottom:1.5px solid #e2ddd4;padding-bottom:3px;">${t}</div></div>`; };
+  return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:white;overflow:hidden;position:relative;">
+    <div style="position:absolute;top:-55px;right:-55px;width:250px;height:250px;background:${accent};transform:rotate(45deg);z-index:0;opacity:0.9;"></div>
+    <div style="position:relative;z-index:1;padding:34px 44px 0;">
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:14px;min-height:115px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:36px;font-weight:900;color:#1a1814;letter-spacing:-1.5px;line-height:0.93;">${esc(data.name||'Your Name')}</div>
+          ${data.title?`<div style="font-size:13px;font-weight:600;color:${accent};margin-top:7px;text-transform:uppercase;letter-spacing:1px;">${esc(data.title)}</div>`:''}
+          <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:9px;font-size:11px;color:#6b6660;">${[data.email,data.phone,data.location,data.linkedin].filter(Boolean).map(c=>`<span>${esc(c)}</span>`).join('')}</div>
+        </div>
+        ${photo?`<img src="${photo}" style="width:80px;height:80px;border-radius:8px;object-fit:cover;border:3px solid white;box-shadow:0 2px 12px rgba(0,0,0,0.14);flex-shrink:0;">`:''}
+      </div>
+    </div>
+    <div style="padding:6px 44px 30px;display:grid;grid-template-columns:1fr 205px;gap:22px;box-sizing:border-box;">
+      <div>
+        ${data.summary?`${pSec('Profile')}<div style="font-size:12.5px;color:#374151;line-height:1.78;">${esc(data.summary)}</div>`:''}
+        ${exp.length?`${pSec('Experience')}${exp.map(e=>`<div style="margin-bottom:13px;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13.5px;font-weight:700;color:#1a1814;">${esc(e.title||'')}</span><span style="font-size:11px;color:#9e9890;white-space:nowrap;">${[e.startDate,e.endDate].filter(Boolean).join(' – ')}</span></div><div style="font-size:12px;color:${accent};font-weight:600;margin-bottom:3px;">${esc(e.company||'')}</div>${e.bullets&&e.bullets.length?`<ul style="margin:0;padding-left:13px;">${e.bullets.map(b=>`<li style="font-size:12px;color:#374151;line-height:1.55;margin-bottom:2px;">${esc(b)}</li>`).join('')}</ul>`:''}</div>`).join('')}`:''}
+      </div>
+      <div>
+        ${edu.length?`${pSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;"><div style="font-size:12.5px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</div><div style="font-size:11.5px;color:${accent};">${esc(e.school||'')}</div><div style="font-size:11px;color:#9e9890;">${esc(e.endYear||'')}</div></div>`).join('')}`:''}
+        ${skills.length?`${pSec('Skills')}<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px;">${skills.map(s=>`<span style="background:${accent}12;color:${accent};border:1px solid ${accent}25;border-radius:4px;padding:3px 8px;font-size:11px;font-weight:600;">${esc(s)}</span>`).join('')}</div>`:''}
+        ${langs.length?`${pSec('Languages')}${langs.map(l=>`<div style="font-size:11.5px;color:#444;margin-bottom:4px;">${esc(l.language)}${l.level?` <span style="color:#9e9890;">· ${esc(l.level)}</span>`:''}</div>`).join('')}`:''}
+        ${certs?`${pSec('Certifications')}<div style="font-size:11px;color:#374151;line-height:1.7;">${esc(certs).replace(/\n/g,'<br>')}</div>`:''}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── NEW: Haven ──
+function renderHaven(data) {
+  const accent = window._cvAccentColor || '#0ea5e9';
+  const font = window._cvFont || 'Calibri, Arial, sans-serif';
+  const photo = data.photoData || cvPhotoData;
+  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const exp = data.experience||[]; const edu = data.education||[];
+  const langs = data.languages||[]; const certs = data.certifications||'';
+  const hCard = c => `<div style="background:${accent}0b;border:1px solid ${accent}20;border-radius:12px;padding:15px 17px;margin-bottom:11px;">${c}</div>`;
+  const hSec = t => `<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${accent};margin-bottom:9px;">${t}</div>`;
+  return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:#f8fcff;color:#2c2c2c;overflow:hidden;">
+    <div style="background:white;padding:28px 42px 22px;border-bottom:2px solid ${accent}20;display:flex;align-items:center;gap:20px;">
+      ${photo?`<div style="width:86px;height:86px;border-radius:50%;overflow:hidden;border:3px solid ${accent}38;flex-shrink:0;"><img src="${photo}" style="width:86px;height:86px;object-fit:cover;"></div>`:`<div style="width:86px;height:86px;border-radius:50%;background:${accent}0e;border:3px solid ${accent}38;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:${accent};flex-shrink:0;">${esc((data.name||'?').charAt(0))}</div>`}
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:27px;font-weight:700;color:#1a1814;letter-spacing:-0.5px;line-height:1.1;">${esc(data.name||'Your Name')}</div>
+        ${data.title?`<div style="font-size:13px;color:${accent};font-weight:600;margin-top:4px;">${esc(data.title)}</div>`:''}
+        <div style="display:flex;flex-wrap:wrap;gap:11px;margin-top:8px;font-size:11px;color:#6b6660;">${[data.email,data.phone,data.location,data.linkedin].filter(Boolean).map(c=>`<span>${esc(c)}</span>`).join('<span style="color:#d4d0cb;"> · </span>')}</div>
+      </div>
+    </div>
+    <div style="padding:18px 42px 30px;display:grid;grid-template-columns:1fr 210px;gap:16px;box-sizing:border-box;">
+      <div>
+        ${data.summary?hCard(`${hSec('About Me')}<div style="font-size:12.5px;color:#374151;line-height:1.78;">${esc(data.summary)}</div>`):''}
+        ${exp.length?`${hSec('Work Experience')}${exp.map(e=>hCard(`<div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;margin-bottom:2px;"><span style="font-size:13.5px;font-weight:700;color:#1a1814;">${esc(e.title||'')}</span><span style="font-size:11px;color:#9e9890;white-space:nowrap;">${[e.startDate,e.endDate].filter(Boolean).join(' – ')}</span></div><div style="font-size:12px;color:${accent};font-weight:600;margin-bottom:4px;">${esc(e.company||'')}</div>${e.bullets&&e.bullets.length?`<ul style="margin:0;padding-left:13px;">${e.bullets.map(b=>`<li style="font-size:12px;color:#374151;line-height:1.55;margin-bottom:2px;">${esc(b)}</li>`).join('')}</ul>`:''}`)).join('')}`:''}
+      </div>
+      <div>
+        ${skills.length?hCard(`${hSec('Skills')}<div style="display:flex;flex-wrap:wrap;gap:5px;">${skills.map(s=>`<span style="background:${accent}16;color:${accent};border-radius:20px;padding:4px 10px;font-size:11px;font-weight:600;">${esc(s)}</span>`).join('')}</div>`):''}
+        ${edu.length?hCard(`${hSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;"><div style="font-size:12.5px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</div><div style="font-size:11.5px;color:${accent};">${esc(e.school||'')}</div><div style="font-size:11px;color:#9e9890;">${esc(e.endYear||'')}</div></div>`).join('')}`):''}
+        ${langs.length?hCard(`${hSec('Languages')}${langs.map(l=>`<div style="font-size:11.5px;color:#444;margin-bottom:4px;">${esc(l.language)}${l.level?` <span style="color:#9e9890;">· ${esc(l.level)}</span>`:''}</div>`).join('')}`):''}
+        ${certs?hCard(`${hSec('Certifications')}<div style="font-size:11px;color:#374151;line-height:1.7;">${esc(certs).replace(/\n/g,'<br>')}</div>`):''}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── NEW: Vertex ──
+function renderVertex(data) {
+  const accent = window._cvAccentColor || '#2d6a4f';
+  const font = window._cvFont || 'Calibri, Arial, sans-serif';
+  const photo = data.photoData || cvPhotoData;
+  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const exp = data.experience||[]; const edu = data.education||[];
+  const langs = data.languages||[]; const certs = data.certifications||'';
+  const vSecM = t => `<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${accent};border-bottom:2px solid ${accent};padding-bottom:4px;margin:16px 0 9px;">${t}</div>`;
+  const vSecS = t => `<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:rgba(255,255,255,0.5);margin:14px 0 7px;">${t}</div>`;
+  return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:white;display:grid;grid-template-columns:1fr 228px;overflow:hidden;">
+    <div style="padding:34px 30px 30px;box-sizing:border-box;overflow:hidden;">
+      <div style="margin-bottom:18px;padding-bottom:14px;border-bottom:1.5px solid #e2ddd4;">
+        <div style="font-size:29px;font-weight:700;color:#1a1814;letter-spacing:-0.5px;line-height:1.1;">${esc(data.name||'Your Name')}</div>
+        ${data.title?`<div style="font-size:13px;color:${accent};font-weight:600;margin-top:4px;">${esc(data.title)}</div>`:''}
+        <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:9px;font-size:11px;color:#6b6660;">${[data.email,data.phone,data.location].filter(Boolean).map(c=>`<span>${esc(c)}</span>`).join('')}</div>
+      </div>
+      ${data.summary?`${vSecM('Profile')}<div style="font-size:12.5px;color:#374151;line-height:1.78;">${esc(data.summary)}</div>`:''}
+      ${exp.length?`${vSecM('Work Experience')}${exp.map(e=>`<div style="margin-bottom:13px;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13.5px;font-weight:700;color:#1a1814;">${esc(e.title||'')}</span><span style="font-size:11px;color:#9e9890;white-space:nowrap;">${[e.startDate,e.endDate].filter(Boolean).join(' – ')}</span></div><div style="font-size:12px;color:${accent};font-weight:600;margin-bottom:3px;">${esc(e.company||'')}</div>${e.bullets&&e.bullets.length?`<ul style="margin:0;padding-left:13px;">${e.bullets.map(b=>`<li style="font-size:12px;color:#374151;line-height:1.55;margin-bottom:2px;">${esc(b)}</li>`).join('')}</ul>`:''}</div>`).join('')}`:''}
+    </div>
+    <div style="background:${accent};padding:30px 18px 26px;box-sizing:border-box;color:white;overflow:hidden;">
+      ${photo?`<div style="margin-bottom:16px;"><img src="${photo}" style="width:94px;height:94px;border-radius:50%;object-fit:cover;border:3px solid rgba(255,255,255,0.28);display:block;margin:0 auto;"></div>`:''}
+      ${data.linkedin?`<div style="font-size:10px;color:rgba(255,255,255,0.65);margin-bottom:14px;word-break:break-all;text-align:center;">${esc(data.linkedin)}</div>`:''}
+      ${edu.length?`${vSecS('Education')}${edu.map(e=>`<div style="margin-bottom:10px;"><div style="font-size:11.5px;font-weight:700;color:white;">${esc(e.degree||'')}</div><div style="font-size:10.5px;color:rgba(255,255,255,0.68);">${esc(e.school||'')}</div><div style="font-size:10px;color:rgba(255,255,255,0.45);">${esc(e.endYear||'')}</div></div>`).join('')}`:''}
+      ${skills.length?`${vSecS('Skills')}${skills.map(s=>`<div style="background:rgba(255,255,255,0.1);border-radius:4px;padding:4px 9px;font-size:10.5px;color:rgba(255,255,255,0.88);margin-bottom:4px;">${esc(s)}</div>`).join('')}`:''}
+      ${langs.length?`${vSecS('Languages')}${langs.map(l=>`<div style="font-size:10.5px;color:rgba(255,255,255,0.78);margin-bottom:4px;">${esc(l.language)}${l.level?` · <em>${esc(l.level)}</em>`:''}</div>`).join('')}`:''}
+      ${certs?`${vSecS('Certifications')}<div style="font-size:10.5px;color:rgba(255,255,255,0.7);line-height:1.7;">${esc(certs).replace(/\n/g,'<br>')}</div>`:''}
+    </div>
+  </div>`;
+}
+
+// ── NEW: Standard Plus ──
+function renderStandardPlus(data) {
+  const accent = window._cvAccentColor || '#2d6a4f';
+  const font = window._cvFont || 'Calibri, Arial, sans-serif';
+  const photo = data.photoData || cvPhotoData;
+  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const exp = data.experience||[]; const edu = data.education||[];
+  const langs = data.languages||[]; const certs = data.certifications||'';
+  const sSec = t => `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:${accent};border-bottom:2px solid ${accent};padding-bottom:3px;margin:16px 0 9px;">${t}</div>`;
+  const cp = [data.email,data.phone,data.location,data.linkedin].filter(Boolean);
+  return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:white;padding:46px 56px 38px;box-sizing:border-box;color:#1a1814;overflow:hidden;">
+    <div style="display:flex;align-items:flex-start;gap:16px;margin-bottom:16px;padding-bottom:13px;border-bottom:1.5px solid #d4d0cb;">
+      ${photo?`<img src="${photo}" style="width:66px;height:66px;border-radius:4px;object-fit:cover;flex-shrink:0;">`:''}
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:28px;font-weight:700;color:${accent};letter-spacing:-0.5px;line-height:1.1;">${esc(data.name||'Your Name')}</div>
+        ${data.title?`<div style="font-size:14px;color:#374151;margin-top:3px;">${esc(data.title)}</div>`:''}
+        ${cp.length?`<div style="display:flex;flex-wrap:wrap;gap:11px;margin-top:7px;font-size:11.5px;color:#555;">${cp.map(c=>`<span>${esc(c)}</span>`).join('<span style="color:#d4d0cb;"> | </span>')}</div>`:''}
+      </div>
+    </div>
+    ${data.summary?`${sSec('Professional Summary')}<div style="font-size:13px;color:#374151;line-height:1.75;">${esc(data.summary)}</div>`:''}
+    ${exp.length?`${sSec('Work Experience')}${exp.map(e=>`<div style="margin-bottom:13px;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13.5px;font-weight:700;color:#1a1814;">${esc(e.title||'')}</span><span style="font-size:12px;color:#555;">${[e.startDate,e.endDate].filter(Boolean).join(' – ')}</span></div><div style="font-size:13px;color:#555;margin-bottom:4px;">${esc(e.company||'')}</div>${e.bullets&&e.bullets.length?`<ul style="margin:0;padding-left:15px;">${e.bullets.map(b=>`<li style="font-size:12.5px;color:#374151;line-height:1.6;margin-bottom:3px;">${esc(b)}</li>`).join('')}</ul>`:''}</div>`).join('')}`:''}
+    ${edu.length?`${sSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><div><span style="font-size:13.5px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</span><span style="font-size:12.5px;color:#555;"> — ${esc(e.school||'')}</span></div><span style="font-size:12px;color:#888;">${esc(e.endYear||'')}</span></div>`).join('')}`:''}
+    ${skills.length?`${sSec('Skills')}<div style="font-size:13px;color:#374151;line-height:1.8;">${skills.map(s=>esc(s)).join(' · ')}</div>`:''}
+    ${langs.length?`${sSec('Languages')}<div style="display:flex;flex-wrap:wrap;gap:18px;">${langs.map(l=>`<span style="font-size:13px;color:#374151;">${esc(l.language)}${l.level?` (${esc(l.level)})`:''}</span>`).join('')}</div>`:''}
+    ${certs?`${sSec('Certifications')}<div style="font-size:13px;color:#374151;line-height:1.75;">${esc(certs).replace(/\n/g,'<br>')}</div>`:''}
+  </div>`;
+}
+
 // ── Canvas shape drawing ──
 let currentDrawTool = null;
 let isCanvasDrawing = false;
@@ -4330,6 +4859,21 @@ updateJobSearch();
 
 // ── Template gallery ──
 const PREMIUM_TEMPLATES = [
+  {key:'midnight', label:'Midnight', tag:'Dark Sidebar'},
+  {key:'aurora', label:'Aurora', tag:'Gradient'},
+  {key:'slate-premium', label:'Slate', tag:'Two-Tone'},
+  {key:'monogram', label:'Monogram', tag:'Elegant'},
+  {key:'prism', label:'Prism', tag:'Modern'},
+  {key:'haven', label:'Haven', tag:'Friendly'},
+  {key:'vertex', label:'Vertex', tag:'Right Sidebar'},
+  {key:'blush', label:'Blush', tag:'Feminine'},
+  {key:'terra', label:'Terra', tag:'Earthy'},
+  {key:'metro', label:'Metro', tag:'Bold'},
+  {key:'circuit', label:'Circuit', tag:'Developer'},
+  {key:'swiss', label:'Swiss', tag:'Minimal'},
+  {key:'ivory', label:'Ivory', tag:'Luxury'},
+  {key:'ledger', label:'Ledger', tag:'Classic'},
+  {key:'standard-plus', label:'Standard+', tag:'ATS Safe'},
   {key:'color-sidebar', label:'Sidebar Pro', tag:'Most Popular'},
   {key:'top-strip', label:'Top Strip', tag:'Corporate'},
   {key:'photo-left', label:'Photo Left', tag:'LinkedIn'},
