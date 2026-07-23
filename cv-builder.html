@@ -846,13 +846,13 @@ nav div a:hover::after { width: 100%; }
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
               <div style="display:flex;align-items:center;gap:5px;">
                 <span style="font-size:11px;font-weight:600;color:var(--text2);white-space:nowrap;">Color:</span>
-                <button onclick="setAccentColor('#2d6a4f')" style="width:18px;height:18px;background:#2d6a4f;border:2px solid transparent;border-radius:50%;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" title="Forest"></button>
-                <button onclick="setAccentColor('#1565c0')" style="width:18px;height:18px;background:#1565c0;border:2px solid transparent;border-radius:50%;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" title="Blue"></button>
-                <button onclick="setAccentColor('#7c3aed')" style="width:18px;height:18px;background:#7c3aed;border:2px solid transparent;border-radius:50%;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" title="Purple"></button>
-                <button onclick="setAccentColor('#c9a84c')" style="width:18px;height:18px;background:#c9a84c;border:2px solid transparent;border-radius:50%;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" title="Gold"></button>
-                <button onclick="setAccentColor('#e63946')" style="width:18px;height:18px;background:#e63946;border:2px solid transparent;border-radius:50%;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" title="Red"></button>
-                <button onclick="setAccentColor('#1a1814')" style="width:18px;height:18px;background:#1a1814;border:2px solid transparent;border-radius:50%;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" title="Dark"></button>
-                <input type="color" id="cvAccentInput" value="#2d6a4f" onchange="setAccentColor(this.value)" style="width:18px;height:18px;border:none;border-radius:50%;cursor:pointer;padding:0;background:none;" title="Custom color">
+                <button data-accent="#1a1814" onclick="setAccentColor('#1a1814')" style="width:18px;height:18px;background:#1a1814;border:2px solid transparent;border-radius:50%;cursor:pointer;transition:transform .15s;outline:2px solid #1a1814;outline-offset:2px;" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" title="Black"></button>
+                <button data-accent="#2d6a4f" onclick="setAccentColor('#2d6a4f')" style="width:18px;height:18px;background:#2d6a4f;border:2px solid transparent;border-radius:50%;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" title="Forest"></button>
+                <button data-accent="#1565c0" onclick="setAccentColor('#1565c0')" style="width:18px;height:18px;background:#1565c0;border:2px solid transparent;border-radius:50%;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" title="Blue"></button>
+                <button data-accent="#7c3aed" onclick="setAccentColor('#7c3aed')" style="width:18px;height:18px;background:#7c3aed;border:2px solid transparent;border-radius:50%;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" title="Purple"></button>
+                <button data-accent="#c9a84c" onclick="setAccentColor('#c9a84c')" style="width:18px;height:18px;background:#c9a84c;border:2px solid transparent;border-radius:50%;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" title="Gold"></button>
+                <button data-accent="#e63946" onclick="setAccentColor('#e63946')" style="width:18px;height:18px;background:#e63946;border:2px solid transparent;border-radius:50%;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'" title="Red"></button>
+                <input type="color" id="cvAccentInput" value="#1a1814" onchange="setAccentColor(this.value)" style="width:18px;height:18px;border:none;border-radius:50%;cursor:pointer;padding:0;background:none;" title="Custom color">
               </div>
               <div style="display:flex;align-items:center;gap:5px;">
                 <span style="font-size:11px;font-weight:600;color:var(--text2);white-space:nowrap;">Font:</span>
@@ -1737,7 +1737,7 @@ function renderBullets(bulletsText, cls) {
 
 // ── Classic template (premium colored-header) ──
 function renderClassic(d) {
-  const accent = window._cvAccentColor || '#2d6a4f';
+  const accent = window._cvAccentColor || '#1a1814';
   const accentFaint = accent + '18';
   const accentBorder = accent + '44';
   const photoHtml = cvPhotoData
@@ -2627,6 +2627,7 @@ async function downloadPDF() {
 
 // ── Download DOCX ──
 async function downloadDOCX() {
+  try {
   if (typeof JSZip === 'undefined') {
     showToast('⏳ Loading...');
     await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
@@ -2639,9 +2640,9 @@ async function downloadDOCX() {
   zip.file('_rels/.rels', '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
   zip.file('word/_rels/document.xml.rels', '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>');
 
-  const accentHex = (window._cvAccentColor || '#2d6a4f').replace('#', '').toUpperCase();
-  const isSidebar = ['modern','professional','navy','purple','midnight','slate-premium','vertex'].includes(currentTemplate);
-  const isMinimal = ['minimal','academic','swiss','ivory','standard-plus','ledger'].includes(currentTemplate);
+  const accentHex = (window._cvAccentColor || '#1a1814').replace('#', '').toUpperCase();
+  const isSidebar = ['executive','color-sidebar','modern','professional','navy','purple','midnight','slate-premium','vertex'].includes(currentTemplate);
+  const isMinimal = ['minimal','minimal-serif','modern-minimal','blush','academic','swiss','ivory','standard-plus','ledger'].includes(currentTemplate);
 
   const para = (text, {bold=false,size=22,color='2A2A2A',italic=false,align='left',before=0,after=80,indent=0,fill=''}={}) => {
     const shd = fill ? `<w:shd w:val="clear" w:color="auto" w:fill="${fill}"/>` : '';
@@ -2797,6 +2798,7 @@ async function downloadDOCX() {
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 3000);
   showToast('✓ Word downloaded!');
+  } catch(err) { console.error('DOCX error:', err); showToast('❌ ' + (err.message || 'Download failed')); }
 }
 
 // ── Improve CV tab ──
@@ -3531,7 +3533,7 @@ function photoHTML(size, radius, border) {
 }
 
 // ── Color & font customizer ──
-let _cvAccentColor = '#2d6a4f';
+let _cvAccentColor = '#1a1814';
 let _cvFont = '';
 
 function setAccentColor(color) {
@@ -3539,6 +3541,10 @@ function setAccentColor(color) {
   _cvAccentColor = color;
   const inp = document.getElementById('cvAccentInput');
   if (inp) inp.value = color;
+  document.querySelectorAll('[data-accent]').forEach(b => {
+    b.style.outline = b.dataset.accent === color ? '2px solid ' + color : 'none';
+    b.style.outlineOffset = '2px';
+  });
   updatePreview();
   if (typeof updateCoverLetter === 'function') updateCoverLetter();
 }
@@ -3574,7 +3580,7 @@ function toPremium(d) {
 
 // ── Premium template: Executive Pro ──
 function renderPremiumExecutive(data) {
-  const accent = window._cvAccentColor || '#2d6a4f';
+  const accent = window._cvAccentColor || '#1a1814';
   const font = window._cvFont || 'Georgia, serif';
   const photo = cvPhotoData ? `<img src="${cvPhotoData}" style="width:88px;height:88px;border-radius:50%;object-fit:cover;border:3px solid ${accent};display:block;margin:0 auto 14px;">` : '';
   return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:white;display:grid;grid-template-columns:220px 1fr;overflow:hidden;position:relative;">
@@ -3781,7 +3787,7 @@ function renderCreativeSplit(data) {
 
 // ── New template: Career Timeline ──
 function renderTimelineCV(data) {
-  const accent = window._cvAccentColor || '#2d6a4f';
+  const accent = window._cvAccentColor || '#1a1814';
   const font = window._cvFont || 'Calibri,serif';
   return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:white;padding:48px;box-sizing:border-box;overflow:hidden;position:relative;">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;padding-bottom:24px;border-bottom:3px solid ${accent};">
@@ -3820,7 +3826,7 @@ function renderTimelineCV(data) {
 
 // ── New template: Skill Bubbles ──
 function renderSkillBubbles(data) {
-  const accent = window._cvAccentColor || '#2d6a4f';
+  const accent = window._cvAccentColor || '#1a1814';
   const font = window._cvFont || 'Helvetica Neue,Arial,sans-serif';
   const skillList = data.skills ? data.skills.split(',').map(s=>s.trim()).filter(s=>s) : [];
   const bubbleColors = [{bg:'#dbeafe',c:'#1e40af'},{bg:'#dcfce7',c:'#166534'},{bg:'#fef3c7',c:'#92400e'},{bg:'#fce7f3',c:'#9d174d'},{bg:'#ede9fe',c:'#5b21b6'},{bg:'#ffedd5',c:'#9a3412'}];
@@ -3847,7 +3853,7 @@ function renderSkillBubbles(data) {
 
 // ── New template: Gradient Header ──
 function renderGradientHeader(data) {
-  const accent = window._cvAccentColor || '#2d6a4f';
+  const accent = window._cvAccentColor || '#1a1814';
   const font = window._cvFont || 'Helvetica Neue,Arial,sans-serif';
   const barStyle = `display:flex;align-items:center;gap:10px;margin-bottom:12px;`;
   const bar = `<div style="width:4px;height:20px;background:${accent};border-radius:2px;"></div>`;
@@ -3877,7 +3883,7 @@ function renderGradientHeader(data) {
 
 // ── New template: Two Tone ──
 function renderTwoTone(data) {
-  const accent = window._cvAccentColor || '#2d6a4f';
+  const accent = window._cvAccentColor || '#1a1814';
   const font = window._cvFont || 'Calibri,serif';
   return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:white;display:flex;overflow:hidden;position:relative;">
     <div style="width:38%;background:#0d1b2a;padding:40px 28px;display:flex;flex-direction:column;min-height:1056px;box-sizing:border-box;">
@@ -3926,7 +3932,7 @@ function renderNewspaper(data) {
 
 // ── New template: Corner Accent ──
 function renderCornerAccent(data) {
-  const accent = window._cvAccentColor || '#2d6a4f';
+  const accent = window._cvAccentColor || '#1a1814';
   const font = window._cvFont || 'Helvetica Neue,Arial,sans-serif';
   const hex = accent.replace('#','');
   const r = parseInt(hex.substring(0,2),16)||45, g = parseInt(hex.substring(2,4),16)||106, b2 = parseInt(hex.substring(4,6),16)||79;
@@ -3983,7 +3989,7 @@ function renderBorderFrame(data) {
 
 // ── New template: Modern Photo ──
 function renderModernPhoto(data) {
-  const accent = window._cvAccentColor || '#2d6a4f';
+  const accent = window._cvAccentColor || '#1a1814';
   const font = window._cvFont || 'Helvetica Neue,Arial,sans-serif';
   const hdr = label => `<div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${accent};margin-bottom:12px;display:flex;align-items:center;gap:8px;">${label}<div style="flex:1;height:2px;background:#f0ede8;"></div></div>`;
   return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:white;display:flex;overflow:hidden;position:relative;">
@@ -4009,7 +4015,7 @@ function renderModernPhoto(data) {
 
 // ── New template: Color Sidebar (Canva-style most popular) ──
 function renderColorSidebar(data) {
-  const accent = window._cvAccentColor || '#2d6a4f';
+  const accent = window._cvAccentColor || '#1a1814';
   const font = window._cvFont || 'Calibri,serif';
   const skills = (data.skills || '').split(',').map(s => s.trim()).filter(Boolean);
   const exp = data.experience || [];
@@ -4058,7 +4064,7 @@ function renderColorSidebar(data) {
 
 // ── New template: Top Strip (clean professional) ──
 function renderTopStrip(data) {
-  const accent = window._cvAccentColor || '#2d6a4f';
+  const accent = window._cvAccentColor || '#1a1814';
   const font = window._cvFont || 'Helvetica Neue,Arial,sans-serif';
   const skills = (data.skills || '').split(',').map(s => s.trim()).filter(Boolean);
   const exp = data.experience || [];
@@ -4102,7 +4108,7 @@ function renderTopStrip(data) {
 
 // ── New template: Photo Left (LinkedIn-style) ──
 function renderPhotoLeft(data) {
-  const accent = window._cvAccentColor || '#2d6a4f';
+  const accent = window._cvAccentColor || '#1a1814';
   const font = window._cvFont || 'Calibri,serif';
   const skills = (data.skills || '').split(',').map(s => s.trim()).filter(Boolean);
   const exp = data.experience || [];
@@ -4214,7 +4220,7 @@ function renderBlush(data) {
 
 // ── NEW: Monogram ──
 function renderMonogram(data) {
-  const accent = window._cvAccentColor || '#2d6a4f';
+  const accent = window._cvAccentColor || '#1a1814';
   const font = window._cvFont || 'Calibri, Arial, sans-serif';
   const photo = data.photoData || cvPhotoData;
   const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
@@ -4594,7 +4600,7 @@ function renderHaven(data) {
 
 // ── NEW: Vertex ──
 function renderVertex(data) {
-  const accent = window._cvAccentColor || '#2d6a4f';
+  const accent = window._cvAccentColor || '#1a1814';
   const font = window._cvFont || 'Calibri, Arial, sans-serif';
   const photo = data.photoData || cvPhotoData;
   const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
@@ -4625,7 +4631,7 @@ function renderVertex(data) {
 
 // ── NEW: Standard Plus ──
 function renderStandardPlus(data) {
-  const accent = window._cvAccentColor || '#2d6a4f';
+  const accent = window._cvAccentColor || '#1a1814';
   const font = window._cvFont || 'Calibri, Arial, sans-serif';
   const photo = data.photoData || cvPhotoData;
   const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
@@ -4760,7 +4766,7 @@ function clearAllShapes() {
 }
 
 function insertDivider(type) {
-  cvDecorators.push({ type: 'line-' + type, color: window._cvAccentColor || '#2d6a4f', id: Date.now() });
+  cvDecorators.push({ type: 'line-' + type, color: window._cvAccentColor || '#1a1814', id: Date.now() });
   updatePreview();
   showToast('Divider added to CV!');
 }
@@ -4786,7 +4792,7 @@ function toggleDecorators() {
 }
 
 function insertCVElement(type) {
-  cvDecorators.push({ type, id: Date.now(), color: window._cvAccentColor || '#2d6a4f' });
+  cvDecorators.push({ type, id: Date.now(), color: window._cvAccentColor || '#1a1814' });
   updateDecoratorList();
   updatePreview();
   showToast('✓ Added to CV!');
@@ -4832,7 +4838,7 @@ function updateDecoratorList() {
 }
 
 function renderDecoratorHTML(d) {
-  const c = d.color || '#2d6a4f';
+  const c = d.color || '#1a1814';
   const id = d.id;
   const rm = `<span onclick="removeDecorator(${id})" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);cursor:pointer;color:#e63946;font-size:14px;opacity:0.6;display:none;" class="decorator-remove">×</span>`;
   const wrap = `position:relative;margin:8px 0;cursor:default;`;
@@ -5144,7 +5150,7 @@ function setCLTemplate(template) {
 
 function getCLStyleFromCV() {
   const tpl = currentTemplate || 'classic';
-  const accent = window._cvAccentColor || '#2d6a4f';
+  const accent = window._cvAccentColor || '#1a1814';
   const font = window._cvFont || 'Calibri,serif';
   const sidebarTpls = ['executive','midnight','vertex','slate-premium','color-sidebar','modern','professional'];
   const minimalTpls = ['swiss','ivory','minimal','minimal-serif','standard-plus','ledger','modern-minimal','academic'];
@@ -5254,7 +5260,7 @@ function updateCoverLetter() {
   const company = _clGet('clCompany') || 'Company Name';
   const jobTitle = _clGet('clJobTitle') || 'Job Title';
   const hiringManager = _clGet('clHiringManager') || '';
-  const accent = window._cvAccentColor || '#2d6a4f';
+  const accent = window._cvAccentColor || '#1a1814';
   const font = window._cvFont || 'Calibri, Georgia, serif';
   const today = new Date().toLocaleDateString('en-AU', {day:'numeric', month:'long', year:'numeric'});
   const clStyleInfo = getCLStyleFromCV();
@@ -5426,7 +5432,7 @@ async function downloadCLasDOCX() {
   const jobTitle = _clGet('clJobTitle') || '';
   const hiringManager = _clGet('clHiringManager') || 'Hiring Manager';
   const today = new Date().toLocaleDateString('en-AU', {day:'numeric', month:'long', year:'numeric'});
-  const accentHex = (window._cvAccentColor || '#2d6a4f').replace('#', '');
+  const accentHex = (window._cvAccentColor || '#1a1814').replace('#', '');
   function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
   const bodyParas = coverLetterText.split(/\n\n+/).filter(p=>p.trim()).map(para => `<w:p><w:pPr><w:spacing w:after="200" w:line="360" w:lineRule="auto"/><w:jc w:val="both"/></w:pPr><w:r><w:rPr><w:sz w:val="22"/><w:szCs w:val="22"/><w:color w:val="374151"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t xml:space="preserve">${esc(para.trim())}</w:t></w:r></w:p>`).join('');
   const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>
@@ -5682,10 +5688,10 @@ function openSheet(name) {
   if (name === 'download') {
     const isCL = currentBuilderTab === 'coverletter';
     content.innerHTML = isCL
-      ? '<button onclick="downloadCLasPDF();closeSheet();" style="width:100%;padding:16px;background:var(--accent);color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download Letter PDF</button>' +
-        '<button onclick="downloadCLasDOCX();closeSheet();" style="width:100%;padding:16px;background:white;color:var(--accent);border:2px solid var(--accent);border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download Letter Word</button>'
-      : '<button onclick="downloadPDF();closeSheet();" style="width:100%;padding:16px;background:var(--accent);color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download PDF</button>' +
-        '<button onclick="downloadDOCX();closeSheet();" style="width:100%;padding:16px;background:white;color:var(--accent);border:2px solid var(--accent);border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download Word</button>';
+      ? '<button onclick="closeSheet();setTimeout(downloadCLasPDF,350);" style="width:100%;padding:16px;background:var(--accent);color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download Letter PDF</button>' +
+        '<button onclick="closeSheet();setTimeout(downloadCLasDOCX,350);" style="width:100%;padding:16px;background:white;color:var(--accent);border:2px solid var(--accent);border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download Letter Word</button>'
+      : '<button onclick="closeSheet();setTimeout(downloadPDF,350);" style="width:100%;padding:16px;background:var(--accent);color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download PDF</button>' +
+        '<button onclick="closeSheet();setTimeout(downloadDOCX,350);" style="width:100%;padding:16px;background:white;color:var(--accent);border:2px solid var(--accent);border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download Word</button>';
   } else {
     config.selectors.forEach(sel => {
       const el = document.querySelector(sel);
