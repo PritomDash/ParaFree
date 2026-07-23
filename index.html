@@ -1212,6 +1212,14 @@ const PHOTOS = {
     /* SEO sections: tighter on mobile */
     .seo-section summary { padding: 14px 16px !important; }
     .seo-body { padding: 0 16px 16px !important; }
+    /* Stats strip: compact single row below tool */
+    #statsStrip { padding: 16px 12px !important; }
+    #statsStrip .stats-strip-inner { display: flex !important; justify-content: space-around !important; gap: 8px !important; flex-wrap: nowrap !important; }
+    #statsStrip .stats-strip-inner > div > div:first-child { font-size: 20px !important; }
+    #statsStrip .stats-strip-inner > div > div:last-child { font-size: 10px !important; }
+    /* Promo bar: stacked, compact */
+    #promoBar { margin: 8px 12px 0 !important; padding: 0 !important; flex-direction: column !important; gap: 6px !important; }
+    #promoBar > div { padding: 10px 12px !important; font-size: 12px !important; min-width: 0 !important; }
   }
 </style>
 </head>
@@ -1314,7 +1322,7 @@ const PHOTOS = {
 </div>
 
 <!-- STATS STRIP -->
-<div style="background:linear-gradient(135deg,#1a3a2a,#2d6a4f);padding:28px 40px;">
+<div id="statsStrip" style="background:linear-gradient(135deg,#1a3a2a,#2d6a4f);padding:28px 40px;">
   <div class="stats-strip-inner" style="max-width:900px;margin:0 auto;display:flex;justify-content:space-around;flex-wrap:wrap;gap:20px;">
     <div style="text-align:center;">
       <div style="font-size:32px;font-weight:900;color:#52b788;font-family:'Syne',sans-serif;">50K+</div>
@@ -1348,7 +1356,7 @@ const PHOTOS = {
 </div>
 
 <!-- CV BUILDER + AI NOTICE BAR -->
-<div style="max-width:1100px; margin:6px auto 0; padding:0 16px; display:flex; gap:10px; flex-wrap:wrap;">
+<div id="promoBar" style="max-width:1100px; margin:6px auto 0; padding:0 16px; display:flex; gap:10px; flex-wrap:wrap;">
   <div style="flex:1;min-width:200px;background:#e8f8ef; border:1px solid #b7e4c7; border-radius:10px; padding:10px 16px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-family:'DM Sans',sans-serif;">
     <span style="font-size:13px; color:#2d6a4f;">📄 <strong>Free CV Builder</strong> — 16 templates, cover letter, job search links. No signup.</span>
     <a href="/cv-builder.html" style="font-size:13px; font-weight:700; color:#2d6a4f; background:white; border:1px solid #b7e4c7; border-radius:20px; padding:3px 12px; text-decoration:none; white-space:nowrap; margin-left:auto;">Build CV Free →</a>
@@ -5719,6 +5727,16 @@ function toggleMenu(){var m=document.getElementById('mobileMenu');if(!m)return;m
 if (window.innerWidth <= 768) {
   document.querySelectorAll('details.seo-section[open]').forEach(function(d){d.removeAttribute('open');});
 }
+// Move stats + promos below tool on mobile so paraphraser is reachable instantly
+(function(){
+  if (window.innerWidth > 768) return;
+  var tool = document.querySelector('.tool-container');
+  var stats = document.getElementById('statsStrip');
+  var promos = document.getElementById('promoBar');
+  if (!tool) return;
+  if (stats) tool.insertAdjacentElement('afterend', stats);
+  if (promos) (stats || tool).insertAdjacentElement('afterend', promos);
+})();
 </script>
 </body>
 </html>
