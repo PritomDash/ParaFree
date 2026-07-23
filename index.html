@@ -1177,6 +1177,42 @@ const PHOTOS = {
     .cta-buttons a { width: 100% !important; text-align: center !important; box-sizing: border-box !important; }
     .stats-strip-inner { gap: 16px !important; }
   }
+
+  /* ── SEO section accordion styles ── */
+  .seo-section summary { display: flex; align-items: center; justify-content: space-between; cursor: pointer; list-style: none; }
+  .seo-section summary::-webkit-details-marker { display: none; }
+  .seo-section summary h2 { font-size: 16px; margin: 0; font-weight: 700; color: var(--text); font-family: 'Syne', sans-serif; flex: 1; }
+  .chevron { transition: transform 0.22s ease; color: var(--accent); flex-shrink: 0; margin-left: 12px; line-height: 1; }
+  .seo-section[open] .chevron { transform: rotate(180deg); }
+  .seo-body { font-size: 14px; line-height: 1.75; color: var(--text2); }
+
+  /* ── Mobile hero fix (≤768px) ── */
+  @media (max-width: 768px) {
+    /* Fix overlap: switch from flex-center to flex-start so content anchors at top */
+    #mainHero { height: auto !important; min-height: 0 !important; align-items: flex-start !important; padding-bottom: 32px; }
+    /* Compact hero text */
+    .hero-title { font-size: 28px !important; line-height: 1.2 !important; letter-spacing: -0.5px !important; margin-bottom: 12px !important; }
+    .hero-content { padding: 88px 16px 24px !important; }
+    .hero-content > p { font-size: 14px !important; line-height: 1.55 !important; margin-bottom: 20px !important; }
+    /* CTA buttons smaller on mobile */
+    .cta-buttons a { padding: 12px 22px !important; font-size: 15px !important; }
+    /* Trust badges: compact single row with horizontal scroll */
+    #heroTrust { display: flex !important; flex-wrap: nowrap !important; overflow-x: auto !important; gap: 6px !important; padding-bottom: 4px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+    #heroTrust::-webkit-scrollbar { display: none; }
+    #heroTrust > div { flex-shrink: 0 !important; font-size: 11px !important; padding: 5px 10px !important; }
+    /* Hide scroll bounce indicator */
+    #heroScrollIndicator { display: none !important; }
+    /* Stats strip: 2×2 grid */
+    .stats-strip-inner { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 16px 20px !important; justify-items: center; }
+    /* Comparison tables: horizontal scroll */
+    table { display: block !important; overflow-x: auto !important; font-size: 12px !important; -webkit-overflow-scrolling: touch; white-space: nowrap; }
+    /* Tighten general section spacing */
+    section, .section { padding: 24px 16px !important; }
+    h2 { font-size: 20px !important; }
+    /* SEO sections: tighter on mobile */
+    .seo-section summary { padding: 14px 16px !important; }
+    .seo-body { padding: 0 16px 16px !important; }
+  }
 </style>
 </head>
 <body>
@@ -1251,7 +1287,7 @@ const PHOTOS = {
 </script>
 
 <!-- FULL-SCREEN HERO -->
-<div style="position:relative;height:100vh;min-height:600px;display:flex;align-items:center;overflow:hidden;">
+<div id="mainHero" style="position:relative;height:100vh;min-height:600px;display:flex;align-items:center;overflow:hidden;">
   <img src="https://images.unsplash.com/photo-1455390582262-044cdead277a?w=1400&q=80" alt="Writing and AI" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;" loading="eager">
   <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(10,28,20,0.92) 0%,rgba(26,58,42,0.88) 50%,rgba(45,106,79,0.82) 100%);"></div>
   <div class="hero-content" style="position:relative;z-index:1;max-width:800px;padding:80px 40px 60px;margin:0 auto;text-align:center;width:100%;">
@@ -1264,14 +1300,14 @@ const PHOTOS = {
       <a href="#tools" style="padding:18px 44px;background:#ffffff;color:#1a3a2a;border-radius:14px;font-weight:900;font-size:18px;text-decoration:none;box-shadow:0 8px 32px rgba(0,0,0,0.2);font-family:'Syne',sans-serif;">Start Writing Free →</a>
       <a href="/cv-builder.html" style="padding:18px 44px;background:rgba(255,255,255,0.12);color:#ffffff;border-radius:14px;font-weight:700;font-size:18px;text-decoration:none;border:2px solid rgba(255,255,255,0.3);backdrop-filter:blur(8px);">Build Your CV</a>
     </div>
-    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+    <div id="heroTrust" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
       <div style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:7px 16px;color:rgba(255,255,255,0.9);font-size:13px;font-weight:500;">✓ Keeps Original Formatting</div>
       <div style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:7px 16px;color:rgba(255,255,255,0.9);font-size:13px;font-weight:500;">✓ Word, PDF &amp; PowerPoint</div>
       <div style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:7px 16px;color:rgba(255,255,255,0.9);font-size:13px;font-weight:500;">✓ No Word Limit</div>
       <div style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:7px 16px;color:rgba(255,255,255,0.9);font-size:13px;font-weight:500;">✓ Free Download</div>
     </div>
   </div>
-  <div style="position:absolute;bottom:32px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.5);font-size:12px;text-align:center;line-height:1.6;">
+  <div id="heroScrollIndicator" style="position:absolute;bottom:32px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.5);font-size:12px;text-align:center;line-height:1.6;">
     <div style="animation:heroScrollBounce 2s infinite;">↓</div>
     <div>Explore Tools</div>
   </div>
@@ -2155,12 +2191,12 @@ const PHOTOS = {
 <div style="max-width:1100px; margin:0 auto 0; padding:0 16px 48px;">
 
   <!-- Section 1: How formatting is preserved -->
-  <details style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); margin-bottom:16px; overflow:hidden;">
-    <summary style="padding:22px 28px; font-family:'Syne',sans-serif; font-size:18px; font-weight:700; color:var(--text); cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:center;">
-      How ParaFree Preserves Your Document Formatting
-      <span style="font-size:20px; color:var(--accent); flex-shrink:0; margin-left:12px;">+</span>
+  <details open class="seo-section" style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); margin-bottom:16px; overflow:hidden;">
+    <summary style="padding:18px 22px; font-family:'Syne',sans-serif; font-size:18px; font-weight:700; color:var(--text); cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:center;">
+      <h2 style="font-size:inherit;font-weight:inherit;font-family:inherit;color:inherit;margin:0;">How ParaFree Preserves Your Document Formatting</h2>
+      <span class="chevron" style="font-size:20px; color:var(--accent); flex-shrink:0; margin-left:12px;">▾</span>
     </summary>
-    <div style="padding:0 28px 28px; color:var(--text2); line-height:1.85; font-size:14.5px;">
+    <div class="seo-body" style="padding:0 22px 22px; color:var(--text2); line-height:1.85; font-size:14.5px;">
       <p style="margin-bottom:14px;">Most online paraphrasers work on plain text only — paste your paragraph, get rewritten text, paste it back manually. That process destroys formatting. If you're working with a formatted Word report, a styled PowerPoint deck, or a structured PDF, copy-pasting means rebuilding your entire document from scratch after paraphrasing. ParaFree takes a completely different approach by working directly with the document file format itself.</p>
 
       <h3 style="font-family:'Syne',sans-serif; font-size:16px; font-weight:700; color:var(--text); margin:18px 0 8px;">Word Documents (DOCX)</h3>
@@ -2178,12 +2214,12 @@ const PHOTOS = {
   </details>
 
   <!-- Section 2: Student guide -->
-  <details style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); margin-bottom:16px; overflow:hidden;">
-    <summary style="padding:22px 28px; font-family:'Syne',sans-serif; font-size:18px; font-weight:700; color:var(--text); cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:center;">
-      Paraphrasing Guide for Students — How to Do It Right
-      <span style="font-size:20px; color:var(--accent); flex-shrink:0; margin-left:12px;">+</span>
+  <details open class="seo-section" style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); margin-bottom:16px; overflow:hidden;">
+    <summary style="padding:18px 22px; font-family:'Syne',sans-serif; font-size:18px; font-weight:700; color:var(--text); cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:center;">
+      <h2 style="font-size:inherit;font-weight:inherit;font-family:inherit;color:inherit;margin:0;">Paraphrasing Guide for Students — How to Do It Right</h2>
+      <span class="chevron" style="font-size:20px; color:var(--accent); flex-shrink:0; margin-left:12px;">▾</span>
     </summary>
-    <div style="padding:0 28px 28px; color:var(--text2); line-height:1.85; font-size:14.5px;">
+    <div class="seo-body" style="padding:0 22px 22px; color:var(--text2); line-height:1.85; font-size:14.5px;">
       <h3 style="font-family:'Syne',sans-serif; font-size:16px; font-weight:700; color:var(--text); margin:0 0 8px;">What Is Paraphrasing?</h3>
       <p style="margin-bottom:14px;">Paraphrasing means restating someone else's ideas in your own words while preserving the original meaning. It's a core academic skill — distinct from summarizing (which condenses information) and quoting (which copies text verbatim). Good paraphrasing demonstrates that you understand the source material well enough to express it differently, which is why universities value it as evidence of genuine comprehension.</p>
 
@@ -2219,12 +2255,12 @@ const PHOTOS = {
   </details>
 
   <!-- Section 3: Supported file formats -->
-  <details style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden;">
-    <summary style="padding:22px 28px; font-family:'Syne',sans-serif; font-size:18px; font-weight:700; color:var(--text); cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:center;">
-      Supported File Formats — What ParaFree Can Paraphrase
-      <span style="font-size:20px; color:var(--accent); flex-shrink:0; margin-left:12px;">+</span>
+  <details open class="seo-section" style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden;">
+    <summary style="padding:18px 22px; font-family:'Syne',sans-serif; font-size:18px; font-weight:700; color:var(--text); cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:center;">
+      <h2 style="font-size:inherit;font-weight:inherit;font-family:inherit;color:inherit;margin:0;">Supported File Formats — What ParaFree Can Paraphrase</h2>
+      <span class="chevron" style="font-size:20px; color:var(--accent); flex-shrink:0; margin-left:12px;">▾</span>
     </summary>
-    <div style="padding:0 28px 28px; color:var(--text2); line-height:1.85; font-size:14.5px;">
+    <div class="seo-body" style="padding:0 22px 22px; color:var(--text2); line-height:1.85; font-size:14.5px;">
       <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin-bottom:24px;">
         <div style="background:var(--surface2); border-radius:10px; padding:18px;">
           <div style="font-size:28px; margin-bottom:8px;">📄</div>
@@ -5679,6 +5715,10 @@ setTimeout(() => {
 <script>
 function toggleMenu(){var m=document.getElementById('mobileMenu');if(!m)return;m.style.display=m.style.display==='flex'?'none':'flex';}
 (function(){var b=document.getElementById('pf-scroll-top');if(b){window.addEventListener('scroll',function(){b.classList.toggle('visible',window.scrollY>300);},{passive:true});b.addEventListener('click',function(){window.scrollTo({top:0,behavior:'smooth'});});}var h=document.querySelector('.hero,.page-hero,.cv-hero');if(h)h.classList.add('pf-hero-animate');if(!('IntersectionObserver' in window))return;var els=document.querySelectorAll('.feature-card,.tool-card,.faq-item,.tpl-card,.card');if(!els.length)return;var obs=new IntersectionObserver(function(en){en.forEach(function(e){if(e.isIntersecting){e.target.classList.add('is-visible');obs.unobserve(e.target);}});},{threshold:0.08});els.forEach(function(el,i){el.classList.add('pf-reveal');el.style.transitionDelay=(i%5*0.07)+'s';obs.observe(el);});})();
+// Collapse SEO accordions on mobile (desktop keeps them open for visibility)
+if (window.innerWidth <= 768) {
+  document.querySelectorAll('details.seo-section[open]').forEach(function(d){d.removeAttribute('open');});
+}
 </script>
 </body>
 </html>
