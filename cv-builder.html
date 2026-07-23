@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Free CV Builder — 50+ Templates, No Watermark | ParaFree</title>
-<meta name="description" content="Build a professional CV free with 36 premium templates, AI-written bullet points, cover letters, and job matching. Like Canva but 100% free — no signup, no watermark, PDF &amp; Word download.">
+<meta name="description" content="Build a professional CV free with 50+ premium templates, AI-written bullet points, cover letters, and job matching. Like Canva but 100% free — no signup, no watermark, PDF &amp; Word download.">
 <meta name="keywords" content="free cv builder, free resume builder, free cv builder no signup, free resume builder unlimited, ats resume checker free, job match analyzer free, ai resume builder free, free cv maker no watermark, free cover letter generator, resume builder no watermark, cv builder australia free, free resume templates, ats friendly resume builder free, resume score checker free, job description match checker free, free cv builder for students, unlimited resume downloads free, cv builder unlimited free, resume keyword optimizer free, free cv templates download, ai cv writer free, cv improver free, upload cv improve free, cv builder free 2026, resume builder free 2026, free cv maker australia, free resume maker india, free cv builder bangladesh, ats friendly cv free, job application tools free, career tools free, free professional cv builder, resume templates free 2026">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://parafree.app/cv-builder.html">
@@ -12,7 +12,7 @@
 <meta property="og:locale" content="en_AU">
 <meta name="category" content="Career Tools, CV Builder, Resume Builder">
 <meta property="og:title" content="Free CV Builder Like Canva — 50+ Templates, AI Writing, No Watermark | ParaFree">
-<meta property="og:description" content="Build a professional CV free with 36 premium templates, AI-written bullet points, cover letters, and job matching. No signup, no watermark.">
+<meta property="og:description" content="Build a professional CV free with 50+ premium templates, AI-written bullet points, cover letters, and job matching. No signup, no watermark.">
 <meta property="og:url" content="https://parafree.app/cv-builder.html">
 <meta property="og:type" content="website">
 <meta property="og:image" content="https://parafree.app/og-image.png">
@@ -686,6 +686,17 @@ nav div a:hover::after { width: 100%; }
 }
 #mobileDownloadBar { display: none !important; }
 #mobileBar { display: none !important; }
+/* ── Doc switcher (CV | Letter toggle in preview header) ── */
+#docSwitcher { display: none; }
+@media (max-width: 900px) {
+  #docSwitcher { display: flex !important; background: var(--surface2); border-radius: 8px; padding: 2px; gap: 2px; }
+  .doc-sw { padding: 5px 12px; border: none; background: none; border-radius: 6px; font-size: 12px; font-weight: 700; color: var(--text2); cursor: pointer; font-family: 'DM Sans', sans-serif; -webkit-tap-highlight-color: transparent; transition: all 0.15s; }
+  .doc-sw.active { background: white; color: var(--accent); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  #clMobilePreviewWrapper { display: none; flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 12px; background: #e8e6e0; }
+  #cvPreviewPanel.cl-mode #cvPreviewWrapper { display: none !important; }
+  #cvPreviewPanel.cl-mode #cvEditToolbar { display: none !important; }
+  #cvPreviewPanel.cl-mode #clMobilePreviewWrapper { display: block !important; }
+}
 /* ── Canva toolbar ── */
 #canvaToolbar { display: none; position: fixed; bottom: 0; left: 0; right: 0; height: 64px; background: white; border-top: 1px solid #e2ddd4; z-index: 200; box-shadow: 0 -2px 12px rgba(0,0,0,0.10); }
 @media (max-width: 900px) { #canvaToolbar { display: flex !important; } }
@@ -1297,9 +1308,13 @@ We are looking for a Software Engineer with:
       <div id="cvPreviewPanel">
 
         <!-- Preview header -->
-        <div style="padding:10px 14px;background:white;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;border-radius:12px 12px 0 0;">
-          <span style="font-size:12px;font-weight:600;color:var(--text2);">Live Preview</span>
-          <div style="display:flex;gap:6px;align-items:center;">
+        <div style="padding:10px 14px;background:white;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:8px;border-radius:12px 12px 0 0;">
+          <span style="font-size:12px;font-weight:600;color:var(--text2);flex-shrink:0;">Live Preview</span>
+          <div id="docSwitcher">
+            <button id="docCV" onclick="switchBuilderTab('cv');syncDocSwitcher('cv')" class="doc-sw active">CV</button>
+            <button id="docCL" onclick="switchBuilderTab('coverletter');syncDocSwitcher('cl')" class="doc-sw">Letter</button>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
             <span id="cvScoreDisplay" style="font-size:11px;font-weight:700;color:var(--accent);"></span>
             <button onclick="toggleEditMode()" id="previewEditBtn" style="padding:5px 12px;background:white;border:1.5px solid #e2ddd4;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;color:#6b6660;font-family:'DM Sans',sans-serif;transition:all 0.2s;display:flex;align-items:center;gap:4px;">✏️ Edit</button>
             <button onclick="openFullPreview()" title="Full screen" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:4px 6px;">⛶</button>
@@ -1336,6 +1351,13 @@ We are looking for a Software Engineer with:
                 <p>Start filling in the form and your CV will appear here live.</p>
               </div>
             </div>
+          </div>
+        </div>
+
+        <!-- Cover Letter mobile preview (shown in mobile CL mode) -->
+        <div id="clMobilePreviewWrapper">
+          <div id="clMobilePreviewScale" style="transform-origin:top left;width:794px;background:white;box-shadow:0 2px 12px rgba(0,0,0,0.1);">
+            <div id="clMobilePreview"></div>
           </div>
         </div>
 
@@ -1437,7 +1459,7 @@ English — Native | Bengali — Fluent" style="width:100%;border:1.5px solid va
       <div>
 
         <!-- Logo Upload -->
-        <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;">
+        <div id="sec-cl-logo" style="background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;">
           <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;font-family:'Syne',sans-serif;">Company / Personal Logo <span style="font-weight:400;font-size:11px;color:var(--text3);">(optional)</span></div>
           <div style="display:flex;gap:12px;align-items:center;">
             <div id="clLogoPreview" onclick="document.getElementById('clLogoInput').click()" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'" style="width:80px;height:80px;border-radius:8px;background:var(--surface2);border:2px dashed var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;flex-shrink:0;transition:border-color 0.2s;">
@@ -1455,7 +1477,7 @@ English — Native | Bengali — Fluent" style="width:100%;border:1.5px solid va
         </div>
 
         <!-- Letter Details -->
-        <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;">
+        <div id="sec-cl-details" style="background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;">
           <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;font-family:'Syne',sans-serif;">Letter Details</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
             <div>
@@ -1501,27 +1523,9 @@ English — Native | Bengali — Fluent" style="width:100%;border:1.5px solid va
           <div class="cv-status" id="cover-status" style="margin-top:8px;"></div>
         </div>
 
-        <!-- Letter Design -->
-        <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;">
-          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px;font-family:'Syne',sans-serif;">Letter Design <span style="font-size:11px;font-weight:400;color:var(--text3);">— matches your CV accent color</span></div>
-          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
-            <div onclick="setCLTemplate('Classic')" class="cl-template-card active-cl-template" data-template="Classic" style="border:2px solid var(--accent);border-radius:8px;padding:8px 6px;cursor:pointer;text-align:center;background:#f0fdf4;transition:all 0.2s;">
-              <div style="height:44px;background:#f7f5f0;border-radius:4px;margin-bottom:5px;overflow:hidden;"><div style="height:7px;background:var(--accent);"></div><div style="padding:2px 4px;"><div style="height:2px;background:#e2ddd4;margin-bottom:2px;border-radius:1px;"></div><div style="height:2px;background:#e2ddd4;margin-bottom:2px;border-radius:1px;width:80%;"></div><div style="height:2px;background:#e2ddd4;border-radius:1px;width:55%;"></div></div></div>
-              <div style="font-size:10px;font-weight:700;color:var(--text);">Classic</div>
-            </div>
-            <div onclick="setCLTemplate('Modern')" class="cl-template-card" data-template="Modern" onmouseover="if(!this.classList.contains('active-cl-template'))this.style.borderColor='var(--accent)'" onmouseout="if(!this.classList.contains('active-cl-template'))this.style.borderColor='var(--border)'" style="border:1.5px solid var(--border);border-radius:8px;padding:8px 6px;cursor:pointer;text-align:center;background:white;transition:all 0.2s;">
-              <div style="height:44px;background:#f7f5f0;border-radius:4px;margin-bottom:5px;overflow:hidden;"><div style="height:16px;background:#1a3a2a;display:flex;align-items:center;padding:0 4px;"><div style="height:2px;background:rgba(255,255,255,0.4);width:55%;border-radius:1px;"></div></div><div style="padding:2px 4px;margin-top:2px;"><div style="height:2px;background:#e2ddd4;margin-bottom:2px;border-radius:1px;width:80%;"></div><div style="height:2px;background:#e2ddd4;border-radius:1px;width:55%;"></div></div></div>
-              <div style="font-size:10px;font-weight:700;color:var(--text);">Modern</div>
-            </div>
-            <div onclick="setCLTemplate('Minimal')" class="cl-template-card" data-template="Minimal" onmouseover="if(!this.classList.contains('active-cl-template'))this.style.borderColor='var(--accent)'" onmouseout="if(!this.classList.contains('active-cl-template'))this.style.borderColor='var(--border)'" style="border:1.5px solid var(--border);border-radius:8px;padding:8px 6px;cursor:pointer;text-align:center;background:white;transition:all 0.2s;">
-              <div style="height:44px;background:#f7f5f0;border-radius:4px;margin-bottom:5px;overflow:hidden;"><div style="padding:4px 4px 0;"><div style="height:4px;background:#1a1814;margin-bottom:3px;border-radius:1px;width:65%;"></div><div style="height:1px;background:#1a1814;margin-bottom:3px;"></div><div style="height:2px;background:#e2ddd4;margin-bottom:2px;border-radius:1px;width:80%;"></div><div style="height:2px;background:#e2ddd4;border-radius:1px;width:55%;"></div></div></div>
-              <div style="font-size:10px;font-weight:700;color:var(--text);">Minimal</div>
-            </div>
-            <div onclick="setCLTemplate('Bold')" class="cl-template-card" data-template="Bold" onmouseover="if(!this.classList.contains('active-cl-template'))this.style.borderColor='var(--accent)'" onmouseout="if(!this.classList.contains('active-cl-template'))this.style.borderColor='var(--border)'" style="border:1.5px solid var(--border);border-radius:8px;padding:8px 6px;cursor:pointer;text-align:center;background:white;transition:all 0.2s;">
-              <div style="height:44px;background:#f7f5f0;border-radius:4px;margin-bottom:5px;overflow:hidden;"><div style="padding:3px 4px 0;"><div style="font-size:5px;letter-spacing:1px;color:var(--accent);font-weight:700;margin-bottom:2px;font-family:'Syne',sans-serif;">COVER</div><div style="height:5px;background:#1a1814;border-radius:1px;width:85%;margin-bottom:3px;"></div><div style="height:2px;background:#e2ddd4;border-radius:1px;width:65%;"></div></div><div style="height:3px;background:var(--accent);margin-top:4px;"></div></div>
-              <div style="font-size:10px;font-weight:700;color:var(--text);">Bold</div>
-            </div>
-          </div>
+        <!-- Design auto-match note -->
+        <div id="sec-cl-tone" style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px 14px;font-size:12px;color:#166534;margin-bottom:12px;">
+          🎨 Your cover letter automatically matches your CV template design — change the CV template or color and the letter updates too.
         </div>
 
         <!-- Download / Copy row -->
@@ -1690,6 +1694,7 @@ function setTemplate(tpl) {
   const wrap = document.getElementById('cv-preview').parentElement;
   wrap.className = 'preview-wrap tpl-' + tpl;
   updatePreview();
+  if (typeof updateCoverLetter === 'function') updateCoverLetter();
 }
 
 // ── Form data ──
@@ -3527,6 +3532,7 @@ function setAccentColor(color) {
   const inp = document.getElementById('cvAccentInput');
   if (inp) inp.value = color;
   updatePreview();
+  if (typeof updateCoverLetter === 'function') updateCoverLetter();
 }
 
 function setCVFont(font) {
@@ -5031,6 +5037,41 @@ let clLogoData = null;
 let clStyle = 'Professional';
 let clTemplate = 'Classic';
 let coverLetterText = '';
+let currentBuilderTab = 'cv';
+
+function switchBuilderTab(tab) {
+  currentBuilderTab = tab;
+  const isCL = (tab === 'coverletter');
+  const panel = document.getElementById('cvPreviewPanel');
+  if (panel) panel.classList.toggle('cl-mode', isCL);
+  const dlLabel = document.querySelector('#ctb-download .ctb-label');
+  if (dlLabel) dlLabel.textContent = isCL ? 'Letter' : 'Save';
+  if (isCL) {
+    updateCoverLetter();
+    requestAnimationFrame(scaleCLMobilePreview);
+  } else {
+    requestAnimationFrame(scalePreview);
+  }
+}
+
+function syncDocSwitcher(doc) {
+  document.getElementById('docCV')?.classList.toggle('active', doc === 'cv');
+  document.getElementById('docCL')?.classList.toggle('active', doc === 'cl');
+}
+
+function scaleCLMobilePreview() {
+  const wrapper = document.getElementById('clMobilePreviewWrapper');
+  const scaleEl = document.getElementById('clMobilePreviewScale');
+  if (!wrapper || !scaleEl) return;
+  const wrapW = wrapper.clientWidth || wrapper.offsetWidth;
+  const availW = wrapW - 24;
+  if (availW <= 0) return;
+  const scale = availW / 794;
+  scaleEl.style.transform = `scale(${scale})`;
+  scaleEl.style.transformOrigin = 'top left';
+  scaleEl.style.width = '794px';
+  wrapper.style.minHeight = Math.ceil(scaleEl.scrollHeight * scale + 24) + 'px';
+}
 
 function handleLogoUpload(input) {
   const file = input.files[0];
@@ -5092,6 +5133,96 @@ function setCLTemplate(template) {
   updateCoverLetter();
 }
 
+function getCLStyleFromCV() {
+  const tpl = currentTemplate || 'classic';
+  const accent = window._cvAccentColor || '#2d6a4f';
+  const font = window._cvFont || 'Calibri,serif';
+  const sidebarTpls = ['executive','midnight','vertex','slate-premium','color-sidebar','modern','professional'];
+  const minimalTpls = ['swiss','ivory','minimal','minimal-serif','standard-plus','ledger','modern-minimal','academic'];
+  if (sidebarTpls.includes(tpl)) return {style:'sidebar', accent, font};
+  if (minimalTpls.includes(tpl)) return {style:'minimal', accent, font};
+  return {style:'header', accent, font};
+}
+
+function renderHeaderCL(d) {
+  const bodyStyle = 'font-size:13.5px;color:#374151;line-height:1.85;margin:0 0 14px;text-align:justify;';
+  return `<div style="font-family:${d.font};color:#1a1814;min-height:1056px;background:white;box-sizing:border-box;">
+    <div style="background:${d.accent};padding:32px 48px 28px;position:relative;overflow:hidden;">
+      <div style="position:absolute;right:-24px;top:-24px;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,0.07);"></div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;">
+        <div>
+          <h1 style="font-size:28px;font-weight:900;color:white;margin:0 0 6px;font-family:'Syne',sans-serif;letter-spacing:-0.5px;">${d.name}</h1>
+          <div style="font-size:12px;color:rgba(255,255,255,0.88);display:flex;flex-wrap:wrap;gap:14px;">
+            ${d.email ? `<span>✉ ${d.email}</span>` : ''}${d.phone ? `<span>📞 ${d.phone}</span>` : ''}${d.location ? `<span>📍 ${d.location}</span>` : ''}
+          </div>
+        </div>
+        ${clLogoData ? `<img src="${clLogoData}" alt="Logo" style="max-height:52px;max-width:120px;object-fit:contain;background:rgba(255,255,255,0.12);padding:6px 10px;border-radius:8px;flex-shrink:0;">` : ''}
+      </div>
+    </div>
+    <div style="padding:32px 48px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:24px;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+        <div><div style="font-size:13.5px;font-weight:700;color:#1a1814;">${d.hiringManager || 'Hiring Manager'}</div><div style="font-size:13px;color:#6b6660;">${d.company}</div></div>
+        <div style="font-size:12px;color:#9e9890;">${d.today}</div>
+      </div>
+      <div style="background:${d.accent}18;border-left:3px solid ${d.accent};padding:10px 16px;border-radius:0 6px 6px 0;margin-bottom:20px;font-size:13.5px;font-weight:700;color:${d.accent};">Application: ${d.jobTitle}${d.company ? ' — ' + d.company : ''}</div>
+      <div style="font-size:14px;font-weight:600;color:#1a1814;margin-bottom:16px;">Dear ${d.hiringManager || 'Hiring Manager'},</div>
+      <div style="margin-bottom:32px;">${_clBody(d.body, bodyStyle)}</div>
+      <div style="font-size:13.5px;color:#6b6660;margin-bottom:6px;">Kind regards,</div>
+      <div style="font-size:16px;font-weight:800;color:${d.accent};font-family:'Syne',sans-serif;">${d.name}</div>
+      <div style="font-size:12px;color:#9e9890;margin-top:3px;">${d.email}</div>
+    </div>
+  </div>`;
+}
+
+function renderSidebarCL(d) {
+  const bodyStyle = 'font-size:13.5px;color:#374151;line-height:1.85;margin:0 0 14px;text-align:justify;';
+  return `<div style="font-family:${d.font};color:#1a1814;min-height:1056px;background:white;box-sizing:border-box;display:grid;grid-template-columns:60px 1fr;">
+    <div style="background:${d.accent};position:relative;">
+      <div style="position:absolute;top:40px;left:0;right:0;writing-mode:vertical-rl;transform:rotate(180deg);font-size:8px;font-weight:700;letter-spacing:3px;color:rgba(255,255,255,0.65);text-transform:uppercase;text-align:center;">Cover Letter</div>
+    </div>
+    <div style="padding:40px 44px 40px 32px;">
+      ${clLogoData ? `<img src="${clLogoData}" alt="Logo" style="max-height:48px;max-width:140px;object-fit:contain;display:block;margin-bottom:20px;">` : ''}
+      <div style="border-bottom:2px solid ${d.accent};padding-bottom:16px;margin-bottom:24px;">
+        <h1 style="font-size:26px;font-weight:900;color:#1a1814;margin:0 0 6px;font-family:'Syne',sans-serif;letter-spacing:-0.5px;">${d.name}</h1>
+        <div style="font-size:12px;color:#6b6660;display:flex;flex-wrap:wrap;gap:12px;">
+          ${d.email ? `<span>✉ ${d.email}</span>` : ''}${d.phone ? `<span>📞 ${d.phone}</span>` : ''}${d.location ? `<span>📍 ${d.location}</span>` : ''}
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:22px;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+        <div><div style="font-size:13.5px;font-weight:700;color:#1a1814;">${d.hiringManager || 'Hiring Manager'}</div><div style="font-size:13px;color:#6b6660;">${d.company}</div></div>
+        <div style="font-size:12px;color:#9e9890;">${d.today}</div>
+      </div>
+      <div style="font-size:13.5px;font-weight:700;color:${d.accent};margin-bottom:18px;">Re: Application for ${d.jobTitle}${d.company ? ' at ' + d.company : ''}</div>
+      <div style="font-size:14px;font-weight:600;color:#1a1814;margin-bottom:16px;">Dear ${d.hiringManager || 'Hiring Manager'},</div>
+      <div style="margin-bottom:32px;">${_clBody(d.body, bodyStyle)}</div>
+      <div style="font-size:13px;color:#6b6660;margin-bottom:6px;">Yours sincerely,</div>
+      <div style="font-size:15px;font-weight:800;color:#1a1814;font-family:'Syne',sans-serif;">${d.name}</div>
+      <div style="font-size:12px;color:#9e9890;margin-top:2px;">${d.email}</div>
+    </div>
+  </div>`;
+}
+
+function renderMinimalCL(d) {
+  const bodyStyle = 'font-size:13.5px;color:#374151;line-height:1.9;margin:0 0 16px;text-align:justify;';
+  const contacts = [d.email, d.phone, d.location].filter(Boolean).join(' · ');
+  return `<div style="font-family:${d.font};color:#1a1814;padding:64px 60px;min-height:1056px;background:white;box-sizing:border-box;">
+    ${clLogoData ? `<img src="${clLogoData}" alt="Logo" style="max-height:44px;max-width:150px;object-fit:contain;display:block;margin-bottom:28px;">` : ''}
+    <h1 style="font-size:30px;font-weight:800;color:#1a1814;margin:0 0 4px;letter-spacing:-0.75px;font-family:'Syne',sans-serif;">${d.name}</h1>
+    <div style="font-size:12px;color:#9e9890;margin-bottom:6px;">${contacts}</div>
+    <div style="height:0.5px;background:${d.accent};margin:20px 0;"></div>
+    <div style="font-size:12px;color:#9e9890;margin-bottom:22px;">${d.today}</div>
+    <div style="margin-bottom:20px;">
+      <div style="font-size:13.5px;font-weight:700;color:#1a1814;">${d.hiringManager || 'Hiring Manager'}</div>
+      <div style="font-size:13px;color:#6b6660;">${d.company}</div>
+    </div>
+    <div style="font-size:13.5px;font-weight:700;color:#1a1814;margin-bottom:20px;">Re: ${d.jobTitle}</div>
+    <div style="margin-bottom:32px;">${_clBody(d.body, bodyStyle)}</div>
+    <div style="height:0.5px;background:#e2ddd4;margin-bottom:22px;"></div>
+    <div style="font-size:12.5px;color:#6b6660;margin-bottom:4px;">Regards,</div>
+    <div style="font-size:15px;font-weight:800;color:#1a1814;font-family:'Syne',sans-serif;">${d.name}</div>
+  </div>`;
+}
+
 function syncFromCV() {
   const cvName = (document.getElementById('f-name') || {}).value || '';
   const cvEmail = (document.getElementById('f-email') || {}).value || '';
@@ -5117,9 +5248,13 @@ function updateCoverLetter() {
   const accent = window._cvAccentColor || '#2d6a4f';
   const font = window._cvFont || 'Calibri, Georgia, serif';
   const today = new Date().toLocaleDateString('en-AU', {day:'numeric', month:'long', year:'numeric'});
-  const d = { name, email, phone, location, company, jobTitle, hiringManager, today, accent, font, body: coverLetterText };
-  const renderers = { Classic: renderClassicCoverLetter, Modern: renderModernCoverLetter, Minimal: renderMinimalCoverLetter, Bold: renderBoldCoverLetter };
-  preview.innerHTML = (renderers[clTemplate] || renderClassicCoverLetter)(d);
+  const clStyleInfo = getCLStyleFromCV();
+  const d = { name, email, phone, location, company, jobTitle, hiringManager, today, accent: clStyleInfo.accent, font: clStyleInfo.font, body: coverLetterText };
+  const clRenderers = { header: renderHeaderCL, sidebar: renderSidebarCL, minimal: renderMinimalCL };
+  const html = (clRenderers[clStyleInfo.style] || renderHeaderCL)(d);
+  preview.innerHTML = html;
+  const mobilePrev = document.getElementById('clMobilePreview');
+  if (mobilePrev) mobilePrev.innerHTML = html;
 }
 
 function _clBody(body, paraStyle) {
@@ -5505,13 +5640,24 @@ const SHEET_MAP = {
   }
 };
 
+function getSheetMap() {
+  if (currentBuilderTab === 'coverletter') {
+    return {
+      edit: { title: 'Edit Letter', selectors: ['#sec-cl-details', '#sec-cl-logo', '#sec-cl-tone'] },
+      design: { title: 'Design', selectors: ['#sec-template', '#sec-customize'] },
+      download: { title: 'Download Letter', selectors: [] }
+    };
+  }
+  return SHEET_MAP;
+}
+
 function openSheet(name) {
   if (window.innerWidth > 900) return;
   const sheet = document.getElementById('bottomSheet');
   const overlay = document.getElementById('sheetOverlay');
   const content = document.getElementById('sheetContent');
   const title = document.getElementById('sheetTitle');
-  const config = SHEET_MAP[name];
+  const config = getSheetMap()[name];
   if (!config) return;
 
   returnSectionsHome();
@@ -5519,9 +5665,12 @@ function openSheet(name) {
   content.innerHTML = '';
 
   if (name === 'download') {
-    content.innerHTML =
-      '<button onclick="downloadPDF();closeSheet();" style="width:100%;padding:16px;background:var(--accent);color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download PDF</button>' +
-      '<button onclick="downloadDOCX();closeSheet();" style="width:100%;padding:16px;background:white;color:var(--accent);border:2px solid var(--accent);border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download Word</button>';
+    const isCL = currentBuilderTab === 'coverletter';
+    content.innerHTML = isCL
+      ? '<button onclick="downloadCLasPDF();closeSheet();" style="width:100%;padding:16px;background:var(--accent);color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download Letter PDF</button>' +
+        '<button onclick="downloadCLasDOCX();closeSheet();" style="width:100%;padding:16px;background:white;color:var(--accent);border:2px solid var(--accent);border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download Letter Word</button>'
+      : '<button onclick="downloadPDF();closeSheet();" style="width:100%;padding:16px;background:var(--accent);color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download PDF</button>' +
+        '<button onclick="downloadDOCX();closeSheet();" style="width:100%;padding:16px;background:white;color:var(--accent);border:2px solid var(--accent);border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download Word</button>';
   } else {
     config.selectors.forEach(sel => {
       const el = document.querySelector(sel);
