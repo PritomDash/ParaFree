@@ -651,9 +651,12 @@ nav div a:hover::after { width: 100%; }
 /* ── Mobile Canva-style layout (<900px) ── */
 @media (max-width: 900px) {
   .builder-layout, #cvBuilderLayout { display: block !important; padding: 0 !important; margin: 0 !important; }
-  #cvPreviewPanel { position: fixed !important; top: 60px !important; left: 0 !important; right: 0 !important; bottom: 64px !important; height: auto !important; min-height: 0 !important; z-index: 10 !important; border-radius: 0 !important; border: none !important; background: #e8e6e0 !important; overflow: hidden !important; }
-  #cvPreviewPanel > div:first-child { display: none !important; }
-  #cvPreviewWrapper { height: 100% !important; max-height: none !important; min-height: 0 !important; overflow-y: auto !important; overflow-x: hidden !important; -webkit-overflow-scrolling: touch !important; padding: 12px !important; background: #e8e6e0 !important; display: block !important; }
+  #cvPreviewPanel { position: fixed !important; top: 60px !important; left: 0 !important; right: 0 !important; bottom: 64px !important; height: auto !important; min-height: 0 !important; z-index: 10 !important; border-radius: 0 !important; border: none !important; background: #e8e6e0 !important; overflow: hidden !important; display: flex !important; flex-direction: column !important; }
+  #cvPreviewPanel > div:first-child { display: flex !important; flex-shrink: 0 !important; border-radius: 0 !important; padding: 8px 12px !important; background: white !important; border-bottom: 1px solid #e8e6e0 !important; }
+  #cvPreviewPanel > div:first-child button[onclick*="Full"] { display: none !important; }
+  #previewEditBtn { padding: 6px 14px !important; font-size: 12px !important; min-height: 32px !important; }
+  #dlGrid { display: none !important; }
+  #cvPreviewWrapper { flex: 1 !important; height: auto !important; max-height: none !important; min-height: 0 !important; overflow-y: auto !important; overflow-x: hidden !important; -webkit-overflow-scrolling: touch !important; padding: 12px !important; background: #e8e6e0 !important; display: block !important; }
   #cvPreviewWrapper::after { display: none !important; }
   #cvFormPanel { display: none !important; }
   #quickTemplates { grid-template-columns: repeat(2,1fr) !important; gap: 6px !important; }
@@ -679,9 +682,10 @@ nav div a:hover::after { width: 100%; }
 /* ── Canva toolbar ── */
 #canvaToolbar { display: none; position: fixed; bottom: 0; left: 0; right: 0; height: 64px; background: white; border-top: 1px solid #e2ddd4; z-index: 200; box-shadow: 0 -2px 12px rgba(0,0,0,0.10); }
 @media (max-width: 900px) { #canvaToolbar { display: flex !important; } }
-.ctab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; cursor: pointer; border: none; background: none; padding: 6px 2px 4px; font-family: 'DM Sans', sans-serif; color: #9e9890; -webkit-tap-highlight-color: transparent; transition: color 0.15s; font-size: 10px; font-weight: 600; }
-.ctab-icon { font-size: 20px; line-height: 1; display: block; }
-.ctab.active { color: var(--accent); }
+.ctb-btn { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; cursor: pointer; border: none; background: none; padding: 6px 2px 4px; font-family: 'DM Sans', sans-serif; color: #9e9890; -webkit-tap-highlight-color: transparent; transition: color 0.15s; font-size: 10px; font-weight: 600; }
+.ctb-icon { font-size: 20px; line-height: 1; display: block; }
+.ctb-label { font-size: 10px; font-weight: 600; }
+.ctb-btn.active { color: var(--accent); }
 /* ── Bottom sheet ── */
 #sheetOverlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 190; }
 #sheetOverlay.open { display: block; }
@@ -697,8 +701,6 @@ nav div a:hover::after { width: 100%; }
 .cv-section-card input:focus, .cv-section-card textarea:focus, .cv-section-card select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(45,106,79,0.1); }
 /* Download grid → column on mobile */
 @media (max-width: 600px) {
-  #dlGrid { display: flex !important; flex-direction: column !important; }
-  #dlGrid button { width: 100% !important; }
   #importCVSection > div:first-of-type > div { grid-template-columns: 1fr !important; }
   .cover-layout { grid-template-columns: 1fr !important; }
   #clTemplateCards { grid-template-columns: repeat(2,1fr) !important; }
@@ -780,7 +782,7 @@ nav div a:hover::after { width: 100%; }
         <div id="cvFormScrollable">
 
           <!-- Template selector -->
-          <div style="margin-bottom:10px;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;">
+          <div id="sec-template" style="margin-bottom:10px;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
               <span style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;">Template</span>
               <button id="templateGalleryBtn" onclick="toggleTemplateGallery()" style="font-size:12px;color:var(--accent);background:none;border:none;cursor:pointer;font-weight:600;font-family:'DM Sans',sans-serif;padding:0;">See all 36 →</button>
@@ -822,7 +824,7 @@ nav div a:hover::after { width: 100%; }
           </div>
 
           <!-- Color & Font -->
-          <div style="padding:9px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;margin-bottom:10px;">
+          <div id="sec-customize" style="padding:9px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;margin-bottom:10px;">
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
               <div style="display:flex;align-items:center;gap:5px;">
                 <span style="font-size:11px;font-weight:600;color:var(--text2);white-space:nowrap;">Color:</span>
@@ -869,7 +871,7 @@ nav div a:hover::after { width: 100%; }
           </div>
 
           <!-- CV Decorators (click-to-insert) -->
-          <div style="border:1.5px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:10px;">
+          <div id="sec-shapes" style="border:1.5px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:10px;">
             <div onclick="toggleDecorators()" style="background:var(--surface2);padding:8px 12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none;">
               <span style="font-size:11px;font-weight:700;color:var(--text2);">✦ CV Decorators <span id="decoratorCount" style="font-weight:400;color:var(--text3);font-size:10px;"></span></span>
               <span id="decoratorArrow" style="color:var(--text3);font-size:11px;transition:transform 0.2s;">▶</span>
@@ -915,7 +917,7 @@ nav div a:hover::after { width: 100%; }
           </div>
 
           <!-- Personal Information -->
-        <div class="cv-section-card">
+        <div id="sec-personal" class="cv-section-card">
           <div class="cv-section-header" onclick="toggleSection('personal')">
             <div style="display:flex;align-items:center;gap:10px;">
               <span style="font-size:18px;">👤</span>
@@ -973,7 +975,7 @@ nav div a:hover::after { width: 100%; }
         </div>
 
         <!-- Professional Summary -->
-        <div class="cv-section-card">
+        <div id="sec-summary" class="cv-section-card">
           <div class="cv-section-header" onclick="toggleSection('summary')">
             <div style="display:flex;align-items:center;gap:10px;">
               <span style="font-size:18px;">✍️</span>
@@ -998,7 +1000,7 @@ nav div a:hover::after { width: 100%; }
         </div>
 
         <!-- Work Experience -->
-        <div class="cv-section-card">
+        <div id="sec-experience" class="cv-section-card">
           <div class="cv-section-header" onclick="toggleSection('experience')">
             <div style="display:flex;align-items:center;gap:10px;">
               <span style="font-size:18px;">💼</span>
@@ -1019,7 +1021,7 @@ nav div a:hover::after { width: 100%; }
         </div>
 
         <!-- Education -->
-        <div class="cv-section-card">
+        <div id="sec-education" class="cv-section-card">
           <div class="cv-section-header" onclick="toggleSection('education')">
             <div style="display:flex;align-items:center;gap:10px;">
               <span style="font-size:18px;">🎓</span>
@@ -1040,7 +1042,7 @@ nav div a:hover::after { width: 100%; }
         </div>
 
         <!-- Skills -->
-        <div class="cv-section-card">
+        <div id="sec-skills" class="cv-section-card">
           <div class="cv-section-header" onclick="toggleSection('skills')">
             <div style="display:flex;align-items:center;gap:10px;">
               <span style="font-size:18px;">⚡</span>
@@ -1063,7 +1065,7 @@ nav div a:hover::after { width: 100%; }
         </div>
 
         <!-- Certifications -->
-        <div class="cv-section-card">
+        <div id="sec-certs" class="cv-section-card">
           <div class="cv-section-header" onclick="toggleSection('certifications')">
             <div style="display:flex;align-items:center;gap:10px;">
               <span style="font-size:18px;">🏆</span>
@@ -1083,7 +1085,7 @@ nav div a:hover::after { width: 100%; }
         </div>
 
         <!-- Languages -->
-        <div class="cv-section-card">
+        <div id="sec-languages" class="cv-section-card">
           <div class="cv-section-header" onclick="toggleSection('languages')">
             <div style="display:flex;align-items:center;gap:10px;">
               <span style="font-size:18px;">🌐</span>
@@ -1102,7 +1104,7 @@ nav div a:hover::after { width: 100%; }
         </div>
 
         <!-- Availability -->
-        <div class="cv-section-card">
+        <div id="sec-availability" class="cv-section-card">
           <div class="cv-section-header" onclick="toggleSection('availability')">
             <div style="display:flex;align-items:center;gap:10px;">
               <span style="font-size:18px;">📅</span>
@@ -1165,7 +1167,7 @@ nav div a:hover::after { width: 100%; }
         </div>
 
         <!-- Volunteer & Activities -->
-        <div class="cv-section-card">
+        <div id="sec-volunteer" class="cv-section-card">
           <div class="cv-section-header" onclick="toggleSection('volunteer')">
             <div style="display:flex;align-items:center;gap:10px;">
               <span style="font-size:18px;">🤝</span>
@@ -1185,7 +1187,7 @@ nav div a:hover::after { width: 100%; }
         </div>
 
         <!-- References -->
-        <div class="cv-section-card">
+        <div id="sec-references" class="cv-section-card">
           <div class="cv-section-header" onclick="toggleSection('references')">
             <div style="display:flex;align-items:center;gap:10px;">
               <span style="font-size:18px;">📋</span>
@@ -1214,7 +1216,7 @@ nav div a:hover::after { width: 100%; }
         </div>
 
         <!-- Awards & Achievements -->
-        <div class="cv-section-card">
+        <div id="sec-awards" class="cv-section-card">
           <div class="cv-section-header" onclick="toggleSection('awards')">
             <div style="display:flex;align-items:center;gap:10px;">
               <span style="font-size:18px;">🥇</span>
@@ -1233,7 +1235,7 @@ nav div a:hover::after { width: 100%; }
         </div>
 
         <!-- Projects -->
-        <div class="cv-section-card">
+        <div id="sec-projects" class="cv-section-card">
           <div class="cv-section-header" onclick="toggleSection('projects')">
             <div style="display:flex;align-items:center;gap:10px;">
               <span style="font-size:18px;">🚀</span>
@@ -1252,7 +1254,7 @@ nav div a:hover::after { width: 100%; }
         </div>
 
         <!-- Job Description Matcher -->
-        <div class="cv-section-card" style="margin-top:10px;">
+        <div id="sec-jobmatch" class="cv-section-card" style="margin-top:10px;">
           <div class="cv-section-header" onclick="toggleSection('jobmatch')">
             <div style="display:flex;align-items:center;gap:10px;">
               <span style="font-size:18px;">🎯</span>
@@ -4911,11 +4913,9 @@ async function generateLinkedIn() {
 <div id="mobileBar" style="display:none;"></div>
 <!-- Canva-style bottom toolbar -->
 <div id="canvaToolbar" role="toolbar" aria-label="CV editor">
-  <button class="ctab" onclick="openSheet('details')" aria-label="Your Details"><span class="ctab-icon">👤</span><span>Details</span></button>
-  <button class="ctab" onclick="openSheet('sections')" aria-label="CV Sections"><span class="ctab-icon">📋</span><span>Sections</span></button>
-  <button class="ctab" onclick="openSheet('design')" aria-label="Design"><span class="ctab-icon">🎨</span><span>Design</span></button>
-  <button class="ctab" onclick="openSheet('ai')" aria-label="AI Tools"><span class="ctab-icon">✨</span><span>AI Tools</span></button>
-  <button class="ctab" onclick="openSheet('save')" aria-label="Save CV"><span class="ctab-icon">💾</span><span>Save</span></button>
+  <button class="ctb-btn" id="ctb-edit" onclick="openSheet('edit')" aria-label="Edit CV"><span class="ctb-icon">📝</span><span class="ctb-label">Edit</span></button>
+  <button class="ctb-btn" id="ctb-design" onclick="openSheet('design')" aria-label="Design"><span class="ctb-icon">🎨</span><span class="ctb-label">Design</span></button>
+  <button class="ctb-btn" id="ctb-download" onclick="openSheet('download')" aria-label="Save CV"><span class="ctb-icon">⬇️</span><span class="ctb-label">Save</span></button>
 </div>
 <!-- Sheet overlay -->
 <div id="sheetOverlay" onclick="closeSheet()"></div>
@@ -4931,100 +4931,98 @@ async function generateLinkedIn() {
 <button id="pf-scroll-top" aria-label="Scroll to top">↑</button>
 <script>
 /* ── Canva-style mobile sheet system ── */
-(function initMobileIds() {
-  if (window.innerWidth > 900) return;
-  document.querySelectorAll('.cv-section-card').forEach(function(card) {
-    var inner = card.querySelector('[id^="section-"]');
-    if (inner && !card.id) card.id = 'scard-' + inner.id.slice(8);
-  });
-  var g = document.getElementById('quickTplGrid');
-  if (g && g.parentElement && !g.parentElement.id) g.parentElement.id = 'mobileTemplateBox';
-  var a = document.getElementById('cvAccentInput');
-  if (a) { var b = a.parentElement && a.parentElement.parentElement && a.parentElement.parentElement.parentElement; if (b && !b.id) b.id = 'mobileColorFontBox'; }
-  var d = document.getElementById('decoratorContent');
-  if (d && d.parentElement && !d.parentElement.id) d.parentElement.id = 'mobileDecoratorsBox';
-})();
+let movedSections = [];
 
-var _sheetTab = null, _phs = {}, _secOrig = {}, _arrowOrig = {};
-var SHEET_MAP = {
-  details:  {title:'Your Details', ids:['scard-personal']},
-  sections: {title:'CV Sections',  ids:['scard-summary','scard-experience','scard-education','scard-skills','scard-certifications','scard-languages','scard-availability','scard-volunteer','scard-references','scard-awards','scard-projects']},
-  design:   {title:'Design',       ids:['mobileTemplateBox','mobileColorFontBox','mobileDecoratorsBox']},
-  ai:       {title:'AI Tools',     ids:['importCVSection','scard-jobmatch']},
-  save:     {title:'Save CV',      ids:[]}
+const SHEET_MAP = {
+  edit: {
+    title: 'Edit CV',
+    selectors: [
+      '#sec-personal', '#sec-summary', '#sec-experience',
+      '#sec-education', '#sec-skills', '#sec-certs',
+      '#sec-languages', '#sec-availability', '#sec-volunteer',
+      '#sec-references', '#sec-awards', '#sec-projects',
+      '#sec-jobmatch', '#importCVSection'
+    ]
+  },
+  design: {
+    title: 'Design',
+    selectors: ['#sec-template', '#sec-customize', '#sec-shapes']
+  },
+  download: {
+    title: 'Download',
+    selectors: []
+  }
 };
 
-function openSheet(tab) {
+function openSheet(name) {
   if (window.innerWidth > 900) return;
-  if (_sheetTab) closeSheet();
-  _sheetTab = tab;
-  var cfg = SHEET_MAP[tab];
-  if (!cfg) return;
-  document.getElementById('sheetTitle').textContent = cfg.title;
-  var sc = document.getElementById('sheetContent');
-  sc.innerHTML = '';
-  _phs = {}; _secOrig = {}; _arrowOrig = {};
-  if (tab === 'save') {
-    sc.innerHTML = '<div style="display:flex;flex-direction:column;gap:12px;padding:4px 0 8px;">' +
-      '<button onclick="downloadPDF();closeSheet();" style="padding:14px;background:var(--accent);color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download PDF</button>' +
-      '<button onclick="downloadDOCX();closeSheet();" style="padding:14px;background:white;color:var(--accent);border:2px solid var(--accent);border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download Word (.docx)</button>' +
-      '</div>';
+  const sheet = document.getElementById('bottomSheet');
+  const overlay = document.getElementById('sheetOverlay');
+  const content = document.getElementById('sheetContent');
+  const title = document.getElementById('sheetTitle');
+  const config = SHEET_MAP[name];
+  if (!config) return;
+
+  returnSectionsHome();
+  title.textContent = config.title;
+  content.innerHTML = '';
+
+  if (name === 'download') {
+    content.innerHTML =
+      '<button onclick="downloadPDF();closeSheet();" style="width:100%;padding:16px;background:var(--accent);color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download PDF</button>' +
+      '<button onclick="downloadDOCX();closeSheet();" style="width:100%;padding:16px;background:white;color:var(--accent);border:2px solid var(--accent);border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download Word</button>';
   } else {
-    cfg.ids.forEach(function(id) {
-      var el = document.getElementById(id);
+    config.selectors.forEach(sel => {
+      const el = document.querySelector(sel);
       if (!el) return;
-      var ph = document.createElement('span');
-      ph.id = '__ph_' + id;
+      const ph = document.createElement('div');
+      ph.style.display = 'none';
       el.parentNode.insertBefore(ph, el);
-      _phs[id] = ph;
-      var s = el.querySelector('[id^="section-"]');
-      if (s) {
-        _secOrig[id] = s.style.display;
-        s.style.display = 'block';
-        var arr = el.querySelector('.section-arrow');
-        if (arr) { _arrowOrig[id] = arr.style.transform; arr.style.transform = 'rotate(0deg)'; }
-      }
-      sc.appendChild(el);
+      movedSections.push({el, ph});
+      content.appendChild(el);
+      el.style.display = 'block';
     });
   }
-  document.getElementById('sheetOverlay').classList.add('open');
-  document.getElementById('bottomSheet').classList.add('open');
-  var tabs = ['details','sections','design','ai','save'];
-  document.querySelectorAll('.ctab').forEach(function(b, i) { b.classList.toggle('active', tabs[i] === tab); });
-  var startY = 0;
-  var handle = document.getElementById('sheetHandle'), hdr = document.getElementById('sheetHeader');
-  [handle, hdr].forEach(function(el) {
+
+  overlay.style.display = 'block';
+  sheet.style.display = 'flex';
+  requestAnimationFrame(() => sheet.classList.add('open'));
+
+  document.querySelectorAll('.ctb-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('ctb-' + name)?.classList.add('active');
+
+  const handle = document.getElementById('sheetHandle');
+  const hdr = document.getElementById('sheetHeader');
+  let startY = 0;
+  [handle, hdr].forEach(el => {
     if (!el) return;
-    el.ontouchstart = function(e) { startY = e.touches[0].clientY; };
-    el.ontouchend = function(e) { if (e.changedTouches[0].clientY - startY > 60) closeSheet(); };
+    el.ontouchstart = e => { startY = e.touches[0].clientY; };
+    el.ontouchend = e => { if (e.changedTouches[0].clientY - startY > 60) closeSheet(); };
   });
 }
 
-function closeSheet() {
-  if (!_sheetTab) return;
-  var tab = _sheetTab;
-  _sheetTab = null;
-  document.getElementById('bottomSheet').classList.remove('open');
-  document.getElementById('sheetOverlay').classList.remove('open');
-  document.querySelectorAll('.ctab').forEach(function(b) { b.classList.remove('active'); });
-  if (tab !== 'save') {
-    var cfg = SHEET_MAP[tab];
-    if (cfg) cfg.ids.forEach(function(id) {
-      var el = document.getElementById(id), ph = _phs[id];
-      if (!el || !ph || !ph.parentNode) return;
-      if (_secOrig.hasOwnProperty(id)) {
-        var s = el.querySelector('[id^="section-"]');
-        if (s) {
-          s.style.display = _secOrig[id];
-          var arr = el.querySelector('.section-arrow');
-          if (arr) arr.style.transform = _arrowOrig[id] || '';
-        }
-      }
+function returnSectionsHome() {
+  movedSections.forEach(({el, ph}) => {
+    if (ph.parentNode) {
       ph.parentNode.insertBefore(el, ph);
-      ph.parentNode.removeChild(ph);
-    });
-  }
-  _phs = {}; _secOrig = {}; _arrowOrig = {};
+      ph.remove();
+    }
+  });
+  movedSections = [];
+}
+
+function closeSheet() {
+  const sheet = document.getElementById('bottomSheet');
+  const overlay = document.getElementById('sheetOverlay');
+  sheet.classList.remove('open');
+  setTimeout(() => {
+    returnSectionsHome();
+    sheet.style.display = 'none';
+    overlay.style.display = 'none';
+  }, 280);
+  document.querySelectorAll('.ctb-btn').forEach(b => b.classList.remove('active'));
+  if (typeof updateCV === 'function') updateCV();
+  if (typeof scalePreview === 'function') setTimeout(scalePreview, 100);
 }
 </script>
 <script type="application/ld+json">
