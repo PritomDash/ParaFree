@@ -5730,12 +5730,12 @@ if (window.innerWidth <= 768) {
 // Move stats + promos below tool on mobile so paraphraser is reachable instantly
 (function(){
   if (window.innerWidth > 768) return;
-  var tool = document.querySelector('.tool-container');
+  var anchor = document.getElementById('aiWrap') || document.getElementById('detectWrap');
   var stats = document.getElementById('statsStrip');
   var promos = document.getElementById('promoBar');
-  if (!tool) return;
-  if (stats) tool.insertAdjacentElement('afterend', stats);
-  if (promos) (stats || tool).insertAdjacentElement('afterend', promos);
+  if (!anchor) return;
+  if (stats) anchor.insertAdjacentElement('afterend', stats);
+  if (promos) (stats || anchor).insertAdjacentElement('afterend', promos);
 })();
 </script>
 </body>

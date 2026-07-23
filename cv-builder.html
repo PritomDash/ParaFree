@@ -2601,8 +2601,14 @@ async function downloadPDF() {
     const imgData = canvas.toDataURL('image/jpeg', 0.92);
     pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297, '', 'FAST');
     const name = (document.getElementById('fullName')?.value || getFormData().name || 'CV').replace(/\s+/g, '-');
-    pdf.save(`${name}-CV.pdf`);
-    showToast('✓ PDF downloaded!');
+    const pdfBlob = pdf.output('blob');
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+    const pdfA = document.createElement('a');
+    pdfA.href = pdfUrl; pdfA.download = `${name}-CV.pdf`; pdfA.target = '_blank';
+    document.body.appendChild(pdfA); pdfA.click(); document.body.removeChild(pdfA);
+    setTimeout(() => URL.revokeObjectURL(pdfUrl), 3000);
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    showToast(isIOS ? '💡 Tap Share → Save to Files' : '✓ PDF downloaded!');
   } catch(err) {
     if (scaleEl) { scaleEl.style.transform = originalTransform; scaleEl.style.transformOrigin = originalOrigin; }
     preview.style.overflow = 'hidden';
@@ -2787,8 +2793,10 @@ async function downloadDOCX() {
   const blob = await zip.generateAsync({ type:'blob', mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = (d.name||'CV').replace(/\s+/g,'_') + '_Resume.docx';
-  a.click(); URL.revokeObjectURL(url);
+  a.href = url; a.download = (d.name||'CV').replace(/\s+/g,'_') + '_Resume.docx'; a.target = '_blank';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 3000);
+  showToast('✓ Word downloaded!');
 }
 
 // ── Improve CV tab ──
@@ -3542,6 +3550,7 @@ function setCVFont(font) {
   if (sel && font) sel.style.fontFamily = font;
   updatePreview();
   if (font) showToast('Font updated!');
+  if (typeof updateCoverLetter === 'function') updateCoverLetter();
 }
 
 // ── Premium data adapter ──
@@ -5387,8 +5396,14 @@ async function downloadCLasPDF() {
       const imgHeight = (canvas.height * 210) / canvas.width;
       pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight, '', 'FAST');
       const name = (_clGet('clYourName') || 'Cover-Letter').replace(/\s+/g, '-');
-      pdf.save(name + '-Cover-Letter.pdf');
-      showToast('✓ PDF downloaded!');
+      const clBlob = pdf.output('blob');
+      const clUrl = URL.createObjectURL(clBlob);
+      const clA = document.createElement('a');
+      clA.href = clUrl; clA.download = name + '-Cover-Letter.pdf'; clA.target = '_blank';
+      document.body.appendChild(clA); clA.click(); document.body.removeChild(clA);
+      setTimeout(() => URL.revokeObjectURL(clUrl), 3000);
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      showToast(isIOS ? '💡 Tap Share → Save to Files' : '✓ PDF downloaded!');
       return;
     } catch(e) { /* fall through to print */ }
   }
@@ -5443,10 +5458,10 @@ ${bodyParas}
   const fileName = name.replace(/\s+/g, '-') + '-Cover-Letter.docx';
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = fileName;
+  a.href = url; a.download = fileName; a.target = '_blank';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
-  showToast('✓ Word document downloaded!');
+  setTimeout(() => URL.revokeObjectURL(url), 3000);
+  showToast('✓ Word downloaded!');
 }
 
 // ── Feature 1: CV Completeness Score ──
