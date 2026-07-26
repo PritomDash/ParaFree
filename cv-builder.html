@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Free CV Builder — 50+ Templates, No Watermark | ParaFree</title>
-<meta name="description" content="Build a professional CV free with 50+ premium templates, AI-written bullet points, cover letters, and job matching. Like Canva but 100% free — no signup, no watermark, PDF &amp; Word download.">
+<meta name="description" content="Build a professional CV free with 50+ premium templates, AI-written bullet points, cover letters, and job matching. Like Canva but 100% free — no signup, no watermark, PDF download.">
 <meta name="keywords" content="free cv builder, free resume builder, free cv builder no signup, free resume builder unlimited, ats resume checker free, job match analyzer free, ai resume builder free, free cv maker no watermark, free cover letter generator, resume builder no watermark, cv builder australia free, free resume templates, ats friendly resume builder free, resume score checker free, job description match checker free, free cv builder for students, unlimited resume downloads free, cv builder unlimited free, resume keyword optimizer free, free cv templates download, ai cv writer free, cv improver free, upload cv improve free, cv builder free 2026, resume builder free 2026, free cv maker australia, free resume maker india, free cv builder bangladesh, ats friendly cv free, job application tools free, career tools free, free professional cv builder, resume templates free 2026">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://parafree.app/cv-builder.html">
@@ -724,6 +724,16 @@ nav div a:hover::after { width: 100%; }
   #clTemplateCards { grid-template-columns: repeat(2,1fr) !important; }
   *{box-sizing:border-box;-webkit-text-size-adjust:100%;}
 }
+
+/* ── Template Carousel ── */
+#carouselControls { position: sticky; bottom: 16px; text-align: center; z-index: 50; pointer-events: none; margin-top: 6px; }
+#carPrev, #carNext { width: 34px; height: 34px; border-radius: 50%; border: none; background: rgba(255,255,255,0.15); color: white; font-size: 22px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: background .15s; }
+#carPrev:hover, #carNext:hover { background: rgba(255,255,255,0.28); }
+#carInfo { display: flex; flex-direction: column; align-items: center; min-width: 80px; }
+#carName { color: white; font-size: 12px; font-weight: 700; font-family: 'DM Sans', sans-serif; }
+#carCount { color: rgba(255,255,255,0.6); font-size: 10px; font-family: 'DM Sans', sans-serif; }
+#carUse { background: white; color: #1a1814; border: none; border-radius: 20px; padding: 8px 14px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; white-space: nowrap; transition: background .15s; }
+#carUse:hover { background: #f0ede8; }
 </style>
 </head>
 <body>
@@ -792,7 +802,6 @@ nav div a:hover::after { width: 100%; }
           <span style="font-size:14px;font-weight:700;color:var(--text);font-family:'Syne',sans-serif;">Your Details</span>
           <div style="display:flex;gap:6px;">
             <button onclick="downloadPDF()" style="padding:6px 13px;background:var(--accent);color:white;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;">⬇ PDF</button>
-            <button onclick="downloadDOCX()" style="padding:6px 13px;background:white;color:var(--accent);border:1.5px solid var(--accent);border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;">⬇ Word</button>
           </div>
         </div>
 
@@ -1352,6 +1361,18 @@ We are looking for a Software Engineer with:
               </div>
             </div>
           </div>
+          <!-- Carousel navigation (shown when form is empty) -->
+          <div id="carouselControls" style="display:none;">
+            <div style="display:inline-flex;align-items:center;gap:10px;background:rgba(26,24,20,0.85);backdrop-filter:blur(8px);border-radius:30px;padding:8px 12px;pointer-events:all;">
+              <button id="carPrev" onclick="carouselNav(-1)">‹</button>
+              <div id="carInfo">
+                <span id="carName">Classic</span>
+                <span id="carCount">1 / 50</span>
+              </div>
+              <button id="carNext" onclick="carouselNav(1)">›</button>
+              <button id="carUse" onclick="useCarouselTemplate()">✓ Use This</button>
+            </div>
+          </div>
         </div>
 
         <!-- Cover Letter mobile preview (shown in mobile CL mode) -->
@@ -1364,7 +1385,6 @@ We are looking for a Software Engineer with:
         <!-- Download footer -->
         <div id="dlGrid" style="display:flex;gap:8px;padding:10px 14px;background:white;border-top:1px solid var(--border);flex-shrink:0;border-radius:0 0 12px 12px;">
           <button onclick="downloadPDF()" style="flex:1;padding:9px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background .15s;" onmouseover="this.style.background='#235a40'" onmouseout="this.style.background='var(--accent)'">⬇ PDF</button>
-          <button onclick="downloadDOCX()" style="flex:1;padding:9px;background:white;color:var(--accent);border:1.5px solid var(--accent);border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;" onmouseover="this.style.background='var(--accent-light)'" onmouseout="this.style.background='white'">⬇ Word</button>
           <button onclick="copyCV()" title="Copy CV text" style="padding:9px 14px;background:white;color:var(--text2);border:1px solid var(--border);border-radius:8px;font-size:14px;cursor:pointer;transition:all .15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">⎘</button>
         </div>
 
@@ -1608,7 +1628,7 @@ English — Native | Bengali — Fluent" style="width:100%;border:1.5px solid va
           <tr><td style="padding:13px 18px;border-bottom:1px solid #e8e4de;font-size:14px;">Signup required</td><td style="padding:13px 18px;border-bottom:1px solid #e8e4de;font-size:14px;color:#2d6a4f;font-weight:700;">No</td><td style="padding:13px 18px;border-bottom:1px solid #e8e4de;font-size:14px;color:#c0392b;">Yes</td></tr>
           <tr style="background:#fafaf8;"><td style="padding:13px 18px;border-bottom:1px solid #e8e4de;font-size:14px;">AI writes your content</td><td style="padding:13px 18px;border-bottom:1px solid #e8e4de;font-size:14px;color:#2d6a4f;font-weight:700;">✓ Free</td><td style="padding:13px 18px;border-bottom:1px solid #e8e4de;font-size:14px;">Limited</td></tr>
           <tr><td style="padding:13px 18px;border-bottom:1px solid #e8e4de;font-size:14px;">Professional templates</td><td style="padding:13px 18px;border-bottom:1px solid #e8e4de;font-size:14px;color:#2d6a4f;font-weight:700;">36 free</td><td style="padding:13px 18px;border-bottom:1px solid #e8e4de;font-size:14px;">Many paid</td></tr>
-          <tr style="background:#fafaf8;"><td style="padding:13px 18px;border-bottom:1px solid #e8e4de;font-size:14px;">Word (.docx) download</td><td style="padding:13px 18px;border-bottom:1px solid #e8e4de;font-size:14px;color:#2d6a4f;font-weight:700;">✓ Free</td><td style="padding:13px 18px;border-bottom:1px solid #e8e4de;font-size:14px;color:#c0392b;">Paid</td></tr>
+          <tr style="background:#fafaf8;"><td style="padding:13px 18px;border-bottom:1px solid #e8e4de;font-size:14px;">PDF download</td><td style="padding:13px 18px;border-bottom:1px solid #e8e4de;font-size:14px;color:#2d6a4f;font-weight:700;">✓ Free</td><td style="padding:13px 18px;border-bottom:1px solid #e8e4de;font-size:14px;color:#c0392b;">Paid</td></tr>
           <tr><td style="padding:13px 18px;border-bottom:1px solid #e8e4de;font-size:14px;">Watermark on download</td><td style="padding:13px 18px;border-bottom:1px solid #e8e4de;font-size:14px;color:#2d6a4f;font-weight:700;">Never</td><td style="padding:13px 18px;border-bottom:1px solid #e8e4de;font-size:14px;">On some free templates</td></tr>
           <tr style="background:#fafaf8;"><td style="padding:13px 18px;border-bottom:1px solid #e8e4de;font-size:14px;">Job description matching</td><td style="padding:13px 18px;border-bottom:1px solid #e8e4de;font-size:14px;color:#2d6a4f;font-weight:700;">✓</td><td style="padding:13px 18px;border-bottom:1px solid #e8e4de;font-size:14px;color:#c0392b;">✗</td></tr>
           <tr><td style="padding:13px 18px;font-size:14px;">Cover letter AI generator</td><td style="padding:13px 18px;font-size:14px;color:#2d6a4f;font-weight:700;">✓ Free</td><td style="padding:13px 18px;font-size:14px;">Manual</td></tr>
@@ -1686,6 +1706,8 @@ function switchTab(tab) {
 
 // ── Template ──
 function setTemplate(tpl) {
+  carouselMode = false;
+  hideCarouselControls();
   currentTemplate = tpl;
   window.currentTemplate = tpl;
   document.querySelectorAll('.tpl-btn').forEach(b => b.classList.remove('active'));
@@ -2235,6 +2257,40 @@ function dismissFillNotice() {
 }
 
 // ── Update preview ──
+// ── Carousel sample data ──
+const SAMPLE_CV = {
+  name: 'Alex Morgan', title: 'Marketing Manager',
+  email: 'alex.morgan@email.com', phone: '+61 400 123 456',
+  location: 'Sydney, Australia', linkedin: 'linkedin.com/in/alexmorgan',
+  summary: 'Results-driven marketing professional with 6+ years of experience leading digital campaigns, brand strategy and cross-functional teams. Proven record of growing engagement and revenue through data-driven decisions.',
+  experience: [
+    { role: 'Marketing Manager', company: 'Brightwave Media', start: '2021', end: 'Present',
+      bullets: 'Led digital strategy increasing online revenue by 34% year over year\nManaged a team of 6 across content, paid media and design\nReduced cost per acquisition by 22% through campaign optimization' },
+    { role: 'Marketing Coordinator', company: 'Northstar Agency', start: '2018', end: '2021',
+      bullets: 'Coordinated 20+ product launches across social and email channels\nBuilt reporting dashboards cutting analysis time by 40%' }
+  ],
+  education: [{ degree: 'Bachelor of Business (Marketing)', school: 'University of Sydney', start: '2014', end: '2018' }],
+  skills: 'Digital Marketing, SEO, Brand Strategy, Google Analytics, Team Leadership, Content Strategy',
+  certs: 'Google Ads Certified, HubSpot Content Marketing'
+};
+const TPL_NAMES = {
+  classic:'Classic',modern:'Modern',minimal:'Minimal',executive:'Executive',creative:'Creative',
+  compact:'Compact',timeline:'Timeline',tech:'Tech',navy:'Navy',burgundy:'Burgundy',teal:'Teal',
+  slate:'Slate',terracotta:'Terracotta',bold:'Bold',academic:'Academic',elegant:'Elegant',
+  purple:'Purple',warm:'Warm',professional:'Professional',gradient:'Gradient',
+  'exec-pro':'Executive Pro','modern-blue':'Modern Blue','minimal-serif':'Minimal Serif',
+  'bold-tech':'Bold Tech','elegant-gold':'Elegant Gold','modern-minimal':'Modern Minimal',
+  'vibrant-purple':'Vibrant Purple','creative-split':'Creative Split','timeline-cv':'Timeline CV',
+  'skill-bubbles':'Skill Bubbles','gradient-header':'Gradient Header','two-tone':'Two Tone',
+  newspaper:'Newspaper','corner-accent':'Corner Accent','border-frame':'Border Frame',
+  'modern-photo':'Modern Photo','color-sidebar':'Color Sidebar','top-strip':'Top Strip',
+  'photo-left':'Photo Left',midnight:'Midnight',blush:'Blush',monogram:'Monogram',swiss:'Swiss',
+  'slate-premium':'Slate Premium',terra:'Terra',metro:'Metro',ivory:'Ivory',circuit:'Circuit',
+  aurora:'Aurora',ledger:'Ledger',prism:'Prism',haven:'Haven',vertex:'Vertex','standard-plus':'Standard Plus'
+};
+let carouselMode = true;
+let carouselIndex = 0;
+
 const RENDER_MAP = {
   classic: renderClassic, modern: renderModern, minimal: renderMinimal,
   executive: renderExecutive, creative: renderCreative, compact: renderCompact,
@@ -2279,8 +2335,62 @@ const RENDER_MAP = {
   'standard-plus': d => renderStandardPlus(toPremium(d))
 };
 
+function isFormEmpty() {
+  return !document.getElementById('f-name')?.value?.trim() &&
+         !document.getElementById('f-jobtitle')?.value?.trim() &&
+         !document.getElementById('f-email')?.value?.trim();
+}
+function renderCarousel() {
+  const CAROUSEL_TEMPLATES = Object.keys(RENDER_MAP);
+  const tplId = CAROUSEL_TEMPLATES[carouselIndex] || 'classic';
+  const renderer = RENDER_MAP[tplId] || renderClassic;
+  const preview = document.getElementById('cv-preview');
+  if (!preview) return;
+  const wrap = preview.parentElement;
+  wrap.className = 'preview-wrap tpl-' + tplId;
+  preview.innerHTML = renderer(SAMPLE_CV);
+  // Remove any existing badge before adding
+  const old = document.getElementById('carBadge');
+  if (old) old.remove();
+  const badge = document.createElement('div');
+  badge.id = 'carBadge';
+  badge.style.cssText = 'position:absolute;top:8px;left:50%;transform:translateX(-50%);background:rgba(26,24,20,0.72);backdrop-filter:blur(4px);color:rgba(255,255,255,0.95);font-size:10px;font-family:\'DM Sans\',sans-serif;padding:5px 12px;border-radius:20px;white-space:nowrap;z-index:20;pointer-events:none;';
+  badge.textContent = '👀 Sample data — swipe or use arrow keys to browse';
+  preview.appendChild(badge);
+  const ctrl = document.getElementById('carouselControls');
+  if (ctrl) {
+    ctrl.style.display = 'block';
+    document.getElementById('carName').textContent = TPL_NAMES[tplId] || tplId;
+    document.getElementById('carCount').textContent = (carouselIndex + 1) + ' / ' + Object.keys(RENDER_MAP).length;
+  }
+  requestAnimationFrame(() => scalePreview());
+}
+function hideCarouselControls() {
+  const ctrl = document.getElementById('carouselControls');
+  if (ctrl) ctrl.style.display = 'none';
+  const badge = document.getElementById('carBadge');
+  if (badge) badge.remove();
+}
+function carouselNav(dir) {
+  const tpls = Object.keys(RENDER_MAP);
+  carouselIndex = (carouselIndex + dir + tpls.length) % tpls.length;
+  renderCarousel();
+}
+function useCarouselTemplate() {
+  const tplId = Object.keys(RENDER_MAP)[carouselIndex] || 'classic';
+  carouselMode = false;
+  hideCarouselControls();
+  setTemplate(tplId);
+  showToast('Template selected! Fill in your details');
+  if (window.innerWidth <= 900 && typeof openSheet === 'function') {
+    setTimeout(() => openSheet('edit'), 200);
+  }
+}
+
 function updatePreview() {
   if (editModeOn) return; // Don't overwrite manual edits
+  if (isFormEmpty() && carouselMode) { renderCarousel(); return; }
+  hideCarouselControls();
   updateSectionPreviews();
   calculateCVScore();
   const d = getFormData();
@@ -2571,6 +2681,18 @@ async function downloadPDF() {
   if (!preview || !preview.innerHTML.trim() || preview.querySelector('.cv-empty')) {
     showToast('Please fill in your CV details first.'); return;
   }
+  if (carouselMode) { showToast('Fill in your details first — then download!'); return; }
+
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+  // Open placeholder window SYNCHRONOUSLY before any await — preserves gesture context on iOS
+  let mobileWin = null;
+  if (isIOS) {
+    mobileWin = window.open('', '_blank');
+    if (mobileWin) mobileWin.document.write('<p style="font-family:sans-serif;padding:40px;text-align:center;color:#666;">⏳ Preparing your CV PDF...</p>');
+  }
+
   if (typeof html2canvas === 'undefined') {
     showToast('⏳ Loading renderer...');
     await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
@@ -2600,20 +2722,32 @@ async function downloadPDF() {
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
     const imgData = canvas.toDataURL('image/jpeg', 0.92);
     pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297, '', 'FAST');
-    const name = (document.getElementById('fullName')?.value || getFormData().name || 'CV').replace(/\s+/g, '-');
-    const pdfBlob = pdf.output('blob');
-    const pdfUrl = URL.createObjectURL(pdfBlob);
-    const pdfA = document.createElement('a');
-    pdfA.href = pdfUrl; pdfA.download = `${name}-CV.pdf`; pdfA.target = '_blank';
-    document.body.appendChild(pdfA); pdfA.click(); document.body.removeChild(pdfA);
-    setTimeout(() => URL.revokeObjectURL(pdfUrl), 3000);
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-    showToast(isIOS ? '💡 Tap Share → Save to Files' : '✓ PDF downloaded!');
+    const name = (getFormData().name || 'CV').replace(/\s+/g, '-');
+
+    if (!isMobile) {
+      pdf.save(`${name}-CV.pdf`);
+      showToast('✓ PDF downloaded!');
+    } else {
+      const blob = pdf.output('blob');
+      const url = URL.createObjectURL(blob);
+      // Anchor click (reliable on Android Chrome)
+      const a = document.createElement('a');
+      a.href = url; a.download = `${name}-CV.pdf`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      if (isIOS) {
+        // Navigate the pre-opened window to the PDF blob
+        if (mobileWin) { mobileWin.location = url; } else { window.open(url, '_blank'); }
+        showToast('✓ PDF opened — tap Share → Save to Files');
+      } else {
+        showToast('✓ PDF saved to Downloads');
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+    }
   } catch(err) {
+    if (mobileWin) mobileWin.close();
     if (scaleEl) { scaleEl.style.transform = originalTransform; scaleEl.style.transformOrigin = originalOrigin; }
     preview.style.overflow = 'hidden';
     console.error('PDF error:', err);
-    const styles = Array.from(document.styleSheets).map(s => { try { return Array.from(s.cssRules).map(r=>r.cssText).join(''); } catch(e){return '';} }).join('');
     const win = window.open('', '_blank');
     if (win) {
       win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width"><title>CV</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{width:210mm;background:white;}@media print{body{width:210mm;margin:0;padding:0;}@page{size:A4;margin:0;}}</style></head><body>${preview.outerHTML}<script>setTimeout(()=>window.print(),500)<\/script></body></html>`);
@@ -2625,182 +2759,10 @@ async function downloadPDF() {
   }
 }
 
-// ── Download DOCX ──
+// ── (CV Word download removed — use PDF) ──
 async function downloadDOCX() {
-  try {
-  if (typeof JSZip === 'undefined') {
-    showToast('⏳ Loading...');
-    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
-    await new Promise(r => setTimeout(r, 500));
-  }
-  const d = getFormData();
-  const zip = new JSZip();
-
-  zip.file('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
-  zip.file('_rels/.rels', '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
-  zip.file('word/_rels/document.xml.rels', '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>');
-
-  const accentHex = (window._cvAccentColor || '#1a1814').replace('#', '').toUpperCase();
-  const isSidebar = ['executive','color-sidebar','modern','professional','navy','purple','midnight','slate-premium','vertex'].includes(currentTemplate);
-  const isMinimal = ['minimal','minimal-serif','modern-minimal','blush','academic','swiss','ivory','standard-plus','ledger'].includes(currentTemplate);
-
-  const para = (text, {bold=false,size=22,color='2A2A2A',italic=false,align='left',before=0,after=80,indent=0,fill=''}={}) => {
-    const shd = fill ? `<w:shd w:val="clear" w:color="auto" w:fill="${fill}"/>` : '';
-    const ind = indent ? `<w:ind w:left="${indent}"/>` : '';
-    return `<w:p><w:pPr>${shd}<w:jc w:val="${align}"/><w:spacing w:before="${before}" w:after="${after}"/>${ind}</w:pPr>` +
-      `<w:r><w:rPr>${bold?'<w:b/>':''}${italic?'<w:i/>':''}<w:sz w:val="${size}"/>` +
-      `<w:color w:val="${color}"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr>` +
-      `<w:t xml:space="preserve">${escXml(text)}</w:t></w:r></w:p>`;
-  };
-
-  const hdr = (text, light=false) => {
-    const c = light ? 'FFFFFF' : accentHex;
-    return `<w:p><w:pPr><w:spacing w:before="160" w:after="80"/>` +
-      `<w:pBdr><w:bottom w:val="single" w:sz="4" w:space="1" w:color="${c}"/></w:pBdr></w:pPr>` +
-      `<w:r><w:rPr><w:b/><w:sz w:val="22"/><w:color w:val="${c}"/>` +
-      `<w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr><w:t>${escXml(text.toUpperCase())}</w:t></w:r></w:p>`;
-  };
-
-  const bul = (text) => `<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:after="60"/></w:pPr>` +
-    `<w:r><w:rPr><w:sz w:val="20"/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/></w:rPr>` +
-    `<w:t xml:space="preserve">• ${escXml(text.replace(/^[•\-]\s*/,''))}</w:t></w:r></w:p>`;
-
-  let body = '';
-
-  if (isSidebar) {
-    const cp = [d.email,d.phone,d.location,d.linkedin].filter(Boolean);
-    let L = '';
-    L += para(d.name||'Your Name', {bold:true,size:28,color:'FFFFFF',after:80});
-    if (d.title) L += para(d.title, {size:20,color:'E8F5E9',after:120});
-    if (cp.length) {
-      L += hdr('Contact', true);
-      cp.forEach(c => { L += para(c, {size:18,color:'E8F5E9',after:40}); });
-      L += '<w:p/>';
-    }
-    if (d.skills) {
-      L += hdr('Skills', true);
-      d.skills.split(',').map(s=>s.trim()).filter(Boolean).forEach(s => { L += para('• '+s, {size:18,color:'E8F5E9',after:40}); });
-      L += '<w:p/>';
-    }
-    if (d.certs) { L += hdr('Certifications', true); L += para(d.certs, {size:18,color:'E8F5E9',after:40}); }
-
-    let R = '';
-    if (d.summary) { R += hdr('Professional Summary'); R += para(d.summary,{size:21,after:80}); R += '<w:p/>'; }
-    const exps = d.experience.filter(e=>e.role||e.company);
-    if (exps.length) {
-      R += hdr('Work Experience');
-      exps.forEach(e => {
-        const dates = [e.start,e.end].filter(Boolean).join(' – ');
-        R += para(`${e.role||''}${dates?' — '+dates:''}`, {bold:true,size:22,after:40});
-        if (e.company) R += para(e.company, {size:20,color:'6B6660',italic:true,after:40});
-        if (e.bullets) e.bullets.split('\n').filter(b=>b.trim()).forEach(b => { R += bul(b); });
-        R += '<w:p/>';
-      });
-    }
-    const edus = d.education.filter(e=>e.school||e.degree);
-    if (edus.length) {
-      R += hdr('Education');
-      edus.forEach(e => {
-        const dates = [e.start,e.end].filter(Boolean).join(' – ');
-        R += para(`${e.degree||''}${dates?' — '+dates:''}`, {bold:true,size:22,after:40});
-        if (e.school) R += para(e.school, {size:20,color:'6B6660',italic:true,after:40});
-        R += '<w:p/>';
-      });
-    }
-
-    body = `<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/>` +
-      `<w:tblBorders>` +
-      `<w:top w:val="none" w:sz="0" w:space="0" w:color="auto"/>` +
-      `<w:left w:val="none" w:sz="0" w:space="0" w:color="auto"/>` +
-      `<w:bottom w:val="none" w:sz="0" w:space="0" w:color="auto"/>` +
-      `<w:right w:val="none" w:sz="0" w:space="0" w:color="auto"/>` +
-      `<w:insideH w:val="none" w:sz="0" w:space="0" w:color="auto"/>` +
-      `<w:insideV w:val="none" w:sz="0" w:space="0" w:color="auto"/>` +
-      `</w:tblBorders>` +
-      `<w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:left w:w="360" w:type="dxa"/>` +
-      `<w:bottom w:w="0" w:type="dxa"/><w:right w:w="360" w:type="dxa"/></w:tblCellMar>` +
-      `</w:tblPr><w:tblGrid><w:gridCol w:w="2520"/><w:gridCol w:w="6390"/></w:tblGrid><w:tr>` +
-      `<w:tc><w:tcPr><w:tcW w:w="2520" w:type="dxa"/>` +
-      `<w:shd w:val="clear" w:color="auto" w:fill="${accentHex}"/></w:tcPr>${L}</w:tc>` +
-      `<w:tc><w:tcPr><w:tcW w:w="6390" w:type="dxa"/></w:tcPr>${R}</w:tc>` +
-      `</w:tr></w:tbl>`;
-
-  } else if (isMinimal) {
-    const cp = [d.email,d.phone,d.location,d.linkedin].filter(Boolean);
-    body += para(d.name||'Your Name', {bold:true,size:36,color:'1A1814',align:'center',after:60});
-    if (d.title) body += para(d.title, {size:22,color:accentHex,align:'center',after:40});
-    if (cp.length) body += para(cp.join(' · '), {size:18,color:'6B6660',align:'center',after:120});
-    body += `<w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="4" w:space="1" w:color="CCCCCC"/></w:pBdr><w:spacing w:after="80"/></w:pPr></w:p>`;
-    if (d.summary) { body += hdr('Profile'); body += para(d.summary,{size:21,after:80}); body += '<w:p/>'; }
-    const exps = d.experience.filter(e=>e.role||e.company);
-    if (exps.length) {
-      body += hdr('Experience');
-      exps.forEach(e => {
-        const dates = [e.start,e.end].filter(Boolean).join(' – ');
-        body += para(`${e.role||''}${dates?' — '+dates:''}`, {bold:true,size:22,after:40});
-        if (e.company) body += para(e.company,{size:20,color:'6B6660',italic:true,after:40});
-        if (e.bullets) e.bullets.split('\n').filter(b=>b.trim()).forEach(b=>{ body += bul(b); });
-        body += '<w:p/>';
-      });
-    }
-    const edus = d.education.filter(e=>e.school||e.degree);
-    if (edus.length) {
-      body += hdr('Education');
-      edus.forEach(e => {
-        const dates = [e.start,e.end].filter(Boolean).join(' – ');
-        body += para(`${e.degree||''}${dates?' — '+dates:''}`, {bold:true,size:22,after:40});
-        if (e.school) body += para(e.school,{size:20,color:'6B6660',italic:true,after:40});
-        body += '<w:p/>';
-      });
-    }
-    if (d.skills) { body += hdr('Skills'); body += para(d.skills,{size:21,after:80}); }
-    if (d.certs) { body += hdr('Certifications'); body += para(d.certs,{size:21}); }
-
-  } else {
-    // Classic / Executive / Bold / etc. — colored header band
-    body += para(d.name||'Your Name', {bold:true,size:44,color:'FFFFFF',fill:accentHex,before:200,after:60});
-    if (d.title) body += para(d.title, {size:24,color:'FFFFFF',fill:accentHex,after:200});
-    const cp = [d.email,d.phone,d.location,d.linkedin].filter(Boolean);
-    if (cp.length) body += para(cp.join(' · '), {size:18,color:'6B6660',after:120});
-    body += '<w:p/>';
-    if (d.summary) { body += hdr('Professional Summary'); body += para(d.summary,{size:21,after:80}); body += '<w:p/>'; }
-    const exps = d.experience.filter(e=>e.role||e.company);
-    if (exps.length) {
-      body += hdr('Work Experience');
-      exps.forEach(e => {
-        const dates = [e.start,e.end].filter(Boolean).join(' – ');
-        body += para(`${e.role||''}${dates?' — '+dates:''}`, {bold:true,size:22,after:40});
-        if (e.company) body += para(e.company,{size:20,color:accentHex,after:40});
-        if (e.bullets) e.bullets.split('\n').filter(b=>b.trim()).forEach(b=>{ body += bul(b); });
-        body += '<w:p/>';
-      });
-    }
-    const edus = d.education.filter(e=>e.school||e.degree);
-    if (edus.length) {
-      body += hdr('Education');
-      edus.forEach(e => {
-        const dates = [e.start,e.end].filter(Boolean).join(' – ');
-        body += para(`${e.degree||''}${dates?' — '+dates:''}`, {bold:true,size:22,after:40});
-        if (e.school) body += para(e.school,{size:20,color:'6B6660',after:40});
-        body += '<w:p/>';
-      });
-    }
-    if (d.skills) { body += hdr('Skills'); body += para(d.skills,{size:21,after:80}); }
-    if (d.certs) { body += hdr('Certifications'); body += para(d.certs,{size:21}); }
-  }
-
-  zip.file('word/document.xml', `<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body}<w:sectPr><w:pgSz w:w="11906" w:h="16838" w:orient="portrait"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="709" w:footer="709" w:gutter="0"/></w:sectPr></w:body></w:document>`);
-
-  const blob = await zip.generateAsync({ type:'blob', mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = (d.name||'CV').replace(/\s+/g,'_') + '_Resume.docx'; a.target = '_blank';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 3000);
-  showToast('✓ Word downloaded!');
-  } catch(err) { console.error('DOCX error:', err); showToast('❌ ' + (err.message || 'Download failed')); }
+  showToast('💡 Use ⬇ PDF to download your CV');
 }
-
 // ── Improve CV tab ──
 function handleImproveDrop(e) {
   e.preventDefault();
@@ -3473,7 +3435,7 @@ function showImportSuccess(data) {
       <strong style="color:#166534;">Next steps:</strong><br>
       👇 Review and fix any details below<br>
       🎨 Switch templates and change colors<br>
-      ⬇️ Download PDF or Word — free, no watermark
+      ⬇️ Download as PDF — free, no watermark
     </div>
     <button onclick="switchTab('build')" style="width:100%;padding:11px;background:var(--accent);color:white;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif;" onmouseover="this.style.background='#1e4d35'" onmouseout="this.style.background='var(--accent)'">
       📄 View &amp; Edit Your CV →
@@ -5690,8 +5652,7 @@ function openSheet(name) {
     content.innerHTML = isCL
       ? '<button onclick="closeSheet();setTimeout(downloadCLasPDF,350);" style="width:100%;padding:16px;background:var(--accent);color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download Letter PDF</button>' +
         '<button onclick="closeSheet();setTimeout(downloadCLasDOCX,350);" style="width:100%;padding:16px;background:white;color:var(--accent);border:2px solid var(--accent);border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download Letter Word</button>'
-      : '<button onclick="closeSheet();setTimeout(downloadPDF,350);" style="width:100%;padding:16px;background:var(--accent);color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download PDF</button>' +
-        '<button onclick="closeSheet();setTimeout(downloadDOCX,350);" style="width:100%;padding:16px;background:white;color:var(--accent);border:2px solid var(--accent);border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download Word</button>';
+      : '<button onclick="downloadPDF();closeSheet();" style="width:100%;padding:16px;background:var(--accent);color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download PDF</button>';
   } else {
     config.selectors.forEach(sel => {
       const el = document.querySelector(sel);
@@ -5750,6 +5711,29 @@ function closeSheet() {
 {"@context":"https://schema.org","@type":"Organization","name":"ParaFree","url":"https://parafree.app","logo":"https://parafree.app/logo.png","description":"Free AI writing suite — paraphraser, humanizer, CV builder, grammar checker, summarizer and AI detector. No signup, no word limits, always free.","foundingDate":"2026","contactPoint":{"@type":"ContactPoint","email":"parafree.tool@gmail.com","contactType":"customer support"},"sameAs":["https://parafree.app","https://threads.net/@parafree"],"areaServed":["AU","US","GB","BD","IN","SG","CA","NZ"],"serviceType":["Paraphrasing Tool","AI Humanizer","CV Builder","Grammar Checker","AI Detector","Text Summarizer"]}
 </script>
 <script>
+// ── Carousel touch + keyboard ──
+(function() {
+  var el = document.getElementById('cvPreviewWrapper');
+  if (!el) return;
+  var tx = 0;
+  el.addEventListener('touchstart', function(e) { if (carouselMode && isFormEmpty()) tx = e.touches[0].clientX; }, {passive:true});
+  el.addEventListener('touchend', function(e) {
+    if (!carouselMode || !isFormEmpty()) return;
+    var dx = e.changedTouches[0].clientX - tx;
+    if (Math.abs(dx) > 60) carouselNav(dx < 0 ? 1 : -1);
+  }, {passive:true});
+})();
+document.addEventListener('keydown', function(e) {
+  if (!carouselMode || !isFormEmpty()) return;
+  if (e.key === 'ArrowRight') carouselNav(1);
+  if (e.key === 'ArrowLeft') carouselNav(-1);
+});
+document.getElementById('cvFormScrollable')?.addEventListener('input', function() {
+  if (carouselMode) { carouselMode = false; hideCarouselControls(); updatePreview(); }
+}, {once: true, capture: true});
+// Kick off carousel on page load
+if (isFormEmpty() && carouselMode) renderCarousel();
+
 function toggleMenu(){var m=document.getElementById('mobileMenu');if(!m)return;m.style.display=m.style.display==='flex'?'none':'flex';}
 (function(){var b=document.getElementById('pf-scroll-top');if(b){window.addEventListener('scroll',function(){b.classList.toggle('visible',window.scrollY>300);},{passive:true});b.addEventListener('click',function(){window.scrollTo({top:0,behavior:'smooth'});});}var h=document.querySelector('.hero,.page-hero,.cv-hero');if(h)h.classList.add('pf-hero-animate');if(!('IntersectionObserver' in window))return;var els=document.querySelectorAll('.feature-card,.tool-card,.card');if(!els.length)return;var obs=new IntersectionObserver(function(en){en.forEach(function(e){if(e.isIntersecting){e.target.classList.add('is-visible');obs.unobserve(e.target);}});},{threshold:0.08});els.forEach(function(el,i){el.classList.add('pf-reveal');el.style.transitionDelay=(i%5*0.07)+'s';obs.observe(el);});})();
 </script>
