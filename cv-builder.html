@@ -726,7 +726,7 @@ nav div a:hover::after { width: 100%; }
 }
 
 /* ── Template Carousel ── */
-#carouselControls { position: sticky; bottom: 16px; text-align: center; z-index: 50; pointer-events: none; margin-top: 6px; }
+#carouselControls { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 50; pointer-events: none; white-space: nowrap; }
 #carPrev, #carNext { width: 34px; height: 34px; border-radius: 50%; border: none; background: rgba(255,255,255,0.15); color: white; font-size: 22px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: background .15s; }
 #carPrev:hover, #carNext:hover { background: rgba(255,255,255,0.28); }
 #carInfo { display: flex; flex-direction: column; align-items: center; min-width: 80px; }
@@ -1361,17 +1361,17 @@ We are looking for a Software Engineer with:
               </div>
             </div>
           </div>
-          <!-- Carousel navigation (shown when form is empty) -->
-          <div id="carouselControls" style="display:none;">
-            <div style="display:inline-flex;align-items:center;gap:10px;background:rgba(26,24,20,0.85);backdrop-filter:blur(8px);border-radius:30px;padding:8px 12px;pointer-events:all;">
-              <button id="carPrev" onclick="carouselNav(-1)">‹</button>
-              <div id="carInfo">
-                <span id="carName">Classic</span>
-                <span id="carCount">1 / 50</span>
-              </div>
-              <button id="carNext" onclick="carouselNav(1)">›</button>
-              <button id="carUse" onclick="useCarouselTemplate()">✓ Use This</button>
+        </div>
+        <!-- Carousel navigation — absolute over the panel, visible on all screen sizes -->
+        <div id="carouselControls" style="display:none;">
+          <div style="display:inline-flex;align-items:center;gap:10px;background:rgba(26,24,20,0.85);backdrop-filter:blur(8px);border-radius:30px;padding:8px 12px;pointer-events:all;">
+            <button id="carPrev" onclick="carouselNav(-1)">‹</button>
+            <div id="carInfo">
+              <span id="carName">Classic</span>
+              <span id="carCount">1 / 50</span>
             </div>
+            <button id="carNext" onclick="carouselNav(1)">›</button>
+            <button id="carUse" onclick="useCarouselTemplate()">✓ Use This</button>
           </div>
         </div>
 
@@ -2813,21 +2813,27 @@ async function downloadPDF() {
     if (!isMobile) {
       pdf.save(`${name}-CV.pdf`);
       showToast('✓ PDF downloaded!');
-    } else {
+    } else if (isIOS) {
       const blob = pdf.output('blob');
       const url = URL.createObjectURL(blob);
-      // Anchor click (reliable on Android Chrome)
+      if (mobileWin && !mobileWin.closed) {
+        mobileWin.location.href = url;
+        showToast('✓ PDF opened — tap Share → Save to Files');
+      } else {
+        // Popup was blocked — navigate current tab via data URI
+        window.location.href = pdf.output('datauristring');
+        showToast('✓ PDF loading — tap Share → Save to Files');
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } else {
+      // Android: blob anchor download
+      const blob = pdf.output('blob');
+      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url; a.download = `${name}-CV.pdf`;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      if (isIOS) {
-        // Navigate the pre-opened window to the PDF blob
-        if (mobileWin) { mobileWin.location = url; } else { window.open(url, '_blank'); }
-        showToast('✓ PDF opened — tap Share → Save to Files');
-      } else {
-        showToast('✓ PDF saved to Downloads');
-      }
-      setTimeout(() => URL.revokeObjectURL(url), 30000);
+      showToast('✓ PDF saved to Downloads');
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
     }
   } catch(err) {
     if (mobileWin) mobileWin.close();
@@ -5439,6 +5445,13 @@ function renderBoldCoverLetter(d) {
 async function downloadCLasPDF() {
   const preview = document.getElementById('coverLetterPreview');
   if (!preview || !preview.innerHTML.trim()) { showToast('Generate a cover letter first'); return; }
+  // Open iOS tab synchronously BEFORE any await — preserves gesture context
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  let iosTab = null;
+  if (isIOS) {
+    iosTab = window.open('', '_blank');
+    if (iosTab) iosTab.document.write('<p style="font-family:sans-serif;padding:40px;text-align:center;color:#666;">⏳ Preparing your cover letter PDF...</p>');
+  }
   showToast('⏳ Creating PDF...');
   if (window.html2canvas && window.jspdf) {
     try {
@@ -5452,15 +5465,26 @@ async function downloadCLasPDF() {
       const name = (_clGet('clYourName') || 'Cover-Letter').replace(/\s+/g, '-');
       const clBlob = pdf.output('blob');
       const clUrl = URL.createObjectURL(clBlob);
-      const clA = document.createElement('a');
-      clA.href = clUrl; clA.download = name + '-Cover-Letter.pdf'; clA.target = '_blank';
-      document.body.appendChild(clA); clA.click(); document.body.removeChild(clA);
-      setTimeout(() => URL.revokeObjectURL(clUrl), 3000);
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-      showToast(isIOS ? '💡 Tap Share → Save to Files' : '✓ PDF downloaded!');
+      if (isIOS) {
+        if (iosTab && !iosTab.closed) {
+          iosTab.location.href = clUrl;
+          showToast('✓ PDF opened — tap Share → Save to Files');
+        } else {
+          window.location.href = pdf.output('datauristring');
+          showToast('✓ PDF loading — tap Share → Save to Files');
+        }
+        setTimeout(() => URL.revokeObjectURL(clUrl), 60000);
+      } else {
+        const clA = document.createElement('a');
+        clA.href = clUrl; clA.download = name + '-Cover-Letter.pdf';
+        document.body.appendChild(clA); clA.click(); document.body.removeChild(clA);
+        setTimeout(() => URL.revokeObjectURL(clUrl), 10000);
+        showToast('✓ PDF downloaded!');
+      }
       return;
-    } catch(e) { /* fall through to print */ }
+    } catch(e) { if (iosTab) iosTab.close(); /* fall through to print */ }
   }
+  if (iosTab) iosTab.close();
   const win = window.open('', '_blank');
   if (win) {
     const styles = Array.from(document.querySelectorAll('style')).map(s => s.outerHTML).join('\n');
@@ -5736,7 +5760,7 @@ function openSheet(name) {
   if (name === 'download') {
     const isCL = currentBuilderTab === 'coverletter';
     content.innerHTML = isCL
-      ? '<button onclick="closeSheet();setTimeout(downloadCLasPDF,350);" style="width:100%;padding:16px;background:var(--accent);color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download Letter PDF</button>' +
+      ? '<button onclick="downloadCLasPDF();closeSheet();" style="width:100%;padding:16px;background:var(--accent);color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download Letter PDF</button>' +
         '<button onclick="closeSheet();setTimeout(downloadCLasDOCX,350);" style="width:100%;padding:16px;background:white;color:var(--accent);border:2px solid var(--accent);border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download Letter Word</button>'
       : '<button onclick="downloadPDF();closeSheet();" style="width:100%;padding:16px;background:var(--accent);color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download PDF</button>';
   } else {
