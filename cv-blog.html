@@ -167,6 +167,11 @@ nav div a:hover::after { width: 100%; }
 #pf-scroll-top:hover { background:#245a41; }
 @media (prefers-reduced-motion: reduce) { *,*::before,*::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } .pf-reveal { opacity: 1 !important; transform: none !important; } }
 @media print { nav, footer, #pf-scroll-top { display: none !important; } }
+footer .footer-row{display:flex;justify-content:center;gap:40px;flex-wrap:wrap;margin-bottom:20px;text-align:left}
+footer .footer-col h4{font-family:'Syne',sans-serif;font-size:11px;font-weight:800;color:#52b788;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px}
+footer .footer-col a{display:block;color:#ccc;text-decoration:none;font-size:13px;margin-bottom:5px}
+footer .footer-col a:hover{color:#fff}
+@media(max-width:600px){footer .footer-row{flex-direction:column;gap:20px;align-items:center;text-align:center}}
 </style>
 </head>
 <body>
@@ -510,17 +515,35 @@ nav div a:hover::after { width: 100%; }
 </div><!-- /container -->
 
 <footer>
-  <div>
-    <a href="/">Home</a>
-    <a href="/about.html">About</a>
-    <a href="/blog.html">Blog</a>
-    <a href="/cv-builder.html">CV Builder</a>
-    <a href="/code.html">ParaFree AI</a>
-    <a href="/cv-blog.html">CV Blog</a>
-    <a href="/faq.html">FAQ</a>
-    <a href="/contact.html">Contact</a>
-    <a href="/privacy.html">Privacy</a>
-    <a href="/terms.html">Terms</a>
+  <div class="footer-row">
+    <div class="footer-col">
+      <h4>Tools</h4>
+      <a href="/">Home</a>
+      <a href="/cv-builder.html">CV Builder</a>
+      <a href="/code.html">ParaFree AI</a>
+      <a href="/paraphrase-word-document.html">Paraphrase Word</a>
+      <a href="/paraphrase-pdf.html">Paraphrase PDF</a>
+    </div>
+    <div class="footer-col">
+      <h4>CV Resources</h4>
+      <a href="/best-free-cv-builder.html">Best Free CV Builder 2026</a>
+      <a href="/ai-cv-builder.html">AI CV Builder</a>
+      <a href="/cv-builder-no-signup.html">No-Signup Builder</a>
+      <a href="/ats-resume-builder.html">ATS Templates</a>
+      <a href="/student-cv-builder.html">Student CV</a>
+      <a href="/free-cv-builder-australia.html">CV Builder Australia</a>
+      <a href="/free-cv-builder-uk.html">CV Builder UK</a>
+    </div>
+    <div class="footer-col">
+      <h4>Company</h4>
+      <a href="/about.html">About</a>
+      <a href="/cv-blog.html">CV Blog</a>
+      <a href="/blog.html">Blog</a>
+      <a href="/faq.html">FAQ</a>
+      <a href="/contact.html">Contact</a>
+      <a href="/privacy.html">Privacy</a>
+      <a href="/terms.html">Terms</a>
+    </div>
   </div>
   <div style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:8px;"><img src="/favicon.svg" alt="ParaFree" height="20" style="height:20px;width:auto;"><span style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;color:#ccc;">ParaFree</span></div>
   <p>© 2026 ParaFree · Free AI Writing Suite · No limits, no signup, always free</p>
