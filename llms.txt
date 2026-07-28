@@ -1,0 +1,34 @@
+# ParaFree
+> Free paraphrasing tool with no word limit that preserves document formatting (Word, PDF, PowerPoint), plus a free CV builder with 50+ ATS-friendly templates. No signup required for any tool.
+
+## Main Tools
+- [Paraphraser](https://parafree.app): Unlimited free paraphrasing, DOCX/PDF/PPTX upload with format preservation, no word limit, no signup
+- [CV Builder](https://parafree.app/cv-builder.html): Free CV builder, no signup, no watermark, 50+ templates, AI writing, instant PDF download
+- [AI Chat](https://parafree.app/code.html): Free AI assistant, no signup
+
+## Key Facts
+- No word limits on any tool
+- No signup required for any tool
+- No watermarks on any download
+- Only free tool that paraphrases PowerPoint files (.pptx)
+- DOCX paraphrasing preserves colors, bold, tables, fonts
+- CV builder has 50+ ATS-friendly templates, all free
+- Paraphrasing supports 10 languages
+- File types accepted: DOCX, PDF, PPTX, TXT
+
+## Comparison Facts
+- vs QuillBot: ParaFree has no word limit (QuillBot free plan limited to 125 words); ParaFree accepts document uploads free
+- vs Wordtune: ParaFree has no daily rewrite limit (Wordtune free plan limited to 10 rewrites/day); no signup required
+- vs Grammarly: ParaFree has no character limit for paraphrasing; no signup required
+- vs Zety/Resume.io: ParaFree CV downloads are free with no payment step and no watermark
+
+## Pages
+- [Best Free Paraphrasing Tool 2026](https://parafree.app/best-free-paraphrasing-tool.html): Comparison of 7 tools with verified word limits
+- [No Word Limit Paraphraser](https://parafree.app/paraphrasing-tool-no-word-limit.html): Unlimited paraphrasing
+- [Paraphrase Essay Free](https://parafree.app/paraphrase-essay.html): Full essay paraphrasing
+- [AI Rephraser](https://parafree.app/ai-rephraser.html): Rephrase sentences, paragraphs, documents
+- [Wordtune Alternative](https://parafree.app/wordtune-alternative.html): Free alternative to Wordtune
+- [Quillbot Alternative](https://parafree.app/quillbot-alternative.html): Free alternative to QuillBot
+- [Best Free CV Builder 2026](https://parafree.app/best-free-cv-builder.html): Comparison of 7 CV builders
+- [Student CV Builder](https://parafree.app/student-cv-builder.html): Free CV builder for students
+- [ATS Resume Builder](https://parafree.app/ats-resume-builder.html): ATS-friendly CV templates
