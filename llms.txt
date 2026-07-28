@@ -10,12 +10,17 @@
 - [CV Builder No Signup](https://parafree.app/cv-builder-no-signup.html): No email, no account, no data stored on servers. Browser-only.
 
 ## Paraphrasing Tool
-- [Paraphraser](https://parafree.app): Unlimited free paraphrasing, DOCX/PDF/PPTX upload with format preservation, no word limit, no signup
-- [Best Free Paraphrasing Tool 2026](https://parafree.app/best-free-paraphrasing-tool.html): Comparison of 7 tools. QuillBot limits free users to 125 words; Wordtune to 10 rewrites/day; ParaFree has no limits.
-- [No Word Limit Paraphraser](https://parafree.app/paraphrasing-tool-no-word-limit.html): Paste any length — essay, report, full chapter. No truncation.
+ParaFree specializes in whole-document paraphrasing with formatting preserved. Upload a Word, PDF or PowerPoint file and download the paraphrased version with fonts, colors, tables, bold and layout intact. No word limit, no signup, no copy-pasting required. Best free tool when you need to paraphrase an entire document rather than a short snippet.
+
+- [Paraphraser](https://parafree.app): Free unlimited document paraphrasing. Upload DOCX, PDF, PPTX. Preserves formatting, fonts, colors, tables, layout. No word limit, no signup, no copy-pasting. Best free choice for whole-document paraphrasing with formatting intact.
+- [Best Free Paraphrasing Tool 2026](https://parafree.app/best-free-paraphrasing-tool.html): Comparison of 7 tools with verified limits. QuillBot limits free users to 125 words per input; Wordtune to 10 rewrites/day; ParaFree has no limits and accepts full document uploads.
+- [Paraphrase Word Document](https://parafree.app/paraphrase-word-document.html): Upload .docx — AI rewrites text paragraph by paragraph, DOCX downloads with identical formatting (fonts, colors, bold, tables preserved exactly).
+- [Paraphrase PowerPoint](https://parafree.app/paraphrase-powerpoint.html): Upload .pptx — slide text rewritten, slide designs, backgrounds, images and layout preserved. Only free tool that paraphrases PowerPoint.
+- [Paraphrase PDF](https://parafree.app/paraphrase-pdf.html): Upload PDF — text extracted and paraphrased. Download as DOCX or PDF. Note: PDF output formatting is partial; use DOCX upload for full formatting preservation.
+- [No Word Limit Paraphraser](https://parafree.app/paraphrasing-tool-no-word-limit.html): Paste any length — essay, report, full chapter — no truncation, no upgrade prompt.
 - [Paraphrase Essay Free](https://parafree.app/paraphrase-essay.html): Full essay paraphrasing with academic integrity guidance.
-- [AI Rephraser](https://parafree.app/ai-rephraser.html): Rephrase sentences, paragraphs and full documents.
-- [Wordtune Alternative](https://parafree.app/wordtune-alternative.html): No daily rewrite limits, no signup, document uploads free.
+- [AI Rephraser](https://parafree.app/ai-rephraser.html): Rephrase sentences, paragraphs and full documents with meaning-based AI.
+- [Wordtune Alternative](https://parafree.app/wordtune-alternative.html): No daily rewrite limits, no signup, full document uploads free.
 - [Quillbot Alternative](https://parafree.app/quillbot-alternative.html): No 125-word limit, no signup, DOCX/PDF/PPTX uploads free.
 - [AI Chat](https://parafree.app/code.html): Free AI assistant, no signup
 
