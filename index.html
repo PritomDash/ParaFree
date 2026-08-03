@@ -2678,10 +2678,13 @@ async function handleFileUpload(event) {
           }
         }
 
-        // Extract plain text with mammoth for display
+        // Extract body-only text (exclude tables) for paraphrasing
         const arrayBuffer = await file.arrayBuffer();
-        const result = await mammoth.extractRawText({arrayBuffer});
-        let text = (result.value || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+        let text = docxOriginalXml ? extractBodyTextFromDocx(docxOriginalXml) : '';
+        if (!text) {
+          const result = await mammoth.extractRawText({arrayBuffer});
+          text = (result.value || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+        }
         if (!text) { showStatus('❌ Could not read document text', 'error'); return; }
         document.getElementById("inputText").value = text;
         document.getElementById("inputCount").textContent = countWords(text) + " words";
@@ -4921,13 +4924,27 @@ function renderPlainPDF(pdf, outputText, margin, maxW, pageW, pageH) {
 // ════════════════════════════════════════════
 // DOCX DOWNLOAD
 // ════════════════════════════════════════════
+
+// Extract body-paragraph text from DOCX XML, excluding all table content.
+// Used to build the input sent to the AI so tables are never paraphrased.
+function extractBodyTextFromDocx(xml) {
+  const noTables = xml.replace(/<w:tbl[\s\S]*?<\/w:tbl>/g, '');
+  const paras = [];
+  (noTables.match(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g) || []).forEach(p => {
+    const text = p.replace(/<[^>]+>/g, '').trim();
+    if (text.length > 0) paras.push(text);
+  });
+  return paras.join('\n\n');
+}
+
 // Paragraph-level DOCX text replacement.
 // Replaces meaningful paragraph text only — skips short/date/garbage paras.
 // Puts full new text in the first non-empty <w:t> of each paragraph,
 // clears subsequent runs so formatting structure is preserved.
 function docxReplaceParas(xml, newParaTexts) {
   let segIdx = 0;
-  return xml.replace(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g, (para) => {
+  const result = xml.replace(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g, (para) => {
+    if (para.includes('\x00TBL')) return para; // defensive: table placeholder in body
     const origText = para.replace(/<[^>]+>/g, '').trim();
     if (!origText || origText.length < 3) return para;
     // Skip garbage (repeating char patterns like "jknjknjkn")
@@ -4949,6 +4966,8 @@ function docxReplaceParas(xml, newParaTexts) {
       return open + close;
     });
   });
+  console.log('Segments consumed:', segIdx, 'of', newParaTexts.length);
+  return result;
 }
 
 async function downloadAsDOCX() {
@@ -4969,9 +4988,21 @@ async function downloadAsDOCX() {
         .split(/\n+/)
         .map(s => s.trim())
         .filter(s => s.length > 0);
+      console.log('Body segments:', newSegments.length);
 
-      // Process all <w:p> nodes in document order (body + table cells) — segments align 1:1
-      let xml = docxReplaceParas(docxOriginalXml, newSegments);
+      // Stash tables — never modified, always preserved as-is
+      const tblStash = [];
+      let xml = docxOriginalXml.replace(/<w:tbl[\s\S]*?<\/w:tbl>/g, match => {
+        tblStash.push(match);
+        return '\x00TBL' + (tblStash.length - 1) + '\x00';
+      });
+
+      xml = docxReplaceParas(xml, newSegments);
+
+      // Restore tables unchanged
+      tblStash.forEach((tbl, i) => {
+        xml = xml.replace('\x00TBL' + i + '\x00', () => tbl);
+      });
 
       docxZip.file('word/document.xml', xml);
       const blob = await docxZip.generateAsync({
