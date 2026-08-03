@@ -4929,7 +4929,10 @@ function docxReplaceParas(xml, newParaTexts) {
   let segIdx = 0;
   const result = xml.replace(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g, (para) => {
     // Skip paragraphs that contain a table placeholder — don't consume a segment here
-    if (para.includes('\x00TBL') || /\x00TBL\d+\x00/.test(para)) return para;
+    if (para.includes('\x00TBL') || /\x00TBL\d+\x00/.test(para)) {
+      console.log('SKIP (table placeholder):', para.slice(0, 60));
+      return para;
+    }
     const origText = para.replace(/<[^>]+>/g, '').trim();
     if (!origText || origText.length < 3) return para;
     // Skip garbage (repeating char patterns like "jknjknjkn")
@@ -4938,11 +4941,18 @@ function docxReplaceParas(xml, newParaTexts) {
     if (/^\d{4}\s*[-–]\s*(\d{4}|present)$/i.test(origText) ||
         /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4}/i.test(origText)) return para;
     // Pool exhausted — keep original
-    if (segIdx >= newParaTexts.length) return para;
+    if (segIdx >= newParaTexts.length) {
+      console.log('POOL EXHAUSTED at:', origText.slice(0, 40));
+      return para;
+    }
     const newText = newParaTexts[segIdx];
     // Refuse replacement if new text is < 30% of original length (pool tail-off)
-    if (!newText || newText.length < origText.length * 0.3) return para;
+    if (!newText || newText.length < origText.length * 0.3) {
+      console.log('SKIP para:', origText.slice(0, 40));
+      return para;
+    }
     segIdx++;
+    console.log('REPLACE para', segIdx, '| orig:', origText.slice(0, 30), '| new:', newText.slice(0, 30));
     // Put full new text in first non-empty <w:t>, clear the rest
     let firstDone = false;
     return para.replace(/(<w:t[^>]*>)([\s\S]*?)(<\/w:t>)/g, (m, open, txt, close) => {
@@ -4973,7 +4983,9 @@ async function downloadAsDOCX() {
         .split(/\n+/)
         .map(s => s.trim())
         .filter(s => s.length > 0);
-      console.log('Total segments:', newSegments.length);
+      console.log('=== DOWNLOAD DEBUG ===');
+      console.log('newSegments count:', newSegments.length);
+      newSegments.forEach((s, i) => console.log('SEG', i, ':', s.slice(0, 50)));
 
       // Stash tables — never modified, always preserved as-is
       const tblStash = [];
@@ -4981,7 +4993,9 @@ async function downloadAsDOCX() {
         tblStash.push(match);
         return '\x00TBL' + (tblStash.length - 1) + '\x00';
       });
-      console.log('Tables stashed:', tblStash.length);
+      const tblCount = (docxOriginalXml.match(/<w:tbl[\s\S]*?<\/w:tbl>/g) || []).length;
+      console.log('Tables found:', tblCount);
+      console.log('Placeholders in xml:', (xml.match(/\x00TBL\d+\x00/g) || []).length);
 
       // Replace at paragraph level (skips short/date/garbage paras, handles pool exhaustion)
       xml = docxReplaceParas(xml, newSegments);
