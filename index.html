@@ -4927,7 +4927,9 @@ function renderPlainPDF(pdf, outputText, margin, maxW, pageW, pageH) {
 // clears subsequent runs so formatting structure is preserved.
 function docxReplaceParas(xml, newParaTexts) {
   let segIdx = 0;
-  return xml.replace(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g, (para) => {
+  const result = xml.replace(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g, (para) => {
+    // Skip paragraphs that contain a table placeholder — don't consume a segment here
+    if (para.includes('\x00TBL') || /\x00TBL\d+\x00/.test(para)) return para;
     const origText = para.replace(/<[^>]+>/g, '').trim();
     if (!origText || origText.length < 3) return para;
     // Skip garbage (repeating char patterns like "jknjknjkn")
@@ -4949,6 +4951,8 @@ function docxReplaceParas(xml, newParaTexts) {
       return open + close;
     });
   });
+  console.log('Segments consumed:', segIdx, 'of', newParaTexts.length);
+  return result;
 }
 
 async function downloadAsDOCX() {
@@ -4969,6 +4973,7 @@ async function downloadAsDOCX() {
         .split(/\n+/)
         .map(s => s.trim())
         .filter(s => s.length > 0);
+      console.log('Total segments:', newSegments.length);
 
       // Stash tables — never modified, always preserved as-is
       const tblStash = [];
@@ -4976,6 +4981,7 @@ async function downloadAsDOCX() {
         tblStash.push(match);
         return '\x00TBL' + (tblStash.length - 1) + '\x00';
       });
+      console.log('Tables stashed:', tblStash.length);
 
       // Replace at paragraph level (skips short/date/garbage paras, handles pool exhaustion)
       xml = docxReplaceParas(xml, newSegments);
