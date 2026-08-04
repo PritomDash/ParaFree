@@ -3640,23 +3640,48 @@ async function paraphrase() {
   hideStatus();
   document.getElementById("outputText").innerHTML = '<span class="output-placeholder">Paraphrasing...</span>';
 
-  const prompt = MODE_PROMPTS[currentMode];
+  let apiText = text;
+  let apiPrompt = MODE_PROMPTS[currentMode];
+  let docxParaCount = 0;
+  window._docxParaMap = null;
 
-  // Backend (api/process.js) handles chunking + parallel processing via Promise.all.
-  // All chunks fire simultaneously — total time ≈ one chunk's time (~3s), safe for Vercel Hobby.
-  const result = await runAPIChain(text, prompt, currentMode, getLang(), 'paraphrase');
+  // DOCX mode: send numbered paragraphs so the AI is forced to return the same count.
+  // Numbers survive chunking (backend splits on \n\n, preserving [N] labels) and
+  // parseNumberedParagraphs reassembles by position — no alignment drift possible.
+  if (docxOriginalXml) {
+    const { text: numText, count } = buildNumberedDocxText(docxOriginalXml);
+    if (count > 0) {
+      apiText = numText;
+      docxParaCount = count;
+      apiPrompt = 'Paraphrase each numbered paragraph below. Return EXACTLY the same number of paragraphs in the same order, each prefixed with its number in brackets like [1], [2], [3]. Do NOT merge paragraphs, do NOT split paragraphs, do NOT skip any, do NOT add extra paragraphs. Output ONLY the numbered paraphrased paragraphs, no preamble.';
+      console.log('[DOCX] sending', count, 'numbered paragraphs to API');
+    }
+  }
+
+  // Backend handles chunking + parallel processing via Promise.all.
+  const result = await runAPIChain(apiText, apiPrompt, currentMode, getLang(), 'paraphrase');
   console.log('[paraphrase] result chars:', result ? result.length : 'null');
 
   setLoading(false);
 
   if (result) {
     window._lastRawOutput = result.trim();
-    const processedResult = processParaphraseOutput(result.trim());
+    let displayText = result.trim();
+    if (docxParaCount > 0) {
+      // Parse [N] markers → position-indexed array for download mapping
+      window._docxParaMap = parseNumberedParagraphs(result, docxParaCount);
+      const filled = window._docxParaMap.filter(p => p !== null).length;
+      console.log('[DOCX] parsed', filled, 'of', docxParaCount, 'paragraphs from API response');
+      // Strip [N] markers for on-screen display
+      displayText = result.replace(/^\[\d+\]\s*/gm, '').trim();
+    }
+    const processedResult = processParaphraseOutput(displayText);
     renderOutput(processedResult);
-    document.getElementById("outputCount").textContent = countWords(result) + " words";
+    document.getElementById("outputCount").textContent = countWords(displayText) + " words";
     showStatus("✓ Paraphrased successfully!", "success");
     showDownloadBtn();
   } else {
+    window._docxParaMap = null;
     document.getElementById("outputText").innerHTML = '<span class="output-placeholder">Your paraphrased text will appear here...</span>';
     showStatus("All AI engines are busy right now. Please try again in a few hours!", "error");
     resetApiDots();
@@ -4938,54 +4963,83 @@ function renderPlainPDF(pdf, outputText, margin, maxW, pageW, pageH) {
 
 // Extract body-paragraph text from DOCX XML, excluding all table content.
 // Used to build the input sent to the AI so tables are never paraphrased.
+// Returns true for body paragraphs (substantial enough to paraphrase).
+// Headings, labels, titles, short lines return false and keep their original text.
+function isSubstantialPara(t) {
+  return t.length >= 25 && /\s/.test(t) && t.split(/\s+/).length >= 5;
+}
+
+// Shared skip-filters used by both extraction and mapping functions.
+function docxSkip(t) {
+  if (!t || t.length < 3) return true;
+  if (/^[jkmnlJKMNL]{3,}/.test(t) || /(.)\1{4,}/.test(t)) return true;
+  if (/^\d{4}\s*[-–]\s*(\d{4}|present)$/i.test(t) ||
+      /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4}/i.test(t)) return true;
+  return false;
+}
+
+// Extracts substantial body paragraphs from XML, numbered [1]..[N] for the API.
+// Returns { text: '[1] para...\n\n[2] para...', count: N }.
+// Numbers persist through backend chunking (chunks split on \n\n, labels stay intact).
+function buildNumberedDocxText(xml) {
+  const noTables = xml.replace(/<w:tbl[\s\S]*?<\/w:tbl>/g, '');
+  const paras = [];
+  (noTables.match(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g) || []).forEach(p => {
+    const t = p.replace(/<[^>]+>/g, '').trim();
+    if (docxSkip(t) || !isSubstantialPara(t)) return;
+    paras.push(t);
+  });
+  return { text: paras.map((p, i) => `[${i + 1}] ${p}`).join('\n\n'), count: paras.length };
+}
+
+// Parses [N] markers from AI response → 0-indexed array of length expectedCount.
+// Missing numbers → null (position kept, original text preserved in mapping).
+function parseNumberedParagraphs(response, expectedCount) {
+  const result = new Array(expectedCount).fill(null);
+  const regex = /\[(\d+)\]\s*([\s\S]*?)(?=\[\d+\]|$)/g;
+  let match;
+  while ((match = regex.exec(response)) !== null) {
+    const idx = parseInt(match[1], 10) - 1;
+    if (idx >= 0 && idx < expectedCount) {
+      result[idx] = match[2].replace(/\n/g, ' ').trim() || null;
+    }
+  }
+  return result;
+}
+
+// For textarea display: plain text of substantial body paragraphs only.
 function extractBodyTextFromDocx(xml) {
   const noTables = xml.replace(/<w:tbl[\s\S]*?<\/w:tbl>/g, '');
   const paras = [];
   (noTables.match(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g) || []).forEach(p => {
     const t = p.replace(/<[^>]+>/g, '').trim();
-    // Apply SAME filters as docxReplaceParas so segment count matches mapping count
-    if (!t || t.length < 3) return;
-    if (/^[jkmnlJKMNL]{3,}/.test(t) || /(.)\1{4,}/.test(t)) return;
-    if (/^\d{4}\s*[-–]\s*(\d{4}|present)$/i.test(t) ||
-        /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4}/i.test(t)) return;
+    if (docxSkip(t) || !isSubstantialPara(t)) return;
     paras.push(t);
   });
   return paras.join('\n\n');
 }
 
 // Paragraph-level DOCX text replacement.
-// Replaces meaningful paragraph text only — skips short/date/garbage paras.
-// Puts full new text in the first non-empty <w:t> of each paragraph,
-// clears subsequent runs so formatting structure is preserved.
-function docxReplaceParas(xml, newParaTexts) {
-  let segIdx = 0;
+// paraArray is position-indexed (from parseNumberedParagraphs or flat split fallback).
+// subIdx tracks which substantial paragraph we're at — always increments for substantial
+// paras, even when replacement is null/short, so positions stay locked (no cascade).
+function docxReplaceParas(xml, paraArray) {
+  let subIdx = 0;
   const result = xml.replace(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g, (para) => {
-    if (para.includes('\x00TBL')) return para; // defensive: table placeholder in body
+    if (para.includes('\x00TBL')) return para;
     const origText = para.replace(/<[^>]+>/g, '').trim();
-    if (!origText || origText.length < 3) return para;
-    // Skip garbage (repeating char patterns like "jknjknjkn")
-    if (/^[jkmnlJKMNL]{3,}/.test(origText) || /(.)\1{4,}/.test(origText)) return para;
-    // Skip date-only lines (e.g. "2020 – 2023", "Jan 2022")
-    if (/^\d{4}\s*[-–]\s*(\d{4}|present)$/i.test(origText) ||
-        /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4}/i.test(origText)) return para;
-    // Pool exhausted — keep original
-    if (segIdx >= newParaTexts.length) {
-      console.warn('[DOCX] segments exhausted at para', segIdx, 'of', newParaTexts.length, '— keeping original:', origText.slice(0, 60));
-      return para;
-    }
-    const newText = newParaTexts[segIdx];
-    segIdx++; // always consume — prevents stuck counter on short segments
-    // Keep original if replacement is suspiciously short (< 30% of original)
+    if (docxSkip(origText) || !isSubstantialPara(origText)) return para;
+    const newText = subIdx < paraArray.length ? paraArray[subIdx] : null;
+    subIdx++; // position-locked: always advance for substantial paras
     if (!newText || newText.length < origText.length * 0.3) return para;
-    // Put full new text in first non-empty <w:t>, clear the rest
     let firstDone = false;
     return para.replace(/(<w:t[^>]*>)([\s\S]*?)(<\/w:t>)/g, (m, open, txt, close) => {
-      if (!txt.trim()) return m; // preserve whitespace-only spacing nodes
+      if (!txt.trim()) return m;
       if (!firstDone) { firstDone = true; return open + pptxEncodeXml(newText) + close; }
       return open + close;
     });
   });
-  console.log('Segments consumed:', segIdx, 'of', newParaTexts.length);
+  console.log('[DOCX] substantial paras in XML:', subIdx, '— pool size:', paraArray.length);
   return result;
 }
 
@@ -4998,26 +5052,27 @@ async function downloadAsDOCX() {
     try {
       showStatus('⏳ Building document...', 'info');
 
-      // Strip markdown, remove leaked API preamble lines, then split on paragraph breaks
-      const cleaned = stripMarkdown(fullOutputText)
-        .replace(/`{1,3}[^`]*`{1,3}/g, '$&'.replace(/`/g, ''))
-        .replace(/`+/g, '')
-        // Remove common preamble lines some providers leak into their output
-        .replace(/^\s*Respond in \w[\w\s]*\.?\s*$/gim, '')
-        .replace(/^\s*Here('s| is) the paraphrased[^$\n]*$/gim, '')
-        .replace(/^\s*(Sure|Certainly|Of course)[,!.][^\n]*$/gim, '')
-        .replace(/^\s*Paraphrased (text|version|content):?\s*$/gim, '')
-        .replace(/^\s*Output:\s*$/gim, '')
-        .replace(/\n{3,}/g, '\n\n')
-        .trim();
-      // Split on double-newline (paragraph boundary) to match the pipeline's \n\n separator.
-      // Collapse any single \n within a segment (soft wraps) into a space so one
-      // logical paragraph = one segment, matching the XML <w:p> count.
-      const newSegments = cleaned
-        .split(/\n{2,}/)
-        .map(s => s.replace(/\n/g, ' ').trim())
-        .filter(s => s.length > 0);
-      console.log('[DOCX download] output segments:', newSegments.length);
+      // Build the paragraph replacement array.
+      // Primary: position-locked map from numbered API response (no alignment drift).
+      // Fallback: split fullOutputText on double-newline (plain-text paraphrase path).
+      let paraArray;
+      if (window._docxParaMap && window._docxParaMap.length > 0) {
+        paraArray = window._docxParaMap;
+        console.log('[DOCX download] position-locked map:', paraArray.length, 'positions,', paraArray.filter(Boolean).length, 'filled');
+      } else {
+        const cleaned = stripMarkdown(fullOutputText)
+          .replace(/`{1,3}[^`]*`{1,3}/g, '$&'.replace(/`/g, ''))
+          .replace(/`+/g, '')
+          .replace(/^\s*Respond in \w[\w\s]*\.?\s*$/gim, '')
+          .replace(/^\s*Here('s| is) the paraphrased[^$\n]*$/gim, '')
+          .replace(/^\s*(Sure|Certainly|Of course)[,!.][^\n]*$/gim, '')
+          .replace(/^\s*Paraphrased (text|version|content):?\s*$/gim, '')
+          .replace(/^\s*Output:\s*$/gim, '')
+          .replace(/\n{3,}/g, '\n\n')
+          .trim();
+        paraArray = cleaned.split(/\n{2,}/).map(s => s.replace(/\n/g, ' ').trim()).filter(s => s.length > 0);
+        console.log('[DOCX download] fallback segments:', paraArray.length);
+      }
 
       // Stash tables — never modified, always preserved as-is
       const tblStash = [];
@@ -5028,7 +5083,7 @@ async function downloadAsDOCX() {
       const stashedBodyParas = (xml.match(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g) || []).length;
       console.log('[DOCX download] tables stashed:', tblStash.length, '— body <w:p> nodes:', stashedBodyParas);
 
-      xml = docxReplaceParas(xml, newSegments);
+      xml = docxReplaceParas(xml, paraArray);
 
       // Restore tables unchanged
       tblStash.forEach((tbl, i) => {
