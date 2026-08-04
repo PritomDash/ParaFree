@@ -4938,54 +4938,59 @@ function renderPlainPDF(pdf, outputText, margin, maxW, pageW, pageH) {
 
 // Extract body-paragraph text from DOCX XML, excluding all table content.
 // Used to build the input sent to the AI so tables are never paraphrased.
+function isSubstantialPara(t) {
+  return t.length >= 25 && /\s/.test(t) && t.split(/\s+/).length >= 5;
+}
+
 function extractBodyTextFromDocx(xml) {
   const noTables = xml.replace(/<w:tbl[\s\S]*?<\/w:tbl>/g, '');
   const paras = [];
   (noTables.match(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g) || []).forEach(p => {
     const t = p.replace(/<[^>]+>/g, '').trim();
-    // Apply SAME filters as docxReplaceParas so segment count matches mapping count
     if (!t || t.length < 3) return;
     if (/^[jkmnlJKMNL]{3,}/.test(t) || /(.)\1{4,}/.test(t)) return;
     if (/^\d{4}\s*[-–]\s*(\d{4}|present)$/i.test(t) ||
         /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4}/i.test(t)) return;
+    // Only send substantial paragraphs (same filter as docxReplaceParas)
+    if (!isSubstantialPara(t)) return;
     paras.push(t);
   });
   return paras.join('\n\n');
 }
 
 // Paragraph-level DOCX text replacement.
-// Replaces meaningful paragraph text only — skips short/date/garbage paras.
-// Puts full new text in the first non-empty <w:t> of each paragraph,
-// clears subsequent runs so formatting structure is preserved.
+// segIdx advances ONLY when a segment is actually written to a paragraph.
+// Structural paragraphs (titles/headings/short lines) are skipped on both
+// the sending side (extractBodyTextFromDocx) and here, so counts always match.
 function docxReplaceParas(xml, newParaTexts) {
   let segIdx = 0;
   const result = xml.replace(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g, (para) => {
-    if (para.includes('\x00TBL')) return para; // defensive: table placeholder in body
+    if (para.includes('\x00TBL')) return para;
     const origText = para.replace(/<[^>]+>/g, '').trim();
     if (!origText || origText.length < 3) return para;
-    // Skip garbage (repeating char patterns like "jknjknjkn")
     if (/^[jkmnlJKMNL]{3,}/.test(origText) || /(.)\1{4,}/.test(origText)) return para;
-    // Skip date-only lines (e.g. "2020 – 2023", "Jan 2022")
     if (/^\d{4}\s*[-–]\s*(\d{4}|present)$/i.test(origText) ||
         /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4}/i.test(origText)) return para;
-    // Pool exhausted — keep original
+    // Skip structural paragraphs — titles, headings, short labels
+    if (!isSubstantialPara(origText)) return para;
+    // Pool exhausted
     if (segIdx >= newParaTexts.length) {
-      console.warn('[DOCX] segments exhausted at para', segIdx, 'of', newParaTexts.length, '— keeping original:', origText.slice(0, 60));
+      console.warn('[DOCX] segments exhausted at para', segIdx, 'of', newParaTexts.length, '—', origText.slice(0, 60));
       return para;
     }
     const newText = newParaTexts[segIdx];
-    segIdx++; // always consume — prevents stuck counter on short segments
-    // Keep original if replacement is suspiciously short (< 30% of original)
+    // Replacement too short — keep original, do NOT consume the segment
     if (!newText || newText.length < origText.length * 0.3) return para;
-    // Put full new text in first non-empty <w:t>, clear the rest
+    // Segment is actually being applied — only now advance the counter
+    segIdx++;
     let firstDone = false;
     return para.replace(/(<w:t[^>]*>)([\s\S]*?)(<\/w:t>)/g, (m, open, txt, close) => {
-      if (!txt.trim()) return m; // preserve whitespace-only spacing nodes
+      if (!txt.trim()) return m;
       if (!firstDone) { firstDone = true; return open + pptxEncodeXml(newText) + close; }
       return open + close;
     });
   });
-  console.log('Segments consumed:', segIdx, 'of', newParaTexts.length);
+  console.log('[DOCX] Segments consumed:', segIdx, 'of', newParaTexts.length);
   return result;
 }
 
