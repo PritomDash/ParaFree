@@ -2686,6 +2686,9 @@ async function handleFileUpload(event) {
           text = (result.value || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
         }
         if (!text) { showStatus('❌ Could not read document text', 'error'); return; }
+        console.log('[DOCX upload] body text chars:', text.length, '— paras:', text.split(/\n\n+/).filter(p=>p.trim()).length);
+        console.log('[DOCX upload] first 300 chars:', text.slice(0, 300));
+        console.log('[DOCX upload] contains table text (Region/Q1/$)?', /region|q1\s|q2\s|\$\d/i.test(text));
         document.getElementById("inputText").value = text;
         document.getElementById("inputCount").textContent = countWords(text) + " words";
         hideStatus();
@@ -3634,7 +3637,50 @@ async function paraphrase() {
   document.getElementById("outputText").innerHTML = '<span class="output-placeholder">Paraphrasing...</span>';
 
   const prompt = MODE_PROMPTS[currentMode];
-  const result = await runAPIChain(text, prompt, currentMode, getLang(), 'paraphrase');
+
+  // Chunk long documents so the API doesn't truncate mid-document.
+  // Same strategy as paraphrasePPTX (8000 chars / 20 paragraphs per call).
+  const PARA_CHUNK = 20;
+  const CHAR_CHUNK = 8000;
+  const inputParas = text.split(/\n\n+/).filter(p => p.trim());
+  console.log('[paraphrase] chars:', text.length, '— body paras:', inputParas.length);
+
+  let result;
+  if (inputParas.length > PARA_CHUNK || text.length > CHAR_CHUNK) {
+    // Build chunks by paragraph count and character count
+    const chunks = [];
+    let cur = [], curLen = 0;
+    for (const para of inputParas) {
+      if (cur.length >= PARA_CHUNK || (cur.length > 0 && curLen + para.length > CHAR_CHUNK)) {
+        chunks.push(cur.join('\n\n')); cur = []; curLen = 0;
+      }
+      cur.push(para); curLen += para.length;
+    }
+    if (cur.length > 0) chunks.push(cur.join('\n\n'));
+
+    const parts = [];
+    for (let ci = 0; ci < chunks.length; ci++) {
+      if (chunks.length > 1) showStatus('Paraphrasing part ' + (ci + 1) + ' of ' + chunks.length + '...', 'info');
+      console.log('[paraphrase] chunk', ci + 1, '/', chunks.length, '— chars:', chunks[ci].length);
+      const raw = await runAPIChain(chunks[ci], prompt, currentMode, getLang(), 'paraphrase');
+      if (!raw) {
+        setLoading(false);
+        document.getElementById("outputText").innerHTML = '<span class="output-placeholder">Your paraphrased text will appear here...</span>';
+        showStatus("All AI engines are busy right now. Please try again in a few hours!", "error");
+        resetApiDots();
+        document.getElementById("activeApiLabel").textContent = "All busy";
+        return;
+      }
+      console.log('[paraphrase] chunk', ci + 1, 'returned chars:', raw.length);
+      parts.push(raw.trim());
+      if (ci < chunks.length - 1) await new Promise(r => setTimeout(r, 1500));
+    }
+    result = parts.join('\n\n');
+    console.log('[paraphrase] combined paras out:', result.split(/\n\n+/).length, '— sent in:', inputParas.length);
+  } else {
+    result = await runAPIChain(text, prompt, currentMode, getLang(), 'paraphrase');
+    console.log('[paraphrase] single call returned chars:', result ? result.length : 'null');
+  }
 
   setLoading(false);
 
@@ -4955,9 +5001,9 @@ function docxReplaceParas(xml, newParaTexts) {
     // Pool exhausted — keep original
     if (segIdx >= newParaTexts.length) return para;
     const newText = newParaTexts[segIdx];
-    // Refuse replacement if new text is < 30% of original length (pool tail-off)
+    segIdx++; // always consume — prevents stuck counter on short segments
+    // Keep original if replacement is suspiciously short (< 30% of original)
     if (!newText || newText.length < origText.length * 0.3) return para;
-    segIdx++;
     // Put full new text in first non-empty <w:t>, clear the rest
     let firstDone = false;
     return para.replace(/(<w:t[^>]*>)([\s\S]*?)(<\/w:t>)/g, (m, open, txt, close) => {
@@ -4988,7 +5034,7 @@ async function downloadAsDOCX() {
         .split(/\n+/)
         .map(s => s.trim())
         .filter(s => s.length > 0);
-      console.log('Body segments:', newSegments.length);
+      console.log('[DOCX download] output segments:', newSegments.length);
 
       // Stash tables — never modified, always preserved as-is
       const tblStash = [];
@@ -4996,6 +5042,8 @@ async function downloadAsDOCX() {
         tblStash.push(match);
         return '\x00TBL' + (tblStash.length - 1) + '\x00';
       });
+      const stashedBodyParas = (xml.match(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g) || []).length;
+      console.log('[DOCX download] tables stashed:', tblStash.length, '— body <w:p> nodes:', stashedBodyParas);
 
       xml = docxReplaceParas(xml, newSegments);
 
