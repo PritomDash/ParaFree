@@ -3102,7 +3102,11 @@ async function runAPIChain(text, prompt, mode, language, toolType) {
     // Always apply dot statuses so failures are shown in red/yellow even on error
     if (data.apiStatuses) applyApiStatuses(data.apiStatuses);
     if (!res.ok || !data.success) {
-      showStatus(data.message || "All AI engines busy. Try again later!", "error");
+      if (data.error === 'high_demand') {
+        showStatus("⏳ Our AI is at high demand right now. Please wait 20 seconds and try again — your full document will process.", "error");
+      } else {
+        showStatus(data.message || "All AI engines busy. Try again later!", "error");
+      }
       return null;
     }
     if (data.usedApi && !apiLabelLocked) {
