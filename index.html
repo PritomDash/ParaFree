@@ -1465,10 +1465,28 @@ const PHOTOS = {
     <div class="panel-footer">
       <button class="btn-sm btn-copy" id="copyBtn" onclick="copyOutput()">⊕ Copy</button>
       <button class="btn-sm" id="downloadBtn" onclick="downloadOutput()" style="display:none;">⬇ TXT</button>
-      <button class="btn-sm" id="downloadPDFBtn" onclick="downloadAsPDF()" style="display:none;">⬇ PDF</button>
-      <button class="btn-sm" id="downloadDOCXBtn" onclick="downloadAsDOCX()" style="display:none;">⬇ DOCX</button>
+      <button class="btn-sm" id="downloadDOCXBtn" onclick="downloadAsDOCX()" style="display:none;flex:1;">⬇ Word</button>
       <button class="btn-sm" onclick="clearOutput()">✕ Clear</button>
     </div>
+  </div>
+</div>
+
+<!-- HUMAN SCORE BADGE (shown after paraphrase, computed locally) -->
+<div id="humanScoreBadge" style="display:none;max-width:1100px;margin:0 auto 8px;padding:0 16px;">
+  <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(135deg,#f7f5f0,#ffffff);border:1px solid var(--border);border-radius:14px;font-family:'DM Sans',sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+    <span style="font-size:13px;font-weight:600;color:var(--text2);white-space:nowrap;">Readability check:</span>
+    <div style="flex:1;height:8px;border-radius:6px;background:#e2ddd4;overflow:hidden;min-width:80px;">
+      <div id="humanScoreBar" style="height:100%;width:0%;border-radius:6px;background:linear-gradient(90deg,#2d6a4f,#40916c);transition:width 0.6s ease;"></div>
+    </div>
+    <span id="humanScoreText" style="font-size:14px;font-weight:800;color:var(--accent);font-family:'Syne',sans-serif;white-space:nowrap;">–</span>
+  </div>
+</div>
+
+<!-- TRY-AGAIN HELP NOTE -->
+<div id="tryAgainNote" style="display:none;max-width:1100px;margin:0 auto 10px;padding:0 16px;">
+  <div style="display:flex;align-items:center;gap:8px;padding:9px 14px;background:#f7f5f0;border:1px solid var(--border);border-radius:14px;font-size:12.5px;color:var(--text2);font-family:'DM Sans',sans-serif;line-height:1.5;">
+    <span style="font-size:14px;">💡</span>
+    <span>Large documents may occasionally come out partial — just hit paraphrase again and it'll complete.</span>
   </div>
 </div>
 
@@ -2748,6 +2766,23 @@ async function downloadOutput() {
 }
 
 // Show download buttons after result
+function showHumanScore(text) {
+  try {
+    const badge = document.getElementById('humanScoreBadge');
+    const bar = document.getElementById('humanScoreBar');
+    const txt = document.getElementById('humanScoreText');
+    const note = document.getElementById('tryAgainNote');
+    if (!badge || !bar || !txt) return;
+    if (!text || text.split(/\s+/).length < 20) return;
+    const humanScore = 100 - calculateAIScore(text);
+    badge.style.display = 'block';
+    if (note) note.style.display = 'block';
+    bar.style.width = '0%';
+    requestAnimationFrame(() => requestAnimationFrame(() => { bar.style.width = humanScore + '%'; }));
+    txt.textContent = humanScore + '% Human';
+  } catch(e) { /* never break paraphrase */ }
+}
+
 function showDownloadBtn() {
   const txtBtn = document.getElementById("downloadBtn");
   if (pptxMode && pptxData) {
@@ -2758,7 +2793,6 @@ function showDownloadBtn() {
     txtBtn.onclick = downloadOutput;
   }
   txtBtn.style.display = "flex";
-  document.getElementById("downloadPDFBtn").style.display = "flex";
   document.getElementById("downloadDOCXBtn").style.display = "flex";
   document.getElementById("shareBar").style.display = "block";
   showAIBanner();
@@ -3639,6 +3673,11 @@ async function paraphrase() {
   resetApiDots();
   hideStatus();
   document.getElementById("outputText").innerHTML = '<span class="output-placeholder">Paraphrasing...</span>';
+  // Hide score badge while running so it doesn't show stale results
+  const _badge = document.getElementById('humanScoreBadge');
+  const _note = document.getElementById('tryAgainNote');
+  if (_badge) _badge.style.display = 'none';
+  if (_note) _note.style.display = 'none';
 
   let apiText = text;
   let apiPrompt = MODE_PROMPTS[currentMode];
@@ -3680,6 +3719,7 @@ async function paraphrase() {
     document.getElementById("outputCount").textContent = countWords(displayText) + " words";
     showStatus("✓ Paraphrased successfully!", "success");
     showDownloadBtn();
+    showHumanScore(displayText);
   } else {
     window._docxParaMap = null;
     document.getElementById("outputText").innerHTML = '<span class="output-placeholder">Your paraphrased text will appear here...</span>';
