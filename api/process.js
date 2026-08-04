@@ -429,8 +429,77 @@ function getPrompt(mode, language) {
   return base + " Respond in " + langName + ".";
 }
 
+// ── CHUNKING HELPERS ──
+const MAX_CHUNK_PARAS = 20;
+const MAX_CHUNK_CHARS = 8000;
+
+function buildChunks(text) {
+  const paras = text.split(/\n\n+/).filter(p => p.trim());
+  if (paras.length <= MAX_CHUNK_PARAS && text.length <= MAX_CHUNK_CHARS) return [text];
+  const chunks = [];
+  let cur = [], curLen = 0;
+  for (const para of paras) {
+    if (cur.length >= MAX_CHUNK_PARAS || (cur.length > 0 && curLen + para.length > MAX_CHUNK_CHARS)) {
+      chunks.push(cur.join('\n\n')); cur = []; curLen = 0;
+    }
+    cur.push(para); curLen += para.length;
+  }
+  if (cur.length > 0) chunks.push(cur.join('\n\n'));
+  return chunks;
+}
+
+// Builds the writing provider list with closures bound to the given text.
+// Called per-chunk so each chunk gets its own bound calls.
+function buildWritingCandidates(text, prompt, keys) {
+  const { CEREBRAS_KEY, GEMINI_KEY, GROQ_KEY, MISTRAL_KEY, CF_KEY, CF_ACCOUNT,
+          OPENROUTER_KEY, GLM_KEY, SAMBANOVA_KEY, NVIDIA_KEY,
+          EXTRA1_KEY, EXTRA2_KEY, EXTRA3_KEY, EXTRA4_KEY, EXTRA5_KEY, EXTRA6_KEY } = keys;
+  const cfOk = validKey(CF_KEY) && validKey(CF_ACCOUNT);
+  const c = [];
+  if (validKey(CEREBRAS_KEY))   c.push({ name: "cerebras",   fn: () => callCerebras(text, prompt, CEREBRAS_KEY) });
+  if (validKey(GEMINI_KEY))     c.push({ name: "gemini",     fn: () => callGemini(text, prompt, GEMINI_KEY) });
+  if (validKey(GROQ_KEY))       c.push({ name: "groq",       fn: () => callGroq(text, prompt, GROQ_KEY) });
+  if (validKey(MISTRAL_KEY))    c.push({ name: "mistral",    fn: () => callMistral(text, prompt, MISTRAL_KEY) });
+  if (cfOk)                     c.push({ name: "cloudflare", fn: () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT) });
+  if (validKey(OPENROUTER_KEY)) c.push({ name: "openrouter", fn: () => callOpenRouter(text, prompt, OPENROUTER_KEY) });
+  if (validKey(GLM_KEY))        c.push({ name: "glm",        fn: () => callGLM(text, prompt, GLM_KEY) });
+  if (validKey(SAMBANOVA_KEY))  c.push({ name: "sambanova",  fn: () => callSambaNova(text, prompt, SAMBANOVA_KEY) });
+  if (validKey(NVIDIA_KEY))     c.push({ name: "nvidia",     fn: () => callNvidia(text, prompt, NVIDIA_KEY) });
+  if (validKey(EXTRA1_KEY))     c.push({ name: "extra1",     fn: () => callExtra(text, prompt, EXTRA1_KEY, "Extra1") });
+  if (validKey(EXTRA2_KEY))     c.push({ name: "extra2",     fn: () => callExtra(text, prompt, EXTRA2_KEY, "Extra2") });
+  if (validKey(EXTRA3_KEY))     c.push({ name: "extra3",     fn: () => callExtra(text, prompt, EXTRA3_KEY, "Extra3") });
+  if (validKey(EXTRA4_KEY))     c.push({ name: "extra4",     fn: () => callExtra(text, prompt, EXTRA4_KEY, "Extra4") });
+  if (validKey(EXTRA5_KEY))     c.push({ name: "extra5",     fn: () => callExtra(text, prompt, EXTRA5_KEY, "Extra5") });
+  if (validKey(EXTRA6_KEY))     c.push({ name: "extra6",     fn: () => callExtra(text, prompt, EXTRA6_KEY, "Extra6") });
+  return c;
+}
+
+// Tries every writing provider for one chunk, starting at startOffset (rotation).
+// Returns the result string, or null if every provider failed this chunk.
+async function paraphraseChunk(chunkText, prompt, envKeys, startOffset) {
+  const candidates = buildWritingCandidates(chunkText, prompt, envKeys);
+  if (candidates.length === 0) return null;
+  const n = candidates.length;
+  const start = startOffset % n;
+  const rotated = [...candidates.slice(start), ...candidates.slice(0, start)];
+  for (const c of rotated) {
+    try {
+      const result = await c.fn();
+      if (result && result.trim().length > 5) {
+        console.log(`[ParaFree] ✅ chunk[offset=${start}] done by ${c.name}`);
+        return result.trim();
+      }
+      console.warn(`[ParaFree] ⚠️ chunk ${c.name} empty/short — next`);
+    } catch (e) {
+      const tag = (e.message || "").includes(":429") ? "429" : "err";
+      console.log(`[ParaFree] ❌ chunk ${c.name} ${tag} — next`);
+    }
+  }
+  return null;
+}
+
 // ── MAIN API CHAIN ──
-// Writing:  rotated Cerebras/Gemini/Groq/Mistral/Cloudflare/OpenRouter/GLM/SambaNova/NVIDIA/Extras
+// Writing:  parallel chunks — each chunk starts at a different provider (spread load)
 // AI chat:  Gemini → Cerebras → Groq-70b → DeepSeek → Qwen → Mistral → Cloudflare → SambaNova → NVIDIA → Extras
 // CV extract: Gemini → Groq-70b → Cerebras → Mistral → Cloudflare
 async function runChain(text, prompt, type) {
@@ -455,16 +524,47 @@ async function runChain(text, prompt, type) {
   const isCVExtract = type === "cv_extract";
   const cfOk = validKey(CF_KEY) && validKey(CF_ACCOUNT);
 
-  let candidates;
+  // ── WRITING PATH: parallel chunks ──
+  // Chunks fire simultaneously via Promise.all — total time ≈ ONE chunk's time (~3s),
+  // well inside Vercel Hobby's 10s limit. Each chunk tries providers independently
+  // starting at a different offset so parallel calls spread across providers.
+  if (!isAIChat && !isCVExtract) {
+    const envKeys = {
+      CEREBRAS_KEY, GEMINI_KEY, GROQ_KEY, MISTRAL_KEY, CF_KEY, CF_ACCOUNT,
+      OPENROUTER_KEY, GLM_KEY, SAMBANOVA_KEY, NVIDIA_KEY,
+      EXTRA1_KEY, EXTRA2_KEY, EXTRA3_KEY, EXTRA4_KEY, EXTRA5_KEY, EXTRA6_KEY
+    };
+    const sampleCandidates = buildWritingCandidates("x", "x", envKeys);
+    if (sampleCandidates.length === 0) {
+      console.error("[ParaFree] ❌ No valid API keys — check Vercel environment variables");
+      return { success: false, error: "no_keys", apiStatuses: {} };
+    }
+    const chunks = buildChunks(text);
+    const baseOffset = requestCounter;
+    requestCounter = (requestCounter + Math.max(chunks.length, 1)) % 100000;
+    console.log(`[ParaFree] writing: ${chunks.length} chunk(s) × ${sampleCandidates.length} providers — parallel (offsets ${baseOffset}–${baseOffset + chunks.length - 1})`);
+    const chunkResults = await Promise.all(
+      chunks.map((chunk, i) => paraphraseChunk(chunk, prompt, envKeys, baseOffset + i))
+    );
+    const failedIdx = chunkResults.findIndex(r => r === null);
+    if (failedIdx !== -1) {
+      console.error(`[ParaFree] ❌ Chunk ${failedIdx + 1}/${chunks.length} failed all providers`);
+      return { success: false, error: "high_demand", apiStatuses: {} };
+    }
+    console.log(`[ParaFree] ✅ All ${chunks.length} chunk(s) complete`);
+    return { success: true, result: chunkResults.join('\n\n'), usedApi: 'parallel-chunks', apiStatuses: {} };
+  }
+
+  // ── AI CHAT / CV EXTRACT PATH: sequential with single retry ──
+  // Short texts only — no chunking needed. One retry with 2s wait stays inside 10s limit.
+  let candidates = [];
   if (isCVExtract) {
-    candidates = [];
     if (validKey(GEMINI_KEY))   candidates.push({ name: "gemini",    fn: () => callGemini(text, prompt, GEMINI_KEY) });
     if (validKey(GROQ_KEY))     candidates.push({ name: "groq-70b",  fn: () => callGroqModel(text, prompt, GROQ_KEY, "llama-3.3-70b-versatile") });
     if (validKey(CEREBRAS_KEY)) candidates.push({ name: "cerebras",  fn: () => callCerebras(text, prompt, CEREBRAS_KEY) });
     if (validKey(MISTRAL_KEY))  candidates.push({ name: "mistral",   fn: () => callMistral(text, prompt, MISTRAL_KEY) });
     if (cfOk)                   candidates.push({ name: "cloudflare",fn: () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT) });
-  } else if (isAIChat) {
-    candidates = [];
+  } else {
     if (validKey(GEMINI_KEY))     candidates.push({ name: "gemini",         fn: () => callGemini(text, prompt, GEMINI_KEY) });
     if (validKey(CEREBRAS_KEY))   candidates.push({ name: "cerebras",       fn: () => callCerebras(text, prompt, CEREBRAS_KEY) });
     if (validKey(GROQ_KEY))       candidates.push({ name: "groq-70b",       fn: () => callGroqModel(text, prompt, GROQ_KEY, "llama-3.3-70b-versatile") });
@@ -480,87 +580,46 @@ async function runChain(text, prompt, type) {
     if (validKey(EXTRA4_KEY))     candidates.push({ name: "extra4",         fn: () => callExtra(text, prompt, EXTRA4_KEY, "Extra4") });
     if (validKey(EXTRA5_KEY))     candidates.push({ name: "extra5",         fn: () => callExtra(text, prompt, EXTRA5_KEY, "Extra5") });
     if (validKey(EXTRA6_KEY))     candidates.push({ name: "extra6",         fn: () => callExtra(text, prompt, EXTRA6_KEY, "Extra6") });
-  } else {
-    // Writing/paraphrase — rotate starting provider so no single provider absorbs all fallback load
-    candidates = [];
-    if (validKey(CEREBRAS_KEY))   candidates.push({ name: "cerebras",   fn: () => callCerebras(text, prompt, CEREBRAS_KEY) });
-    if (validKey(GEMINI_KEY))     candidates.push({ name: "gemini",     fn: () => callGemini(text, prompt, GEMINI_KEY) });
-    if (validKey(GROQ_KEY))       candidates.push({ name: "groq",       fn: () => callGroq(text, prompt, GROQ_KEY) });
-    if (validKey(MISTRAL_KEY))    candidates.push({ name: "mistral",    fn: () => callMistral(text, prompt, MISTRAL_KEY) });
-    if (cfOk)                     candidates.push({ name: "cloudflare", fn: () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT) });
-    if (validKey(OPENROUTER_KEY)) candidates.push({ name: "openrouter", fn: () => callOpenRouter(text, prompt, OPENROUTER_KEY) });
-    if (validKey(GLM_KEY))        candidates.push({ name: "glm",        fn: () => callGLM(text, prompt, GLM_KEY) });
-    if (validKey(SAMBANOVA_KEY))  candidates.push({ name: "sambanova",  fn: () => callSambaNova(text, prompt, SAMBANOVA_KEY) });
-    if (validKey(NVIDIA_KEY))     candidates.push({ name: "nvidia",     fn: () => callNvidia(text, prompt, NVIDIA_KEY) });
-    if (validKey(EXTRA1_KEY))     candidates.push({ name: "extra1",     fn: () => callExtra(text, prompt, EXTRA1_KEY, "Extra1") });
-    if (validKey(EXTRA2_KEY))     candidates.push({ name: "extra2",     fn: () => callExtra(text, prompt, EXTRA2_KEY, "Extra2") });
-    if (validKey(EXTRA3_KEY))     candidates.push({ name: "extra3",     fn: () => callExtra(text, prompt, EXTRA3_KEY, "Extra3") });
-    if (validKey(EXTRA4_KEY))     candidates.push({ name: "extra4",     fn: () => callExtra(text, prompt, EXTRA4_KEY, "Extra4") });
-    if (validKey(EXTRA5_KEY))     candidates.push({ name: "extra5",     fn: () => callExtra(text, prompt, EXTRA5_KEY, "Extra5") });
-    if (validKey(EXTRA6_KEY))     candidates.push({ name: "extra6",     fn: () => callExtra(text, prompt, EXTRA6_KEY, "Extra6") });
-
-    // Rotate starting position: request 0 starts at Cerebras, request 1 at Gemini, etc.
-    // This spreads per-minute load evenly so no provider's cap is hit by all fallback traffic.
-    if (candidates.length > 1) {
-      const start = requestCounter % candidates.length;
-      requestCounter = (requestCounter + 1) % 100000;
-      candidates = [...candidates.slice(start), ...candidates.slice(0, start)];
-    }
   }
 
-  console.log(`[ParaFree] Chain (${isAIChat ? 'AI' : isCVExtract ? 'CV' : 'writing'}): ${candidates.map(c => c.name).join(' → ') || 'EMPTY — no keys set'}`);
+  console.log(`[ParaFree] Chain (${isCVExtract ? 'CV' : 'AI'}): ${candidates.map(c => c.name).join(' → ') || 'EMPTY'}`);
 
   if (candidates.length === 0) {
     console.error("[ParaFree] ❌ No valid API keys found — check Vercel environment variables");
     return { success: false, error: "no_keys", apiStatuses: {} };
   }
 
-  // Try the full chain; if ALL providers fail, wait and retry (per-minute limits partially reset).
-  // MAX_RETRIES=2 means up to 3 total attempts. Each 4s wait may free up a rate-limited slot.
-  // Note: Vercel Hobby plan has a 10s function timeout — in practice only 1 retry is reachable
-  // before timeout. Upgrade to Pro (60s) for full retry behaviour.
-  const MAX_RETRIES = 2;
+  const MAX_RETRIES = 1;
   let lastApiStatuses = {};
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     const apiStatuses = {};
     candidates.forEach(c => { apiStatuses[c.name] = "skipped"; });
-
     for (const c of candidates) {
       apiStatuses[c.name] = "trying";
       try {
         const result = await c.fn();
         if (result && result.trim().length > 5) {
-          console.log(`[ParaFree] ✅ Success: ${c.name}${attempt > 0 ? ' (retry ' + attempt + ')' : ''}`);
+          console.log(`[ParaFree] ✅ ${c.name}${attempt > 0 ? ' (retry)' : ''}`);
           apiStatuses[c.name] = "success";
           return { success: true, result: result.trim(), usedApi: c.name, apiStatuses };
         }
-        console.warn(`[ParaFree] ⚠️ ${c.name} returned empty/short result — trying next`);
+        console.warn(`[ParaFree] ⚠️ ${c.name} empty/short — next`);
         apiStatuses[c.name] = "failed";
       } catch (e) {
         const msg = e.message || "";
-        if (msg.includes(":401") || msg.includes(":403")) {
-          apiStatuses[c.name] = "expired";
-        } else if (msg.includes(":429")) {
-          apiStatuses[c.name] = "limit";
-        } else if (msg.includes(":404")) {
-          apiStatuses[c.name] = "model_not_found";
-        } else {
-          apiStatuses[c.name] = "failed";
-        }
-        console.log(`[ParaFree] ❌ Failed: ${c.name} — ${msg}`);
+        apiStatuses[c.name] = msg.includes(":429") ? "limit" : (msg.includes(":401") || msg.includes(":403")) ? "expired" : msg.includes(":404") ? "model_not_found" : "failed";
+        console.log(`[ParaFree] ❌ ${c.name} — ${msg}`);
       }
     }
-
     lastApiStatuses = { ...apiStatuses };
-
     if (attempt < MAX_RETRIES) {
-      console.log(`[ParaFree] All providers failed (attempt ${attempt + 1}/${MAX_RETRIES + 1}) — waiting 4s before retry`);
-      await new Promise(r => setTimeout(r, 4000));
+      console.log(`[ParaFree] All providers failed — waiting 2s before retry`);
+      await new Promise(r => setTimeout(r, 2000));
     }
   }
 
-  console.error("[ParaFree] ❌ ALL providers exhausted after retries:", JSON.stringify(lastApiStatuses));
+  console.error("[ParaFree] ❌ ALL providers exhausted:", JSON.stringify(lastApiStatuses));
   return { success: false, error: "high_demand", apiStatuses: lastApiStatuses };
 }
 

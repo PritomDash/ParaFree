@@ -3642,49 +3642,10 @@ async function paraphrase() {
 
   const prompt = MODE_PROMPTS[currentMode];
 
-  // Chunk long documents so the API doesn't truncate mid-document.
-  // Same strategy as paraphrasePPTX (8000 chars / 20 paragraphs per call).
-  const PARA_CHUNK = 20;
-  const CHAR_CHUNK = 8000;
-  const inputParas = text.split(/\n\n+/).filter(p => p.trim());
-  console.log('[paraphrase] chars:', text.length, '— body paras:', inputParas.length);
-
-  let result;
-  if (inputParas.length > PARA_CHUNK || text.length > CHAR_CHUNK) {
-    // Build chunks by paragraph count and character count
-    const chunks = [];
-    let cur = [], curLen = 0;
-    for (const para of inputParas) {
-      if (cur.length >= PARA_CHUNK || (cur.length > 0 && curLen + para.length > CHAR_CHUNK)) {
-        chunks.push(cur.join('\n\n')); cur = []; curLen = 0;
-      }
-      cur.push(para); curLen += para.length;
-    }
-    if (cur.length > 0) chunks.push(cur.join('\n\n'));
-
-    const parts = [];
-    for (let ci = 0; ci < chunks.length; ci++) {
-      if (chunks.length > 1) showStatus('Paraphrasing part ' + (ci + 1) + ' of ' + chunks.length + '...', 'info');
-      console.log('[paraphrase] chunk', ci + 1, '/', chunks.length, '— chars:', chunks[ci].length);
-      const raw = await runAPIChain(chunks[ci], prompt, currentMode, getLang(), 'paraphrase');
-      if (!raw) {
-        setLoading(false);
-        document.getElementById("outputText").innerHTML = '<span class="output-placeholder">Your paraphrased text will appear here...</span>';
-        showStatus("All AI engines are busy right now. Please try again in a few hours!", "error");
-        resetApiDots();
-        document.getElementById("activeApiLabel").textContent = "All busy";
-        return;
-      }
-      console.log('[paraphrase] chunk', ci + 1, 'returned chars:', raw.length);
-      parts.push(raw.trim());
-      if (ci < chunks.length - 1) await new Promise(r => setTimeout(r, 1500));
-    }
-    result = parts.join('\n\n');
-    console.log('[paraphrase] combined paras out:', result.split(/\n\n+/).length, '— sent in:', inputParas.length);
-  } else {
-    result = await runAPIChain(text, prompt, currentMode, getLang(), 'paraphrase');
-    console.log('[paraphrase] single call returned chars:', result ? result.length : 'null');
-  }
+  // Backend (api/process.js) handles chunking + parallel processing via Promise.all.
+  // All chunks fire simultaneously — total time ≈ one chunk's time (~3s), safe for Vercel Hobby.
+  const result = await runAPIChain(text, prompt, currentMode, getLang(), 'paraphrase');
+  console.log('[paraphrase] result chars:', result ? result.length : 'null');
 
   setLoading(false);
 
