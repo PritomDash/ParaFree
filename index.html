@@ -859,6 +859,12 @@ const PHOTOS = {
 
   .btn-sm:hover { background: var(--surface2); color: var(--text); border-color: var(--text3); }
 
+  /* Download buttons: visible but greyed before output exists */
+  .btn-dl-dimmed { opacity: 0.38; pointer-events: none; }
+  /* Word button gets accent treatment once active */
+  #downloadDOCXBtn:not(.btn-dl-dimmed) { background: var(--accent-light); color: var(--accent); border-color: var(--accent2); font-weight: 600; }
+  #downloadDOCXBtn:not(.btn-dl-dimmed):hover { background: #c7f0d0; border-color: var(--accent); }
+
   .btn-clear { color: var(--red); }
   .btn-clear:hover { background: #fff0f0; border-color: var(--red); color: var(--red); }
 
@@ -1467,8 +1473,8 @@ const PHOTOS = {
     </div>
     <div class="panel-footer">
       <button class="btn-sm btn-copy" id="copyBtn" onclick="copyOutput()">⊕ Copy</button>
-      <button class="btn-sm" id="downloadBtn" onclick="downloadOutput()" style="display:none;">⬇ TXT</button>
-      <button class="btn-sm" id="downloadDOCXBtn" onclick="downloadAsDOCX()" style="display:none;flex:1;">⬇ Word</button>
+      <button class="btn-sm btn-dl-dimmed" id="downloadBtn" onclick="downloadOutput()" style="display:flex;">⬇ TXT</button>
+      <button class="btn-sm btn-dl-dimmed" id="downloadDOCXBtn" onclick="downloadAsDOCX()" style="display:flex;flex:1;">⬇ Word · keeps format</button>
       <button class="btn-sm" onclick="clearOutput()">✕ Clear</button>
     </div>
   </div>
@@ -2796,7 +2802,10 @@ function showDownloadBtn() {
     txtBtn.onclick = downloadOutput;
   }
   txtBtn.style.display = "flex";
-  document.getElementById("downloadDOCXBtn").style.display = "flex";
+  txtBtn.classList.remove('btn-dl-dimmed');
+  const docxBtn = document.getElementById("downloadDOCXBtn");
+  docxBtn.style.display = "flex";
+  docxBtn.classList.remove('btn-dl-dimmed');
   document.getElementById("shareBar").style.display = "block";
   showAIBanner();
 }
@@ -3236,9 +3245,17 @@ function switchTool(tool) {
     document.getElementById('scorePanel').classList.remove('show');
     document.getElementById('shareBar').style.display = 'none';
     document.getElementById('aiPromoBanner').style.display = 'none';
-    document.getElementById('downloadBtn').style.display = 'none';
-    document.getElementById('downloadPDFBtn').style.display = 'none';
-    document.getElementById('downloadDOCXBtn').style.display = 'none';
+    if (tool === 'paraphrase') {
+      const dlBtn = document.getElementById('downloadBtn');
+      dlBtn.style.display = 'flex'; dlBtn.classList.add('btn-dl-dimmed');
+      const dcBtn = document.getElementById('downloadDOCXBtn');
+      dcBtn.style.display = 'flex'; dcBtn.classList.add('btn-dl-dimmed');
+    } else {
+      document.getElementById('downloadBtn').style.display = 'none';
+      document.getElementById('downloadDOCXBtn').style.display = 'none';
+    }
+    const pdfBtn = document.getElementById('downloadPDFBtn');
+    if (pdfBtn) pdfBtn.style.display = 'none';
     document.getElementById('copyBtn').style.display = tool === 'detect' ? 'none' : '';
   }
 }
