@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>How I Built an AI Tool With a $0 Budget (Using Free APIs) | ParaFree</title>
+<meta name="description" content="When people find out ParaFree runs on artificial intelligence, one of the first questions I get is some version of &quot;how much does that cost you to run?&quot;…">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://parafree.app/blog-zero-budget-free-apis.html">
+<meta property="og:title" content="How I Built an AI Tool With a $0 Budget (Using Free APIs) | ParaFree">
+<meta property="og:description" content="When people find out ParaFree runs on artificial intelligence, one of the first questions I get is some version of &quot;how much does that cost you to run?&quot;…">
+<meta property="og:url" content="https://parafree.app/blog-zero-budget-free-apis.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="ParaFree">
+<meta property="og:image" content="https://parafree.app/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How I Built an AI Tool With a $0 Budget (Using Free APIs) | ParaFree">
+<meta name="twitter:description" content="When people find out ParaFree runs on artificial intelligence, one of the first questions I get is some version of &quot;how much does that cost you to run?&quot;…">
+<meta name="twitter:image" content="https://parafree.app/og-image.png">
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-0QEEGS0DZQ"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-0QEEGS0DZQ');</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"How I Built an AI Tool With a $0 Budget (Using Free APIs)","author":{"@type":"Person","name":"Pritom Dash"},"datePublished":"2026-07-15","publisher":{"@type":"Organization","name":"ParaFree","url":"https://parafree.app"},"url":"https://parafree.app/blog-zero-budget-free-apis.html"}</script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta name="theme-color" content="#2d6a4f">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{--bg:#f7f5f0;--surface:#ffffff;--border:#e2ddd4;--text:#1a1814;--text2:#6b6660;--accent:#2d6a4f;--accent-light:#d8f3dc;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:16px;line-height:1.7;}
+nav{background:#1a3a2a;padding:10px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;}
+nav a.logo{color:#52b788;font-weight:700;font-size:16px;text-decoration:none;}
+nav div{display:flex;gap:16px;flex-wrap:wrap;}
+nav div a{color:#ccc;text-decoration:none;font-size:14px;}
+nav div a:hover{color:#fff;}
+.container{max-width:720px;margin:60px auto;padding:0 24px;}
+.article-meta{color:var(--text2);font-size:13px;margin-bottom:32px;padding-bottom:20px;border-bottom:1px solid var(--border);}
+h1{font-family:'Syne',sans-serif;font-weight:800;font-size:clamp(26px,4vw,38px);color:var(--text);margin-bottom:12px;line-height:1.2;}
+h2{font-family:'Syne',sans-serif;font-weight:700;font-size:22px;color:var(--text);margin:40px 0 14px;}
+h3{font-family:'Syne',sans-serif;font-weight:700;font-size:18px;color:var(--text);margin:28px 0 10px;}
+p{color:var(--text2);margin-bottom:18px;line-height:1.8;}
+ul,ol{color:var(--text2);padding-left:22px;margin-bottom:18px;}
+ul li,ol li{margin-bottom:8px;line-height:1.8;}
+strong{color:var(--text);font-weight:600;}
+.cta-box{background:var(--accent);border-radius:14px;padding:28px 32px;margin:48px 0;text-align:center;}
+.cta-box p{color:rgba(255,255,255,0.9);margin-bottom:16px;font-size:16px;}
+.cta-box a{display:inline-block;background:#fff;color:var(--accent);padding:12px 28px;border-radius:10px;font-family:'Syne',sans-serif;font-weight:800;font-size:15px;text-decoration:none;}
+.cta-box a:hover{background:#e8f4ee;}
+.author-sig{font-style:italic;color:var(--text2);margin-top:40px;padding-top:20px;border-top:1px solid var(--border);}
+footer{background:#1a3a2a;color:#ccc;padding:32px 24px;margin-top:60px;text-align:center;}
+footer div{display:flex;justify-content:center;gap:24px;flex-wrap:wrap;margin-bottom:16px;}
+footer a{color:#ccc;text-decoration:none;font-size:14px;}
+footer a:hover{color:#fff;}
+footer p{margin:0;font-size:13px;color:#999;}
+#pf-scroll-top{position:fixed;bottom:24px;right:24px;width:44px;height:44px;background:var(--accent);color:white;border:none;border-radius:50%;cursor:pointer;font-size:20px;line-height:1;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transform:translateY(10px);transition:opacity 0.3s ease,transform 0.3s ease;z-index:9999;box-shadow:0 4px 12px rgba(45,106,79,.3);}
+#pf-scroll-top.visible{opacity:1;pointer-events:auto;transform:none;}
+#pf-scroll-top:hover{background:#245a41;}
+@media(max-width:768px){nav>div:not(#mobileMenu){display:none!important;}#menuToggle{display:flex!important;}body{overflow-x:hidden;}h1{font-size:24px!important;}.container{margin:32px auto;}}
+</style>
+</head>
+<body>
+<div id="mobileMenu" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9998;" onclick="if(event.target===this)toggleMenu()">
+  <div style="position:absolute;top:0;right:0;width:260px;height:100%;background:#1a3a2a;padding:20px;display:flex;flex-direction:column;overflow-y:auto;">
+    <button onclick="toggleMenu()" aria-label="Close menu" style="align-self:flex-end;background:none;border:none;font-size:28px;cursor:pointer;color:#aaa;line-height:1;padding:0 4px;margin-bottom:16px;">&times;</button>
+    <a href="/" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;">Home</a>
+    <a href="/cv-builder.html" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;">CV Builder</a>
+    <a href="/code.html" style="color:#52b788;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;font-weight:600;">&#10024; ParaFree AI</a>
+    <a href="/blog.html" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;">Blog</a>
+    <a href="/about.html" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;">About</a>
+    <a href="/faq.html" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;">FAQ</a>
+    <a href="/contact.html" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;">Contact</a>
+    <a href="/privacy.html" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;display:block;">Privacy</a>
+  </div>
+</div>
+<nav>
+  <a href="/" class="logo" style="display:flex;align-items:center;text-decoration:none;flex-shrink:0;"><img src="/logo-dark.svg" alt="ParaFree" height="32" style="height:32px;width:auto;display:block;"></a>
+  <div>
+    <a href="/">Home</a>
+    <a href="/about.html">About</a>
+    <a href="/blog.html">Blog</a>
+    <a href="/cv-builder.html">CV Builder</a>
+    <a href="/code.html">ParaFree AI</a>
+    <a href="/faq.html">FAQ</a>
+    <a href="/contact.html">Contact</a>
+    <a href="/privacy.html">Privacy</a>
+  </div>
+  <button id="menuToggle" aria-label="Open menu" onclick="toggleMenu()" style="display:none;background:none;border:none;cursor:pointer;padding:8px;flex-direction:column;gap:5px;align-items:center;justify-content:center;min-width:44px;min-height:44px;">
+    <span style="display:block;width:22px;height:2px;background:#ccc;border-radius:2px;"></span>
+    <span style="display:block;width:22px;height:2px;background:#ccc;border-radius:2px;"></span>
+    <span style="display:block;width:22px;height:2px;background:#ccc;border-radius:2px;"></span>
+  </button>
+</nav>
+
+<div class="container">
+  <article>
+    <h1>How I Built an AI Tool With a $0 Budget (Using Free APIs)</h1>
+    <p class="article-meta">By Pritom Dash &middot; Published July 15, 2026</p>
+<p>When people find out ParaFree runs on artificial intelligence, one of the first questions I get is some version of "how much does that cost you to run?" They assume there's a big monthly bill behind it.</p>
+<p>The honest answer, right now, is close to nothing. I built ParaFree as a student with no budget, and it runs on free tools stitched together carefully. I want to explain exactly how, because when I was starting out I couldn't find a straight answer to this question anywhere, and I think a lot of people assume you need money to build with AI when you often don't — at least not at the start.</p>
+<p>I'm Pritom Dash, an international student in Australia studying IT and cyber security, and ParaFree is the project where I learned most of this the hard way. Here's the real setup, minus the parts that would help someone abuse it.</p>
+<h2>The core idea: don't rely on one provider</h2>
+<p>The obvious way to build an AI tool is to sign up for one AI provider, get an API key, and send all your requests there. That works, but it has two problems for someone in my position.</p>
+<p>First, the good providers cost money once you go past a small free allowance. Second — and this is the part people underestimate — free tiers are unreliable. They have limits on how many requests you can make per minute and per day. They occasionally go down. They change their rules without much warning. I've had a provider quietly cut its free limit, and I've had one make its best models paid overnight. If your whole tool depends on one provider, the day that provider has a bad day, your tool has a bad day too.</p>
+<p>So I didn't build it that way. Instead of relying on one AI provider, ParaFree uses several, chained together.</p>
+<h2>How the chain actually works</h2>
+<p>Think of it like a relay team. When a paraphrasing request comes in, the tool tries the first provider. If that one works, great — you get your result. If it's hit its rate limit, or it's slow, or it returns something empty, the tool doesn't just give up and show you an error. It automatically hands the request to the next provider in the chain. Then the next, and the next, until one of them completes the job.</p>
+<p>To the person using ParaFree, this is invisible. They click "paraphrase," they get their result. They have no idea that behind the scenes their request might have bounced off two providers before landing on a third. That invisibility is the point. Reliability shouldn't be the user's problem to notice.</p>
+<p>I also spread the load deliberately. If every request started at the same provider, that provider would burn through its per-minute limit fast while the others sat idle. So the tool rotates which provider it tries first. One request starts at provider A, the next starts at provider B, and so on. This keeps any single free tier from being overwhelmed, which means the free limits stretch much further than they would otherwise.</p>
+<h2>The lesson that took me a whole day to learn</h2>
+<p>I want to share one specific mistake, because it taught me something important about debugging.</p>
+<p>For a while, long documents would sometimes come out only half-processed. The first half would be perfectly reworded and the second half would be untouched. It looked exactly like a bug in my code, and I spent hours hunting through the logic convinced I'd made a mistake somewhere in how the document was being handled.</p>
+<p>The real cause was completely different. My document was being split into chunks, and each chunk was a separate AI request. On a long document with several chunks, I was hitting the free tier's per-minute request limit partway through. The early chunks succeeded; the later chunks got blocked by the rate limit and silently failed. The "bug" wasn't in my document code at all. It was the free tier's limits doing exactly what they're designed to do.</p>
+<p>The lesson stuck with me: when something breaks intermittently and inconsistently, look at your infrastructure and its limits before you assume your own code is wrong. I lost a day assuming the problem was me. The logs, once I actually read them properly, told the real story in about five minutes.</p>
+<h2>Why this approach makes sense for a bridge, not forever</h2>
+<p>I'm honest with myself that this free-tier stacking is a bridge, not a permanent foundation. Free tiers are generous enough to get a small tool off the ground and let it grow, but they're not something you'd want to bet a serious business on long-term, precisely because they're unreliable and can change.</p>
+<p>My plan has always been to use the free tiers to reach a point where the tool has enough users to justify paying for one solid, reliable AI service — funded by the tool itself rather than out of my student budget. Until then, the chain of free providers does the job, and it does it well enough that most people never notice they're using a tool held together with careful engineering rather than a big cloud bill.</p>
+<h2>What you can take from this</h2>
+<p>If you want to build something with AI and you don't have money yet, you have more options than you might think. The free tiers from major AI providers are real, and they're usable. The trick is not to depend on any single one of them. Build for failure. Assume providers will hit limits, go down, and change their rules — because they will — and design your tool to route around those problems automatically.</p>
+<p>That mindset, "assume it will fail and handle it gracefully," is honestly one of the most useful things I've learned building ParaFree. It applies to a lot more than AI.</p>
+<p>If you want to see the result of all this, ParaFree is at parafree.app. It's free and has no word limit — and now you know a bit about what's keeping it running underneath.</p>
+<p class="author-sig">— Pritom Dash</p>
+    <div class="cta-box">
+      <p>Try ParaFree free — no word limit, no signup, keeps your formatting.</p>
+      <a href="/">Try ParaFree Free &rarr;</a>
+    </div>
+  </article>
+</div>
+
+<footer>
+  <div>
+    <a href="/">Home</a>
+    <a href="/about.html">About</a>
+    <a href="/blog.html">Blog</a>
+    <a href="/cv-builder.html">CV Builder</a>
+    <a href="/code.html">ParaFree AI</a>
+    <a href="/faq.html">FAQ</a>
+    <a href="/contact.html">Contact</a>
+    <a href="/privacy.html">Privacy</a>
+    <a href="/terms.html">Terms</a>
+  </div>
+  <p>&copy; 2026 ParaFree &middot; Free AI Writing Suite &middot; No limits, no signup, always free</p>
+</footer>
+<button id="pf-scroll-top" aria-label="Scroll to top">&uarr;</button>
+<script>
+function toggleMenu(){var m=document.getElementById('mobileMenu');if(!m)return;m.style.display=m.style.display==='flex'?'none':'flex';}
+(function(){var b=document.getElementById('pf-scroll-top');if(b){window.addEventListener('scroll',function(){b.classList.toggle('visible',window.scrollY>300);},{passive:true});b.addEventListener('click',function(){window.scrollTo({top:0,behavior:'smooth'});});}})();
+</script>
+</body>
+</html>
