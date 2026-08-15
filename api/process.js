@@ -107,7 +107,7 @@ async function callGroq(text, prompt, key) {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
     body: JSON.stringify({
-      model: "llama-3.3-70b-versatile",
+      model: "openai/gpt-oss-120b",
       messages: [{ role: "user", content: prompt + "\n\n" + text }],
       temperature: 0.7,
       max_tokens: 2048
@@ -561,14 +561,14 @@ async function runChain(text, prompt, type) {
   let candidates = [];
   if (isCVExtract) {
     if (validKey(GEMINI_KEY))   candidates.push({ name: "gemini",    fn: () => callGemini(text, prompt, GEMINI_KEY) });
-    if (validKey(GROQ_KEY))     candidates.push({ name: "groq-70b",  fn: () => callGroqModel(text, prompt, GROQ_KEY, "llama-3.3-70b-versatile") });
+    if (validKey(GROQ_KEY))     candidates.push({ name: "groq-70b",  fn: () => callGroqModel(text, prompt, GROQ_KEY, "openai/gpt-oss-120b") });
     if (validKey(CEREBRAS_KEY)) candidates.push({ name: "cerebras",  fn: () => callCerebras(text, prompt, CEREBRAS_KEY) });
     if (validKey(MISTRAL_KEY))  candidates.push({ name: "mistral",   fn: () => callMistral(text, prompt, MISTRAL_KEY) });
     if (cfOk)                   candidates.push({ name: "cloudflare",fn: () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT) });
   } else {
     if (validKey(GEMINI_KEY))     candidates.push({ name: "gemini",         fn: () => callGemini(text, prompt, GEMINI_KEY) });
     if (validKey(CEREBRAS_KEY))   candidates.push({ name: "cerebras",       fn: () => callCerebras(text, prompt, CEREBRAS_KEY) });
-    if (validKey(GROQ_KEY))       candidates.push({ name: "groq-70b",       fn: () => callGroqModel(text, prompt, GROQ_KEY, "llama-3.3-70b-versatile") });
+    if (validKey(GROQ_KEY))       candidates.push({ name: "groq-70b",       fn: () => callGroqModel(text, prompt, GROQ_KEY, "openai/gpt-oss-120b") });
     if (validKey(OPENROUTER_KEY)) candidates.push({ name: "deepseek-coder", fn: () => callOpenRouterModel(text, prompt, OPENROUTER_KEY, "deepseek/deepseek-coder-v2-instruct:free") });
     if (validKey(OPENROUTER_KEY)) candidates.push({ name: "qwen-coder",     fn: () => callOpenRouterModel(text, prompt, OPENROUTER_KEY, "qwen/qwen-2.5-coder-32b-instruct:free") });
     if (validKey(MISTRAL_KEY))    candidates.push({ name: "mistral",        fn: () => callMistral(text, prompt, MISTRAL_KEY) });
@@ -637,7 +637,7 @@ async function handleTestKeys(body) {
   const cfAccount = process.env.CF_ACCOUNT;
 
   const tests = [
-    { name: "groq",       model: "llama-3.3-70b-versatile", key: process.env.GROQ_KEY,       fn: (k) => callGroq(testText, testPrompt, k) },
+    { name: "groq",       model: "openai/gpt-oss-120b",      key: process.env.GROQ_KEY,       fn: (k) => callGroq(testText, testPrompt, k) },
     { name: "gemini",     model: "gemini-2.0-flash",        key: process.env.GEMINI_KEY,     fn: (k) => callGemini(testText, testPrompt, k) },
     { name: "cerebras",   model: "gpt-oss-120b",            key: process.env.CEREBRAS_KEY,   fn: (k) => callCerebras(testText, testPrompt, k) },
     { name: "openrouter", model: "llama-3.1-8b-instruct:free", key: process.env.OPENROUTER_KEY, fn: (k) => callOpenRouter(testText, testPrompt, k) },
