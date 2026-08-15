@@ -19,6 +19,19 @@ const rateLimitMap = new Map();
 let lastCleanup = Date.now();
 let requestCounter = 0; // writing-chain rotation: spreads per-minute load across providers
 
+// ── PROVIDER HEALTH TRACKER ──
+// In-memory only — resets on cold start. Any failure (error, 429, empty) = 60s cooldown.
+const providerHealth = {};
+function isHealthy(name) {
+  const h = providerHealth[name];
+  if (!h) return true;
+  return (Date.now() - h.failedAt) > h.cooldownMs;
+}
+function markUnhealthy(name) {
+  providerHealth[name] = { failedAt: Date.now(), cooldownMs: 60000 };
+  console.log(`[ParaFree] Provider ${name} marked unhealthy (60s cooldown)`);
+}
+
 // Fingerprint = first 200 chars + total length (avoids storing full text in memory)
 function textFingerprint(text) {
   return text ? text.slice(0, 200) + '|' + text.length : '';
@@ -121,7 +134,7 @@ async function callGroq(text, prompt, key) {
 
 async function callGemini(text, prompt, key) {
   console.log("[ParaFree] Trying: gemini");
-  const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + key;
+  const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + key;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -312,7 +325,7 @@ async function callNvidia(text, prompt, key) {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
     body: JSON.stringify({
-      model: "meta/llama-3.1-8b-instruct",
+      model: "meta/llama-3.3-70b-instruct",
       messages: [{ role: "user", content: prompt + "\n\n" + text }],
       temperature: 0.7,
       max_tokens: 2048,
@@ -322,6 +335,42 @@ async function callNvidia(text, prompt, key) {
   if (!res.ok) throw new Error("NVIDIA:" + res.status);
   const data = await res.json();
   if (!data.choices?.[0]) throw new Error("NVIDIA: no response");
+  return data.choices[0].message.content;
+}
+
+async function callOVHcloud(text, prompt) {
+  console.log("[ParaFree] Trying: ovhcloud");
+  const res = await fetch("https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "Meta-Llama-3_3-70B-Instruct",
+      messages: [{ role: "user", content: prompt + "\n\n" + text }],
+      temperature: 0.7,
+      max_tokens: 2048
+    })
+  });
+  if (!res.ok) throw new Error("OVHcloud:" + res.status);
+  const data = await res.json();
+  if (!data.choices?.[0]) throw new Error("OVHcloud: no response");
+  return data.choices[0].message.content;
+}
+
+async function callDeepSeek(text, prompt, key) {
+  console.log("[ParaFree] Trying: deepseek");
+  const res = await fetch("https://api.deepseek.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
+    body: JSON.stringify({
+      model: "deepseek-chat",
+      messages: [{ role: "user", content: prompt + "\n\n" + text }],
+      temperature: 0.7,
+      max_tokens: 2048
+    })
+  });
+  if (!res.ok) throw new Error("DeepSeek:" + res.status);
+  const data = await res.json();
+  if (!data.choices?.[0]) throw new Error("DeepSeek: no response");
   return data.choices[0].message.content;
 }
 
@@ -451,27 +500,35 @@ function buildChunks(text) {
 
 // Builds the writing provider list with closures bound to the given text.
 // Called per-chunk so each chunk gets its own bound calls.
+// Priority order: groq → gemini → sambanova → nvidia → mistral → cloudflare → ovhcloud → deepseek → extras
+// Cerebras removed (now requires payment method).
+// Any provider with a missing key is silently skipped. OVHcloud needs no key.
+// Health-unhealthy providers are excluded for their 60s cooldown window.
 function buildWritingCandidates(text, prompt, keys) {
-  const { CEREBRAS_KEY, GEMINI_KEY, GROQ_KEY, MISTRAL_KEY, CF_KEY, CF_ACCOUNT,
+  const { DEEPSEEK_KEY, GEMINI_KEY, GROQ_KEY, MISTRAL_KEY, CF_KEY, CF_ACCOUNT,
           OPENROUTER_KEY, GLM_KEY, SAMBANOVA_KEY, NVIDIA_KEY,
           EXTRA1_KEY, EXTRA2_KEY, EXTRA3_KEY, EXTRA4_KEY, EXTRA5_KEY, EXTRA6_KEY } = keys;
   const cfOk = validKey(CF_KEY) && validKey(CF_ACCOUNT);
   const c = [];
-  if (validKey(CEREBRAS_KEY))   c.push({ name: "cerebras",   fn: () => callCerebras(text, prompt, CEREBRAS_KEY) });
-  if (validKey(GEMINI_KEY))     c.push({ name: "gemini",     fn: () => callGemini(text, prompt, GEMINI_KEY) });
-  if (validKey(GROQ_KEY))       c.push({ name: "groq",       fn: () => callGroq(text, prompt, GROQ_KEY) });
-  if (validKey(MISTRAL_KEY))    c.push({ name: "mistral",    fn: () => callMistral(text, prompt, MISTRAL_KEY) });
-  if (cfOk)                     c.push({ name: "cloudflare", fn: () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT) });
-  if (validKey(OPENROUTER_KEY)) c.push({ name: "openrouter", fn: () => callOpenRouter(text, prompt, OPENROUTER_KEY) });
-  if (validKey(GLM_KEY))        c.push({ name: "glm",        fn: () => callGLM(text, prompt, GLM_KEY) });
-  if (validKey(SAMBANOVA_KEY))  c.push({ name: "sambanova",  fn: () => callSambaNova(text, prompt, SAMBANOVA_KEY) });
-  if (validKey(NVIDIA_KEY))     c.push({ name: "nvidia",     fn: () => callNvidia(text, prompt, NVIDIA_KEY) });
-  if (validKey(EXTRA1_KEY))     c.push({ name: "extra1",     fn: () => callExtra(text, prompt, EXTRA1_KEY, "Extra1") });
-  if (validKey(EXTRA2_KEY))     c.push({ name: "extra2",     fn: () => callExtra(text, prompt, EXTRA2_KEY, "Extra2") });
-  if (validKey(EXTRA3_KEY))     c.push({ name: "extra3",     fn: () => callExtra(text, prompt, EXTRA3_KEY, "Extra3") });
-  if (validKey(EXTRA4_KEY))     c.push({ name: "extra4",     fn: () => callExtra(text, prompt, EXTRA4_KEY, "Extra4") });
-  if (validKey(EXTRA5_KEY))     c.push({ name: "extra5",     fn: () => callExtra(text, prompt, EXTRA5_KEY, "Extra5") });
-  if (validKey(EXTRA6_KEY))     c.push({ name: "extra6",     fn: () => callExtra(text, prompt, EXTRA6_KEY, "Extra6") });
+  const add = (name, fn, keyOk = true) => {
+    if (keyOk && isHealthy(name)) c.push({ name, fn });
+  };
+  add("groq",       () => callGroq(text, prompt, GROQ_KEY),                          validKey(GROQ_KEY));
+  add("gemini",     () => callGemini(text, prompt, GEMINI_KEY),                      validKey(GEMINI_KEY));
+  add("sambanova",  () => callSambaNova(text, prompt, SAMBANOVA_KEY),                validKey(SAMBANOVA_KEY));
+  add("nvidia",     () => callNvidia(text, prompt, NVIDIA_KEY),                      validKey(NVIDIA_KEY));
+  add("mistral",    () => callMistral(text, prompt, MISTRAL_KEY),                    validKey(MISTRAL_KEY));
+  add("cloudflare", () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT),          cfOk);
+  add("ovhcloud",   () => callOVHcloud(text, prompt),                                true); // no key needed
+  add("deepseek",   () => callDeepSeek(text, prompt, DEEPSEEK_KEY),                 validKey(DEEPSEEK_KEY));
+  add("openrouter", () => callOpenRouter(text, prompt, OPENROUTER_KEY),              validKey(OPENROUTER_KEY));
+  add("glm",        () => callGLM(text, prompt, GLM_KEY),                            validKey(GLM_KEY));
+  add("extra1",     () => callExtra(text, prompt, EXTRA1_KEY, "Extra1"),             validKey(EXTRA1_KEY));
+  add("extra2",     () => callExtra(text, prompt, EXTRA2_KEY, "Extra2"),             validKey(EXTRA2_KEY));
+  add("extra3",     () => callExtra(text, prompt, EXTRA3_KEY, "Extra3"),             validKey(EXTRA3_KEY));
+  add("extra4",     () => callExtra(text, prompt, EXTRA4_KEY, "Extra4"),             validKey(EXTRA4_KEY));
+  add("extra5",     () => callExtra(text, prompt, EXTRA5_KEY, "Extra5"),             validKey(EXTRA5_KEY));
+  add("extra6",     () => callExtra(text, prompt, EXTRA6_KEY, "Extra6"),             validKey(EXTRA6_KEY));
   return c;
 }
 
@@ -491,9 +548,11 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset) {
         return result.trim();
       }
       console.warn(`[ParaFree] ⚠️ chunk ${c.name} empty/short — next`);
+      markUnhealthy(c.name);
     } catch (e) {
       const tag = (e.message || "").includes(":429") ? "429" : "err";
       console.log(`[ParaFree] ❌ chunk ${c.name} ${tag} — next`);
+      markUnhealthy(c.name);
     }
   }
   return null;
@@ -506,7 +565,6 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset) {
 async function runChain(text, prompt, type) {
   const GROQ_KEY       = process.env.GROQ_KEY;
   const GEMINI_KEY     = process.env.GEMINI_KEY;
-  const CEREBRAS_KEY   = process.env.CEREBRAS_KEY;
   const OPENROUTER_KEY = process.env.OPENROUTER_KEY;
   const GLM_KEY        = process.env.GLM_KEY;
   const MISTRAL_KEY    = process.env.MISTRAL_KEY;
@@ -514,6 +572,7 @@ async function runChain(text, prompt, type) {
   const CF_ACCOUNT     = process.env.CF_ACCOUNT;
   const SAMBANOVA_KEY  = process.env.SAMBANOVA_KEY;
   const NVIDIA_KEY     = process.env.NVIDIA_KEY;
+  const DEEPSEEK_KEY   = process.env.DEEPSEEK_KEY;
   const EXTRA1_KEY     = process.env.EXTRA1_KEY;
   const EXTRA2_KEY     = process.env.EXTRA2_KEY;
   const EXTRA3_KEY     = process.env.EXTRA3_KEY;
@@ -531,7 +590,7 @@ async function runChain(text, prompt, type) {
   // starting at a different offset so parallel calls spread across providers.
   if (!isAIChat && !isCVExtract) {
     const envKeys = {
-      CEREBRAS_KEY, GEMINI_KEY, GROQ_KEY, MISTRAL_KEY, CF_KEY, CF_ACCOUNT,
+      DEEPSEEK_KEY, GEMINI_KEY, GROQ_KEY, MISTRAL_KEY, CF_KEY, CF_ACCOUNT,
       OPENROUTER_KEY, GLM_KEY, SAMBANOVA_KEY, NVIDIA_KEY,
       EXTRA1_KEY, EXTRA2_KEY, EXTRA3_KEY, EXTRA4_KEY, EXTRA5_KEY, EXTRA6_KEY
     };
@@ -559,28 +618,34 @@ async function runChain(text, prompt, type) {
   // ── AI CHAT / CV EXTRACT PATH: sequential with single retry ──
   // Short texts only — no chunking needed. One retry with 2s wait stays inside 10s limit.
   let candidates = [];
+  // Helper: add to candidates only if key present and provider healthy
+  const addC = (name, fn, keyOk = true) => { if (keyOk && isHealthy(name)) candidates.push({ name, fn }); };
+
   if (isCVExtract) {
-    if (validKey(GEMINI_KEY))   candidates.push({ name: "gemini",    fn: () => callGemini(text, prompt, GEMINI_KEY) });
-    if (validKey(GROQ_KEY))     candidates.push({ name: "groq-70b",  fn: () => callGroqModel(text, prompt, GROQ_KEY, "openai/gpt-oss-120b") });
-    if (validKey(CEREBRAS_KEY)) candidates.push({ name: "cerebras",  fn: () => callCerebras(text, prompt, CEREBRAS_KEY) });
-    if (validKey(MISTRAL_KEY))  candidates.push({ name: "mistral",   fn: () => callMistral(text, prompt, MISTRAL_KEY) });
-    if (cfOk)                   candidates.push({ name: "cloudflare",fn: () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT) });
+    addC("groq",       () => callGroqModel(text, prompt, GROQ_KEY, "openai/gpt-oss-120b"), validKey(GROQ_KEY));
+    addC("gemini",     () => callGemini(text, prompt, GEMINI_KEY),                         validKey(GEMINI_KEY));
+    addC("sambanova",  () => callSambaNova(text, prompt, SAMBANOVA_KEY),                   validKey(SAMBANOVA_KEY));
+    addC("mistral",    () => callMistral(text, prompt, MISTRAL_KEY),                       validKey(MISTRAL_KEY));
+    addC("cloudflare", () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT),             cfOk);
+    addC("ovhcloud",   () => callOVHcloud(text, prompt),                                   true);
   } else {
-    if (validKey(GEMINI_KEY))     candidates.push({ name: "gemini",         fn: () => callGemini(text, prompt, GEMINI_KEY) });
-    if (validKey(CEREBRAS_KEY))   candidates.push({ name: "cerebras",       fn: () => callCerebras(text, prompt, CEREBRAS_KEY) });
-    if (validKey(GROQ_KEY))       candidates.push({ name: "groq-70b",       fn: () => callGroqModel(text, prompt, GROQ_KEY, "openai/gpt-oss-120b") });
-    if (validKey(OPENROUTER_KEY)) candidates.push({ name: "deepseek-coder", fn: () => callOpenRouterModel(text, prompt, OPENROUTER_KEY, "deepseek/deepseek-coder-v2-instruct:free") });
-    if (validKey(OPENROUTER_KEY)) candidates.push({ name: "qwen-coder",     fn: () => callOpenRouterModel(text, prompt, OPENROUTER_KEY, "qwen/qwen-2.5-coder-32b-instruct:free") });
-    if (validKey(MISTRAL_KEY))    candidates.push({ name: "mistral",        fn: () => callMistral(text, prompt, MISTRAL_KEY) });
-    if (cfOk)                     candidates.push({ name: "cloudflare",     fn: () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT) });
-    if (validKey(SAMBANOVA_KEY))  candidates.push({ name: "sambanova",      fn: () => callSambaNova(text, prompt, SAMBANOVA_KEY) });
-    if (validKey(NVIDIA_KEY))     candidates.push({ name: "nvidia",         fn: () => callNvidia(text, prompt, NVIDIA_KEY) });
-    if (validKey(EXTRA1_KEY))     candidates.push({ name: "extra1",         fn: () => callExtra(text, prompt, EXTRA1_KEY, "Extra1") });
-    if (validKey(EXTRA2_KEY))     candidates.push({ name: "extra2",         fn: () => callExtra(text, prompt, EXTRA2_KEY, "Extra2") });
-    if (validKey(EXTRA3_KEY))     candidates.push({ name: "extra3",         fn: () => callExtra(text, prompt, EXTRA3_KEY, "Extra3") });
-    if (validKey(EXTRA4_KEY))     candidates.push({ name: "extra4",         fn: () => callExtra(text, prompt, EXTRA4_KEY, "Extra4") });
-    if (validKey(EXTRA5_KEY))     candidates.push({ name: "extra5",         fn: () => callExtra(text, prompt, EXTRA5_KEY, "Extra5") });
-    if (validKey(EXTRA6_KEY))     candidates.push({ name: "extra6",         fn: () => callExtra(text, prompt, EXTRA6_KEY, "Extra6") });
+    // AI chat path — Cerebras removed (requires payment). groq first for speed.
+    addC("groq",           () => callGroqModel(text, prompt, GROQ_KEY, "openai/gpt-oss-120b"),                              validKey(GROQ_KEY));
+    addC("gemini",         () => callGemini(text, prompt, GEMINI_KEY),                                                     validKey(GEMINI_KEY));
+    addC("sambanova",      () => callSambaNova(text, prompt, SAMBANOVA_KEY),                                               validKey(SAMBANOVA_KEY));
+    addC("nvidia",         () => callNvidia(text, prompt, NVIDIA_KEY),                                                     validKey(NVIDIA_KEY));
+    addC("deepseek-coder", () => callOpenRouterModel(text, prompt, OPENROUTER_KEY, "deepseek/deepseek-coder-v2-instruct:free"), validKey(OPENROUTER_KEY));
+    addC("qwen-coder",     () => callOpenRouterModel(text, prompt, OPENROUTER_KEY, "qwen/qwen-2.5-coder-32b-instruct:free"),    validKey(OPENROUTER_KEY));
+    addC("mistral",        () => callMistral(text, prompt, MISTRAL_KEY),                                                   validKey(MISTRAL_KEY));
+    addC("cloudflare",     () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT),                                         cfOk);
+    addC("ovhcloud",       () => callOVHcloud(text, prompt),                                                               true);
+    addC("deepseek",       () => callDeepSeek(text, prompt, DEEPSEEK_KEY),                                                 validKey(DEEPSEEK_KEY));
+    addC("extra1",         () => callExtra(text, prompt, EXTRA1_KEY, "Extra1"),                                            validKey(EXTRA1_KEY));
+    addC("extra2",         () => callExtra(text, prompt, EXTRA2_KEY, "Extra2"),                                            validKey(EXTRA2_KEY));
+    addC("extra3",         () => callExtra(text, prompt, EXTRA3_KEY, "Extra3"),                                            validKey(EXTRA3_KEY));
+    addC("extra4",         () => callExtra(text, prompt, EXTRA4_KEY, "Extra4"),                                            validKey(EXTRA4_KEY));
+    addC("extra5",         () => callExtra(text, prompt, EXTRA5_KEY, "Extra5"),                                            validKey(EXTRA5_KEY));
+    addC("extra6",         () => callExtra(text, prompt, EXTRA6_KEY, "Extra6"),                                            validKey(EXTRA6_KEY));
   }
 
   console.log(`[ParaFree] Chain (${isCVExtract ? 'CV' : 'AI'}): ${candidates.map(c => c.name).join(' → ') || 'EMPTY'}`);
@@ -607,10 +672,12 @@ async function runChain(text, prompt, type) {
         }
         console.warn(`[ParaFree] ⚠️ ${c.name} empty/short — next`);
         apiStatuses[c.name] = "failed";
+        markUnhealthy(c.name);
       } catch (e) {
         const msg = e.message || "";
         apiStatuses[c.name] = msg.includes(":429") ? "limit" : (msg.includes(":401") || msg.includes(":403")) ? "expired" : msg.includes(":404") ? "model_not_found" : "failed";
         console.log(`[ParaFree] ❌ ${c.name} — ${msg}`);
+        markUnhealthy(c.name);
       }
     }
     lastApiStatuses = { ...apiStatuses };
@@ -637,13 +704,16 @@ async function handleTestKeys(body) {
   const cfAccount = process.env.CF_ACCOUNT;
 
   const tests = [
-    { name: "groq",       model: "openai/gpt-oss-120b",      key: process.env.GROQ_KEY,       fn: (k) => callGroq(testText, testPrompt, k) },
-    { name: "gemini",     model: "gemini-2.0-flash",        key: process.env.GEMINI_KEY,     fn: (k) => callGemini(testText, testPrompt, k) },
-    { name: "cerebras",   model: "gpt-oss-120b",            key: process.env.CEREBRAS_KEY,   fn: (k) => callCerebras(testText, testPrompt, k) },
-    { name: "openrouter", model: "llama-3.1-8b-instruct:free", key: process.env.OPENROUTER_KEY, fn: (k) => callOpenRouter(testText, testPrompt, k) },
-    { name: "mistral",    model: "mistral-small-latest",    key: process.env.MISTRAL_KEY,    fn: (k) => callMistral(testText, testPrompt, k) },
-    { name: "cloudflare", model: "@cf/meta/llama-3.1-8b-instruct", key: process.env.CF_KEY, account: cfAccount, fn: (k) => callCloudflare(testText, testPrompt, k, cfAccount) },
-    { name: "glm",        model: "glm-4-flash",             key: process.env.GLM_KEY,        fn: (k) => callGLM(testText, testPrompt, k) },
+    { name: "groq",       model: "openai/gpt-oss-120b",               key: process.env.GROQ_KEY,       fn: (k) => callGroq(testText, testPrompt, k) },
+    { name: "gemini",     model: "gemini-2.5-flash",                  key: process.env.GEMINI_KEY,     fn: (k) => callGemini(testText, testPrompt, k) },
+    { name: "sambanova",  model: "Meta-Llama-3.3-70B-Instruct",       key: process.env.SAMBANOVA_KEY,  fn: (k) => callSambaNova(testText, testPrompt, k) },
+    { name: "nvidia",     model: "meta/llama-3.3-70b-instruct",       key: process.env.NVIDIA_KEY,     fn: (k) => callNvidia(testText, testPrompt, k) },
+    { name: "mistral",    model: "mistral-small-latest",              key: process.env.MISTRAL_KEY,    fn: (k) => callMistral(testText, testPrompt, k) },
+    { name: "cloudflare", model: "@cf/meta/llama-3.1-8b-instruct",   key: process.env.CF_KEY, account: cfAccount, fn: (k) => callCloudflare(testText, testPrompt, k, cfAccount) },
+    { name: "ovhcloud",   model: "Meta-Llama-3_3-70B-Instruct",      key: "no-key-needed",            fn: () => callOVHcloud(testText, testPrompt) },
+    { name: "deepseek",   model: "deepseek-chat",                     key: process.env.DEEPSEEK_KEY,   fn: (k) => callDeepSeek(testText, testPrompt, k) },
+    { name: "openrouter", model: "llama-3.1-8b-instruct:free",        key: process.env.OPENROUTER_KEY, fn: (k) => callOpenRouter(testText, testPrompt, k) },
+    { name: "glm",        model: "glm-4-flash",                       key: process.env.GLM_KEY,        fn: (k) => callGLM(testText, testPrompt, k) },
   ];
 
   const results = {};
@@ -678,9 +748,13 @@ module.exports = async function handler(req, res) {
   console.log("KEYS FOUND:", {
     groq:       process.env.GROQ_KEY       ? process.env.GROQ_KEY.slice(0, 8)       + "..." : "(not set)",
     gemini:     process.env.GEMINI_KEY     ? process.env.GEMINI_KEY.slice(0, 8)     + "..." : "(not set)",
-    cerebras:   process.env.CEREBRAS_KEY   ? process.env.CEREBRAS_KEY.slice(0, 8)   + "..." : "(not set)",
-    openrouter: process.env.OPENROUTER_KEY ? process.env.OPENROUTER_KEY.slice(0, 8) + "..." : "(not set)",
+    sambanova:  process.env.SAMBANOVA_KEY  ? process.env.SAMBANOVA_KEY.slice(0, 8)  + "..." : "(not set)",
+    nvidia:     process.env.NVIDIA_KEY     ? process.env.NVIDIA_KEY.slice(0, 8)     + "..." : "(not set)",
     mistral:    process.env.MISTRAL_KEY    ? process.env.MISTRAL_KEY.slice(0, 8)    + "..." : "(not set)",
+    cloudflare: process.env.CF_KEY         ? process.env.CF_KEY.slice(0, 8)         + "..." : "(not set)",
+    ovhcloud:   "no-key-needed",
+    deepseek:   process.env.DEEPSEEK_KEY   ? process.env.DEEPSEEK_KEY.slice(0, 8)   + "..." : "(not set)",
+    openrouter: process.env.OPENROUTER_KEY ? process.env.OPENROUTER_KEY.slice(0, 8) + "..." : "(not set)",
   });
 
   // CORS
