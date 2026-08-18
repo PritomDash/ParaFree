@@ -30,11 +30,11 @@
     "name": "ParaFree CV Builder",
     "alternateName": ["parafree cv", "parafree cv builder", "parafree resume", "free cv builder parafree", "cv builder parafree app", "free cv builder", "free resume builder", "ats resume builder free"],
     "url": "https://parafree.app/cv-builder.html",
-    "description": "Free AI-powered CV and resume builder with 8 templates, AI bullet point writer, cover letter generator, job search links and ATS optimization. No signup, no watermark, unlimited downloads.",
+    "description": "Free AI-powered CV and resume builder with 54 templates, AI bullet point writer, cover letter generator, job search links and ATS optimization. No signup, no watermark, unlimited downloads.",
     "applicationCategory": "BusinessApplication",
     "operatingSystem": "Web Browser",
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-    "featureList": ["AI CV/Resume Builder","8 Professional Templates","AI Surprise Template Picker","ATS Keyword Optimization","Cover Letter Generator","Job Search Links (LinkedIn, Indeed, SEEK, Google)","Upload and Improve Existing CV","Unlimited PDF and DOCX Downloads","No Signup Required","No Watermarks"]
+    "featureList": ["AI CV/Resume Builder","54 Professional Templates","AI Surprise Template Picker","ATS Keyword Optimization","Cover Letter Generator","Job Search Links (LinkedIn, Indeed, SEEK, Google)","Upload and Improve Existing CV","Unlimited PDF Downloads","No Signup Required","No Watermarks"]
   },
   {
     "@context": "https://schema.org",
@@ -48,9 +48,9 @@
     "@context": "https://schema.org",
     "@type": "FAQPage",
     "mainEntity": [
-      {"@type":"Question","name":"Is the ParaFree CV builder really free?","acceptedAnswer":{"@type":"Answer","text":"Yes — completely free. No subscription, no credit card, no signup required. Download unlimited CVs as PDF or DOCX with no watermark, forever."}},
+      {"@type":"Question","name":"Is the ParaFree CV builder really free?","acceptedAnswer":{"@type":"Answer","text":"Yes — completely free. No subscription, no credit card, no signup required. Download unlimited CVs as PDF with no watermark, forever."}},
       {"@type":"Question","name":"Are the CV templates ATS-friendly?","acceptedAnswer":{"@type":"Answer","text":"Yes. ParaFree's Classic and Minimal templates are single-column layouts optimized for Applicant Tracking Systems. All templates use standard section headers and clean formatting that ATS software can parse correctly."}},
-      {"@type":"Question","name":"Can I build unlimited resumes?","acceptedAnswer":{"@type":"Answer","text":"Yes. There is no limit to how many CVs or resumes you can build and download. Each download is free, watermark-free and available as both PDF and DOCX."}},
+      {"@type":"Question","name":"Can I build unlimited resumes?","acceptedAnswer":{"@type":"Answer","text":"Yes. There is no limit to how many CVs or resumes you can build and download. Each download is free, watermark-free and available as PDF."}},
       {"@type":"Question","name":"Do I need to sign up to use the CV builder?","acceptedAnswer":{"@type":"Answer","text":"No. You can build, preview, and download your CV without creating an account or providing any personal information. Just open the tool and start building."}}
     ]
   }
@@ -812,7 +812,7 @@ nav div a:hover::after { width: 100%; }
           <div id="sec-template" style="margin-bottom:10px;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
               <span style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;">Template</span>
-              <button id="templateGalleryBtn" onclick="toggleTemplateGallery()" style="font-size:12px;color:var(--accent);background:none;border:none;cursor:pointer;font-weight:600;font-family:'DM Sans',sans-serif;padding:0;">See all 36 →</button>
+              <button id="templateGalleryBtn" onclick="toggleTemplateGallery()" style="font-size:12px;color:var(--accent);background:none;border:none;cursor:pointer;font-weight:600;font-family:'DM Sans',sans-serif;padding:0;">See all 54 →</button>
             </div>
             <div id="quickTplGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px;">
               <div onclick="setTemplate('exec-pro');highlightTemplate(this)" style="border:1.5px solid var(--border);border-radius:8px;padding:8px 4px;cursor:pointer;text-align:center;background:white;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="if(!this.classList.contains('tpl-active'))this.style.borderColor='var(--border)'">
@@ -3021,7 +3021,7 @@ function updateJobSearch() {
 
 // ── Surprise Me ──
 function surpriseMe() {
-  const all = ['classic','modern','minimal','executive','creative','compact','timeline','tech','navy','burgundy','teal','slate','terracotta','bold','academic','elegant','purple','warm','professional','gradient','exec-pro','modern-blue','minimal-serif','bold-tech','elegant-gold','modern-minimal','vibrant-purple','creative-split','timeline-cv','skill-bubbles','gradient-header','two-tone','newspaper','corner-accent','border-frame','modern-photo'];
+  const all = ['classic','modern','minimal','executive','creative','compact','timeline','tech','navy','burgundy','teal','slate','terracotta','bold','academic','elegant','purple','warm','professional','gradient','exec-pro','modern-blue','minimal-serif','bold-tech','elegant-gold','modern-minimal','vibrant-purple','creative-split','timeline-cv','skill-bubbles','gradient-header','two-tone','newspaper','corner-accent','border-frame','modern-photo','midnight','aurora','slate-premium','monogram','prism','haven','vertex','blush','terra','metro','circuit','swiss','ivory','ledger','standard-plus','color-sidebar','top-strip','photo-left'];
   setTemplate(all[Math.floor(Math.random() * all.length)]);
 }
 
@@ -5020,7 +5020,7 @@ function toggleTemplateGallery() {
   const gallery = document.getElementById('templateGallery');
   const btn = document.getElementById('templateGalleryBtn');
   if (gallery) gallery.style.display = _galleryOpen ? 'block' : 'none';
-  if (btn) btn.textContent = _galleryOpen ? '✕ Close' : 'See all 36 →';
+  if (btn) btn.textContent = _galleryOpen ? '✕ Close' : 'See all 54 →';
 }
 
 function highlightTemplate(el) {
