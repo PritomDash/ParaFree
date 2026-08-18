@@ -139,8 +139,8 @@ async function handleJobSearch(body) {
   };
 
   const JOOBLE_KEY = process.env.JOOBLE_KEY;
+  console.log('[ParaFree] jobSearch: JOOBLE_KEY', JOOBLE_KEY ? `PRESENT (${JOOBLE_KEY.length} chars)` : 'NOT SET');
   if (!JOOBLE_KEY) {
-    console.log('[ParaFree] jobSearch: JOOBLE_KEY not set — returning fallback links');
     return { success: true, fallback: true, fallbackLinks, source: 'no-key' };
   }
 

@@ -1582,35 +1582,11 @@ English — Native | Bengali — Fluent" style="width:100%;border:1.5px solid va
       <h2 id="job-search-heading" style="font-family:'Syne',sans-serif;font-size:24px;font-weight:800;color:var(--text);margin-bottom:6px;">🔍 Find matching jobs</h2>
       <p style="color:var(--text2);font-size:14px;">Search open positions that match your target role and location.</p>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;">
-      <a id="job-linkedin" href="#" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:14px;background:var(--bg);border:1.5px solid var(--border);border-radius:12px;padding:16px 18px;text-decoration:none;color:var(--text);transition:all .18s;" onmouseover="this.style.borderColor='#0077b5';this.style.background='#e8f4fd'" onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--bg)'">
-        <span style="display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:8px;background:#0077B5;color:white;font-weight:800;font-size:15px;flex-shrink:0;font-family:'Syne',sans-serif;">in</span>
-        <div><strong style="font-size:14px;font-weight:700;display:block;">LinkedIn Jobs</strong><div style="font-size:12px;color:var(--text2);margin-top:1px;">World's largest professional network</div></div>
-        <span style="margin-left:auto;color:var(--text2);font-size:18px;flex-shrink:0;">→</span>
-      </a>
-      <a id="job-indeed" href="#" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:14px;background:var(--bg);border:1.5px solid var(--border);border-radius:12px;padding:16px 18px;text-decoration:none;color:var(--text);transition:all .18s;" onmouseover="this.style.borderColor='#003399';this.style.background='#eef2ff'" onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--bg)'">
-        <span style="display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:8px;background:#003A9B;color:white;font-weight:800;font-size:15px;flex-shrink:0;font-family:'Syne',sans-serif;">I</span>
-        <div><strong style="font-size:14px;font-weight:700;display:block;">Indeed</strong><div style="font-size:12px;color:var(--text2);margin-top:1px;">Millions of jobs worldwide</div></div>
-        <span style="margin-left:auto;color:var(--text2);font-size:18px;flex-shrink:0;">→</span>
-      </a>
-      <a id="job-seek" href="#" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:14px;background:var(--bg);border:1.5px solid var(--border);border-radius:12px;padding:16px 18px;text-decoration:none;color:var(--text);transition:all .18s;" onmouseover="this.style.borderColor='#e60278';this.style.background='#fef0f7'" onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--bg)'">
-        <span style="display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:8px;background:#E60278;color:white;font-weight:800;font-size:15px;flex-shrink:0;font-family:'Syne',sans-serif;">S</span>
-        <div><strong style="font-size:14px;font-weight:700;display:block;">SEEK</strong><div style="font-size:12px;color:var(--text2);margin-top:1px;">Top job board for Australia &amp; NZ</div></div>
-        <span style="margin-left:auto;color:var(--text2);font-size:18px;flex-shrink:0;">→</span>
-      </a>
-      <a id="job-google" href="#" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:14px;background:var(--bg);border:1.5px solid var(--border);border-radius:12px;padding:16px 18px;text-decoration:none;color:var(--text);transition:all .18s;" onmouseover="this.style.borderColor='#4285f4';this.style.background='#f0f4ff'" onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--bg)'">
-        <span style="display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:8px;background:#4285F4;color:white;font-weight:800;font-size:15px;flex-shrink:0;">🔍</span>
-        <div><strong style="font-size:14px;font-weight:700;display:block;">Google Jobs</strong><div style="font-size:12px;color:var(--text2);margin-top:1px;">Search all boards in one place</div></div>
-        <span style="margin-left:auto;color:var(--text2);font-size:18px;flex-shrink:0;">→</span>
-      </a>
-    </div>
-
-    <!-- Live job listings (Jooble-powered when key is set) -->
-    <div style="margin-top:28px;text-align:center;">
+    <div id="jobListingsArea" style="margin-bottom:20px;display:none;"></div>
+    <div style="text-align:center;">
+      <p id="jobSearchStatus" style="font-size:12px;color:var(--text2);margin-bottom:8px;display:none;"></p>
       <button id="jobSearchBtn" onclick="runJobSearch()" style="padding:12px 28px;background:var(--accent);color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif;transition:background 0.2s;" onmouseover="this.style.background='#1e4d35'" onmouseout="this.style.background='var(--accent)'">🔎 Find Live Job Listings</button>
-      <p id="jobSearchStatus" style="font-size:12px;color:var(--text2);margin-top:8px;display:none;"></p>
     </div>
-    <div id="jobListingsArea" style="margin-top:20px;display:none;"></div>
   </div>
 </div>
 
@@ -3007,68 +2983,87 @@ function copyCover() {
 async function downloadCoverPDF() { downloadCLasPDF(); }
 
 // ── Job Search Links ──
+function _buildFallbackLinks(title, location) {
+  const enc  = s => encodeURIComponent(s);
+  const slug = s => (s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+  return {
+    linkedin: `https://www.linkedin.com/jobs/search/?keywords=${enc(title)}&location=${enc(location)}`,
+    indeed:   `https://www.indeed.com/jobs?q=${enc(title)}&l=${enc(location)}`,
+    seek:     `https://www.seek.com.au/${slug(title)||'jobs'}-jobs/in-${slug((location.split(',')[0]||'').trim())||'australia'}`,
+    google:   `https://www.google.com/search?q=${enc(title+' jobs in '+location)}&ibp=htl;jobs`
+  };
+}
+
 function updateJobSearch() {
-  const title = document.getElementById('f-jobtitle').value.trim();
+  const title    = document.getElementById('f-jobtitle').value.trim();
   const location = document.getElementById('f-location').value.trim();
-  const section = document.getElementById('job-search-section');
-  if (!title && !location) { section.style.display = 'none'; return; }
+  const section  = document.getElementById('job-search-section');
+  const area     = document.getElementById('jobListingsArea');
+  const status   = document.getElementById('jobSearchStatus');
+
+  clearTimeout(window._jobAutoTimer);
+
+  if (!title && !location) {
+    section.style.display = 'none';
+    return;
+  }
+
   section.style.display = 'block';
-  const titleLabel = title || 'matching';
-  const locationLabel = location || 'your area';
-  document.getElementById('job-search-heading').textContent = `🔍 Find ${titleLabel} jobs in ${locationLabel}`;
-  const encTitle = encodeURIComponent(title);
-  const encLoc = encodeURIComponent(location);
-  document.getElementById('job-linkedin').href = `https://www.linkedin.com/jobs/search/?keywords=${encTitle}&location=${encLoc}`;
-  document.getElementById('job-indeed').href = `https://www.indeed.com/jobs?q=${encTitle}&l=${encLoc}`;
-  const seekTitle = title.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') || 'jobs';
-  const seekCity = location.split(',')[0].trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') || 'australia';
-  document.getElementById('job-seek').href = `https://www.seek.com.au/${seekTitle}-jobs/in-${seekCity}`;
-  document.getElementById('job-google').href = `https://www.google.com/search?q=${encodeURIComponent(title + ' jobs in ' + location)}&ibp=htl;jobs`;
+  document.getElementById('job-search-heading').textContent =
+    `🔍 Find ${title || 'matching'} jobs${location ? ' in ' + location : ''}`;
+
+  // Refresh placeholder links immediately with current title/location
+  area.innerHTML = renderFallbackJobLinks(_buildFallbackLinks(title, location), title, location);
+  area.style.display = 'block';
+  status.style.display = 'none';
+  document.getElementById('jobSearchBtn').textContent = '🔎 Find Live Job Listings';
+
+  // Auto-trigger live search only when both fields are filled (debounced 1.2s)
+  if (title && location) {
+    window._jobAutoTimer = setTimeout(() => runJobSearch(true), 1200);
+  }
 }
 
 // ── Live Job Listings (Jooble + fallback) ──
-async function runJobSearch() {
+async function runJobSearch(auto = false) {
   const jobTitle = document.getElementById('f-jobtitle').value.trim();
   const location = document.getElementById('f-location').value.trim();
-  if (!jobTitle) { showToast('Add a job title first to search for listings'); return; }
+  if (!jobTitle) { if (!auto) showToast('Add a job title first to search for listings'); return; }
 
-  const btn = document.getElementById('jobSearchBtn');
+  const btn    = document.getElementById('jobSearchBtn');
   const status = document.getElementById('jobSearchStatus');
-  const area = document.getElementById('jobListingsArea');
+  const area   = document.getElementById('jobListingsArea');
 
-  btn.disabled = true;
+  btn.disabled    = true;
   btn.textContent = '⏳ Searching…';
   status.style.display = 'block';
-  status.textContent = 'Searching live job listings…';
-  area.style.display = 'none';
-  area.innerHTML = '';
+  status.textContent   = 'Searching live job listings…';
 
   try {
-    const res = await fetch(BACKEND, {
+    const res  = await fetch(BACKEND, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: 'jobSearch', jobTitle, country: location })
     });
     const data = await res.json();
 
-    if (data.fallback) {
-      // Show polished fallback link cards
-      status.textContent = 'Showing job board search links for your role:';
-      area.innerHTML = renderFallbackJobLinks(data.fallbackLinks, jobTitle, location);
-      area.style.display = 'block';
-    } else if (data.jobs && data.jobs.length > 0) {
-      const src = data.source === 'cache' ? 'cached results' : 'live results';
-      status.textContent = `${data.jobs.length} matching jobs found (${src}):`;
+    if (data.jobs && data.jobs.length > 0) {
+      const src = data.source === 'cache' ? 'cached' : 'live';
+      status.textContent = `${data.jobs.length} matching jobs (${src}):`;
       area.innerHTML = renderJobCards(data.jobs);
-      area.style.display = 'block';
     } else {
-      status.textContent = 'No listings found — try the job board links above.';
+      const links = data.fallbackLinks || _buildFallbackLinks(jobTitle, location);
+      area.innerHTML = renderFallbackJobLinks(links, jobTitle, location);
+      status.textContent = 'Search on your preferred job board:';
     }
+    area.style.display = 'block';
   } catch (e) {
-    status.textContent = 'Search unavailable — use the job board links above.';
+    status.textContent = 'Live search unavailable. Use the links below:';
+    area.innerHTML = renderFallbackJobLinks(_buildFallbackLinks(jobTitle, location), jobTitle, location);
+    area.style.display = 'block';
   } finally {
-    btn.disabled = false;
-    btn.textContent = '🔎 Find Live Job Listings';
+    btn.disabled    = false;
+    btn.textContent = '🔄 Refresh Results';
   }
 }
 
