@@ -144,7 +144,7 @@ async function callGroq(text, prompt, key) {
 
 async function callGemini(text, prompt, key) {
   console.log("[ParaFree] Trying: gemini");
-  const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + key;
+  const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + key;
   const res = await fetchWithTimeout(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -193,7 +193,7 @@ async function callOpenRouter(text, prompt, key) {
       "X-Title": "ParaFree"
     },
     body: JSON.stringify({
-      model: "meta-llama/llama-3.3-70b-instruct:free",
+      model: "meta-llama/llama-3.1-8b-instruct:free",
       messages: [{ role: "user", content: prompt + "\n\n" + text }],
       temperature: 0.7,
       max_tokens: 2048
@@ -277,7 +277,7 @@ async function callGLM(text, prompt, key) {
         { role: "system", content: prompt },
         { role: "user",   content: text }
       ],
-      max_tokens: 4000,
+      max_tokens: 2048,
       temperature: 0.7
     })
   });
@@ -299,7 +299,7 @@ async function callExtra(text, prompt, key, label) {
       "X-Title": "ParaFree"
     },
     body: JSON.stringify({
-      model: "meta-llama/llama-3.3-70b-instruct:free",
+      model: "meta-llama/llama-3.1-8b-instruct:free",
       messages: [{ role: "user", content: prompt + "\n\n" + text }],
       temperature: 0.7,
       max_tokens: 2048
@@ -715,7 +715,7 @@ async function handleTestKeys(body) {
 
   const tests = [
     { name: "groq",       model: "llama-3.1-8b-instant",              key: process.env.GROQ_KEY,       fn: (k) => callGroq(testText, testPrompt, k) },
-    { name: "gemini",     model: "gemini-2.5-flash",                  key: process.env.GEMINI_KEY,     fn: (k) => callGemini(testText, testPrompt, k) },
+    { name: "gemini",     model: "gemini-2.0-flash",                  key: process.env.GEMINI_KEY,     fn: (k) => callGemini(testText, testPrompt, k) },
     { name: "sambanova",  model: "Meta-Llama-3.3-70B-Instruct",       key: process.env.SAMBANOVA_KEY,  fn: (k) => callSambaNova(testText, testPrompt, k) },
     { name: "nvidia",     model: "meta/llama-3.3-70b-instruct",       key: process.env.NVIDIA_KEY,     fn: (k) => callNvidia(testText, testPrompt, k) },
     { name: "mistral",    model: "mistral-small-latest",              key: process.env.MISTRAL_KEY,    fn: (k) => callMistral(testText, testPrompt, k) },
