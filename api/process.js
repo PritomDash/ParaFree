@@ -136,7 +136,7 @@ async function callGroq(text, prompt, key) {
       max_tokens: 2048
     })
   });
-  if (!res.ok) throw new Error("Groq:" + res.status);
+  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Groq:" + res.status + " " + b.slice(0,200)); }
   const data = await res.json();
   if (!data.choices || !data.choices[0]) throw new Error("Groq: no response");
   return data.choices[0].message.content;
@@ -153,7 +153,7 @@ async function callGemini(text, prompt, key) {
       generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
     })
   });
-  if (!res.ok) throw new Error("Gemini:" + res.status);
+  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Gemini:" + res.status + " " + b.slice(0,200)); }
   const data = await res.json();
   if (data.error) throw new Error("Gemini:" + data.error.message);
   if (!data.candidates || !data.candidates[0]) throw new Error("Gemini: no response");
@@ -199,8 +199,7 @@ async function callOpenRouter(text, prompt, key) {
       max_tokens: 2048
     })
   });
-  if (res.status === 401) throw new Error("OpenRouter:401:invalid_key — check OPENROUTER_KEY in Vercel env vars");
-  if (!res.ok) throw new Error("OpenRouter:" + res.status);
+  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("OpenRouter:" + res.status + " " + b.slice(0,200)); }
   const data = await res.json();
   if (!data.choices || !data.choices[0]) throw new Error("OpenRouter: no response");
   return data.choices[0].message.content;
@@ -213,7 +212,7 @@ async function callOpenRouterModel(text, prompt, key, model) {
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key, "HTTP-Referer": "https://parafree.app", "X-Title": "ParaFree" },
     body: JSON.stringify({ model, messages: [{ role: "user", content: prompt + "\n\n" + text }], temperature: 0.7, max_tokens: 4096 })
   });
-  if (!res.ok) throw new Error("OpenRouter/" + model + ":" + res.status);
+  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("OpenRouter/" + model + ":" + res.status + " " + b.slice(0,200)); }
   const data = await res.json();
   if (!data.choices || !data.choices[0]) throw new Error("OpenRouter/" + model + ": no response");
   return data.choices[0].message.content;
@@ -226,7 +225,7 @@ async function callGroqModel(text, prompt, key, model) {
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
     body: JSON.stringify({ model, messages: [{ role: "user", content: prompt + "\n\n" + text }], temperature: 0.7, max_tokens: 4096 })
   });
-  if (!res.ok) throw new Error("Groq/" + model + ":" + res.status);
+  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Groq/" + model + ":" + res.status + " " + b.slice(0,200)); }
   const data = await res.json();
   if (!data.choices || !data.choices[0]) throw new Error("Groq/" + model + ": no response");
   return data.choices[0].message.content;
@@ -244,7 +243,7 @@ async function callMistral(text, prompt, key) {
       max_tokens: 2048
     })
   });
-  if (!res.ok) throw new Error("Mistral:" + res.status);
+  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Mistral:" + res.status + " " + b.slice(0,200)); }
   const data = await res.json();
   if (!data.choices || !data.choices[0]) throw new Error("Mistral: no response");
   return data.choices[0].message.content;
@@ -260,7 +259,7 @@ async function callCloudflare(text, prompt, key, account) {
       body: JSON.stringify({ messages: [{ role: "user", content: prompt + "\n\n" + text }], max_tokens: 2048 })
     }
   );
-  if (!res.ok) throw new Error("Cloudflare:" + res.status);
+  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Cloudflare:" + res.status + " " + b.slice(0,200)); }
   const data = await res.json();
   if (!data.success) throw new Error("Cloudflare: " + JSON.stringify(data.errors));
   return data.result.response;
@@ -281,7 +280,7 @@ async function callGLM(text, prompt, key) {
       temperature: 0.7
     })
   });
-  if (!res.ok) throw new Error("GLM:" + res.status);
+  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("GLM:" + res.status + " " + b.slice(0,200)); }
   const data = await res.json();
   const result = data.choices?.[0]?.message?.content;
   if (!result) throw new Error("GLM: empty response");
@@ -305,7 +304,7 @@ async function callExtra(text, prompt, key, label) {
       max_tokens: 2048
     })
   });
-  if (!res.ok) throw new Error(label + ":" + res.status);
+  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error(label + ":" + res.status + " " + b.slice(0,200)); }
   const data = await res.json();
   if (!data.choices || !data.choices[0]) throw new Error(label + ": no response");
   return data.choices[0].message.content;
@@ -323,7 +322,7 @@ async function callSambaNova(text, prompt, key) {
       max_tokens: 2048
     })
   });
-  if (!res.ok) throw new Error("SambaNova:" + res.status);
+  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("SambaNova:" + res.status + " " + b.slice(0,200)); }
   const data = await res.json();
   if (!data.choices?.[0]) throw new Error("SambaNova: no response");
   return data.choices[0].message.content;
@@ -342,7 +341,7 @@ async function callNvidia(text, prompt, key) {
       stream: false
     })
   });
-  if (!res.ok) throw new Error("NVIDIA:" + res.status);
+  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("NVIDIA:" + res.status + " " + b.slice(0,200)); }
   const data = await res.json();
   if (!data.choices?.[0]) throw new Error("NVIDIA: no response");
   return data.choices[0].message.content;
@@ -360,7 +359,7 @@ async function callOVHcloud(text, prompt) {
       max_tokens: 2048
     })
   });
-  if (!res.ok) throw new Error("OVHcloud:" + res.status);
+  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("OVHcloud:" + res.status + " " + b.slice(0,200)); }
   const data = await res.json();
   if (!data.choices?.[0]) throw new Error("OVHcloud: no response");
   return data.choices[0].message.content;
@@ -378,7 +377,7 @@ async function callDeepSeek(text, prompt, key) {
       max_tokens: 2048
     })
   });
-  if (!res.ok) throw new Error("DeepSeek:" + res.status);
+  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("DeepSeek:" + res.status + " " + b.slice(0,200)); }
   const data = await res.json();
   if (!data.choices?.[0]) throw new Error("DeepSeek: no response");
   return data.choices[0].message.content;
