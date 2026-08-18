@@ -23,6 +23,9 @@
   },
   "homepage": "https://github.com/PritomDash/ParaFree#readme",
   "description": "",
+  "dependencies": {
+    "@upstash/redis": "^1.34.3"
+  },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
     "@types/node": "^26.1.1",
