@@ -130,7 +130,7 @@ async function callGroq(text, prompt, key) {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
     body: JSON.stringify({
-      model: "llama-3.1-8b-instant",
+      model: "gemma2-9b-it",
       messages: [{ role: "user", content: prompt + "\n\n" + text }],
       temperature: 0.7,
       max_tokens: 2048
@@ -144,7 +144,7 @@ async function callGroq(text, prompt, key) {
 
 async function callGemini(text, prompt, key) {
   console.log("[ParaFree] Trying: gemini");
-  const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + key;
+  const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=" + key;
   const res = await fetchWithTimeout(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -193,7 +193,7 @@ async function callOpenRouter(text, prompt, key) {
       "X-Title": "ParaFree"
     },
     body: JSON.stringify({
-      model: "meta-llama/llama-3.1-8b-instruct:free",
+      model: "meta-llama/llama-3.1-8b-instruct",
       messages: [{ role: "user", content: prompt + "\n\n" + text }],
       temperature: 0.7,
       max_tokens: 2048
@@ -271,7 +271,7 @@ async function callGLM(text, prompt, key) {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
     body: JSON.stringify({
-      model: "glm-4-flash",
+      model: "glm-4-air",
       messages: [
         { role: "system", content: prompt },
         { role: "user",   content: text }
@@ -298,7 +298,7 @@ async function callExtra(text, prompt, key, label) {
       "X-Title": "ParaFree"
     },
     body: JSON.stringify({
-      model: "meta-llama/llama-3.1-8b-instruct:free",
+      model: "meta-llama/llama-3.1-8b-instruct",
       messages: [{ role: "user", content: prompt + "\n\n" + text }],
       temperature: 0.7,
       max_tokens: 2048
@@ -631,7 +631,7 @@ async function runChain(text, prompt, type) {
   const addC = (name, fn, keyOk = true) => { if (keyOk && isHealthy(name)) candidates.push({ name, fn }); };
 
   if (isCVExtract) {
-    addC("groq",       () => callGroqModel(text, prompt, GROQ_KEY, "llama-3.1-8b-instant"), validKey(GROQ_KEY));
+    addC("groq",       () => callGroqModel(text, prompt, GROQ_KEY, "gemma2-9b-it"), validKey(GROQ_KEY));
     addC("gemini",     () => callGemini(text, prompt, GEMINI_KEY),                         validKey(GEMINI_KEY));
     addC("sambanova",  () => callSambaNova(text, prompt, SAMBANOVA_KEY),                   validKey(SAMBANOVA_KEY));
     addC("mistral",    () => callMistral(text, prompt, MISTRAL_KEY),                       validKey(MISTRAL_KEY));
@@ -639,7 +639,7 @@ async function runChain(text, prompt, type) {
     addC("ovhcloud",   () => callOVHcloud(text, prompt),                                   true);
   } else {
     // AI chat path — Cerebras removed (requires payment). groq first for speed.
-    addC("groq",           () => callGroqModel(text, prompt, GROQ_KEY, "llama-3.1-8b-instant"),                              validKey(GROQ_KEY));
+    addC("groq",           () => callGroqModel(text, prompt, GROQ_KEY, "gemma2-9b-it"),                              validKey(GROQ_KEY));
     addC("gemini",         () => callGemini(text, prompt, GEMINI_KEY),                                                     validKey(GEMINI_KEY));
     addC("sambanova",      () => callSambaNova(text, prompt, SAMBANOVA_KEY),                                               validKey(SAMBANOVA_KEY));
     addC("nvidia",         () => callNvidia(text, prompt, NVIDIA_KEY),                                                     validKey(NVIDIA_KEY));
@@ -713,16 +713,16 @@ async function handleTestKeys(body) {
   const cfAccount = process.env.CF_ACCOUNT;
 
   const tests = [
-    { name: "groq",       model: "llama-3.1-8b-instant",              key: process.env.GROQ_KEY,       fn: (k) => callGroq(testText, testPrompt, k) },
-    { name: "gemini",     model: "gemini-2.0-flash",                  key: process.env.GEMINI_KEY,     fn: (k) => callGemini(testText, testPrompt, k) },
+    { name: "groq",       model: "gemma2-9b-it",              key: process.env.GROQ_KEY,       fn: (k) => callGroq(testText, testPrompt, k) },
+    { name: "gemini",     model: "gemini-3.6-flash",                  key: process.env.GEMINI_KEY,     fn: (k) => callGemini(testText, testPrompt, k) },
     { name: "sambanova",  model: "Meta-Llama-3.3-70B-Instruct",       key: process.env.SAMBANOVA_KEY,  fn: (k) => callSambaNova(testText, testPrompt, k) },
     { name: "nvidia",     model: "meta/llama-3.3-70b-instruct",       key: process.env.NVIDIA_KEY,     fn: (k) => callNvidia(testText, testPrompt, k) },
     { name: "mistral",    model: "mistral-small-latest",              key: process.env.MISTRAL_KEY,    fn: (k) => callMistral(testText, testPrompt, k) },
     { name: "cloudflare", model: "@cf/meta/llama-3.1-8b-instruct",   key: process.env.CF_KEY, account: cfAccount, fn: (k) => callCloudflare(testText, testPrompt, k, cfAccount) },
     { name: "ovhcloud",   model: "Meta-Llama-3_3-70B-Instruct",      key: "no-key-needed",            fn: () => callOVHcloud(testText, testPrompt) },
     { name: "deepseek",   model: "deepseek-chat",                     key: process.env.DEEPSEEK_KEY,   fn: (k) => callDeepSeek(testText, testPrompt, k) },
-    { name: "openrouter", model: "llama-3.1-8b-instruct:free",        key: process.env.OPENROUTER_KEY, fn: (k) => callOpenRouter(testText, testPrompt, k) },
-    { name: "glm",        model: "glm-4-flash",                       key: process.env.GLM_KEY,        fn: (k) => callGLM(testText, testPrompt, k) },
+    { name: "openrouter", model: "meta-llama/llama-3.1-8b-instruct",  key: process.env.OPENROUTER_KEY, fn: (k) => callOpenRouter(testText, testPrompt, k) },
+    { name: "glm",        model: "glm-4-air",                       key: process.env.GLM_KEY,        fn: (k) => callGLM(testText, testPrompt, k) },
   ];
 
   const results = {};
