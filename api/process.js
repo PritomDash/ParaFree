@@ -103,6 +103,117 @@ function checkRateLimit(ip, text) {
   return { allowed: true, remaining: HOURLY_LIMIT - e.count };
 }
 
+// ── UPSTASH REDIS CACHE (graceful — skipped if env vars missing) ──
+let redis = null;
+(function initRedis() {
+  try {
+    if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+      console.log('[ParaFree] Redis: KV env vars not set — job caching skipped');
+      return;
+    }
+    const { Redis } = require('@upstash/redis');
+    redis = Redis.fromEnv();
+    console.log('[ParaFree] Redis: connected');
+  } catch (e) {
+    console.error('[ParaFree] Redis init error:', e.message);
+  }
+})();
+
+// ── JOB SEARCH HANDLER (Phases 2-4: Jooble + cache + fallback) ──
+async function handleJobSearch(body) {
+  const jobTitle = (body.jobTitle || '').trim();
+  const country  = (body.country  || '').trim();
+
+  if (!jobTitle) return { success: false, error: 'jobTitle required' };
+
+  // Build fallback links (always available, mirrors the existing updateJobSearch() logic)
+  const encTitle  = encodeURIComponent(jobTitle);
+  const encLoc    = encodeURIComponent(country);
+  const seekTitle = jobTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'jobs';
+  const seekCity  = (country.split(',')[0] || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'australia';
+  const fallbackLinks = {
+    linkedin: `https://www.linkedin.com/jobs/search/?keywords=${encTitle}&location=${encLoc}`,
+    indeed:   `https://www.indeed.com/jobs?q=${encTitle}&l=${encLoc}`,
+    seek:     `https://www.seek.com.au/${seekTitle}-jobs/in-${seekCity}`,
+    google:   `https://www.google.com/search?q=${encodeURIComponent(jobTitle + ' jobs in ' + country)}&ibp=htl;jobs`
+  };
+
+  const JOOBLE_KEY = process.env.JOOBLE_KEY;
+  if (!JOOBLE_KEY) {
+    console.log('[ParaFree] jobSearch: JOOBLE_KEY not set — returning fallback links');
+    return { success: true, fallback: true, fallbackLinks, source: 'no-key' };
+  }
+
+  // Cache key: normalized title + country (e.g. "jobs:marketing manager:australia")
+  const cacheKey = 'jobs:' + jobTitle.toLowerCase() + ':' + country.toLowerCase();
+
+  // Phase 3: check cache first
+  if (redis) {
+    try {
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        console.log('[ParaFree] jobSearch: cache hit', cacheKey);
+        return { success: true, jobs: cached, source: 'cache', fallbackLinks };
+      }
+    } catch (e) {
+      console.error('[ParaFree] Redis get error:', e.message);
+    }
+  }
+
+  // Phase 2: call Jooble
+  // Request shape:  POST https://jooble.org/api/{KEY}  body: { keywords, location, page, resultsOnPage }
+  // Response shape: { totalCount: N, jobs: [ { title, company, location, link, salary, snippet, type, updated } ] }
+  try {
+    console.log('[ParaFree] jobSearch: calling Jooble for', JSON.stringify({ jobTitle, country }));
+    const joobleRes = await fetchWithTimeout(
+      `https://jooble.org/api/${JOOBLE_KEY}`,
+      {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ keywords: jobTitle, location: country, page: 1, resultsOnPage: 10 })
+      },
+      8000
+    );
+
+    if (!joobleRes.ok) {
+      let b = ''; try { b = await joobleRes.text(); } catch(_) {}
+      throw new Error(`Jooble:${joobleRes.status} ${b.slice(0, 200)}`);
+    }
+
+    const data = await joobleRes.json();
+    const jobs = (data.jobs || []).slice(0, 10).map(j => ({
+      title:    j.title    || '',
+      company:  j.company  || '',
+      location: j.location || '',
+      link:     j.link     || '',
+      salary:   j.salary   || '',
+      snippet:  (j.snippet || '').replace(/<[^>]+>/g, '').slice(0, 160)
+    }));
+
+    if (jobs.length === 0) {
+      console.log('[ParaFree] jobSearch: Jooble returned 0 results — using fallback');
+      return { success: true, fallback: true, fallbackLinks, source: 'no-results' };
+    }
+
+    // Phase 3: cache result with 10-day TTL
+    if (redis) {
+      try {
+        await redis.set(cacheKey, jobs, { ex: 864000 });
+        console.log('[ParaFree] jobSearch: cached', jobs.length, 'jobs →', cacheKey);
+      } catch (e) {
+        console.error('[ParaFree] Redis set error:', e.message);
+      }
+    }
+
+    return { success: true, jobs, source: 'jooble', totalCount: data.totalCount || jobs.length, fallbackLinks };
+
+  } catch (e) {
+    // Phase 4: any Jooble failure → fallback links, never crash
+    console.error('[ParaFree] Jooble error:', e.message);
+    return { success: true, fallback: true, fallbackLinks, source: 'jooble-error' };
+  }
+}
+
 // ── KEY VALIDATION ──
 function validKey(k) {
   return k && k.length > 10;
@@ -784,6 +895,12 @@ module.exports = async function handler(req, res) {
     if (body && body.type === "testKeys") {
       const result = await handleTestKeys(body);
       if (result.status) return res.status(result.status).json(result);
+      return res.status(200).json(result);
+    }
+
+    // Job search endpoint (no text required — exempt from AI rate limiting)
+    if (body && body.type === "jobSearch") {
+      const result = await handleJobSearch(body);
       return res.status(200).json(result);
     }
 
