@@ -108,6 +108,16 @@ function validKey(k) {
   return k && k.length > 10;
 }
 
+// ── FETCH WITH TIMEOUT ──
+// Wraps fetch with an AbortController so a hanging provider fails in 4s,
+// leaving the remaining Vercel budget for fallbacks (10s Vercel Hobby limit).
+function fetchWithTimeout(url, options, ms = 4000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  return fetch(url, { ...options, signal: ctrl.signal })
+    .finally(() => clearTimeout(timer));
+}
+
 // ── ADMIN PASSWORD ──
 function getAdminPassword() {
   return process.env.ADMIN_PASSWORD || null;
@@ -116,11 +126,11 @@ function getAdminPassword() {
 // ── API CALLERS ──
 async function callGroq(text, prompt, key) {
   console.log("[ParaFree] Trying: groq");
-  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+  const res = await fetchWithTimeout("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
     body: JSON.stringify({
-      model: "openai/gpt-oss-120b",
+      model: "llama-3.1-8b-instant",
       messages: [{ role: "user", content: prompt + "\n\n" + text }],
       temperature: 0.7,
       max_tokens: 2048
@@ -135,7 +145,7 @@ async function callGroq(text, prompt, key) {
 async function callGemini(text, prompt, key) {
   console.log("[ParaFree] Trying: gemini");
   const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + key;
-  const res = await fetch(url, {
+  const res = await fetchWithTimeout(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -152,7 +162,7 @@ async function callGemini(text, prompt, key) {
 
 async function callCerebras(text, prompt, key) {
   console.log("[ParaFree] Trying: cerebras");
-  const res = await fetch("https://api.cerebras.ai/v1/chat/completions", {
+  const res = await fetchWithTimeout("https://api.cerebras.ai/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
     body: JSON.stringify({
@@ -174,7 +184,7 @@ async function callCerebras(text, prompt, key) {
 
 async function callOpenRouter(text, prompt, key) {
   console.log("[ParaFree] Trying: openrouter");
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+  const res = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -198,7 +208,7 @@ async function callOpenRouter(text, prompt, key) {
 
 async function callOpenRouterModel(text, prompt, key, model) {
   console.log("[ParaFree] Trying: openrouter/" + model);
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+  const res = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key, "HTTP-Referer": "https://parafree.app", "X-Title": "ParaFree" },
     body: JSON.stringify({ model, messages: [{ role: "user", content: prompt + "\n\n" + text }], temperature: 0.7, max_tokens: 4096 })
@@ -211,7 +221,7 @@ async function callOpenRouterModel(text, prompt, key, model) {
 
 async function callGroqModel(text, prompt, key, model) {
   console.log("[ParaFree] Trying: groq/" + model);
-  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+  const res = await fetchWithTimeout("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
     body: JSON.stringify({ model, messages: [{ role: "user", content: prompt + "\n\n" + text }], temperature: 0.7, max_tokens: 4096 })
@@ -224,7 +234,7 @@ async function callGroqModel(text, prompt, key, model) {
 
 async function callMistral(text, prompt, key) {
   console.log("[ParaFree] Trying: mistral");
-  const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
+  const res = await fetchWithTimeout("https://api.mistral.ai/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
     body: JSON.stringify({
@@ -242,7 +252,7 @@ async function callMistral(text, prompt, key) {
 
 async function callCloudflare(text, prompt, key, account) {
   console.log("[ParaFree] Trying: cloudflare");
-  const res = await fetch(
+  const res = await fetchWithTimeout(
     "https://api.cloudflare.com/client/v4/accounts/" + account + "/ai/run/@cf/meta/llama-3.1-8b-instruct",
     {
       method: "POST",
@@ -258,7 +268,7 @@ async function callCloudflare(text, prompt, key, account) {
 
 async function callGLM(text, prompt, key) {
   console.log("[ParaFree] Trying: glm");
-  const res = await fetch("https://open.bigmodel.cn/api/paas/v4/chat/completions", {
+  const res = await fetchWithTimeout("https://open.bigmodel.cn/api/paas/v4/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
     body: JSON.stringify({
@@ -280,7 +290,7 @@ async function callGLM(text, prompt, key) {
 
 async function callExtra(text, prompt, key, label) {
   console.log("[ParaFree] Trying:", label);
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+  const res = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -303,7 +313,7 @@ async function callExtra(text, prompt, key, label) {
 
 async function callSambaNova(text, prompt, key) {
   console.log("[ParaFree] Trying: sambanova");
-  const res = await fetch("https://api.sambanova.ai/v1/chat/completions", {
+  const res = await fetchWithTimeout("https://api.sambanova.ai/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
     body: JSON.stringify({
@@ -321,7 +331,7 @@ async function callSambaNova(text, prompt, key) {
 
 async function callNvidia(text, prompt, key) {
   console.log("[ParaFree] Trying: nvidia");
-  const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+  const res = await fetchWithTimeout("https://integrate.api.nvidia.com/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
     body: JSON.stringify({
@@ -340,7 +350,7 @@ async function callNvidia(text, prompt, key) {
 
 async function callOVHcloud(text, prompt) {
   console.log("[ParaFree] Trying: ovhcloud");
-  const res = await fetch("https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/chat/completions", {
+  const res = await fetchWithTimeout("https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -358,7 +368,7 @@ async function callOVHcloud(text, prompt) {
 
 async function callDeepSeek(text, prompt, key) {
   console.log("[ParaFree] Trying: deepseek");
-  const res = await fetch("https://api.deepseek.com/v1/chat/completions", {
+  const res = await fetchWithTimeout("https://api.deepseek.com/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
     body: JSON.stringify({
@@ -622,7 +632,7 @@ async function runChain(text, prompt, type) {
   const addC = (name, fn, keyOk = true) => { if (keyOk && isHealthy(name)) candidates.push({ name, fn }); };
 
   if (isCVExtract) {
-    addC("groq",       () => callGroqModel(text, prompt, GROQ_KEY, "openai/gpt-oss-120b"), validKey(GROQ_KEY));
+    addC("groq",       () => callGroqModel(text, prompt, GROQ_KEY, "llama-3.1-8b-instant"), validKey(GROQ_KEY));
     addC("gemini",     () => callGemini(text, prompt, GEMINI_KEY),                         validKey(GEMINI_KEY));
     addC("sambanova",  () => callSambaNova(text, prompt, SAMBANOVA_KEY),                   validKey(SAMBANOVA_KEY));
     addC("mistral",    () => callMistral(text, prompt, MISTRAL_KEY),                       validKey(MISTRAL_KEY));
@@ -630,7 +640,7 @@ async function runChain(text, prompt, type) {
     addC("ovhcloud",   () => callOVHcloud(text, prompt),                                   true);
   } else {
     // AI chat path — Cerebras removed (requires payment). groq first for speed.
-    addC("groq",           () => callGroqModel(text, prompt, GROQ_KEY, "openai/gpt-oss-120b"),                              validKey(GROQ_KEY));
+    addC("groq",           () => callGroqModel(text, prompt, GROQ_KEY, "llama-3.1-8b-instant"),                              validKey(GROQ_KEY));
     addC("gemini",         () => callGemini(text, prompt, GEMINI_KEY),                                                     validKey(GEMINI_KEY));
     addC("sambanova",      () => callSambaNova(text, prompt, SAMBANOVA_KEY),                                               validKey(SAMBANOVA_KEY));
     addC("nvidia",         () => callNvidia(text, prompt, NVIDIA_KEY),                                                     validKey(NVIDIA_KEY));
@@ -704,7 +714,7 @@ async function handleTestKeys(body) {
   const cfAccount = process.env.CF_ACCOUNT;
 
   const tests = [
-    { name: "groq",       model: "openai/gpt-oss-120b",               key: process.env.GROQ_KEY,       fn: (k) => callGroq(testText, testPrompt, k) },
+    { name: "groq",       model: "llama-3.1-8b-instant",              key: process.env.GROQ_KEY,       fn: (k) => callGroq(testText, testPrompt, k) },
     { name: "gemini",     model: "gemini-2.5-flash",                  key: process.env.GEMINI_KEY,     fn: (k) => callGemini(testText, testPrompt, k) },
     { name: "sambanova",  model: "Meta-Llama-3.3-70B-Instruct",       key: process.env.SAMBANOVA_KEY,  fn: (k) => callSambaNova(testText, testPrompt, k) },
     { name: "nvidia",     model: "meta/llama-3.3-70b-instruct",       key: process.env.NVIDIA_KEY,     fn: (k) => callNvidia(testText, testPrompt, k) },
