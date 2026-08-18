@@ -119,6 +119,15 @@ let redis = null;
   }
 })();
 
+function decodeSnippet(s) {
+  return (s || '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>').replace(/&quot;/gi, '"').replace(/&#39;/gi, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n))
+    .replace(/\s+/g, ' ').trim().slice(0, 120);
+}
+
 // ── JOB SEARCH HANDLER (Phases 2-4: Jooble + cache + fallback) ──
 async function handleJobSearch(body) {
   const jobTitle = (body.jobTitle || '').trim();
@@ -181,14 +190,22 @@ async function handleJobSearch(body) {
     }
 
     const data = await joobleRes.json();
-    const jobs = (data.jobs || []).slice(0, 10).map(j => ({
-      title:    j.title    || '',
-      company:  j.company  || '',
-      location: j.location || '',
-      link:     j.link     || '',
-      salary:   j.salary   || '',
-      snippet:  (j.snippet || '').replace(/<[^>]+>/g, '').slice(0, 160)
-    }));
+    const seen = new Set();
+    const jobs = (data.jobs || [])
+      .filter(j => {
+        const key = j.link || `${j.title}|${j.company || ''}`;
+        if (!key || seen.has(key)) return false;
+        seen.add(key); return true;
+      })
+      .slice(0, 10)
+      .map(j => ({
+        title:    j.title    || '',
+        company:  j.company  || '',
+        location: j.location || '',
+        link:     j.link     || '',
+        salary:   j.salary   || '',
+        snippet:  decodeSnippet(j.snippet || '')
+      }));
 
     if (jobs.length === 0) {
       console.log('[ParaFree] jobSearch: Jooble returned 0 results — using fallback');
