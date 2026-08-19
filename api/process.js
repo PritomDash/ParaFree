@@ -673,25 +673,36 @@ function buildWritingCandidates(text, prompt, keys) {
 // Returns the result string, or null if every provider failed this chunk.
 async function paraphraseChunk(chunkText, prompt, envKeys, startOffset) {
   const candidates = buildWritingCandidates(chunkText, prompt, envKeys);
-  if (candidates.length === 0) return null;
+  const allCandidateNames = buildWritingCandidates("x", "x", envKeys).map(c => c.name);
+  const cooldownNames = allCandidateNames.filter(n => !isHealthy(n));
+  console.log(`[ParaFree] paraphraseChunk: ${chunkText.length} chars, prompt ${prompt.length} chars, total_tokens_est ~${Math.round((chunkText.length + prompt.length) / 4)}`);
+  console.log(`[ParaFree] paraphraseChunk: ${candidates.length}/${allCandidateNames.length} providers available (cooldown: ${cooldownNames.join(', ') || 'none'})`);
+  if (candidates.length === 0) { console.error('[ParaFree] ❌ paraphraseChunk: 0 providers available — all in cooldown or no keys'); return null; }
   const n = candidates.length;
   const start = startOffset % n;
   const rotated = [...candidates.slice(start), ...candidates.slice(0, start)];
+  const chunkStart = Date.now();
   for (const c of rotated) {
+    const t0 = Date.now();
     try {
       const result = await c.fn();
+      const ms = Date.now() - t0;
       if (result && result.trim().length > 5) {
-        console.log(`[ParaFree] ✅ chunk[offset=${start}] done by ${c.name}`);
+        console.log(`[ParaFree] ✅ chunk[offset=${start}] done by ${c.name} in ${ms}ms (${result.trim().length} chars out)`);
         return result.trim();
       }
-      console.warn(`[ParaFree] ⚠️ chunk ${c.name} empty/short — next`);
+      console.warn(`[ParaFree] ⚠️ chunk ${c.name} empty/short (${result?.length || 0} chars, ${ms}ms) — next`);
       markUnhealthy(c.name);
     } catch (e) {
-      const tag = (e.message || "").includes(":429") ? "429" : "err";
-      console.log(`[ParaFree] ❌ chunk ${c.name} ${tag} — next`);
+      const ms = Date.now() - t0;
+      const msg = e.message || 'unknown';
+      const isAbort = msg.includes('abort') || msg.includes('AbortError') || ms >= 3900;
+      const tag = msg.includes(':429') ? '429-rate-limit' : msg.includes(':401') ? '401-auth' : msg.includes(':403') ? '403-forbidden' : msg.includes(':404') ? '404-model-not-found' : msg.includes(':503') ? '503-unavailable' : isAbort ? 'TIMEOUT-4s' : 'error';
+      console.log(`[ParaFree] ❌ chunk ${c.name} [${tag}] in ${ms}ms — ${msg.slice(0, 200)}`);
       markUnhealthy(c.name);
     }
   }
+  console.error(`[ParaFree] ❌ chunk exhausted all ${rotated.length} providers in ${Date.now() - chunkStart}ms`);
   return null;
 }
 
@@ -739,16 +750,20 @@ async function runChain(text, prompt, type) {
     const chunks = buildChunks(text);
     const baseOffset = requestCounter;
     requestCounter = (requestCounter + Math.max(chunks.length, 1)) % 100000;
-    console.log(`[ParaFree] writing: ${chunks.length} chunk(s) × ${sampleCandidates.length} providers — parallel (offsets ${baseOffset}–${baseOffset + chunks.length - 1})`);
+    const inputLen = text.length;
+    const isPPTX = text.includes('[SLIDE') && text.includes('[/SLIDE');
+    console.log(`[ParaFree] writing: ${chunks.length} chunk(s) × ${sampleCandidates.length} providers — parallel (offsets ${baseOffset}–${baseOffset + chunks.length - 1}), input=${inputLen} chars, isPPTX=${isPPTX}`);
+    const t0 = Date.now();
     const chunkResults = await Promise.all(
       chunks.map((chunk, i) => paraphraseChunk(chunk, prompt, envKeys, baseOffset + i))
     );
+    const elapsed = Date.now() - t0;
     const failedIdx = chunkResults.findIndex(r => r === null);
     if (failedIdx !== -1) {
-      console.error(`[ParaFree] ❌ Chunk ${failedIdx + 1}/${chunks.length} failed all providers`);
+      console.error(`[ParaFree] ❌ Chunk ${failedIdx + 1}/${chunks.length} failed all providers (total elapsed ${elapsed}ms)`);
       return { success: false, error: "high_demand", apiStatuses: {} };
     }
-    console.log(`[ParaFree] ✅ All ${chunks.length} chunk(s) complete`);
+    console.log(`[ParaFree] ✅ All ${chunks.length} chunk(s) complete in ${elapsed}ms`);
     return { success: true, result: chunkResults.join('\n\n'), usedApi: 'parallel-chunks', apiStatuses: {} };
   }
 
