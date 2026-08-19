@@ -640,15 +640,17 @@ function buildChunks(text) {
 // Priority order: groq → gemini → sambanova → nvidia → mistral → cloudflare → ovhcloud → deepseek → extras
 // Cerebras removed (now requires payment method).
 // Any provider with a missing key is silently skipped. OVHcloud needs no key.
-// Health-unhealthy providers are excluded for their 60s cooldown window.
-function buildWritingCandidates(text, prompt, keys) {
+// bypassCooldown=true skips the isHealthy() filter — used when zero healthy providers remain
+// so PPTX sequential chunks don't hard-fail just because earlier chunks marked providers unhealthy.
+// The 4s fetchWithTimeout still applies in all cases.
+function buildWritingCandidates(text, prompt, keys, bypassCooldown = false) {
   const { DEEPSEEK_KEY, GEMINI_KEY, GROQ_KEY, MISTRAL_KEY, CF_KEY, CF_ACCOUNT,
           OPENROUTER_KEY, GLM_KEY, SAMBANOVA_KEY, NVIDIA_KEY,
           EXTRA1_KEY, EXTRA2_KEY, EXTRA3_KEY, EXTRA4_KEY, EXTRA5_KEY, EXTRA6_KEY } = keys;
   const cfOk = validKey(CF_KEY) && validKey(CF_ACCOUNT);
   const c = [];
   const add = (name, fn, keyOk = true) => {
-    if (keyOk && isHealthy(name)) c.push({ name, fn });
+    if (keyOk && (bypassCooldown || isHealthy(name))) c.push({ name, fn });
   };
   add("groq",       () => callGroq(text, prompt, GROQ_KEY),                          validKey(GROQ_KEY));
   add("gemini",     () => callGemini(text, prompt, GEMINI_KEY),                      validKey(GEMINI_KEY));
@@ -672,12 +674,23 @@ function buildWritingCandidates(text, prompt, keys) {
 // Tries every writing provider for one chunk, starting at startOffset (rotation).
 // Returns the result string, or null if every provider failed this chunk.
 async function paraphraseChunk(chunkText, prompt, envKeys, startOffset) {
-  const candidates = buildWritingCandidates(chunkText, prompt, envKeys);
-  const allCandidateNames = buildWritingCandidates("x", "x", envKeys).map(c => c.name);
+  let candidates = buildWritingCandidates(chunkText, prompt, envKeys);
+  const allCandidateNames = buildWritingCandidates("x", "x", envKeys, true).map(c => c.name);
   const cooldownNames = allCandidateNames.filter(n => !isHealthy(n));
   console.log(`[ParaFree] paraphraseChunk: ${chunkText.length} chars, prompt ${prompt.length} chars, total_tokens_est ~${Math.round((chunkText.length + prompt.length) / 4)}`);
   console.log(`[ParaFree] paraphraseChunk: ${candidates.length}/${allCandidateNames.length} providers available (cooldown: ${cooldownNames.join(', ') || 'none'})`);
-  if (candidates.length === 0) { console.error('[ParaFree] ❌ paraphraseChunk: 0 providers available — all in cooldown or no keys'); return null; }
+  if (candidates.length === 0) {
+    if (cooldownNames.length > 0) {
+      // All providers are in 60s cooldown — bypass and try them anyway.
+      // PPTX sequential chunks trigger this: chunk 2+ arrives before cooldowns from chunk 1 expire.
+      // The 4s fetchWithTimeout still applies — no provider can hang the function.
+      console.warn(`[ParaFree] ⚠️ paraphraseChunk: all ${allCandidateNames.length} providers in cooldown — bypassing cooldown, retrying all (4s timeout intact)`);
+      candidates = buildWritingCandidates(chunkText, prompt, envKeys, true);
+    } else {
+      console.error('[ParaFree] ❌ paraphraseChunk: 0 providers — no valid API keys configured');
+      return null;
+    }
+  }
   const n = candidates.length;
   const start = startOffset % n;
   const rotated = [...candidates.slice(start), ...candidates.slice(0, start)];
@@ -742,7 +755,7 @@ async function runChain(text, prompt, type) {
       OPENROUTER_KEY, GLM_KEY, SAMBANOVA_KEY, NVIDIA_KEY,
       EXTRA1_KEY, EXTRA2_KEY, EXTRA3_KEY, EXTRA4_KEY, EXTRA5_KEY, EXTRA6_KEY
     };
-    const sampleCandidates = buildWritingCandidates("x", "x", envKeys);
+    const sampleCandidates = buildWritingCandidates("x", "x", envKeys, true); // bypass: check keys, not health
     if (sampleCandidates.length === 0) {
       console.error("[ParaFree] ❌ No valid API keys — check Vercel environment variables");
       return { success: false, error: "no_keys", apiStatuses: {} };
