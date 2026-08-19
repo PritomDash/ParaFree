@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>This Free CV Builder Finds Matching Jobs For You. Here's How I Built It. | ParaFree</title>
+<meta name="description" content="I added a live job search to my free CV builder. You build your CV, scroll down, and real matching jobs appear with apply links — no separate site, no manual filtering. Built by a student, for students.">
+<meta name="keywords" content="cv builder that finds jobs, cv builder with job search, free cv builder job search, cv builder with apply links, student cv builder with job search">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://parafree.app/blog-cv-builder-that-finds-jobs-for-you.html">
+<meta property="og:title" content="This Free CV Builder Finds Matching Jobs For You. Here's How I Built It. | ParaFree">
+<meta property="og:description" content="I added a live job search to my free CV builder. Build your CV, scroll down, and real matching jobs appear with apply links — no separate site, no manual filtering.">
+<meta property="og:url" content="https://parafree.app/blog-cv-builder-that-finds-jobs-for-you.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="ParaFree">
+<meta property="og:image" content="https://parafree.app/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="This Free CV Builder Finds Matching Jobs For You. Here's How I Built It. | ParaFree">
+<meta name="twitter:description" content="I added a live job search to my free CV builder. Build your CV, scroll down, and real matching jobs appear with apply links.">
+<meta name="twitter:image" content="https://parafree.app/og-image.png">
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-0QEEGS0DZQ"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-0QEEGS0DZQ');</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"This Free CV Builder Finds Matching Jobs For You. Here's How I Built It.","author":{"@type":"Person","name":"Pritom Dash"},"datePublished":"2026-08-18","publisher":{"@type":"Organization","name":"ParaFree","url":"https://parafree.app"},"url":"https://parafree.app/blog-cv-builder-that-finds-jobs-for-you.html","description":"I added a live job search to the ParaFree CV builder. You build your CV, scroll down, and real matching jobs appear with apply links — no separate site, no manual filtering."}</script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta name="theme-color" content="#2d6a4f">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{--bg:#f7f5f0;--surface:#ffffff;--border:#e2ddd4;--text:#1a1814;--text2:#6b6660;--accent:#2d6a4f;--accent-light:#d8f3dc;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:16px;line-height:1.7;}
+nav{background:#1a3a2a;padding:10px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;}
+nav a.logo{color:#52b788;font-weight:700;font-size:16px;text-decoration:none;}
+nav div{display:flex;gap:16px;flex-wrap:wrap;}
+nav div a{color:#ccc;text-decoration:none;font-size:14px;}
+nav div a:hover{color:#fff;}
+.container{max-width:720px;margin:60px auto;padding:0 24px;}
+.article-meta{color:var(--text2);font-size:13px;margin-bottom:32px;padding-bottom:20px;border-bottom:1px solid var(--border);}
+h1{font-family:'Syne',sans-serif;font-weight:800;font-size:clamp(26px,4vw,38px);color:var(--text);margin-bottom:12px;line-height:1.2;}
+h2{font-family:'Syne',sans-serif;font-weight:700;font-size:22px;color:var(--text);margin:40px 0 14px;}
+h3{font-family:'Syne',sans-serif;font-weight:700;font-size:18px;color:var(--text);margin:28px 0 10px;}
+p{color:var(--text2);margin-bottom:18px;line-height:1.8;}
+ul,ol{color:var(--text2);padding-left:22px;margin-bottom:18px;}
+ul li,ol li{margin-bottom:8px;line-height:1.8;}
+strong{color:var(--text);font-weight:600;}
+a{color:var(--accent);}
+.cta-box{background:var(--accent);border-radius:14px;padding:28px 32px;margin:48px 0;text-align:center;}
+.cta-box p{color:rgba(255,255,255,0.9);margin-bottom:16px;font-size:16px;}
+.cta-box a{display:inline-block;background:#fff;color:var(--accent);padding:12px 28px;border-radius:10px;font-family:'Syne',sans-serif;font-weight:800;font-size:15px;text-decoration:none;}
+.cta-box a:hover{background:#e8f4ee;}
+.author-sig{font-style:italic;color:var(--text2);margin-top:40px;padding-top:20px;border-top:1px solid var(--border);}
+footer{background:#1a3a2a;color:#ccc;padding:32px 24px;margin-top:60px;text-align:center;}
+footer div{display:flex;justify-content:center;gap:24px;flex-wrap:wrap;margin-bottom:16px;}
+footer a{color:#ccc;text-decoration:none;font-size:14px;}
+footer a:hover{color:#fff;}
+footer p{margin:0;font-size:13px;color:#999;}
+#pf-scroll-top{position:fixed;bottom:24px;right:24px;width:44px;height:44px;background:var(--accent);color:white;border:none;border-radius:50%;cursor:pointer;font-size:20px;line-height:1;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transform:translateY(10px);transition:opacity 0.3s ease,transform 0.3s ease;z-index:9999;box-shadow:0 4px 12px rgba(45,106,79,.3);}
+#pf-scroll-top.visible{opacity:1;pointer-events:auto;transform:none;}
+#pf-scroll-top:hover{background:#245a41;}
+@media(max-width:768px){nav>div:not(#mobileMenu){display:none!important;}#menuToggle{display:flex!important;}body{overflow-x:hidden;}h1{font-size:24px!important;}.container{margin:32px auto;}}
+</style>
+</head>
+<body>
+<div id="mobileMenu" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9998;" onclick="if(event.target===this)toggleMenu()">
+  <div style="position:absolute;top:0;right:0;width:260px;height:100%;background:#1a3a2a;padding:20px;display:flex;flex-direction:column;overflow-y:auto;">
+    <button onclick="toggleMenu()" aria-label="Close menu" style="align-self:flex-end;background:none;border:none;font-size:28px;cursor:pointer;color:#aaa;line-height:1;padding:0 4px;margin-bottom:16px;">&times;</button>
+    <a href="/" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;">Home</a>
+    <a href="/cv-builder.html" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;">CV Builder</a>
+    <a href="/code.html" style="color:#52b788;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;font-weight:600;">&#10024; ParaFree AI</a>
+    <a href="/blog.html" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;">Blog</a>
+    <a href="/about.html" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;">About</a>
+    <a href="/faq.html" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;">FAQ</a>
+    <a href="/contact.html" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;">Contact</a>
+    <a href="/privacy.html" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;display:block;">Privacy</a>
+  </div>
+</div>
+<nav>
+  <a href="/" class="logo" style="display:flex;align-items:center;text-decoration:none;flex-shrink:0;"><img src="/logo-dark.svg" alt="ParaFree" height="32" style="height:32px;width:auto;display:block;"></a>
+  <div>
+    <a href="/">Home</a>
+    <a href="/about.html">About</a>
+    <a href="/blog.html">Blog</a>
+    <a href="/cv-builder.html">CV Builder</a>
+    <a href="/code.html">ParaFree AI</a>
+    <a href="/faq.html">FAQ</a>
+    <a href="/contact.html">Contact</a>
+    <a href="/privacy.html">Privacy</a>
+  </div>
+  <button id="menuToggle" aria-label="Open menu" onclick="toggleMenu()" style="display:none;background:none;border:none;cursor:pointer;padding:8px;flex-direction:column;gap:5px;align-items:center;justify-content:center;min-width:44px;min-height:44px;">
+    <span style="display:block;width:22px;height:2px;background:#ccc;border-radius:2px;"></span>
+    <span style="display:block;width:22px;height:2px;background:#ccc;border-radius:2px;"></span>
+    <span style="display:block;width:22px;height:2px;background:#ccc;border-radius:2px;"></span>
+  </button>
+</nav>
+
+<div class="container">
+  <article>
+    <h1>I Was Tired of Scrolling Through Thousands of Jobs. So My CV Builder Now Finds Them For You.</h1>
+    <p class="article-meta">By Pritom Dash &middot; Published August 18, 2026</p>
+<p>After I finally had a clean CV I could actually download, I ran into the next problem in the job hunt, and honestly it was almost as draining as the first one. I had my CV ready. Now I had to find jobs to send it to.</p>
+<p>So I did what everyone does. I went to Seek, which is the big job board here in Australia, and I searched. And I was immediately buried. There were thousands of listings. Thousands. To find the ones that actually fit me, I had to manually set the location, then the job title, then filter by type, then scroll, then open a listing, read it, decide it was not quite right, go back, scroll more, open another one. Over and over. For every single search session.</p>
+<p>It struck me how strange this was. I had just spent effort building a CV that contained all of this information already. My job title. My location. My skills. My field. Everything a job search needs to know about me was sitting right there in the CV I had just made. And yet the moment I finished my CV, the tool waved goodbye and left me to go start from scratch on a completely separate website, manually typing in the exact same details I had already entered.</p>
+<p>Why? I had already told the CV builder I was looking for, say, a marketing role in Sydney. Why did I then have to go to a different site and tell it the same thing all over again, and then wade through thousands of results by hand?</p>
+<h2>The CV and the job search should not be two separate worlds</h2>
+<p>That disconnect bothered me. When you build a CV, you are not doing it for fun. You are doing it because you want a job. The CV is a means to an end, and the end is finding and applying to real positions. But every CV builder I had used treated the CV as the finish line. You make it, you download it, and then you are on your own for the actual hard part, which is finding somewhere to send it.</p>
+<p>It felt like a builder that helps you write a great cover letter and then, at the crucial moment, refuses to tell you which door to knock on.</p>
+<p>I kept thinking: the CV already knows what I do and where I am. It would be so simple for it to just take that information and go find matching jobs for me, instead of making me repeat everything on another site and filter through the noise myself.</p>
+<h2>So that is exactly what I built</h2>
+<p>I added a feature to the <a href="/cv-builder.html">ParaFree CV builder</a> that I have not seen on any other free CV tool. Once you finish building your CV, it takes the role and location you have already entered, and it goes and finds real, current job listings that match. Right there, at the bottom of the same page, without you having to open a new tab, retype anything, or manually filter through thousands of results.</p>
+<p>You build your CV. You scroll down. And there is a list of actual matching jobs for your role in your area, each one a real listing you can click through to and apply for. The filtering that used to eat up my evenings — setting the location, narrowing the title, sorting through the pile — happens for you, based on the CV you just made.</p>
+<p>The idea is that the moment your CV is ready is the exact moment you are ready to apply. So that is the moment the tool should be handing you jobs to apply to, not sending you off to start a fresh search somewhere else.</p>
+<h2>Why this matters, especially early in your career</h2>
+<p>When you are experienced and well connected, the job search can happen through your network. But when you are a student, a recent graduate, someone changing careers, or new to a country like I was, you do not have that network yet. You are relying on the job boards, and the job boards are overwhelming. Thousands of listings, most of them not relevant to you, and the burden is entirely on you to dig out the few that fit.</p>
+<p>That overwhelm is real, and it wears people down. I have seen friends give up on applying for the evening simply because the act of finding suitable jobs felt like too much work before they had even started writing anything. If the finding part is exhausting, people apply to fewer jobs, and applying to fewer jobs means fewer chances.</p>
+<p>By taking the details from the CV and surfacing matching jobs automatically, I wanted to remove that barrier. Make your CV, and the relevant jobs come to you. It is a small thing mechanically, but it changes the experience. The tool goes from "here is your document, good luck out there" to "here is your document, and here are some jobs you can apply to right now."</p>
+<h2>Built by someone who actually did the scrolling</h2>
+<p>I did not add this feature because a product meeting decided it would boost engagement. There was no product meeting. It is just me, a student, building the tool I wished I had while I was hunched over Seek at night, filtering the same fields for the hundredth time and wondering why the CV I had just finished could not simply do this for me.</p>
+<p>So now it does. You build your CV for free, no signup, no watermark, and then the same tool shows you real matching jobs in your area, ready to apply to. The CV and the job search, finally in the same place, the way I always thought they should have been.</p>
+<p>If the job hunt has ever left you staring at thousands of listings, dreading the filtering, I understand completely. That is the exact feeling I built this to fix.</p>
+<p class="author-sig">— Pritom Dash</p>
+    <div class="cta-box">
+      <p>Build your CV and find matching jobs — free, no signup, no watermark. The only CV builder with a live job search built in.</p>
+      <a href="/cv-builder.html">Build My CV &amp; Find Jobs &rarr;</a>
+    </div>
+  </article>
+</div>
+
+<footer>
+  <div>
+    <a href="/">Home</a>
+    <a href="/about.html">About</a>
+    <a href="/blog.html">Blog</a>
+    <a href="/cv-builder.html">CV Builder</a>
+    <a href="/code.html">ParaFree AI</a>
+    <a href="/faq.html">FAQ</a>
+    <a href="/contact.html">Contact</a>
+    <a href="/privacy.html">Privacy</a>
+    <a href="/terms.html">Terms</a>
+  </div>
+  <p>&copy; 2026 ParaFree &middot; Free AI Writing Suite &middot; No limits, no signup, always free</p>
+</footer>
+<button id="pf-scroll-top" aria-label="Scroll to top">&uarr;</button>
+<script>
+function toggleMenu(){var m=document.getElementById('mobileMenu');if(!m)return;m.style.display=m.style.display==='flex'?'none':'flex';}
+(function(){var b=document.getElementById('pf-scroll-top');if(b){window.addEventListener('scroll',function(){b.classList.toggle('visible',window.scrollY>300);},{passive:true});b.addEventListener('click',function(){window.scrollTo({top:0,behavior:'smooth'});});}})();
+</script>
+</body>
+</html>
