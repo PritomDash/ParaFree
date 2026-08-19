@@ -624,7 +624,8 @@ function buildChunks(text) {
 
 // Builds the writing provider list with closures bound to the given text.
 // Called per-chunk so each chunk gets its own bound calls.
-// Priority order: groq → gemini → sambanova → nvidia → mistral → cloudflare → ovhcloud → deepseek → extras
+// Priority order: mistral → groq → cloudflare → nvidia → gemini → openrouter → ovhcloud
+//                 → glm → sambanova → deepseek → extra1-6 (unused placeholders)
 // Cerebras removed (now requires payment method).
 // Any provider with a missing key is silently skipped. OVHcloud needs no key.
 // All providers are always tried in order — no health cooldown.
@@ -638,16 +639,20 @@ function buildWritingCandidates(text, prompt, keys) {
   const add = (name, fn, keyOk = true) => {
     if (keyOk) c.push({ name, fn });
   };
-  add("groq",       () => callGroq(text, prompt, GROQ_KEY),                          validKey(GROQ_KEY));
-  add("gemini",     () => callGemini(text, prompt, GEMINI_KEY),                      validKey(GEMINI_KEY));
-  add("sambanova",  () => callSambaNova(text, prompt, SAMBANOVA_KEY),                validKey(SAMBANOVA_KEY));
-  add("nvidia",     () => callNvidia(text, prompt, NVIDIA_KEY),                      validKey(NVIDIA_KEY));
+  // ── Tier 1: fast, confirmed reliable ──
   add("mistral",    () => callMistral(text, prompt, MISTRAL_KEY),                    validKey(MISTRAL_KEY));
+  add("groq",       () => callGroq(text, prompt, GROQ_KEY),                          validKey(GROQ_KEY));
   add("cloudflare", () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT),          cfOk);
-  add("ovhcloud",   () => callOVHcloud(text, prompt),                                true); // no key needed
-  add("deepseek",   () => callDeepSeek(text, prompt, DEEPSEEK_KEY),                 validKey(DEEPSEEK_KEY));
+  add("nvidia",     () => callNvidia(text, prompt, NVIDIA_KEY),                      validKey(NVIDIA_KEY));
+  add("gemini",     () => callGemini(text, prompt, GEMINI_KEY),                      validKey(GEMINI_KEY));
+  // ── Tier 2: free tier, rate-limited but generally functional ──
   add("openrouter", () => callOpenRouter(text, prompt, OPENROUTER_KEY),              validKey(OPENROUTER_KEY));
+  add("ovhcloud",   () => callOVHcloud(text, prompt),                                true); // no key needed
+  // ── Tier 3: billing-walled or high-latency — kept for future revival ──
   add("glm",        () => callGLM(text, prompt, GLM_KEY),                            validKey(GLM_KEY));
+  add("sambanova",  () => callSambaNova(text, prompt, SAMBANOVA_KEY),                validKey(SAMBANOVA_KEY));
+  add("deepseek",   () => callDeepSeek(text, prompt, DEEPSEEK_KEY),                 validKey(DEEPSEEK_KEY));
+  // ── Extra slots: unused placeholders — populated when new providers are added ──
   add("extra1",     () => callExtra(text, prompt, EXTRA1_KEY, "Extra1"),             validKey(EXTRA1_KEY));
   add("extra2",     () => callExtra(text, prompt, EXTRA2_KEY, "Extra2"),             validKey(EXTRA2_KEY));
   add("extra3",     () => callExtra(text, prompt, EXTRA3_KEY, "Extra3"),             validKey(EXTRA3_KEY));
