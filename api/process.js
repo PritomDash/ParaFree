@@ -19,19 +19,6 @@ const rateLimitMap = new Map();
 let lastCleanup = Date.now();
 let requestCounter = 0; // writing-chain rotation: spreads per-minute load across providers
 
-// ── PROVIDER HEALTH TRACKER ──
-// In-memory only — resets on cold start. Any failure (error, 429, empty) = 60s cooldown.
-const providerHealth = {};
-function isHealthy(name) {
-  const h = providerHealth[name];
-  if (!h) return true;
-  return (Date.now() - h.failedAt) > h.cooldownMs;
-}
-function markUnhealthy(name) {
-  providerHealth[name] = { failedAt: Date.now(), cooldownMs: 60000 };
-  console.log(`[ParaFree] Provider ${name} marked unhealthy (60s cooldown)`);
-}
-
 // Fingerprint = first 200 chars + total length (avoids storing full text in memory)
 function textFingerprint(text) {
   return text ? text.slice(0, 200) + '|' + text.length : '';
@@ -640,17 +627,16 @@ function buildChunks(text) {
 // Priority order: groq → gemini → sambanova → nvidia → mistral → cloudflare → ovhcloud → deepseek → extras
 // Cerebras removed (now requires payment method).
 // Any provider with a missing key is silently skipped. OVHcloud needs no key.
-// bypassCooldown=true skips the isHealthy() filter — used when zero healthy providers remain
-// so PPTX sequential chunks don't hard-fail just because earlier chunks marked providers unhealthy.
-// The 4s fetchWithTimeout still applies in all cases.
-function buildWritingCandidates(text, prompt, keys, bypassCooldown = false) {
+// All providers are always tried in order — no health cooldown.
+// The 4s fetchWithTimeout protects against slow providers on every path.
+function buildWritingCandidates(text, prompt, keys) {
   const { DEEPSEEK_KEY, GEMINI_KEY, GROQ_KEY, MISTRAL_KEY, CF_KEY, CF_ACCOUNT,
           OPENROUTER_KEY, GLM_KEY, SAMBANOVA_KEY, NVIDIA_KEY,
           EXTRA1_KEY, EXTRA2_KEY, EXTRA3_KEY, EXTRA4_KEY, EXTRA5_KEY, EXTRA6_KEY } = keys;
   const cfOk = validKey(CF_KEY) && validKey(CF_ACCOUNT);
   const c = [];
   const add = (name, fn, keyOk = true) => {
-    if (keyOk && (bypassCooldown || isHealthy(name))) c.push({ name, fn });
+    if (keyOk) c.push({ name, fn });
   };
   add("groq",       () => callGroq(text, prompt, GROQ_KEY),                          validKey(GROQ_KEY));
   add("gemini",     () => callGemini(text, prompt, GEMINI_KEY),                      validKey(GEMINI_KEY));
@@ -674,27 +660,16 @@ function buildWritingCandidates(text, prompt, keys, bypassCooldown = false) {
 // Tries every writing provider for one chunk, starting at startOffset (rotation).
 // Returns the result string, or null if every provider failed this chunk.
 async function paraphraseChunk(chunkText, prompt, envKeys, startOffset) {
-  let candidates = buildWritingCandidates(chunkText, prompt, envKeys);
-  const allCandidateNames = buildWritingCandidates("x", "x", envKeys, true).map(c => c.name);
-  const cooldownNames = allCandidateNames.filter(n => !isHealthy(n));
-  console.log(`[ParaFree] paraphraseChunk: ${chunkText.length} chars, prompt ${prompt.length} chars, total_tokens_est ~${Math.round((chunkText.length + prompt.length) / 4)}`);
-  console.log(`[ParaFree] paraphraseChunk: ${candidates.length}/${allCandidateNames.length} providers available (cooldown: ${cooldownNames.join(', ') || 'none'})`);
+  const candidates = buildWritingCandidates(chunkText, prompt, envKeys);
   if (candidates.length === 0) {
-    if (cooldownNames.length > 0) {
-      // All providers are in 60s cooldown — bypass and try them anyway.
-      // PPTX sequential chunks trigger this: chunk 2+ arrives before cooldowns from chunk 1 expire.
-      // The 4s fetchWithTimeout still applies — no provider can hang the function.
-      console.warn(`[ParaFree] ⚠️ paraphraseChunk: all ${allCandidateNames.length} providers in cooldown — bypassing cooldown, retrying all (4s timeout intact)`);
-      candidates = buildWritingCandidates(chunkText, prompt, envKeys, true);
-    } else {
-      console.error('[ParaFree] ❌ paraphraseChunk: 0 providers — no valid API keys configured');
-      return null;
-    }
+    console.error('[ParaFree] ❌ paraphraseChunk: 0 providers — no valid API keys configured');
+    return null;
   }
   const n = candidates.length;
   const start = startOffset % n;
   const rotated = [...candidates.slice(start), ...candidates.slice(0, start)];
   const chunkStart = Date.now();
+  console.log(`[ParaFree] paraphraseChunk: ${chunkText.length} chars, ${candidates.length} providers, offset=${start}`);
   for (const c of rotated) {
     const t0 = Date.now();
     try {
@@ -705,14 +680,12 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset) {
         return result.trim();
       }
       console.warn(`[ParaFree] ⚠️ chunk ${c.name} empty/short (${result?.length || 0} chars, ${ms}ms) — next`);
-      markUnhealthy(c.name);
     } catch (e) {
       const ms = Date.now() - t0;
       const msg = e.message || 'unknown';
       const isAbort = msg.includes('abort') || msg.includes('AbortError') || ms >= 3900;
       const tag = msg.includes(':429') ? '429-rate-limit' : msg.includes(':401') ? '401-auth' : msg.includes(':403') ? '403-forbidden' : msg.includes(':404') ? '404-model-not-found' : msg.includes(':503') ? '503-unavailable' : isAbort ? 'TIMEOUT-4s' : 'error';
       console.log(`[ParaFree] ❌ chunk ${c.name} [${tag}] in ${ms}ms — ${msg.slice(0, 200)}`);
-      markUnhealthy(c.name);
     }
   }
   console.error(`[ParaFree] ❌ chunk exhausted all ${rotated.length} providers in ${Date.now() - chunkStart}ms`);
@@ -755,7 +728,7 @@ async function runChain(text, prompt, type) {
       OPENROUTER_KEY, GLM_KEY, SAMBANOVA_KEY, NVIDIA_KEY,
       EXTRA1_KEY, EXTRA2_KEY, EXTRA3_KEY, EXTRA4_KEY, EXTRA5_KEY, EXTRA6_KEY
     };
-    const sampleCandidates = buildWritingCandidates("x", "x", envKeys, true); // bypass: check keys, not health
+    const sampleCandidates = buildWritingCandidates("x", "x", envKeys);
     if (sampleCandidates.length === 0) {
       console.error("[ParaFree] ❌ No valid API keys — check Vercel environment variables");
       return { success: false, error: "no_keys", apiStatuses: {} };
@@ -783,8 +756,7 @@ async function runChain(text, prompt, type) {
   // ── AI CHAT / CV EXTRACT PATH: sequential with single retry ──
   // Short texts only — no chunking needed. One retry with 2s wait stays inside 10s limit.
   let candidates = [];
-  // Helper: add to candidates only if key present and provider healthy
-  const addC = (name, fn, keyOk = true) => { if (keyOk && isHealthy(name)) candidates.push({ name, fn }); };
+  const addC = (name, fn, keyOk = true) => { if (keyOk) candidates.push({ name, fn }); };
 
   if (isCVExtract) {
     addC("groq",       () => callGroqModel(text, prompt, GROQ_KEY, "openai/gpt-oss-20b"), validKey(GROQ_KEY));
@@ -837,12 +809,10 @@ async function runChain(text, prompt, type) {
         }
         console.warn(`[ParaFree] ⚠️ ${c.name} empty/short — next`);
         apiStatuses[c.name] = "failed";
-        markUnhealthy(c.name);
       } catch (e) {
         const msg = e.message || "";
         apiStatuses[c.name] = msg.includes(":429") ? "limit" : (msg.includes(":401") || msg.includes(":403")) ? "expired" : msg.includes(":404") ? "model_not_found" : "failed";
         console.log(`[ParaFree] ❌ ${c.name} — ${msg}`);
-        markUnhealthy(c.name);
       }
     }
     lastApiStatuses = { ...apiStatuses };
