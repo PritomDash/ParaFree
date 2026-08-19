@@ -866,6 +866,10 @@ const PHOTOS = {
   /* Word button full accent when active */
   #downloadDOCXBtn:not(.btn-dl-dimmed) { background: var(--accent-light); color: var(--accent); border-color: var(--accent2); font-weight: 600; }
   #downloadDOCXBtn:not(.btn-dl-dimmed):hover { background: #c7f0d0; border-color: var(--accent); }
+  /* PPTX button: same pattern as Word but orange */
+  #downloadPPTXBtn.btn-dl-dimmed { background: rgba(234,88,12,0.06); border-color: rgba(234,88,12,0.25); color: #c05200; }
+  #downloadPPTXBtn:not(.btn-dl-dimmed) { background: #fff4e8; color: #c05200; border-color: var(--amber); font-weight: 600; }
+  #downloadPPTXBtn:not(.btn-dl-dimmed):hover { background: #ffe4c4; border-color: #e07848; }
 
   .btn-clear { color: var(--red); }
   .btn-clear:hover { background: #fff0f0; border-color: var(--red); color: var(--red); }
@@ -1477,7 +1481,19 @@ const PHOTOS = {
       <button class="btn-sm btn-copy" id="copyBtn" onclick="copyOutput()">⊕ Copy</button>
       <button class="btn-sm btn-dl-dimmed" id="downloadBtn" onclick="downloadOutput()" style="display:flex;">⬇ TXT</button>
       <button class="btn-sm btn-dl-dimmed" id="downloadDOCXBtn" onclick="downloadAsDOCX()" style="display:flex;flex:1;">⬇ Word · keeps format</button>
+      <button class="btn-sm btn-dl-dimmed" id="downloadPPTXBtn" onclick="downloadPPTX()" style="display:flex;flex:1;">⬇ PPTX · keeps slides</button>
       <button class="btn-sm" onclick="clearOutput()">✕ Clear</button>
+    </div>
+  </div>
+</div>
+
+<!-- PREVIEW CLARITY NOTE: shown after any paraphrase result -->
+<div id="previewNote" style="display:none;max-width:1100px;margin:0 auto 8px;padding:0 16px;">
+  <div style="display:flex;gap:10px;padding:11px 16px;background:rgba(45,106,79,0.06);border:1px solid rgba(45,106,79,0.25);border-radius:12px;font-family:'DM Sans',sans-serif;">
+    <span style="font-size:15px;flex-shrink:0;margin-top:1px;">ℹ️</span>
+    <div>
+      <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#1a1814;">The preview is a simplified view — your downloaded file keeps full formatting and all content.</p>
+      <p style="margin:0;font-size:12.5px;color:#6b6660;line-height:1.6;"><strong style="color:#1a1814;">PPTX:</strong> Markers like <code style="background:rgba(0,0,0,0.06);padding:1px 4px;border-radius:3px;font-size:11.5px;">[SLIDE_BOX 1]</code> show where text sits in your slides — the downloaded PowerPoint places all text in the correct positions. &nbsp;·&nbsp; <strong style="color:#1a1814;">Word:</strong> Very short text (headings, short phrases under ~6 words) may not appear in the preview, but the downloaded document is complete with all content and formatting intact.</p>
     </div>
   </div>
 </div>
@@ -2796,18 +2812,19 @@ function showHumanScore(text) {
 
 function showDownloadBtn() {
   const txtBtn = document.getElementById("downloadBtn");
-  if (pptxMode && pptxData) {
-    txtBtn.textContent = "⬇ PPTX";
-    txtBtn.onclick = downloadPPTX;
-  } else {
-    txtBtn.textContent = "⬇ TXT";
-    txtBtn.onclick = downloadOutput;
-  }
   txtBtn.style.display = "flex";
   txtBtn.classList.remove('btn-dl-dimmed');
   const docxBtn = document.getElementById("downloadDOCXBtn");
   docxBtn.style.display = "flex";
   docxBtn.classList.remove('btn-dl-dimmed');
+  // Enable the dedicated PPTX button only when a PPTX was actually processed
+  if (pptxMode && pptxData) {
+    const pptxBtn = document.getElementById("downloadPPTXBtn");
+    if (pptxBtn) pptxBtn.classList.remove('btn-dl-dimmed');
+  }
+  // Show clarity note for both PPTX and Word users
+  const previewNote = document.getElementById("previewNote");
+  if (previewNote) previewNote.style.display = "block";
   document.getElementById("shareBar").style.display = "block";
   showAIBanner();
 }
