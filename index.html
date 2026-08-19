@@ -2815,12 +2815,16 @@ function showDownloadBtn() {
   txtBtn.style.display = "flex";
   txtBtn.classList.remove('btn-dl-dimmed');
   const docxBtn = document.getElementById("downloadDOCXBtn");
-  docxBtn.style.display = "flex";
-  docxBtn.classList.remove('btn-dl-dimmed');
-  // Enable the dedicated PPTX button only when a PPTX was actually processed
+  const pptxBtn = document.getElementById("downloadPPTXBtn");
   if (pptxMode && pptxData) {
-    const pptxBtn = document.getElementById("downloadPPTXBtn");
+    // PPTX input: enable PPTX button, keep Word dimmed
     if (pptxBtn) pptxBtn.classList.remove('btn-dl-dimmed');
+    docxBtn.classList.add('btn-dl-dimmed');
+  } else {
+    // Word/text input: enable Word button, keep PPTX dimmed
+    docxBtn.style.display = "flex";
+    docxBtn.classList.remove('btn-dl-dimmed');
+    if (pptxBtn) pptxBtn.classList.add('btn-dl-dimmed');
   }
   // Show clarity note for both PPTX and Word users
   const previewNote = document.getElementById("previewNote");
