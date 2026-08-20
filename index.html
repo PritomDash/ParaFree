@@ -5972,5 +5972,478 @@ if (window.innerWidth <= 768) {
   if (promos) (stats || anchor).insertAdjacentElement('afterend', promos);
 })();
 </script>
+
+<!-- ═══════════════════════════════════════════
+     FEEDBACK FEATURE — additive only, no existing code touched
+     ═══════════════════════════════════════════ -->
+<style>
+#pf-feedback-card {
+  position: fixed;
+  bottom: 24px;
+  right: 20px;
+  width: 300px;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #e2ddd4);
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.13);
+  padding: 20px 20px 16px;
+  z-index: 9000;
+  transform: translateY(120%);
+  opacity: 0;
+  transition: transform 0.35s cubic-bezier(.22,1,.36,1), opacity 0.3s;
+  font-family: 'DM Sans', sans-serif;
+}
+#pf-feedback-card.pf-card-open {
+  transform: translateY(0);
+  opacity: 1;
+}
+#pf-feedback-card .pf-fc-close {
+  position: absolute;
+  top: 10px; right: 12px;
+  background: none; border: none;
+  font-size: 18px; cursor: pointer;
+  color: var(--text2, #6b6660);
+  line-height: 1;
+  padding: 4px;
+}
+#pf-feedback-card .pf-fc-close:hover { color: var(--text, #1a1814); }
+#pf-feedback-card h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text, #1a1814);
+}
+#pf-feedback-card p {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--text2, #6b6660);
+  line-height: 1.45;
+}
+.pf-stars {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.pf-star {
+  font-size: 24px;
+  cursor: pointer;
+  color: #ddd;
+  transition: color 0.15s;
+  line-height: 1;
+  background: none;
+  border: none;
+  padding: 0;
+}
+.pf-star.active, .pf-star:hover ~ .pf-star, .pf-stars:hover .pf-star { color: #ddd; }
+.pf-stars:hover .pf-star, .pf-star.active { color: #f4a261; }
+.pf-star.pf-hovered, .pf-star.pf-hovered ~ .pf-star { color: #ddd; }
+.pf-stars .pf-star.pf-lit { color: #f4a261; }
+#pf-fb-comment {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border, #e2ddd4);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: 'DM Sans', sans-serif;
+  resize: none;
+  height: 64px;
+  color: var(--text, #1a1814);
+  background: var(--bg, #f7f5f0);
+  margin-bottom: 10px;
+}
+#pf-fb-comment:focus { outline: 2px solid var(--accent, #2d6a4f); }
+#pf-fb-tool {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border, #e2ddd4);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 13px;
+  font-family: 'DM Sans', sans-serif;
+  color: var(--text, #1a1814);
+  background: var(--bg, #f7f5f0);
+  margin-bottom: 12px;
+  cursor: pointer;
+}
+#pf-fb-tool:focus { outline: 2px solid var(--accent, #2d6a4f); }
+.pf-fc-submit {
+  width: 100%;
+  background: var(--accent, #2d6a4f);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 0;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+}
+.pf-fc-submit:hover { background: #255a41; }
+.pf-fc-submit:disabled { opacity: 0.55; cursor: default; }
+#pf-fb-thanks {
+  display: none;
+  text-align: center;
+  padding: 8px 0 4px;
+  font-size: 14px;
+  color: var(--accent, #2d6a4f);
+  font-weight: 600;
+}
+
+/* PIN modal */
+#pf-pin-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 9999;
+  align-items: center;
+  justify-content: center;
+}
+#pf-pin-modal.pf-pin-open { display: flex; }
+#pf-pin-box {
+  background: var(--surface, #fff);
+  border-radius: 14px;
+  padding: 28px 28px 22px;
+  width: 320px;
+  max-width: 90vw;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.18);
+  font-family: 'DM Sans', sans-serif;
+}
+#pf-pin-box h3 { margin: 0 0 6px; font-size: 16px; color: var(--text,#1a1814); }
+#pf-pin-box p { margin: 0 0 14px; font-size: 13px; color: var(--text2,#6b6660); }
+#pf-pin-input {
+  width: 100%; box-sizing: border-box;
+  border: 1px solid var(--border,#e2ddd4);
+  border-radius: 8px; padding: 9px 12px;
+  font-size: 15px; letter-spacing: 4px;
+  font-family: monospace;
+  background: var(--bg,#f7f5f0);
+  margin-bottom: 12px;
+}
+#pf-pin-input:focus { outline: 2px solid var(--accent,#2d6a4f); }
+#pf-pin-error { color: #c0392b; font-size: 13px; margin: -6px 0 10px; display: none; }
+.pf-pin-row { display: flex; gap: 10px; }
+.pf-pin-btn {
+  flex: 1; padding: 9px 0; border-radius: 8px;
+  border: 1px solid var(--border,#e2ddd4);
+  background: var(--bg,#f7f5f0); font-size: 14px;
+  cursor: pointer; font-family: 'DM Sans', sans-serif;
+}
+.pf-pin-btn.pf-pin-ok {
+  background: var(--accent,#2d6a4f); color: #fff; border-color: transparent;
+  font-weight: 600;
+}
+.pf-pin-btn.pf-pin-ok:hover { background: #255a41; }
+
+/* Feedback viewer */
+#pf-viewer-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 9999;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 40px;
+  overflow-y: auto;
+}
+#pf-viewer-modal.pf-viewer-open { display: flex; }
+#pf-viewer-box {
+  background: var(--surface,#fff);
+  border-radius: 14px;
+  padding: 28px;
+  width: 560px;
+  max-width: 92vw;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.18);
+  font-family: 'DM Sans', sans-serif;
+  margin-bottom: 40px;
+}
+#pf-viewer-box h2 { margin: 0 0 18px; font-size: 18px; color: var(--text,#1a1814); }
+.pf-viewer-close {
+  float: right; margin-top: -2px;
+  background: none; border: none; font-size: 20px;
+  cursor: pointer; color: var(--text2,#6b6660);
+}
+.pf-viewer-close:hover { color: var(--text,#1a1814); }
+.pf-fb-item {
+  border-bottom: 1px solid var(--border,#e2ddd4);
+  padding: 12px 0;
+  font-size: 14px;
+  color: var(--text,#1a1814);
+}
+.pf-fb-item:last-child { border-bottom: none; }
+.pf-fb-item .pf-fb-stars { color: #f4a261; font-size: 15px; margin-bottom: 3px; }
+.pf-fb-item .pf-fb-meta { font-size: 12px; color: var(--text2,#6b6660); margin-top: 4px; }
+.pf-viewer-empty { color: var(--text2,#6b6660); font-size: 14px; padding: 20px 0; text-align: center; }
+</style>
+
+<!-- Feedback sliding card -->
+<div id="pf-feedback-card" role="dialog" aria-label="Quick feedback" aria-modal="true">
+  <button class="pf-fc-close" onclick="pfDismissFeedback()" aria-label="Close">×</button>
+  <h3>How's ParaFree working for you?</h3>
+  <p>30 seconds. Completely anonymous.</p>
+  <div class="pf-stars" id="pf-stars-row" aria-label="Rating">
+    <button class="pf-star" data-v="1" aria-label="1 star">★</button>
+    <button class="pf-star" data-v="2" aria-label="2 stars">★</button>
+    <button class="pf-star" data-v="3" aria-label="3 stars">★</button>
+    <button class="pf-star" data-v="4" aria-label="4 stars">★</button>
+    <button class="pf-star" data-v="5" aria-label="5 stars">★</button>
+  </div>
+  <textarea id="pf-fb-comment" placeholder="Anything to add? (optional)"></textarea>
+  <select id="pf-fb-tool">
+    <option value="">Which tool did you use? (optional)</option>
+    <option value="paraphraser">Paraphraser</option>
+    <option value="humanizer">AI Humanizer</option>
+    <option value="summarizer">Summarizer</option>
+    <option value="grammar">Grammar Checker</option>
+    <option value="cv-builder">CV Builder</option>
+    <option value="pptx">PowerPoint paraphrase</option>
+    <option value="word">Word paraphrase</option>
+  </select>
+  <button class="pf-fc-submit" id="pf-fc-submit-btn" onclick="pfSubmitFeedback()">Send feedback</button>
+  <div id="pf-fb-thanks">Thanks so much! ♥</div>
+</div>
+
+<!-- PIN modal (triple-click logo to open) -->
+<div id="pf-pin-modal" role="dialog" aria-label="Feedback viewer login" aria-modal="true">
+  <div id="pf-pin-box">
+    <h3>Feedback Viewer</h3>
+    <p>Enter your PIN to view collected feedback.</p>
+    <input id="pf-pin-input" type="password" placeholder="PIN" maxlength="20" autocomplete="off">
+    <p id="pf-pin-error">Incorrect PIN.</p>
+    <div class="pf-pin-row">
+      <button class="pf-pin-btn" onclick="pfClosePinModal()">Cancel</button>
+      <button class="pf-pin-btn pf-pin-ok" onclick="pfSubmitPin()">View</button>
+    </div>
+  </div>
+</div>
+
+<!-- Feedback viewer modal -->
+<div id="pf-viewer-modal" role="dialog" aria-label="Feedback viewer" aria-modal="true">
+  <div id="pf-viewer-box">
+    <button class="pf-viewer-close" onclick="pfCloseViewer()" aria-label="Close">×</button>
+    <h2>User Feedback</h2>
+    <div id="pf-viewer-list"></div>
+  </div>
+</div>
+
+<script>
+(function() {
+  // ── Visit tracking ──────────────────────────────────────────
+  var STORAGE_DATES = 'pf_visit_dates';
+  var STORAGE_DONE  = 'pf_feedback_done';
+  var WINDOW_DAYS   = 7;
+
+  function pfTodayStr() {
+    var d = new Date();
+    return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
+  }
+
+  function pfRecordVisit() {
+    try {
+      var today = pfTodayStr();
+      var cutoff = Date.now() - WINDOW_DAYS * 86400000;
+      var stored = JSON.parse(localStorage.getItem(STORAGE_DATES) || '[]');
+      // keep dates within 7-day window
+      var filtered = stored.filter(function(entry) {
+        return entry.ts >= cutoff;
+      });
+      // only add today if not already present
+      var alreadyToday = filtered.some(function(e) { return e.date === today; });
+      if (!alreadyToday) {
+        filtered.push({ date: today, ts: Date.now() });
+      }
+      localStorage.setItem(STORAGE_DATES, JSON.stringify(filtered));
+    } catch(e) {}
+  }
+
+  function pfQualifiesForFeedback() {
+    try {
+      if (localStorage.getItem(STORAGE_DONE)) return false;
+      var cutoff = Date.now() - WINDOW_DAYS * 86400000;
+      var stored = JSON.parse(localStorage.getItem(STORAGE_DATES) || '[]');
+      var recent = stored.filter(function(e) { return e.ts >= cutoff; });
+      var uniqueDays = new Set(recent.map(function(e){ return e.date; }));
+      return uniqueDays.size >= 2;
+    } catch(e) { return false; }
+  }
+
+  pfRecordVisit();
+
+  // ── Card show/dismiss ───────────────────────────────────────
+  window.pfMaybeShowFeedback = function() {
+    if (!pfQualifiesForFeedback()) return;
+    setTimeout(function() {
+      var card = document.getElementById('pf-feedback-card');
+      if (card) card.classList.add('pf-card-open');
+    }, 900);
+  };
+
+  window.pfDismissFeedback = function() {
+    var card = document.getElementById('pf-feedback-card');
+    if (card) {
+      card.classList.remove('pf-card-open');
+    }
+    try { localStorage.setItem(STORAGE_DONE, '1'); } catch(e){}
+  };
+
+  // ── Star rating ─────────────────────────────────────────────
+  var pfSelectedRating = 0;
+  var starsRow = document.getElementById('pf-stars-row');
+  if (starsRow) {
+    var starBtns = starsRow.querySelectorAll('.pf-star');
+    starBtns.forEach(function(btn) {
+      btn.addEventListener('mouseover', function() {
+        var v = parseInt(btn.dataset.v, 10);
+        starBtns.forEach(function(s, i) {
+          s.classList.toggle('pf-lit', i < v);
+        });
+      });
+      btn.addEventListener('mouseleave', function() {
+        starBtns.forEach(function(s, i) {
+          s.classList.toggle('pf-lit', i < pfSelectedRating);
+        });
+      });
+      btn.addEventListener('click', function() {
+        pfSelectedRating = parseInt(btn.dataset.v, 10);
+        starBtns.forEach(function(s, i) {
+          s.classList.toggle('pf-lit', i < pfSelectedRating);
+        });
+      });
+    });
+  }
+
+  // ── Submit ──────────────────────────────────────────────────
+  window.pfSubmitFeedback = function() {
+    if (!pfSelectedRating) return;
+    var btn = document.getElementById('pf-fc-submit-btn');
+    if (btn) btn.disabled = true;
+    var comment = (document.getElementById('pf-fb-comment') || {}).value || '';
+    var tool = (document.getElementById('pf-fb-tool') || {}).value || '';
+    fetch('/api/process', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'submitFeedback', rating: pfSelectedRating, comment: comment, tool: tool })
+    }).catch(function(){}).finally(function() {
+      var form = document.getElementById('pf-feedback-card');
+      var thanks = document.getElementById('pf-fb-thanks');
+      // hide form elements, show thank-you
+      ['pf-stars-row','pf-fb-comment','pf-fb-tool','pf-fc-submit-btn'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+      });
+      if (form) { form.querySelector('p').style.display = 'none'; }
+      if (thanks) thanks.style.display = 'block';
+      try { localStorage.setItem(STORAGE_DONE, '1'); } catch(e){}
+      setTimeout(function() { pfDismissFeedback(); }, 2000);
+    });
+  };
+
+  // ── Wrap showDownloadBtn to trigger feedback check ──────────
+  if (typeof showDownloadBtn === 'function') {
+    var _origShowDownloadBtn = showDownloadBtn;
+    showDownloadBtn = function() {
+      _origShowDownloadBtn.apply(this, arguments);
+      pfMaybeShowFeedback();
+    };
+  }
+
+  // ── Triple-click logo → PIN modal ───────────────────────────
+  var pfLogoClickCount = 0;
+  var pfLogoTimer = null;
+  document.addEventListener('click', function(e) {
+    var logo = e.target.closest('.logo, .nav-logo, [data-logo], a[href="/"], a[href="index.html"]');
+    if (!logo) return;
+    pfLogoClickCount++;
+    clearTimeout(pfLogoTimer);
+    pfLogoTimer = setTimeout(function() { pfLogoClickCount = 0; }, 600);
+    if (pfLogoClickCount >= 3) {
+      pfLogoClickCount = 0;
+      pfOpenPinModal();
+    }
+  });
+
+  window.pfOpenPinModal = function() {
+    var m = document.getElementById('pf-pin-modal');
+    var inp = document.getElementById('pf-pin-input');
+    var err = document.getElementById('pf-pin-error');
+    if (!m) return;
+    if (inp) inp.value = '';
+    if (err) err.style.display = 'none';
+    m.classList.add('pf-pin-open');
+    setTimeout(function(){ if (inp) inp.focus(); }, 80);
+  };
+  window.pfClosePinModal = function() {
+    var m = document.getElementById('pf-pin-modal');
+    if (m) m.classList.remove('pf-pin-open');
+  };
+  window.pfSubmitPin = function() {
+    var inp = document.getElementById('pf-pin-input');
+    var err = document.getElementById('pf-pin-error');
+    var pin = inp ? inp.value : '';
+    fetch('/api/process', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'getFeedback', pin: pin })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data.ok) {
+        if (err) err.style.display = 'block';
+        return;
+      }
+      pfClosePinModal();
+      pfRenderViewer(data.feedback || []);
+    })
+    .catch(function() {
+      if (err) { err.style.display = 'block'; err.textContent = 'Network error.'; }
+    });
+  };
+
+  // Enter key in PIN input
+  var pinInp = document.getElementById('pf-pin-input');
+  if (pinInp) {
+    pinInp.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') pfSubmitPin();
+    });
+  }
+
+  // ── Viewer ──────────────────────────────────────────────────
+  window.pfCloseViewer = function() {
+    var m = document.getElementById('pf-viewer-modal');
+    if (m) m.classList.remove('pf-viewer-open');
+  };
+
+  function pfRenderViewer(items) {
+    var list = document.getElementById('pf-viewer-list');
+    if (!list) return;
+    if (!items.length) {
+      list.innerHTML = '<p class="pf-viewer-empty">No feedback yet.</p>';
+    } else {
+      var html = '';
+      items.forEach(function(item) {
+        var stars = '';
+        for (var i = 0; i < 5; i++) stars += i < item.rating ? '★' : '☆';
+        var date = item.ts ? new Date(item.ts).toLocaleString() : '';
+        var comment = item.comment ? pfEsc(item.comment) : '<em style="color:var(--text2)">No comment</em>';
+        var tool = item.tool ? ' · ' + pfEsc(item.tool) : '';
+        html += '<div class="pf-fb-item">' +
+          '<div class="pf-fb-stars">' + stars + '</div>' +
+          '<div>' + comment + '</div>' +
+          '<div class="pf-fb-meta">' + date + tool + '</div>' +
+          '</div>';
+      });
+      list.innerHTML = html;
+    }
+    var m = document.getElementById('pf-viewer-modal');
+    if (m) m.classList.add('pf-viewer-open');
+  }
+
+  function pfEsc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+})();
+</script>
 </body>
 </html>

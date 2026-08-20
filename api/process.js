@@ -924,6 +924,46 @@ module.exports = async function handler(req, res) {
       return res.status(200).json(result);
     }
 
+    // Submit anonymous feedback — no IP, no user data stored
+    if (body && body.type === "submitFeedback") {
+      try {
+        const rating = parseInt(body.rating, 10);
+        if (!rating || rating < 1 || rating > 5) {
+          return res.status(400).json({ error: "Invalid rating" });
+        }
+        const entry = {
+          rating,
+          comment: (body.comment || "").toString().slice(0, 500),
+          tool: (body.tool || "").toString().slice(0, 50),
+          ts: Date.now()
+        };
+        if (redis) {
+          await redis.lpush("pf_feedback", JSON.stringify(entry));
+        }
+        return res.status(200).json({ ok: true });
+      } catch (e) {
+        return res.status(200).json({ ok: true }); // fail silently
+      }
+    }
+
+    // Get feedback viewer — PIN-gated, private
+    if (body && body.type === "getFeedback") {
+      try {
+        const correctPin = process.env.FEEDBACK_PIN || "pf2024";
+        if (body.pin !== correctPin) {
+          return res.status(403).json({ error: "Invalid PIN" });
+        }
+        const items = redis ? await redis.lrange("pf_feedback", 0, 199) : [];
+        const parsed = items.map(function(item) {
+          try { return typeof item === "string" ? JSON.parse(item) : item; }
+          catch (e) { return null; }
+        }).filter(Boolean);
+        return res.status(200).json({ ok: true, feedback: parsed });
+      } catch (e) {
+        return res.status(500).json({ error: "Failed to read feedback" });
+      }
+    }
+
     // Validate input early so we have `text` for duplicate detection
     const { text, mode, language, type } = body || {};
     if (!text || typeof text !== "string" || text.trim().length < 5) {
