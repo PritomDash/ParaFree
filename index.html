@@ -6231,9 +6231,12 @@ if (window.innerWidth <= 768) {
 <script>
 (function() {
   // ── Visit tracking ──────────────────────────────────────────
-  var STORAGE_DATES = 'pf_visit_dates';
-  var STORAGE_DONE  = 'pf_feedback_done';
-  var WINDOW_DAYS   = 7;
+  var STORAGE_DATES     = 'pf_visit_dates';
+  var STORAGE_DONE      = 'pf_feedback_done';
+  var STORAGE_ASK_COUNT = 'pf_ask_count';
+  var STORAGE_LAST_ASK  = 'pf_last_ask_date';
+  var WINDOW_DAYS       = 30;
+  var MAX_ASKS          = 3;
 
   function pfTodayStr() {
     var d = new Date();
@@ -6245,11 +6248,7 @@ if (window.innerWidth <= 768) {
       var today = pfTodayStr();
       var cutoff = Date.now() - WINDOW_DAYS * 86400000;
       var stored = JSON.parse(localStorage.getItem(STORAGE_DATES) || '[]');
-      // keep dates within 7-day window
-      var filtered = stored.filter(function(entry) {
-        return entry.ts >= cutoff;
-      });
-      // only add today if not already present
+      var filtered = stored.filter(function(entry) { return entry.ts >= cutoff; });
       var alreadyToday = filtered.some(function(e) { return e.date === today; });
       if (!alreadyToday) {
         filtered.push({ date: today, ts: Date.now() });
@@ -6260,7 +6259,15 @@ if (window.innerWidth <= 768) {
 
   function pfQualifiesForFeedback() {
     try {
+      // submitted → never ask again
       if (localStorage.getItem(STORAGE_DONE)) return false;
+      // hit ask cap → stop forever
+      var askCount = parseInt(localStorage.getItem(STORAGE_ASK_COUNT) || '0', 10);
+      if (askCount >= MAX_ASKS) return false;
+      // already asked today → skip
+      var lastAsk = localStorage.getItem(STORAGE_LAST_ASK) || '';
+      if (lastAsk === pfTodayStr()) return false;
+      // must have visited on 2+ distinct days in rolling 30-day window
       var cutoff = Date.now() - WINDOW_DAYS * 86400000;
       var stored = JSON.parse(localStorage.getItem(STORAGE_DATES) || '[]');
       var recent = stored.filter(function(e) { return e.ts >= cutoff; });
@@ -6269,11 +6276,20 @@ if (window.innerWidth <= 768) {
     } catch(e) { return false; }
   }
 
+  function pfRecordAsk() {
+    try {
+      var count = parseInt(localStorage.getItem(STORAGE_ASK_COUNT) || '0', 10);
+      localStorage.setItem(STORAGE_ASK_COUNT, String(count + 1));
+      localStorage.setItem(STORAGE_LAST_ASK, pfTodayStr());
+    } catch(e) {}
+  }
+
   pfRecordVisit();
 
   // ── Card show/dismiss ───────────────────────────────────────
   window.pfMaybeShowFeedback = function() {
     if (!pfQualifiesForFeedback()) return;
+    pfRecordAsk();
     setTimeout(function() {
       var card = document.getElementById('pf-feedback-card');
       if (card) card.classList.add('pf-card-open');
@@ -6285,7 +6301,7 @@ if (window.innerWidth <= 768) {
     if (card) {
       card.classList.remove('pf-card-open');
     }
-    try { localStorage.setItem(STORAGE_DONE, '1'); } catch(e){}
+    // do NOT set STORAGE_DONE on dismiss — user may be asked again on a later day
   };
 
   // ── Star rating ─────────────────────────────────────────────
