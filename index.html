@@ -6366,19 +6366,32 @@ if (window.innerWidth <= 768) {
   }
 
   // ── Triple-click logo → PIN modal ───────────────────────────
-  var pfLogoClickCount = 0;
-  var pfLogoTimer = null;
-  document.addEventListener('click', function(e) {
-    var logo = e.target.closest('.logo, .nav-logo, [data-logo], a[href="/"], a[href="index.html"]');
-    if (!logo) return;
-    pfLogoClickCount++;
-    clearTimeout(pfLogoTimer);
-    pfLogoTimer = setTimeout(function() { pfLogoClickCount = 0; }, 600);
-    if (pfLogoClickCount >= 3) {
-      pfLogoClickCount = 0;
-      pfOpenPinModal();
-    }
-  });
+  // Attach directly to the logo <a> and preventDefault every click so the
+  // page never navigates/reloads mid-sequence (that was resetting the count).
+  (function() {
+    var logoImg  = document.getElementById('navLogo');
+    var logoLink = logoImg ? logoImg.closest('a') : null;
+    var target   = logoLink || logoImg;
+    if (!target) return;
+    var count = 0;
+    var timer = null;
+    target.addEventListener('click', function(e) {
+      e.preventDefault(); // stop reload so clicks accumulate
+      count++;
+      console.log('[ParaFree] logo click #' + count);
+      clearTimeout(timer);
+      timer = setTimeout(function() {
+        console.log('[ParaFree] click sequence ended at count=' + count);
+        count = 0;
+      }, 1000);
+      if (count >= 3) {
+        count = 0;
+        clearTimeout(timer);
+        console.log('[ParaFree] triple-click → opening PIN modal');
+        pfOpenPinModal();
+      }
+    });
+  })();
 
   window.pfOpenPinModal = function() {
     var m = document.getElementById('pf-pin-modal');
