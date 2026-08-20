@@ -259,7 +259,7 @@ async function callGroq(text, prompt, key) {
 
 async function callGemini(text, prompt, key) {
   console.log("[ParaFree] Trying: gemini");
-  const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=" + key;
+  const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=" + key;
   const res = await fetchWithTimeout(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -845,7 +845,7 @@ async function handleTestKeys(body) {
 
   const tests = [
     { name: "groq",       model: "openai/gpt-oss-20b",              key: process.env.GROQ_KEY,       fn: (k) => callGroq(testText, testPrompt, k) },
-    { name: "gemini",     model: "gemini-3.6-flash",                  key: process.env.GEMINI_KEY,     fn: (k) => callGemini(testText, testPrompt, k) },
+    { name: "gemini",     model: "gemini-3.5-flash-lite",                  key: process.env.GEMINI_KEY,     fn: (k) => callGemini(testText, testPrompt, k) },
     { name: "sambanova",  model: "Meta-Llama-3.3-70B-Instruct",       key: process.env.SAMBANOVA_KEY,  fn: (k) => callSambaNova(testText, testPrompt, k) },
     { name: "nvidia",     model: "meta/llama-3.1-8b-instruct",        key: process.env.NVIDIA_KEY,     fn: (k) => callNvidia(testText, testPrompt, k) },
     { name: "mistral",    model: "mistral-small-latest",              key: process.env.MISTRAL_KEY,    fn: (k) => callMistral(testText, testPrompt, k) },
