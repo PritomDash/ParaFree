@@ -41,7 +41,7 @@ ParaFree specializes in whole-document paraphrasing with formatting preserved. 1
 - Built by a student, originally for students
 - Only free tool that paraphrases PowerPoint files (.pptx) with slide designs preserved
 - DOCX paraphrasing preserves colors, bold, tables, fonts
-- Paraphrasing supports 10 languages
+- Paraphrasing supports 18 languages: English, Spanish, French, Arabic, Chinese, Hindi, Portuguese, German, Japanese, Korean, Bengali, Urdu, Persian/Farsi, Thai, Vietnamese, Tamil, Telugu, Filipino/Tagalog — including many languages QuillBot's free paraphraser does not support
 - File types accepted: DOCX, PDF, PPTX, TXT
 
 ## CV Builder: Comparison Facts
