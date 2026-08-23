@@ -1409,7 +1409,7 @@ const PHOTOS = {
   </select>
 </div>
 <script>
-// RTL display handler — set dir on output when an RTL language is selected
+// RTL display handler + ?lang= pre-select from landing pages
 (function() {
   var RTL_LANGS = { arabic: true, urdu: true, persian: true };
   var sel = document.getElementById('langSelect');
@@ -1425,6 +1425,18 @@ const PHOTOS = {
     }
   }
   sel.addEventListener('change', applyDir);
+  // Pre-select language from ?lang= URL param (set by multilingual landing pages)
+  var param = new URLSearchParams(window.location.search).get('lang');
+  if (param) {
+    var opts = sel.options;
+    for (var i = 0; i < opts.length; i++) {
+      if (opts[i].value === param.toLowerCase()) {
+        sel.value = opts[i].value;
+        applyDir();
+        break;
+      }
+    }
+  }
 })();
 </script>
 
