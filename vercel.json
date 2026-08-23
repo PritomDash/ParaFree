@@ -7,14 +7,12 @@
       "maxDuration": 60
     }
   },
-  "redirects": [
-    {
-      "source": "/:slug([a-z0-9][a-z0-9-]*)",
-      "destination": "/:slug.html",
-      "permanent": true
-    }
-  ],
   "routes": [
+    {
+      "src": "/([a-z0-9][a-z0-9-]*)$",
+      "headers": { "Location": "/$1.html" },
+      "status": 301
+    },
     {
       "handle": "filesystem"
     },
