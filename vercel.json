@@ -1,12 +1,19 @@
 {
   "version": 2,
-  "cleanUrls": true,
+  "cleanUrls": false,
   "trailingSlash": false,
   "functions": {
     "api/process.js": {
       "maxDuration": 60
     }
   },
+  "redirects": [
+    {
+      "source": "/:slug([a-z0-9][a-z0-9-]*)",
+      "destination": "/:slug.html",
+      "permanent": true
+    }
+  ],
   "routes": [
     {
       "handle": "filesystem"
