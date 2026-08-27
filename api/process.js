@@ -844,6 +844,43 @@ async function runChain(text, prompt, type) {
   return { success: false, error: "high_demand", apiStatuses: lastApiStatuses };
 }
 
+// ── NVIDIA MODELS DIAGNOSTIC HANDLER ──
+async function handleNvidiaModels(body) {
+  const adminPw = getAdminPassword();
+  if (!adminPw || body.adminPassword !== adminPw) return { error: "Unauthorized", status: 401 };
+
+  const key = process.env.NVIDIA_KEY;
+  const keyPrefix = key ? key.slice(0, 12) + "..." : null;
+
+  if (!key || key.length <= 10) return { keyPrefix, error: "NVIDIA_KEY not set or too short — check Vercel env vars" };
+  if (!key.startsWith("nvapi-")) return { keyPrefix, warning: "Key does not start with 'nvapi-' — may be wrong key format" };
+
+  try {
+    const res = await fetchWithTimeout("https://integrate.api.nvidia.com/v1/models", {
+      method: "GET",
+      headers: { "Authorization": "Bearer " + key }
+    }, 10000);
+
+    const httpStatus = res.status;
+    let rawText = "";
+    try { rawText = await res.text(); } catch(_) {}
+
+    if (!res.ok) {
+      return { keyPrefix, httpStatus, error: "Non-OK response", raw: rawText.slice(0, 500) };
+    }
+
+    let data;
+    try { data = JSON.parse(rawText); } catch(_) {
+      return { keyPrefix, httpStatus, error: "Non-JSON response", raw: rawText.slice(0, 500) };
+    }
+
+    const models = (data.data || []).map(m => m.id).filter(Boolean).sort();
+    return { keyPrefix, httpStatus, modelCount: models.length, models };
+  } catch (e) {
+    return { keyPrefix, error: e.message };
+  }
+}
+
 // ── TEST KEYS HANDLER ──
 async function handleTestKeys(body) {
   const adminPw = getAdminPassword();
@@ -927,6 +964,13 @@ module.exports = async function handler(req, res) {
     // Test keys endpoint (exempt from rate limiting)
     if (body && body.type === "testKeys") {
       const result = await handleTestKeys(body);
+      if (result.status) return res.status(result.status).json(result);
+      return res.status(200).json(result);
+    }
+
+    // NVIDIA models diagnostic (exempt from rate limiting)
+    if (body && body.type === "nvidiaModels") {
+      const result = await handleNvidiaModels(body);
       if (result.status) return res.status(result.status).json(result);
       return res.status(200).json(result);
     }
