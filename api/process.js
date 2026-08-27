@@ -445,21 +445,34 @@ async function callSambaNova(text, prompt, key) {
 
 async function callNvidia(text, prompt, key) {
   console.log("[ParaFree] Trying: nvidia");
-  const res = await fetchWithTimeout("https://integrate.api.nvidia.com/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
-    body: JSON.stringify({
-      model: "nvidia/llama-3.1-nemotron-70b-instruct",
-      messages: [{ role: "user", content: prompt + "\n\n" + text }],
-      temperature: 0.7,
-      max_tokens: 2048,
-      stream: false
-    })
-  });
-  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("NVIDIA:" + res.status + " " + b.slice(0,200)); }
-  const data = await res.json();
-  if (!data.choices?.[0]) throw new Error("NVIDIA: no response");
-  return data.choices[0].message.content;
+  // Try models in order; skip any that return 404 (not available for this account)
+  const models = [
+    "mistralai/mistral-7b-instruct-v0.3",
+    "nv-mistralai/mistral-nemo-12b-instruct",
+    "mistralai/mistral-large-2-instruct",
+    "nvidia/llama-3.1-nemotron-70b-instruct",
+  ];
+  let lastErr = "NVIDIA: no accessible model";
+  for (const model of models) {
+    const res = await fetchWithTimeout("https://integrate.api.nvidia.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "user", content: prompt + "\n\n" + text }],
+        temperature: 0.7,
+        max_tokens: 2048,
+        stream: false
+      })
+    });
+    if (res.status === 404) { lastErr = "NVIDIA:" + model + ":404"; continue; }
+    if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("NVIDIA:" + res.status + " " + b.slice(0,200)); }
+    const data = await res.json();
+    if (!data.choices?.[0]) throw new Error("NVIDIA: no response");
+    console.log("[ParaFree] nvidia model used: " + model);
+    return data.choices[0].message.content;
+  }
+  throw new Error(lastErr);
 }
 
 async function callOVHcloud(text, prompt) {
@@ -847,7 +860,7 @@ async function handleTestKeys(body) {
     { name: "groq",       model: "openai/gpt-oss-20b",              key: process.env.GROQ_KEY,       fn: (k) => callGroq(testText, testPrompt, k) },
     { name: "gemini",     model: "gemini-3.5-flash-lite",                  key: process.env.GEMINI_KEY,     fn: (k) => callGemini(testText, testPrompt, k) },
     { name: "sambanova",  model: "Meta-Llama-3.3-70B-Instruct",       key: process.env.SAMBANOVA_KEY,  fn: (k) => callSambaNova(testText, testPrompt, k) },
-    { name: "nvidia",     model: "nvidia/llama-3.1-nemotron-70b-instruct", key: process.env.NVIDIA_KEY, fn: (k) => callNvidia(testText, testPrompt, k) },
+    { name: "nvidia",     model: "mistral-7b→nemo-12b→mistral-large (fallback chain)", key: process.env.NVIDIA_KEY, fn: (k) => callNvidia(testText, testPrompt, k) },
     { name: "mistral",    model: "mistral-small-latest",              key: process.env.MISTRAL_KEY,    fn: (k) => callMistral(testText, testPrompt, k) },
     { name: "cloudflare", model: "@cf/meta/llama-3.1-8b-instruct",   key: process.env.CF_KEY, account: cfAccount, fn: (k) => callCloudflare(testText, testPrompt, k, cfAccount) },
     { name: "ovhcloud",   model: "Meta-Llama-3_3-70B-Instruct",      key: "no-key-needed",            fn: () => callOVHcloud(testText, testPrompt) },
