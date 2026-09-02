@@ -194,8 +194,73 @@
         "@type": "Answer",
         "text": "Quillbot limits free users to 125 words and charges $20/month for unlimited access. ParaFree gives you unlimited paraphrasing, a free AI humanizer, grammar checker, summarizer, AI detector, document paraphraser (Word, PDF, PowerPoint), and a free CV builder — all completely free, powered by multiple AI engines."
       }
+    },
+    {
+      "@type": "Question",
+      "name": "What file types can I upload to ParaFree?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "ParaFree accepts DOCX (Word documents), PDF, PPTX (PowerPoint presentations), and TXT files. Word and PowerPoint uploads produce the best output because formatting — fonts, colors, bold, tables, headings, and slide designs — is preserved in the download."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does ParaFree work on mobile?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. ParaFree is fully responsive and works on any device — phones, tablets, laptops — without downloading an app. Paste text or upload a file directly from your mobile browser. No app required."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I paraphrase Arabic or Urdu text with ParaFree?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. ParaFree supports Arabic (العربية) and Urdu (اردو) with correct right-to-left text display in the output. It is one of the very few free paraphrasing tools that handles RTL scripts properly. Both languages are available in the language selector at no cost."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What does the ParaFree CV builder include?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The free CV builder includes 54 ATS-friendly templates (all free, no locked tier), AI-written bullet points based on your job title and experience, an AI-generated professional summary, a matching cover letter, and a built-in live job search that shows real current job listings with direct apply links. CV downloads as PDF free with no watermark. No signup required."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How does ParaFree stay free?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "ParaFree uses free-tier API access from multiple AI providers (Mistral, Groq, Cloudflare, NVIDIA, Gemini, and others) in a fallback chain. When one provider hits its rate limit, the next one takes over automatically. This keeps the tool operational for all users without needing to charge them."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I use ParaFree for academic writing?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. ParaFree is widely used by university students to paraphrase essays, research papers, and assignments. It rewrites sentences and paragraphs in your chosen tone (standard, formal, fluency, etc.) while preserving the original meaning and keeping proper nouns, dates, and technical terms unchanged. Always review AI output before submitting any academic work."
+      }
     }
   ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "ParaFree",
+  "url": "https://parafree.app",
+  "description": "100% free AI writing suite — paraphrasing tool with no word limit, document formatting preserved, 18 languages, and a free CV builder with live job search. No signup, no paywall.",
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": {
+      "@type": "EntryPoint",
+      "urlTemplate": "https://parafree.app/?q={search_term_string}"
+    },
+    "query-input": "required name=search_term_string"
+  }
 }
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
