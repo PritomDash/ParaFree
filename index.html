@@ -263,7 +263,7 @@
   }
 }
 </script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 <script>
   if (typeof pdfjsLib !== 'undefined') {
@@ -283,10 +283,10 @@ window.addEventListener('load', () => {
   }
 });
 </script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://unpkg.com/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+<script src="https://unpkg.com/pptxgenjs@3.12.0/dist/pptxgen.bundle.js" defer></script>
 <!-- docx: self-hosted primary, two CDN fallbacks -->
 <script>
 (function() {
@@ -326,6 +326,8 @@ const PHOTOS = {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
 <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+<link rel="preconnect" href="https://unpkg.com" crossorigin>
+<link rel="dns-prefetch" href="https://unpkg.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1376,7 +1378,7 @@ const PHOTOS = {
 
 <!-- FULL-SCREEN HERO -->
 <div id="mainHero" style="position:relative;height:100vh;min-height:720px;display:flex;align-items:flex-start;overflow:hidden;">
-  <img src="https://images.unsplash.com/photo-1455390582262-044cdead277a?w=1400&q=80" alt="Writing and AI" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;" loading="eager">
+  <img src="https://images.unsplash.com/photo-1455390582262-044cdead277a?w=1400&q=80" alt="Writing and AI" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;" loading="eager" fetchpriority="high">
   <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(10,28,20,0.92) 0%,rgba(26,58,42,0.88) 50%,rgba(45,106,79,0.82) 100%);"></div>
   <div class="hero-content" style="position:relative;z-index:1;max-width:800px;padding:100px 40px 60px;margin:0 auto;text-align:center;width:100%;">
     <div style="display:inline-flex;align-items:center;justify-content:center;gap:8px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);border-radius:24px;padding:8px 20px;margin-bottom:28px;max-width:100%;box-sizing:border-box;">
@@ -1545,6 +1547,11 @@ const PHOTOS = {
   <div class="status-msg" id="statusMsg"></div>
 </div>
 
+<noscript>
+  <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:14px 18px;margin:12px 0;font-family:sans-serif;font-size:14px;color:#856404;text-align:center;">
+    JavaScript is required to use ParaFree. Please enable JavaScript in your browser settings to paraphrase, upload documents, and download results.
+  </div>
+</noscript>
 <!-- MAIN TOOL -->
 <div class="tool-container">
   <!-- INPUT PANEL -->
