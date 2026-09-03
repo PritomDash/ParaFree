@@ -604,22 +604,57 @@ function getPrompt(mode, language) {
 }
 
 // ── CHUNKING HELPERS ──
-const MAX_CHUNK_PARAS = 20;
-const MAX_CHUNK_CHARS = 8000;
+// Dynamic word-based chunking: target ~400 words/chunk, 1–12 chunks max.
+// Formula: chunkCount = clamp(ceil(wordCount / 400), 1, 12)
+//          chunkSize  = wordCount / chunkCount  (auto-adjusts for large docs)
+// Small docs (≤400 words) → 1 chunk; huge docs → capped at 12 with bigger chunks.
+const CHUNK_TARGET_WORDS = 400;
+const CHUNK_MAX_COUNT    = 12;
+const CHUNK_CONCURRENCY  = 4; // max simultaneous API calls (rate-limit guard)
+
+function countWordsApprox(text) {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
 
 function buildChunks(text) {
+  const words = countWordsApprox(text);
+  // clamp(ceil(words / 400), 1, 12)
+  const chunkCount = Math.max(1, Math.min(CHUNK_MAX_COUNT, Math.ceil(words / CHUNK_TARGET_WORDS)));
+  if (chunkCount === 1) return [text];
+
+  const targetWords = Math.ceil(words / chunkCount);
   const paras = text.split(/\n\n+/).filter(p => p.trim());
-  if (paras.length <= MAX_CHUNK_PARAS && text.length <= MAX_CHUNK_CHARS) return [text];
+
   const chunks = [];
-  let cur = [], curLen = 0;
+  let cur = [], curWords = 0;
   for (const para of paras) {
-    if (cur.length >= MAX_CHUNK_PARAS || (cur.length > 0 && curLen + para.length > MAX_CHUNK_CHARS)) {
-      chunks.push(cur.join('\n\n')); cur = []; curLen = 0;
+    const pw = countWordsApprox(para);
+    // Flush when we've hit the per-chunk target and still have quota for more chunks
+    if (curWords >= targetWords && chunks.length < chunkCount - 1) {
+      chunks.push(cur.join('\n\n'));
+      cur = [];
+      curWords = 0;
     }
-    cur.push(para); curLen += para.length;
+    cur.push(para);
+    curWords += pw;
   }
-  if (cur.length > 0) chunks.push(cur.join('\n\n'));
+  if (cur.length) chunks.push(cur.join('\n\n'));
   return chunks;
+}
+
+// Runs `fns` (thunks) in parallel, at most `limit` at a time.
+// Preserves result order. Replaces unbounded Promise.all for chunk calls.
+async function parallelLimit(fns, limit) {
+  const results = new Array(fns.length);
+  let next = 0;
+  async function worker() {
+    while (next < fns.length) {
+      const i = next++;
+      results[i] = await fns[i]();
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, fns.length) }, worker));
+  return results;
 }
 
 // Builds the writing provider list with closures bound to the given text.
@@ -741,12 +776,13 @@ async function runChain(text, prompt, type) {
     const chunks = buildChunks(text);
     const baseOffset = requestCounter;
     requestCounter = (requestCounter + Math.max(chunks.length, 1)) % 100000;
-    const inputLen = text.length;
+    const inputWords = countWordsApprox(text);
     const isPPTX = text.includes('[SLIDE') && text.includes('[/SLIDE');
-    console.log(`[ParaFree] writing: ${chunks.length} chunk(s) × ${sampleCandidates.length} providers — parallel (offsets ${baseOffset}–${baseOffset + chunks.length - 1}), input=${inputLen} chars, isPPTX=${isPPTX}`);
+    console.log(`[ParaFree] writing: ${chunks.length} chunk(s) × ${sampleCandidates.length} providers — concurrency=${Math.min(CHUNK_CONCURRENCY, chunks.length)} (offsets ${baseOffset}–${baseOffset + chunks.length - 1}), input=${inputWords} words, isPPTX=${isPPTX}`);
     const t0 = Date.now();
-    const chunkResults = await Promise.all(
-      chunks.map((chunk, i) => paraphraseChunk(chunk, prompt, envKeys, baseOffset + i))
+    const chunkResults = await parallelLimit(
+      chunks.map((chunk, i) => () => paraphraseChunk(chunk, prompt, envKeys, baseOffset + i)),
+      CHUNK_CONCURRENCY
     );
     const elapsed = Date.now() - t0;
     const failedIdx = chunkResults.findIndex(r => r === null);
