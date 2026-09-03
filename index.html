@@ -4357,20 +4357,21 @@ async function paraphrase() {
   let docxParaCount = 0;
   window._docxParaMap = null;
 
-  // DOCX mode: send numbered paragraphs so the AI is forced to return the same count.
-  // Numbers survive chunking (backend splits on \n\n, preserving [N] labels) and
-  // parseNumberedParagraphs reassembles by position — no alignment drift possible.
+  // DOCX mode: send plain body text (no [N] markers).
+  // Global [N] numbering caused corruption when AI models renumbered from [1]
+  // within each parallel chunk — chunk 2's [1] overwrote chunk 1's position 0.
+  // Fix: send plain paragraphs, map results back positionally after joining.
   if (docxOriginalXml) {
-    const { text: numText, count } = buildNumberedDocxText(docxOriginalXml);
-    if (count > 0) {
-      apiText = numText;
-      docxParaCount = count;
-      apiPrompt = 'Paraphrase each numbered paragraph below. Return EXACTLY the same number of paragraphs in the same order, each prefixed with its number in brackets like [1], [2], [3]. Do NOT merge paragraphs, do NOT split paragraphs, do NOT skip any, do NOT add extra paragraphs. Output ONLY the numbered paraphrased paragraphs, no preamble.';
-      console.log('[DOCX] sending', count, 'numbered paragraphs to API');
+    const bodyText = extractBodyTextFromDocx(docxOriginalXml);
+    const bodyParas = bodyText ? bodyText.split(/\n\n+/).filter(p => p.trim()) : [];
+    if (bodyParas.length > 0) {
+      apiText = bodyParas.join('\n\n');
+      docxParaCount = bodyParas.length;
+      console.log('[DOCX] sending', docxParaCount, 'plain paragraphs to API (no [N] markers)');
     }
   }
 
-  // Backend handles chunking + parallel processing via Promise.all.
+  // Backend handles chunking + parallel processing (seq-numbered, order guaranteed).
   const result = await runAPIChain(apiText, apiPrompt, currentMode, getLang(), 'paraphrase');
   console.log('[paraphrase] result chars:', result ? result.length : 'null');
 
@@ -4378,14 +4379,31 @@ async function paraphrase() {
 
   if (result) {
     window._lastRawOutput = result.trim();
-    let displayText = result.trim();
+    // Strip common AI preamble patterns before splitting
+    const cleanResult = result
+      .replace(/^\s*Here('s| is) the paraphrased[^\n]*\n*/gim, '')
+      .replace(/^\s*(Sure|Certainly|Of course)[,!.][^\n]*\n*/gim, '')
+      .replace(/^\s*Paraphrased (text|version|content):?\s*\n*/gim, '')
+      .replace(/^\s*Output:\s*\n*/gim, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+    let displayText = cleanResult;
     if (docxParaCount > 0) {
-      // Parse [N] markers → position-indexed array for download mapping
-      window._docxParaMap = parseNumberedParagraphs(result, docxParaCount);
+      // Positional mapping: split by blank lines, map result[i] → original position i.
+      // This is robust against AI renumbering (there are no numbers to renumber).
+      // If the AI merges paragraphs (fewer results), unmatched positions stay null
+      // and docxReplaceParas keeps the original DOCX text for those positions.
+      const resultParas = cleanResult.split(/\n\n+/).filter(p => p.trim());
+      window._docxParaMap = new Array(docxParaCount).fill(null);
+      for (let i = 0; i < Math.min(docxParaCount, resultParas.length); i++) {
+        const p = resultParas[i].trim();
+        if (p) window._docxParaMap[i] = p;
+      }
       const filled = window._docxParaMap.filter(p => p !== null).length;
-      console.log('[DOCX] parsed', filled, 'of', docxParaCount, 'paragraphs from API response');
-      // Strip [N] markers for on-screen display
-      displayText = result.replace(/^\[\d+\]\s*/gm, '').trim();
+      console.log(`[DOCX] positional map: ${filled}/${docxParaCount} positions filled (result had ${resultParas.length} paras)`);
+      if (resultParas.length !== docxParaCount) {
+        console.warn(`[DOCX] count mismatch: expected ${docxParaCount}, got ${resultParas.length} — ${resultParas.length < docxParaCount ? 'short positions keep original DOCX text' : 'extra paras truncated'}`);
+      }
     }
     const processedResult = processParaphraseOutput(displayText);
     renderOutput(processedResult);
