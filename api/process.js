@@ -790,8 +790,11 @@ async function runChain(text, prompt, type) {
       console.error(`[ParaFree] ❌ Chunk ${failedIdx + 1}/${chunks.length} failed all providers (total elapsed ${elapsed}ms)`);
       return { success: false, error: "high_demand", apiStatuses: {} };
     }
-    console.log(`[ParaFree] ✅ All ${chunks.length} chunk(s) complete in ${elapsed}ms`);
-    return { success: true, result: chunkResults.join('\n\n'), usedApi: 'parallel-chunks', apiStatuses: {} };
+    // chunkResults is position-indexed (parallelLimit guarantees order regardless of
+    // completion order). Join strictly by original index — no sorting, no reordering.
+    const assembled = chunkResults.join('\n\n');
+    console.log(`[ParaFree] ✅ All ${chunks.length} chunk(s) complete in ${elapsed}ms — assembled ${assembled.length} chars in original order`);
+    return { success: true, result: assembled, usedApi: 'parallel-chunks', apiStatuses: {} };
   }
 
   // ── AI CHAT / CV EXTRACT PATH: sequential with single retry ──

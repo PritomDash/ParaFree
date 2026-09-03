@@ -5743,14 +5743,22 @@ function buildNumberedDocxText(xml) {
 
 // Parses [N] markers from AI response → 0-indexed array of length expectedCount.
 // Missing numbers → null (position kept, original text preserved in mapping).
+//
+// IMPORTANT: We split by blank lines BEFORE matching [N], so that in-text citation
+// patterns like "[1]" inside IEEE reference entries (e.g. "[15] [1] Smith, J. Title.")
+// are never confused with paragraph-boundary markers. Only a [N] at the very START
+// of a blank-line-separated block is treated as a paragraph marker.
 function parseNumberedParagraphs(response, expectedCount) {
   const result = new Array(expectedCount).fill(null);
-  const regex = /\[(\d+)\]\s*([\s\S]*?)(?=\[\d+\]|$)/g;
-  let match;
-  while ((match = regex.exec(response)) !== null) {
-    const idx = parseInt(match[1], 10) - 1;
+  const blocks = response.split(/\n\n+/);
+  for (const block of blocks) {
+    const trimmed = block.trim();
+    if (!trimmed) continue;
+    const m = trimmed.match(/^\[(\d+)\]\s*([\s\S]*)/);
+    if (!m) continue;
+    const idx = parseInt(m[1], 10) - 1;
     if (idx >= 0 && idx < expectedCount) {
-      result[idx] = match[2].replace(/\n/g, ' ').trim() || null;
+      result[idx] = m[2].replace(/\n/g, ' ').trim() || null;
     }
   }
   return result;
