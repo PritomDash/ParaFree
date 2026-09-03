@@ -858,6 +858,14 @@ const PHOTOS = {
   .det-metric-bar { height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
   .det-metric-fill { height: 100%; border-radius: 4px; width: 0; transition: width 1s ease; }
   .det-disclaimer { font-size: 12px; color: var(--text3); background: var(--surface2); padding: 10px 14px; border-radius: 8px; line-height: 1.5; }
+  .det-context { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: 10px; margin-bottom: 14px; font-size: 13px; line-height: 1.5; }
+  .det-context-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .det-context strong { display: block; margin-bottom: 2px; font-weight: 700; }
+  .det-context a { color: var(--accent); font-weight: 600; text-decoration: underline; cursor: pointer; }
+  .det-context a:hover { opacity: 0.8; }
+  .det-context.high { background: rgba(230,57,70,0.08); border: 1px solid rgba(230,57,70,0.2); color: var(--text); }
+  .det-context.medium { background: rgba(247,181,0,0.08); border: 1px solid rgba(247,181,0,0.2); color: var(--text); }
+  .det-context.low { background: rgba(45,106,79,0.08); border: 1px solid rgba(45,106,79,0.2); color: var(--text); }
 
   /* ── MODES ── */
   .modes-bar {
@@ -2830,15 +2838,16 @@ STRICT RULES:
 6. Keep ALL of these UNCHANGED: names, numbers, dates, technical terms, addresses, passport numbers, amounts, university names, company names, country names
 7. Only rephrase the sentence structure and word choice
 8. Do NOT ask questions. Do NOT request more information. Do NOT add commentary. Just paraphrase the text as given.
+9. Write in a natural, human style: deliberately vary sentence lengths (mix short punchy sentences with longer ones), vary how sentences begin, and use specific natural word choices. Do NOT use formulaic AI transition phrases such as "Furthermore," "Moreover," "Additionally," "Notably," "It is worth noting that," "In conclusion," or "It should be noted." Do NOT produce uniformly structured paragraphs that all follow the same pattern.
 
 Output must have same paragraph count as input. This is critical.`;
 
 const MODE_PROMPTS = {
-  standard: _PARA_RULES + "\n\nNow paraphrase the following text, following ALL rules above exactly:",
-  fluency:  _PARA_RULES + "\n\nNow rewrite the following text to improve fluency and natural flow, following ALL rules above exactly:",
-  creative: _PARA_RULES + "\n\nNow paraphrase the following text in a creative and engaging way, following ALL rules above exactly:",
-  formal:   _PARA_RULES + "\n\nNow rewrite the following text in a formal professional tone, following ALL rules above exactly:",
-  simple:   _PARA_RULES + "\n\nNow simplify the following text using simple words and short sentences, following ALL rules above exactly:"
+  standard: _PARA_RULES + "\n\nNow paraphrase the following text in a natural human style. Vary your sentence structure and lengths. Avoid any formulaic AI transitions. Follow ALL rules above exactly:",
+  fluency:  _PARA_RULES + "\n\nNow rewrite the following text to improve fluency and natural flow. Mix short and long sentences, use natural connectors, avoid robotic phrasing. Follow ALL rules above exactly:",
+  creative: _PARA_RULES + "\n\nNow paraphrase the following text in a creative and engaging way. Use vivid, specific language and unexpected but accurate word choices. Follow ALL rules above exactly:",
+  formal:   _PARA_RULES + "\n\nNow rewrite the following text in a formal professional tone. Be precise and authoritative, but still vary sentence structure — formal does not mean robotic. Follow ALL rules above exactly:",
+  simple:   _PARA_RULES + "\n\nNow simplify the following text using simple, everyday words and short clear sentences. Write the way a person would explain it clearly to a friend. Follow ALL rules above exactly:"
 };
 
 let currentMode = "standard";
@@ -3360,8 +3369,8 @@ function renderDetectorResult(aiScore, humanScore, metrics) {
 
   let verdictClass, verdictText, verdictIcon;
   if (aiScore <= 30) { verdictClass = 'verdict-human'; verdictText = 'Mostly Human Written'; verdictIcon = '✅'; }
-  else if (aiScore <= 60) { verdictClass = 'verdict-mixed'; verdictText = 'Mixed Content Detected'; verdictIcon = '⚠️'; }
-  else { verdictClass = 'verdict-ai'; verdictText = 'Likely AI Generated'; verdictIcon = '🤖'; }
+  else if (aiScore <= 60) { verdictClass = 'verdict-mixed'; verdictText = 'Some AI Patterns Detected'; verdictIcon = '⚠️'; }
+  else { verdictClass = 'verdict-ai'; verdictText = 'Strong AI Patterns Detected'; verdictIcon = '🤖'; }
 
   const CIRCUM = 314;
   const aiOff  = Math.round(CIRCUM - (aiScore  / 100) * CIRCUM);
@@ -3403,7 +3412,11 @@ function renderDetectorResult(aiScore, humanScore, metrics) {
       </div>
       <div class="det-verdict ${verdictClass}">${verdictIcon} ${verdictText}</div>
       <div class="det-metrics">${metricRows}</div>
-      ${aiScore >= 40 ? '<div style="text-align:center;font-size:13px;color:var(--accent);font-weight:500;margin-bottom:12px;">💡 Use the AI Humanizer tab to reduce your AI score!</div>' : ''}
+      ${aiScore >= 70
+        ? `<div class="det-context high"><span class="det-context-icon">🤖</span><div><strong>Strong AI patterns detected.</strong> This text has clear machine-writing signatures that detectors look for. <a href="#" onclick="switchTool('humanize');return false;">Run it through our Humanizer</a> to make it sound more natural before submitting.</div></div>`
+        : aiScore >= 40
+        ? `<div class="det-context medium"><span class="det-context-icon">⚡</span><div><strong>Some AI patterns detected.</strong> A few transitions or structures may be flagged. <a href="#" onclick="switchTool('humanize');return false;">Try the Humanizer</a> to polish it further — it can help reduce these patterns.</div></div>`
+        : `<div class="det-context low"><span class="det-context-icon">✅</span><div><strong>Reads mostly human.</strong> Your text shows natural writing patterns. Small variations are normal — real human writing is never perfectly "AI-free," so a low score here is a good sign.</div></div>`}
       <div class="det-disclaimer">⚠️ Estimate based on text pattern analysis. Results may vary from tools like GPTZero or Turnitin.</div>
     </div>
   `;
@@ -3564,25 +3577,46 @@ document.querySelectorAll("[data-hmode]").forEach(btn => {
 });
 
 const HUMANIZE_PROMPTS = {
-  natural: `Rewrite the following AI-generated text to sound completely natural and human-written. 
-Use varied sentence lengths, natural transitions, occasional informal phrasing, and avoid repetitive AI patterns. 
-Make it sound like a real person wrote this — with personality, natural flow, and human imperfections. 
-Do not change the core meaning. Return only the rewritten text, nothing else:`,
+  natural: `Rewrite the following AI-generated text to sound completely natural and human-written.
 
-  student: `Rewrite the following AI-generated text to sound like it was written by a university student. 
-Use a mix of formal and informal language, vary sentence structure, include natural transitions, 
-and make it sound genuine and personal. Avoid overly polished AI patterns. 
-Do not change the core meaning. Return only the rewritten text, nothing else:`,
+KEY REQUIREMENTS:
+- Vary sentence lengths dramatically — some very short, some medium, some longer. Never uniform.
+- Avoid ALL of these formulaic AI phrases: "Furthermore," "Moreover," "Additionally," "Notably," "It is worth noting that," "In conclusion," "It should be noted," "This highlights," "This underscores."
+- Use natural connectors instead: "but," "so," "though," "still," "yet," "in fact," "of course," "after all."
+- Never start multiple consecutive sentences the same way.
+- Use specific, concrete word choices — not vague filler words.
+- Occasional mild imperfections are fine — real human writing is not perfectly polished.
+- Do not change the core meaning. Return only the rewritten text, nothing else:`,
 
-  professional: `Rewrite the following AI-generated text to sound like it was written by an experienced professional. 
-Use confident, clear language with natural professional tone. Vary sentence structure to avoid AI patterns.
-Make it sound like a human expert wrote this. Do not change the core meaning. 
-Return only the rewritten text, nothing else:`,
+  student: `Rewrite the following AI-generated text to sound like it was genuinely written by a university student.
 
-  casual: `Rewrite the following AI-generated text in a casual, conversational human tone. 
-Use everyday language, contractions, varied sentence lengths, and natural expressions.
-Make it sound like someone talking naturally. Do not change the core meaning.
-Return only the rewritten text, nothing else:`
+KEY REQUIREMENTS:
+- Mix formal phrasing with more natural, slightly casual moments.
+- Use phrases like "this shows," "I think," "it seems," "which is why" naturally within the flow.
+- Vary sentence lengths — some short and direct, some more developed.
+- Avoid AI transition clichés: "Furthermore," "Moreover," "Additionally," "Notably," "It is worth noting."
+- Sound engaged and genuine, not perfectly polished or robotic.
+- Do not change the core meaning. Return only the rewritten text, nothing else:`,
+
+  professional: `Rewrite the following AI-generated text to sound like it was written by an experienced human professional.
+
+KEY REQUIREMENTS:
+- Be direct and confident — professionals get to the point without filler.
+- Vary sentence structure: some concise and punchy, some more nuanced.
+- Drop hollow AI transitions: "Furthermore," "Moreover," "Additionally," "It should be noted," "It is worth noting."
+- Use plain, precise language — specific over vague, direct over elaborate.
+- Sound like a human expert who thinks clearly, not a text generator following a template.
+- Do not change the core meaning. Return only the rewritten text, nothing else:`,
+
+  casual: `Rewrite the following AI-generated text in a casual, conversational human tone.
+
+KEY REQUIREMENTS:
+- Use contractions naturally: "it's," "that's," "you'd," "we've," "isn't."
+- Mix short, punchy sentences with occasional longer ones — like natural speech.
+- Use everyday connectors: "honestly," "basically," "actually," "look," "the thing is."
+- Avoid ALL formal AI transitions: "Furthermore," "Moreover," "Additionally," "Notably."
+- Sound like a real person talking to a friend — relaxed, direct, genuine.
+- Do not change the core meaning. Return only the rewritten text, nothing else:`
 };
 
 // ════════════════════════════════════════════
@@ -3666,6 +3700,11 @@ function countWords(text) {
 
 // Full output text (always the untruncated version — used by copy & downloads)
 let fullOutputText = '';
+let _typingTimer = null;
+
+function _cancelTyping() {
+  if (_typingTimer !== null) { clearTimeout(_typingTimer); _typingTimer = null; }
+}
 let fullOutputHTML = '';  // only set for HTML outputs (AI detect)
 
 const PREVIEW_CHARS = 300;
@@ -3873,9 +3912,13 @@ function processParaphraseOutput(text) {
   return clean.trim();
 }
 
-// Render output with optional 300-char "See more" collapse
+// Render output with optional "See more" collapse and a fast typing animation.
+// The animation streams words progressively (~700ms total regardless of length).
+// Clicking the output div skips it. isHTML path (grammar checker) skips animation.
 function renderOutput(content, isHTML) {
   const outputEl = document.getElementById('outputText');
+  _cancelTyping();
+
   if (isHTML) {
     fullOutputHTML = content;
     const tmp = document.createElement('div');
@@ -3891,17 +3934,53 @@ function renderOutput(content, isHTML) {
     enableEditing();
     return;
   }
+
+  // Set fullOutputText immediately so copy/download/score work during animation
   fullOutputText = content;
   fullOutputHTML = '';
-  if (content.length <= PREVIEW_CHARS) {
+
+  const words = content.split(' ');
+  const total = words.length;
+
+  // Skip animation for very short outputs (≤ 6 words) — just show instantly
+  if (total <= 6) {
     outputEl.innerHTML = '<span>' + escapeHtml(content) + '</span>';
     enableEditing();
     return;
   }
-  outputEl.innerHTML =
-    '<span>' + escapeHtml(content.slice(0, PREVIEW_CHARS)) + '...</span>' +
-    '<br><button class="see-more-btn" onclick="toggleSeeMore(this)">See more ↓</button>';
-  enableEditing();
+
+  // Target ~700ms total. Cap steps at 60 to keep tick intervals ≥ ~12ms.
+  const STEPS = Math.min(60, total);
+  const wordsPerStep = Math.ceil(total / STEPS);
+  const stepMs = Math.max(10, Math.round(700 / STEPS));
+
+  let revealed = 0;
+
+  function finishTyping() {
+    _typingTimer = null;
+    outputEl.removeEventListener('click', skipTyping);
+    if (content.length <= PREVIEW_CHARS) {
+      outputEl.innerHTML = '<span>' + escapeHtml(content) + '</span>';
+    } else {
+      outputEl.innerHTML =
+        '<span>' + escapeHtml(content.slice(0, PREVIEW_CHARS)) + '...</span>' +
+        '<br><button class="see-more-btn" onclick="toggleSeeMore(this)">See more ↓</button>';
+    }
+    enableEditing();
+  }
+
+  function skipTyping() { _cancelTyping(); finishTyping(); }
+  outputEl.addEventListener('click', skipTyping, { once: true });
+
+  function step() {
+    revealed = Math.min(revealed + wordsPerStep, total);
+    const current = words.slice(0, revealed).join(' ');
+    outputEl.innerHTML = '<span>' + escapeHtml(current) + '</span>';
+    if (revealed >= total) { finishTyping(); return; }
+    _typingTimer = setTimeout(step, stepMs);
+  }
+
+  step();
 }
 
 function toggleSeeMore(btn) {
@@ -3970,6 +4049,7 @@ function clearInput() {
 }
 
 function clearOutput() {
+  _cancelTyping();
   disableEditing();
   fullOutputText = '';
   fullOutputHTML = '';
