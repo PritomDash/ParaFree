@@ -7,10 +7,10 @@
 // ── RATE LIMIT CONSTANTS ──
 const HOURLY_LIMIT       = 200;              // 200 requests per hour per IP
 const HOURLY_WINDOW      = 60 * 60 * 1000;  // 1 hour
-const BURST_LIMIT        = 10;              // max requests within burst window
-const BURST_WINDOW       = 5 * 1000;        // 5 seconds
-const BURST_BLOCK        = 60 * 60 * 1000;  // block 1 hour on burst
-const DUPE_THRESHOLD     = 5;              // same text N times = bot
+const BURST_LIMIT        = 15;              // max requests within burst window
+const BURST_WINDOW       = 8 * 1000;        // 8 seconds
+const BURST_BLOCK        = 20 * 60 * 1000;  // block 20 min on burst (was 1 hour)
+const DUPE_THRESHOLD     = 8;              // same text N times = bot (was 5)
 const DUPE_BLOCK         = 30 * 60 * 1000; // block 30 mins on duplicate spam
 const MAX_TEXT_LENGTH    = 50000;
 
