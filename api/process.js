@@ -778,22 +778,44 @@ async function runChain(text, prompt, type) {
     requestCounter = (requestCounter + Math.max(chunks.length, 1)) % 100000;
     const inputWords = countWordsApprox(text);
     const isPPTX = text.includes('[SLIDE') && text.includes('[/SLIDE');
-    console.log(`[ParaFree] writing: ${chunks.length} chunk(s) × ${sampleCandidates.length} providers — concurrency=${Math.min(CHUNK_CONCURRENCY, chunks.length)} (offsets ${baseOffset}–${baseOffset + chunks.length - 1}), input=${inputWords} words, isPPTX=${isPPTX}`);
+
+    // Assign each chunk an explicit sequence number BEFORE dispatch.
+    // Chunks may complete in any order during parallel processing — the seq
+    // number is the only authoritative record of original position.
+    const indexedChunks = chunks.map((text, seq) => ({ seq, text }));
+    console.log(`[ParaFree] writing: ${indexedChunks.length} chunk(s) × ${sampleCandidates.length} providers — concurrency=${Math.min(CHUNK_CONCURRENCY, indexedChunks.length)} (offsets ${baseOffset}–${baseOffset + indexedChunks.length - 1}), input=${inputWords} words, isPPTX=${isPPTX}, seqs=[${indexedChunks.map(c => c.seq).join(',')}]`);
     const t0 = Date.now();
-    const chunkResults = await parallelLimit(
-      chunks.map((chunk, i) => () => paraphraseChunk(chunk, prompt, envKeys, baseOffset + i)),
+
+    // Each thunk returns {seq, result} so the sequence number travels with the result.
+    const rawResults = await parallelLimit(
+      indexedChunks.map(({ seq, text: chunkText }) => async () => {
+        const result = await paraphraseChunk(chunkText, prompt, envKeys, baseOffset + seq);
+        return { seq, result };
+      }),
       CHUNK_CONCURRENCY
     );
     const elapsed = Date.now() - t0;
-    const failedIdx = chunkResults.findIndex(r => r === null);
-    if (failedIdx !== -1) {
-      console.error(`[ParaFree] ❌ Chunk ${failedIdx + 1}/${chunks.length} failed all providers (total elapsed ${elapsed}ms)`);
-      return { success: false, error: "high_demand", apiStatuses: {} };
+
+    // Sort by original sequence number. parallelLimit already fills results by position,
+    // but the explicit sort makes the ordering guarantee visible and self-verifying.
+    rawResults.sort((a, b) => a.seq - b.seq);
+
+    // Verify: every seq 0..N-1 must be present exactly once with a non-null result.
+    // Any gap or failure means the document would be incomplete — abort cleanly.
+    for (let i = 0; i < indexedChunks.length; i++) {
+      if (!rawResults[i] || rawResults[i].seq !== i) {
+        console.error(`[ParaFree] ❌ Sequence gap at index ${i} — expected seq=${i}, got seq=${rawResults[i] ? rawResults[i].seq : 'undefined'}`);
+        return { success: false, error: "high_demand", apiStatuses: {} };
+      }
+      if (rawResults[i].result === null) {
+        console.error(`[ParaFree] ❌ Chunk seq=${i} (${i + 1}/${indexedChunks.length}) failed all providers (total elapsed ${elapsed}ms)`);
+        return { success: false, error: "high_demand", apiStatuses: {} };
+      }
     }
-    // chunkResults is position-indexed (parallelLimit guarantees order regardless of
-    // completion order). Join strictly by original index — no sorting, no reordering.
-    const assembled = chunkResults.join('\n\n');
-    console.log(`[ParaFree] ✅ All ${chunks.length} chunk(s) complete in ${elapsed}ms — assembled ${assembled.length} chars in original order`);
+
+    // Assemble strictly in sequence order — guaranteed by the sort + verification above.
+    const assembled = rawResults.map(r => r.result).join('\n\n');
+    console.log(`[ParaFree] ✅ All ${indexedChunks.length} chunk(s) complete in ${elapsed}ms — assembled ${assembled.length} chars, seqs verified [${rawResults.map(r => r.seq).join(',')}]`);
     return { success: true, result: assembled, usedApi: 'parallel-chunks', apiStatuses: {} };
   }
 
