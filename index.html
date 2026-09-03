@@ -779,6 +779,37 @@ const PHOTOS = {
   }
   .see-more-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
 
+  /* ── Format toolbar ── */
+  .fmt-btn {
+    width: 28px; height: 28px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: var(--surface);
+    cursor: pointer;
+    font-size: 13px;
+    display: flex; align-items: center; justify-content: center;
+    transition: border-color 0.15s, background 0.15s;
+    font-family: inherit;
+    flex-shrink: 0;
+  }
+  .fmt-btn:hover { border-color: var(--accent); background: var(--accent-light); }
+  /* Show Changes toggle in panel-header */
+  .sc-toggle {
+    display: none;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text2);
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+  }
+  .sc-toggle input[type="checkbox"] { accent-color: var(--accent); cursor: pointer; width: 14px; height: 14px; }
+  /* Word-level diff marks */
+  .diff-add { background: rgba(82,183,136,0.25); border-radius: 2px; padding: 0 1px; }
+  .diff-del { color: rgba(180,40,40,0.7); text-decoration: line-through; }
+
   /* ── Grammar errors panel ── */
   .grammar-errors-box {
     border-left: 4px solid #e74c3c;
@@ -1585,7 +1616,27 @@ const PHOTOS = {
       <div class="loading-dots" id="loadingDots">
         <span></span><span></span><span></span>
       </div>
+      <label id="showChangesWrapper" class="sc-toggle" title="Highlight words that changed vs your original input">
+        <input type="checkbox" id="showChangesToggle" onchange="toggleShowChanges(this.checked)">
+        Show Changes
+      </label>
       <span class="word-count" id="outputCount">0 words</span>
+    </div>
+    <!-- FORMAT TOOLBAR (visible after output is ready) -->
+    <div id="fmtToolbar" style="display:none;align-items:center;gap:5px;padding:6px 14px;background:var(--surface2);border-bottom:1px solid var(--border);flex-wrap:wrap;">
+      <span style="font-size:12px;font-weight:600;color:var(--text2);margin-right:2px;">Format:</span>
+      <button class="fmt-btn" onclick="applyFmt('bold')" title="Bold"><b>B</b></button>
+      <button class="fmt-btn" onclick="applyFmt('italic')" title="Italic"><i style="font-family:serif;">I</i></button>
+      <button class="fmt-btn" onclick="applyFmt('underline')" title="Underline"><u>U</u></button>
+      <button class="fmt-btn" onclick="applyFmt('strikeThrough')" title="Strikethrough"><s style="font-size:12px;">S</s></button>
+      <div style="width:1px;height:18px;background:var(--border);flex-shrink:0;margin:0 2px;"></div>
+      <div style="display:flex;align-items:center;gap:4px;">
+        <span style="font-size:11px;color:var(--text2);">Color:</span>
+        <input type="color" id="fmtColorPicker" value="#2d6a4f" onchange="applyFmtColor(this.value)" style="width:28px;height:28px;border:1px solid var(--border);border-radius:5px;cursor:pointer;padding:2px;" title="Text color">
+      </div>
+      <div style="width:1px;height:18px;background:var(--border);flex-shrink:0;margin:0 2px;"></div>
+      <button class="fmt-btn" onclick="document.execCommand('undo')" title="Undo (Ctrl+Z)">↩</button>
+      <button onclick="clearFmtAll()" style="padding:3px 9px;border:1px solid var(--border);border-radius:5px;background:var(--surface);cursor:pointer;font-size:11px;color:var(--text2);transition:border-color 0.15s;font-family:inherit;" title="Remove all formatting from selection">✕ Clear</button>
     </div>
     <div class="output-text" id="outputText">
       <span class="output-placeholder">Your paraphrased text will appear here...</span>
@@ -2989,8 +3040,13 @@ async function extractPDFText(arrayBuffer) {
 
 async function downloadOutput() {
   if (pptxMode && pptxData && pptxData.ready) { await downloadPPTX(); return; }
-  if (!fullOutputText) return;
-  const blob = new Blob([fullOutputText], { type: 'text/plain' });
+  const el = document.getElementById('outputText');
+  // Use the current edited text if contenteditable is active (captures any user edits)
+  const text = (el.contentEditable === 'true' && !showChangesActive)
+    ? (el.innerText || el.textContent || fullOutputText)
+    : fullOutputText;
+  if (!text) return;
+  const blob = new Blob([text], { type: 'text/plain' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -3154,6 +3210,7 @@ function renderGrammarOutput(raw) {
         '<div class="grammar-errors-list">' + escapeHtml(errorsText) + '</div>' +
       '</div>';
   }
+  enableEditing();
 }
 
 async function checkGrammar() {
@@ -3617,6 +3674,134 @@ function escapeHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+// ════════════════════════════════════════════
+// FORMAT TOOLBAR
+// ════════════════════════════════════════════
+let showChangesActive = false;
+let _savedOutputHTML = '';
+
+function applyFmt(cmd) {
+  document.execCommand(cmd, false, null);
+  document.getElementById('outputText').focus();
+}
+function applyFmtColor(color) {
+  document.execCommand('foreColor', false, color);
+  document.getElementById('outputText').focus();
+}
+function clearFmtAll() {
+  document.execCommand('removeFormat', false, null);
+  document.getElementById('outputText').focus();
+}
+
+function enableEditing() {
+  const el = document.getElementById('outputText');
+  // Auto-expand "See more" so the full text is editable
+  const seeMoreBtn = el.querySelector('.see-more-btn');
+  if (seeMoreBtn) {
+    if (seeMoreBtn.textContent.includes('↓')) toggleSeeMore(seeMoreBtn);
+    // Remove the resulting "See less" button and its preceding <br>
+    const leftover = el.querySelector('.see-more-btn');
+    if (leftover) { const br = leftover.previousSibling; if (br && br.nodeName === 'BR') br.remove(); leftover.remove(); }
+  }
+  el.contentEditable = 'true';
+  document.getElementById('fmtToolbar').style.display = 'flex';
+  document.getElementById('showChangesWrapper').style.display = 'flex';
+  // Reset show-changes state when new output arrives
+  if (showChangesActive) {
+    showChangesActive = false;
+    const toggle = document.getElementById('showChangesToggle');
+    if (toggle) toggle.checked = false;
+    _savedOutputHTML = '';
+  }
+}
+
+function disableEditing() {
+  const el = document.getElementById('outputText');
+  el.contentEditable = 'false';
+  document.getElementById('fmtToolbar').style.display = 'none';
+  document.getElementById('showChangesWrapper').style.display = 'none';
+  if (showChangesActive) {
+    showChangesActive = false;
+    const toggle = document.getElementById('showChangesToggle');
+    if (toggle) toggle.checked = false;
+    _savedOutputHTML = '';
+  }
+}
+
+// ════════════════════════════════════════════
+// SHOW CHANGES (word-level diff)
+// ════════════════════════════════════════════
+function toggleShowChanges(on) {
+  showChangesActive = on;
+  const el = document.getElementById('outputText');
+  if (on) {
+    _savedOutputHTML = el.innerHTML;
+    const inputText = document.getElementById('inputText').value || '';
+    const outputText = el.innerText || el.textContent || fullOutputText || '';
+    if (!outputText.trim()) { showChangesActive = false; document.getElementById('showChangesToggle').checked = false; return; }
+    el.innerHTML = computeDiffHTML(inputText, outputText);
+    el.contentEditable = 'false';
+  } else {
+    el.innerHTML = _savedOutputHTML;
+    el.contentEditable = 'true';
+  }
+}
+
+function computeDiffHTML(before, after) {
+  const bWords = before.trim().split(/\s+/).filter(Boolean);
+  const aWords = after.trim().split(/\s+/).filter(Boolean);
+  if (!aWords.length) return '';
+  if (!bWords.length) return '<span>' + aWords.map(w => '<mark class="diff-add">' + escapeHtml(w) + '</mark>').join(' ') + '</span>';
+  const ops = (bWords.length <= 2500 && aWords.length <= 2500)
+    ? lcsWordDiff(bWords, aWords)
+    : bagOfWordsDiff(bWords, aWords);
+  let html = '';
+  for (const op of ops) {
+    if (op.type === 'keep')        html += escapeHtml(op.word) + ' ';
+    else if (op.type === 'insert') html += '<mark class="diff-add">' + escapeHtml(op.word) + '</mark> ';
+    else                           html += '<del class="diff-del">' + escapeHtml(op.word) + '</del> ';
+  }
+  return '<span style="line-height:1.9">' + html.trim() + '</span>';
+}
+
+function lcsWordDiff(bWords, aWords) {
+  const m = bWords.length, n = aWords.length;
+  const norm = w => w.toLowerCase().replace(/[^\w]/g, '');
+  // Flat Uint16Array: max LCS value ≤ min(m,n) ≤ 2500, safe for Uint16
+  const dp = new Uint16Array((m + 1) * (n + 1));
+  for (let i = 1; i <= m; i++) {
+    const bi = norm(bWords[i - 1]);
+    for (let j = 1; j <= n; j++) {
+      const idx = i * (n + 1) + j;
+      dp[idx] = bi === norm(aWords[j - 1])
+        ? dp[(i - 1) * (n + 1) + (j - 1)] + 1
+        : Math.max(dp[(i - 1) * (n + 1) + j], dp[i * (n + 1) + (j - 1)]);
+    }
+  }
+  const ops = [];
+  let i = m, j = n;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && norm(bWords[i - 1]) === norm(aWords[j - 1])) {
+      ops.unshift({ type: 'keep', word: aWords[j - 1] }); i--; j--;
+    } else if (j > 0 && (i === 0 || dp[i * (n + 1) + (j - 1)] >= dp[(i - 1) * (n + 1) + j])) {
+      ops.unshift({ type: 'insert', word: aWords[j - 1] }); j--;
+    } else {
+      ops.unshift({ type: 'delete', word: bWords[i - 1] }); i--;
+    }
+  }
+  return ops;
+}
+
+function bagOfWordsDiff(bWords, aWords) {
+  const bag = Object.create(null);
+  for (const w of bWords) { const k = w.toLowerCase(); bag[k] = (bag[k] || 0) + 1; }
+  return aWords.map(w => {
+    const k = w.toLowerCase();
+    if (bag[k] > 0) { bag[k]--; return { type: 'keep', word: w }; }
+    return { type: 'insert', word: w };
+  });
+}
+
 function cleanMarkdown(text) {
   return text
     .replace(/\*\*(.+?)\*\*/gs, '$1')
@@ -3703,17 +3888,20 @@ function renderOutput(content, isHTML) {
         '<span>' + escapeHtml(fullOutputText.slice(0, PREVIEW_CHARS)) + '...</span>' +
         '<br><button class="see-more-btn" onclick="toggleSeeMore(this)">See more ↓</button>';
     }
+    enableEditing();
     return;
   }
   fullOutputText = content;
   fullOutputHTML = '';
   if (content.length <= PREVIEW_CHARS) {
     outputEl.innerHTML = '<span>' + escapeHtml(content) + '</span>';
+    enableEditing();
     return;
   }
   outputEl.innerHTML =
     '<span>' + escapeHtml(content.slice(0, PREVIEW_CHARS)) + '...</span>' +
     '<br><button class="see-more-btn" onclick="toggleSeeMore(this)">See more ↓</button>';
+  enableEditing();
 }
 
 function toggleSeeMore(btn) {
@@ -3782,6 +3970,7 @@ function clearInput() {
 }
 
 function clearOutput() {
+  disableEditing();
   fullOutputText = '';
   fullOutputHTML = '';
   const gep = document.getElementById('grammarErrorsPanel');
@@ -3808,17 +3997,47 @@ async function pasteText() {
   }
 }
 
+function _showCopied() {
+  const btn = document.getElementById('copyBtn');
+  btn.textContent = '✓ Copied!';
+  btn.classList.add('copied');
+  setTimeout(() => { btn.textContent = '⊕ Copy'; btn.classList.remove('copied'); }, 2000);
+}
+
 function copyOutput() {
+  const el = document.getElementById('outputText');
+  // In diff view: copy plain output text (not the highlighted markup)
+  if (showChangesActive) {
+    const text = fullOutputText || el.innerText || '';
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(_showCopied);
+    return;
+  }
+  // Rich copy: select all content in the editable div so formatting is preserved
+  if (el.contentEditable === 'true') {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    const ok = document.execCommand('copy');
+    sel.removeAllRanges();
+    if (ok) { _showCopied(); return; }
+    // Fallback: ClipboardItem with text/html + text/plain
+    try {
+      const item = new ClipboardItem({
+        'text/html': new Blob([el.innerHTML], { type: 'text/html' }),
+        'text/plain': new Blob([el.innerText || fullOutputText || ''], { type: 'text/plain' })
+      });
+      navigator.clipboard.write([item]).then(_showCopied);
+      return;
+    } catch (_) {}
+    // Final fallback: plain text from div
+    navigator.clipboard.writeText(el.innerText || fullOutputText || '').then(_showCopied);
+    return;
+  }
   if (!fullOutputText) return;
-  navigator.clipboard.writeText(fullOutputText).then(() => {
-    const btn = document.getElementById("copyBtn");
-    btn.textContent = "✓ Copied!";
-    btn.classList.add("copied");
-    setTimeout(() => {
-      btn.textContent = "⊕ Copy";
-      btn.classList.remove("copied");
-    }, 2000);
-  });
+  navigator.clipboard.writeText(fullOutputText).then(_showCopied);
 }
 
 function showStatus(msg, type = "info") {
