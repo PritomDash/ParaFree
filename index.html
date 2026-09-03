@@ -3738,6 +3738,15 @@ function _cancelTyping() {
 }
 let fullOutputHTML = '';  // only set for HTML outputs (AI detect)
 
+// Returns the live output text — reflects user edits when the div is in edit mode
+function getCurrentOutputText() {
+  const el = document.getElementById('outputText');
+  if (el && _editModeOn && el.contentEditable === 'true') {
+    return el.innerText || el.textContent || fullOutputText;
+  }
+  return fullOutputText;
+}
+
 const PREVIEW_CHARS = 300;
 
 function escapeHtml(s) {
@@ -3750,6 +3759,7 @@ function escapeHtml(s) {
 let showChangesActive = false;
 let _savedOutputHTML = '';
 let _editModeOn = true;
+let _userHasEdited = false;  // true once user types in the contentEditable output
 let _outputFontSize = 16;
 let _savedSelection = null;   // holds the Range saved before custom color picker opens
 
@@ -3800,15 +3810,10 @@ function adjustFontSize(delta) {
 
 function enableEditing() {
   const el = document.getElementById('outputText');
-  // Auto-expand "See more" so the full text is editable
-  const seeMoreBtn = el.querySelector('.see-more-btn');
-  if (seeMoreBtn) {
-    if (seeMoreBtn.textContent.includes('↓')) toggleSeeMore(seeMoreBtn);
-    const leftover = el.querySelector('.see-more-btn');
-    if (leftover) { const br = leftover.previousSibling; if (br && br.nodeName === 'BR') br.remove(); leftover.remove(); }
-  }
   _editModeOn = true;
+  _userHasEdited = false;
   el.contentEditable = 'true';
+  el.addEventListener('input', () => { _userHasEdited = true; }, { once: true });
   document.getElementById('fmtToolbar').style.display = 'flex';
   document.getElementById('showChangesWrapper').style.display = 'flex';
   const editBtn = document.getElementById('fmtEditToggle');
@@ -5498,12 +5503,13 @@ async function downloadPPTX() {
 // PDF DOWNLOAD
 // ════════════════════════════════════════════
 async function downloadAsPDF() {
-  if (!fullOutputText) return;
+  const currentText = getCurrentOutputText();
+  if (!currentText) return;
   setDlBtnLoading('downloadPDFBtn');
   try {
     // If original DOCX is available, use mammoth HTML + print dialog
     if (originalDocxFile && typeof mammoth !== 'undefined') {
-      await downloadPDFFromDocx(originalDocxFile, originalDocxName, fullOutputText);
+      await downloadPDFFromDocx(originalDocxFile, originalDocxName, currentText);
       return;
     }
     // Fallback: smart CV or plain text PDF
@@ -5514,11 +5520,11 @@ async function downloadAsPDF() {
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const pageW = 210, pageH = 297, margin = 20, maxW = pageW - (margin * 2);
-    const isCV = /WORK EXPERIENCE|EDUCATION|PROFESSIONAL SUMMARY|SKILLS|EMPLOYMENT/i.test(fullOutputText);
+    const isCV = /WORK EXPERIENCE|EDUCATION|PROFESSIONAL SUMMARY|SKILLS|EMPLOYMENT/i.test(currentText);
     if (isCV) {
-      renderCVPDF(pdf, fullOutputText, margin, maxW, pageW, pageH);
+      renderCVPDF(pdf, currentText, margin, maxW, pageW, pageH);
     } else {
-      renderPlainPDF(pdf, fullOutputText, margin, maxW, pageW, pageH);
+      renderPlainPDF(pdf, currentText, margin, maxW, pageW, pageH);
     }
     const origName = originalDocxName || '';
     const toolNames = { paraphrase: 'paraphrased', humanize: 'humanized', summarize: 'summary', grammar: 'grammar_checked', detect: 'ai_detection' };
@@ -5788,7 +5794,8 @@ function docxReplaceParas(xml, paraArray) {
 }
 
 async function downloadAsDOCX() {
-  if (!fullOutputText) return;
+  const currentText = getCurrentOutputText();
+  if (!currentText) return;
   setDlBtnLoading('downloadDOCXBtn');
 
   // Primary path: use stored zip + original XML (same pattern as PPTX)
@@ -5797,14 +5804,15 @@ async function downloadAsDOCX() {
       showStatus('⏳ Building document...', 'info');
 
       // Build the paragraph replacement array.
-      // Primary: position-locked map from numbered API response (no alignment drift).
-      // Fallback: split fullOutputText on double-newline (plain-text paraphrase path).
+      // Primary: position-locked map from API response — but only when the user hasn't
+      // edited the output (edits change paragraph boundaries, making the locked map stale).
+      // Fallback: split current output text on double-newline.
       let paraArray;
-      if (window._docxParaMap && window._docxParaMap.length > 0) {
+      if (window._docxParaMap && window._docxParaMap.length > 0 && !_userHasEdited) {
         paraArray = window._docxParaMap;
         console.log('[DOCX download] position-locked map:', paraArray.length, 'positions,', paraArray.filter(Boolean).length, 'filled');
       } else {
-        const cleaned = stripMarkdown(fullOutputText)
+        const cleaned = stripMarkdown(currentText)
           .replace(/`{1,3}[^`]*`{1,3}/g, '$&'.replace(/`/g, ''))
           .replace(/`+/g, '')
           .replace(/^\s*Respond in \w[\w\s]*\.?\s*$/gim, '')
