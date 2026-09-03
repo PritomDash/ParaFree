@@ -793,6 +793,17 @@ const PHOTOS = {
     flex-shrink: 0;
   }
   .fmt-btn:hover { border-color: var(--accent); background: var(--accent-light); }
+  .fmt-btn-active { border-color: var(--accent) !important; background: var(--accent-light) !important; color: var(--accent); }
+  /* Color swatches */
+  .color-swatch {
+    width: 20px; height: 20px; border-radius: 50%;
+    border: 2px solid transparent; cursor: pointer; flex-shrink: 0;
+    transition: border-color 0.12s, transform 0.1s;
+    padding: 0;
+  }
+  .color-swatch:hover { border-color: rgba(0,0,0,0.35); transform: scale(1.18); }
+  .color-custom { display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; }
+  .color-custom input[type="color"] { opacity: 0; position: absolute; width: 100%; height: 100%; cursor: pointer; border: none; padding: 0; }
   /* Show Changes toggle in panel-header */
   .sc-toggle {
     display: none;
@@ -1632,19 +1643,39 @@ const PHOTOS = {
     </div>
     <!-- FORMAT TOOLBAR (visible after output is ready) -->
     <div id="fmtToolbar" style="display:none;align-items:center;gap:5px;padding:6px 14px;background:var(--surface2);border-bottom:1px solid var(--border);flex-wrap:wrap;">
-      <span style="font-size:12px;font-weight:600;color:var(--text2);margin-right:2px;">Format:</span>
-      <button class="fmt-btn" onclick="applyFmt('bold')" title="Bold"><b>B</b></button>
-      <button class="fmt-btn" onclick="applyFmt('italic')" title="Italic"><i style="font-family:serif;">I</i></button>
-      <button class="fmt-btn" onclick="applyFmt('underline')" title="Underline"><u>U</u></button>
-      <button class="fmt-btn" onclick="applyFmt('strikeThrough')" title="Strikethrough"><s style="font-size:12px;">S</s></button>
+      <!-- Edit toggle -->
+      <button id="fmtEditToggle" class="fmt-btn fmt-btn-active" onclick="toggleEditMode()" title="Editing ON — click to lock text (prevent edits)">✏</button>
       <div style="width:1px;height:18px;background:var(--border);flex-shrink:0;margin:0 2px;"></div>
-      <div style="display:flex;align-items:center;gap:4px;">
-        <span style="font-size:11px;color:var(--text2);">Color:</span>
-        <input type="color" id="fmtColorPicker" value="#2d6a4f" onchange="applyFmtColor(this.value)" style="width:28px;height:28px;border:1px solid var(--border);border-radius:5px;cursor:pointer;padding:2px;" title="Text color">
-      </div>
+      <!-- Text style -->
+      <button class="fmt-btn" onmousedown="event.preventDefault()" onclick="applyFmt('bold')" title="Bold"><b>B</b></button>
+      <button class="fmt-btn" onmousedown="event.preventDefault()" onclick="applyFmt('italic')" title="Italic"><i style="font-family:serif;">I</i></button>
+      <button class="fmt-btn" onmousedown="event.preventDefault()" onclick="applyFmt('underline')" title="Underline"><u>U</u></button>
+      <button class="fmt-btn" onmousedown="event.preventDefault()" onclick="applyFmt('strikeThrough')" title="Strikethrough"><s style="font-size:12px;">S</s></button>
       <div style="width:1px;height:18px;background:var(--border);flex-shrink:0;margin:0 2px;"></div>
-      <button class="fmt-btn" onclick="document.execCommand('undo')" title="Undo (Ctrl+Z)">↩</button>
-      <button onclick="clearFmtAll()" style="padding:3px 9px;border:1px solid var(--border);border-radius:5px;background:var(--surface);cursor:pointer;font-size:11px;color:var(--text2);transition:border-color 0.15s;font-family:inherit;" title="Remove all formatting from selection">✕ Clear</button>
+      <!-- Color swatches -->
+      <button class="color-swatch" style="background:#111111" onmousedown="event.preventDefault()" onclick="applyFmtColor('#111111')" title="Black"></button>
+      <button class="color-swatch" style="background:#666666" onmousedown="event.preventDefault()" onclick="applyFmtColor('#666666')" title="Gray"></button>
+      <button class="color-swatch" style="background:#e63946" onmousedown="event.preventDefault()" onclick="applyFmtColor('#e63946')" title="Red"></button>
+      <button class="color-swatch" style="background:#e07b39" onmousedown="event.preventDefault()" onclick="applyFmtColor('#e07b39')" title="Orange"></button>
+      <button class="color-swatch" style="background:#2196f3" onmousedown="event.preventDefault()" onclick="applyFmtColor('#2196f3')" title="Blue"></button>
+      <button class="color-swatch" style="background:#2d6a4f" onmousedown="event.preventDefault()" onclick="applyFmtColor('#2d6a4f')" title="Green"></button>
+      <button class="color-swatch" style="background:#9c27b0" onmousedown="event.preventDefault()" onclick="applyFmtColor('#9c27b0')" title="Purple"></button>
+      <label class="color-swatch color-custom" style="background:conic-gradient(red,yellow,lime,aqua,blue,magenta,red);" title="Custom color" onmousedown="_saveSelection()">
+        <input type="color" id="fmtColorCustom" onchange="applyFmtColor(this.value)">
+      </label>
+      <div style="width:1px;height:18px;background:var(--border);flex-shrink:0;margin:0 2px;"></div>
+      <!-- Font size -->
+      <button class="fmt-btn" onmousedown="event.preventDefault()" onclick="adjustFontSize(-1)" title="Smaller text" style="font-size:11px;font-weight:700;">A−</button>
+      <button class="fmt-btn" onmousedown="event.preventDefault()" onclick="adjustFontSize(1)"  title="Larger text"  style="font-size:11px;font-weight:700;">A+</button>
+      <div style="width:1px;height:18px;background:var(--border);flex-shrink:0;margin:0 2px;"></div>
+      <!-- Alignment -->
+      <button class="fmt-btn" onmousedown="event.preventDefault()" onclick="applyFmt('justifyLeft')"   title="Align left"   style="font-size:10px;">≡L</button>
+      <button class="fmt-btn" onmousedown="event.preventDefault()" onclick="applyFmt('justifyCenter')" title="Center"       style="font-size:10px;">≡C</button>
+      <button class="fmt-btn" onmousedown="event.preventDefault()" onclick="applyFmt('justifyRight')"  title="Align right"  style="font-size:10px;">≡R</button>
+      <div style="width:1px;height:18px;background:var(--border);flex-shrink:0;margin:0 2px;"></div>
+      <!-- Undo / clear -->
+      <button class="fmt-btn" onmousedown="event.preventDefault()" onclick="document.execCommand('undo')" title="Undo (Ctrl+Z)">↩</button>
+      <button onmousedown="event.preventDefault()" onclick="clearFmtAll()" style="padding:3px 9px;border:1px solid var(--border);border-radius:5px;background:var(--surface);cursor:pointer;font-size:11px;color:var(--text2);transition:border-color 0.15s;font-family:inherit;" title="Remove all formatting from selection">✕ Clear</button>
     </div>
     <div class="output-text" id="outputText">
       <span class="output-placeholder">Your paraphrased text will appear here...</span>
@@ -3718,12 +3749,27 @@ function escapeHtml(s) {
 // ════════════════════════════════════════════
 let showChangesActive = false;
 let _savedOutputHTML = '';
+let _editModeOn = true;
+let _outputFontSize = 16;
+let _savedSelection = null;   // holds the Range saved before custom color picker opens
+
+function _saveSelection() {
+  const sel = window.getSelection();
+  if (sel && sel.rangeCount > 0) _savedSelection = sel.getRangeAt(0).cloneRange();
+}
+function _restoreSelection() {
+  if (!_savedSelection) return;
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(_savedSelection);
+}
 
 function applyFmt(cmd) {
   document.execCommand(cmd, false, null);
   document.getElementById('outputText').focus();
 }
 function applyFmtColor(color) {
+  _restoreSelection();
   document.execCommand('foreColor', false, color);
   document.getElementById('outputText').focus();
 }
@@ -3732,20 +3778,43 @@ function clearFmtAll() {
   document.getElementById('outputText').focus();
 }
 
+function toggleEditMode() {
+  _editModeOn = !_editModeOn;
+  const el  = document.getElementById('outputText');
+  const btn = document.getElementById('fmtEditToggle');
+  if (_editModeOn) {
+    el.contentEditable = 'true';
+    btn.classList.add('fmt-btn-active');
+    btn.title = 'Editing ON — click to lock text';
+  } else {
+    el.contentEditable = 'false';
+    btn.classList.remove('fmt-btn-active');
+    btn.title = 'Editing OFF — click to enable inline editing';
+  }
+}
+
+function adjustFontSize(delta) {
+  _outputFontSize = Math.max(11, Math.min(26, _outputFontSize + delta));
+  document.getElementById('outputText').style.fontSize = _outputFontSize + 'px';
+}
+
 function enableEditing() {
   const el = document.getElementById('outputText');
   // Auto-expand "See more" so the full text is editable
   const seeMoreBtn = el.querySelector('.see-more-btn');
   if (seeMoreBtn) {
     if (seeMoreBtn.textContent.includes('↓')) toggleSeeMore(seeMoreBtn);
-    // Remove the resulting "See less" button and its preceding <br>
     const leftover = el.querySelector('.see-more-btn');
     if (leftover) { const br = leftover.previousSibling; if (br && br.nodeName === 'BR') br.remove(); leftover.remove(); }
   }
+  _editModeOn = true;
   el.contentEditable = 'true';
   document.getElementById('fmtToolbar').style.display = 'flex';
   document.getElementById('showChangesWrapper').style.display = 'flex';
-  // Reset show-changes state when new output arrives
+  const editBtn = document.getElementById('fmtEditToggle');
+  if (editBtn) { editBtn.classList.add('fmt-btn-active'); editBtn.title = 'Editing ON — click to lock text'; }
+  // Clear diff cache and reset show-changes state when new output arrives
+  _diffCache = { key: null, html: null };
   if (showChangesActive) {
     showChangesActive = false;
     const toggle = document.getElementById('showChangesToggle');
@@ -3756,9 +3825,12 @@ function enableEditing() {
 
 function disableEditing() {
   const el = document.getElementById('outputText');
+  _editModeOn = false;
   el.contentEditable = 'false';
   document.getElementById('fmtToolbar').style.display = 'none';
   document.getElementById('showChangesWrapper').style.display = 'none';
+  _outputFontSize = 16;
+  el.style.fontSize = '';
   if (showChangesActive) {
     showChangesActive = false;
     const toggle = document.getElementById('showChangesToggle');
@@ -3768,14 +3840,18 @@ function disableEditing() {
 }
 
 // ════════════════════════════════════════════
-// SHOW CHANGES (word-level diff)
+// SHOW CHANGES (word-level diff — fast)
 // ════════════════════════════════════════════
+// _diffCache: avoids recomputing on every toggle.
+// Key is a fingerprint of both texts; cleared when new output arrives (enableEditing).
+let _diffCache = { key: null, html: null };
+
 function toggleShowChanges(on) {
   showChangesActive = on;
   const el = document.getElementById('outputText');
   if (on) {
     _savedOutputHTML = el.innerHTML;
-    const inputText = document.getElementById('inputText').value || '';
+    const inputText  = document.getElementById('inputText').value || '';
     const outputText = el.innerText || el.textContent || fullOutputText || '';
     if (!outputText.trim()) { showChangesActive = false; document.getElementById('showChangesToggle').checked = false; return; }
     el.innerHTML = computeDiffHTML(inputText, outputText);
@@ -3786,27 +3862,67 @@ function toggleShowChanges(on) {
   }
 }
 
+// Paragraph-level diff: split both texts into paragraphs, run word-level LCS on each
+// paragraph pair independently. Each paragraph is ~50-100 words, so each LCS is
+// <10K ops instead of a single 6M-op LCS across the entire document.
+// Result is cached — toggling off and back on is instant.
 function computeDiffHTML(before, after) {
+  // Fast fingerprint (lengths + first 80 chars of each)
+  const cacheKey = before.length + ':' + after.length + ':' + before.slice(0, 80) + ':' + after.slice(0, 80);
+  if (_diffCache.key === cacheKey) return _diffCache.html;
+
   const bWords = before.trim().split(/\s+/).filter(Boolean);
   const aWords = after.trim().split(/\s+/).filter(Boolean);
-  if (!aWords.length) return '';
-  if (!bWords.length) return '<span>' + aWords.map(w => '<mark class="diff-add">' + escapeHtml(w) + '</mark>').join(' ') + '</span>';
-  const ops = (bWords.length <= 2500 && aWords.length <= 2500)
-    ? lcsWordDiff(bWords, aWords)
-    : bagOfWordsDiff(bWords, aWords);
-  let html = '';
-  for (const op of ops) {
-    if (op.type === 'keep')        html += escapeHtml(op.word) + ' ';
-    else if (op.type === 'insert') html += '<mark class="diff-add">' + escapeHtml(op.word) + '</mark> ';
-    else                           html += '<del class="diff-del">' + escapeHtml(op.word) + '</del> ';
+  if (!aWords.length) { _diffCache = { key: cacheKey, html: '' }; return ''; }
+  if (!bWords.length) {
+    const h = '<span style="line-height:1.9">' + aWords.map(w => '<mark class="diff-add">' + escapeHtml(w) + '</mark>').join(' ') + '</span>';
+    _diffCache = { key: cacheKey, html: h }; return h;
   }
-  return '<span style="line-height:1.9">' + html.trim() + '</span>';
+
+  const bParas = before.trim().split(/\n\n+/).filter(p => p.trim());
+  const aParas = after.trim().split(/\n\n+/).filter(p => p.trim());
+
+  let html;
+
+  if (aParas.length > 1) {
+    // Multi-paragraph: LCS each paragraph pair independently (fast — small word counts)
+    const parts = aParas.map((aPara, i) => {
+      const bPara = (bParas[i] || '').trim();
+      const bW = bPara.split(/\s+/).filter(Boolean);
+      const aW = aPara.trim().split(/\s+/).filter(Boolean);
+      const ops = lcsWordDiff(bW, aW);
+      return '<p style="margin:0 0 0.75em">' + _renderDiffOps(ops) + '</p>';
+    });
+    html = '<div style="line-height:1.9">' + parts.join('') + '</div>';
+  } else if (bWords.length <= 800 && aWords.length <= 800) {
+    // Short single block: full LCS
+    html = '<span style="line-height:1.9">' + _renderDiffOps(lcsWordDiff(bWords, aWords)) + '</span>';
+  } else {
+    // Long single block: bag-of-words approximation (O(n), near-instant)
+    html = '<span style="line-height:1.9">' + _renderDiffOps(bagOfWordsDiff(bWords, aWords)) + '</span>';
+  }
+
+  _diffCache = { key: cacheKey, html };
+  return html;
 }
 
+function _renderDiffOps(ops) {
+  let h = '';
+  for (const op of ops) {
+    if (op.type === 'keep')        h += escapeHtml(op.word) + ' ';
+    else if (op.type === 'insert') h += '<mark class="diff-add">' + escapeHtml(op.word) + '</mark> ';
+    else                           h += '<del class="diff-del">' + escapeHtml(op.word) + '</del> ';
+  }
+  return h.trim();
+}
+
+// LCS word diff — O(m×n) DP on small paragraph-sized inputs.
+// Traceback uses push+reverse (O(n)) instead of unshift (O(n²)).
 function lcsWordDiff(bWords, aWords) {
+  if (!bWords.length) return aWords.map(w => ({ type: 'insert', word: w }));
+  if (!aWords.length) return bWords.map(w => ({ type: 'delete', word: w }));
   const m = bWords.length, n = aWords.length;
   const norm = w => w.toLowerCase().replace(/[^\w]/g, '');
-  // Flat Uint16Array: max LCS value ≤ min(m,n) ≤ 2500, safe for Uint16
   const dp = new Uint16Array((m + 1) * (n + 1));
   for (let i = 1; i <= m; i++) {
     const bi = norm(bWords[i - 1]);
@@ -3821,14 +3937,14 @@ function lcsWordDiff(bWords, aWords) {
   let i = m, j = n;
   while (i > 0 || j > 0) {
     if (i > 0 && j > 0 && norm(bWords[i - 1]) === norm(aWords[j - 1])) {
-      ops.unshift({ type: 'keep', word: aWords[j - 1] }); i--; j--;
+      ops.push({ type: 'keep',   word: aWords[j - 1] }); i--; j--;
     } else if (j > 0 && (i === 0 || dp[i * (n + 1) + (j - 1)] >= dp[(i - 1) * (n + 1) + j])) {
-      ops.unshift({ type: 'insert', word: aWords[j - 1] }); j--;
+      ops.push({ type: 'insert', word: aWords[j - 1] }); j--;
     } else {
-      ops.unshift({ type: 'delete', word: bWords[i - 1] }); i--;
+      ops.push({ type: 'delete', word: bWords[i - 1] }); i--;
     }
   }
-  return ops;
+  return ops.reverse();
 }
 
 function bagOfWordsDiff(bWords, aWords) {
