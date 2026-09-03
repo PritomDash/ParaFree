@@ -5022,7 +5022,17 @@ function closeBlog() {
 let pptxMode = false;
 let pptxData = null;
 
-// Return array of {spIdx, text} for every <p:sp> with <p:txBody> text >= 10 chars
+// Returns true if the shape is a title/ctrTitle/subTitle placeholder.
+// These must be left untouched — title formatting is easily broken by paraphrasing.
+function isPptxTitlePlaceholder(spXml) {
+  const typeM = spXml.match(/<p:ph\b[^>]*\btype="([^"]+)"/i);
+  if (!typeM) return false;
+  const t = typeM[1].toLowerCase();
+  return t === 'title' || t === 'ctrtitle' || t === 'subtitle';
+}
+
+// Return array of {spIdx, text, isTitle} for every <p:sp> with <p:txBody> text >= 10 chars.
+// isTitle=true items are kept in the array (for preview + download) but not sent to the API.
 function extractSpTextBoxes(slideXml) {
   const items = [];
   let spIdx = 0;
@@ -5031,7 +5041,10 @@ function extractSpTextBoxes(slideXml) {
       const parts = [];
       spXml.replace(/<a:t\b[^>]*>([\s\S]*?)<\/a:t>/g, (m, t) => parts.push(pptxDecodeXml(t)));
       const text = parts.join('').trim();
-      if (text.length >= 10) items.push({ spIdx, text });
+      if (text.length >= 10) {
+        const isTitle = isPptxTitlePlaceholder(spXml);
+        items.push({ spIdx, text, isTitle });
+      }
     }
     spIdx++;
   });
@@ -5152,7 +5165,8 @@ async function handlePPTXUpload(file) {
 async function paraphrasePPTX() {
   if (!pptxData) return;
   const { slides } = pptxData;
-  const totalItems = slides.reduce((n, s) => n + s.textBoxItems.length, 0);
+  // Only count/send body items — title placeholders are preserved unchanged
+  const totalItems = slides.reduce((n, s) => n + s.textBoxItems.filter(it => !it.isTitle).length, 0);
 
   setLoading(true);
   resetApiDots();
@@ -5166,6 +5180,8 @@ async function paraphrasePPTX() {
   const allItems = [];
   for (const slide of slides) {
     for (let ti = 0; ti < slide.textBoxItems.length; ti++) {
+      // Title/subtitle placeholders: leave untouched — never send to the AI
+      if (slide.textBoxItems[ti].isTitle) continue;
       const tag = 'SLIDE' + slide.num + '_BOX' + (ti + 1);
       allItems.push({ slide, ti, tag, tagged: '[' + tag + ']' + slide.textBoxItems[ti].text + '[/' + tag + ']' });
     }
@@ -5221,7 +5237,9 @@ async function paraphrasePPTX() {
   for (const slide of slides) {
     for (let ti = 0; ti < slide.textBoxItems.length; ti++) {
       const item = slide.textBoxItems[ti];
-      allResults.push('[Slide ' + slide.num + ', Box ' + (ti + 1) + ']\n' + (item.paraphrased || item.text));
+      // Title placeholders show as-is in preview with a label; body shows paraphrased text
+      const label = item.isTitle ? '[Slide ' + slide.num + ', Title — unchanged]\n' : '[Slide ' + slide.num + ', Box ' + (ti + 1) + ']\n';
+      allResults.push(label + (item.paraphrased || item.text));
     }
   }
 
@@ -5481,6 +5499,22 @@ function isSubstantialPara(t) {
   return t.length >= 25 && /\s/.test(t) && t.split(/\s+/).length >= 5;
 }
 
+// Returns true if the paragraph XML belongs to a heading/title style.
+// Checked against: named Word heading styles AND explicit outline levels.
+// Both extraction and replacement use this so positions stay in sync.
+function isDocxHeading(paraXml) {
+  // Primary: named paragraph style (Heading1, Heading 2, Title, Subtitle, TOCHeading)
+  const styleM = paraXml.match(/<w:pStyle\s+w:val="([^"]+)"/i);
+  if (styleM) {
+    const s = styleM[1];
+    if (/^Heading[\s\d]/i.test(s) || /^(Title|Subtitle|TOCHeading)$/i.test(s)) return true;
+  }
+  // Secondary: explicit outline level 0–8 (level 9 = body text, not a heading)
+  const lvlM = paraXml.match(/<w:outlineLvl\s+w:val="(\d+)"/i);
+  if (lvlM && parseInt(lvlM[1], 10) <= 8) return true;
+  return false;
+}
+
 // Shared skip-filters used by both extraction and mapping functions.
 function docxSkip(t) {
   if (!t || t.length < 3) return true;
@@ -5498,7 +5532,8 @@ function buildNumberedDocxText(xml) {
   const paras = [];
   (noTables.match(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g) || []).forEach(p => {
     const t = p.replace(/<[^>]+>/g, '').trim();
-    if (docxSkip(t) || !isSubstantialPara(t)) return;
+    // Skip: junk text, heading/title styles, short non-paragraph text
+    if (docxSkip(t) || isDocxHeading(p) || !isSubstantialPara(t)) return;
     paras.push(t);
   });
   return { text: paras.map((p, i) => `[${i + 1}] ${p}`).join('\n\n'), count: paras.length };
@@ -5525,7 +5560,7 @@ function extractBodyTextFromDocx(xml) {
   const paras = [];
   (noTables.match(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g) || []).forEach(p => {
     const t = p.replace(/<[^>]+>/g, '').trim();
-    if (docxSkip(t) || !isSubstantialPara(t)) return;
+    if (docxSkip(t) || isDocxHeading(p) || !isSubstantialPara(t)) return;
     paras.push(t);
   });
   return paras.join('\n\n');
@@ -5540,7 +5575,8 @@ function docxReplaceParas(xml, paraArray) {
   const result = xml.replace(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g, (para) => {
     if (para.includes('\x00TBL')) return para;
     const origText = para.replace(/<[^>]+>/g, '').trim();
-    if (docxSkip(origText) || !isSubstantialPara(origText)) return para;
+    // Headings/titles: leave completely untouched (text AND formatting preserved)
+    if (docxSkip(origText) || isDocxHeading(para) || !isSubstantialPara(origText)) return para;
     const newText = subIdx < paraArray.length ? paraArray[subIdx] : null;
     subIdx++; // position-locked: always advance for substantial paras
     if (!newText || newText.length < origText.length * 0.3) return para;
