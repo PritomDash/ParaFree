@@ -4362,7 +4362,11 @@ async function paraphrase() {
   // means headings never shift body alignment — each body para is keyed by its position
   // in the full XML, so even if the AI merges paragraphs, the matched ones land correctly.
   if (docxOriginalXml) {
-    const { bodyParas: bps, totalDocParas } = extractBodyParasWithPos(docxOriginalXml);
+    // Strip Track Changes deletion runs so <w:delText> (old deleted text) doesn't
+    // inflate the body text seen by the AI or remain in the output causing duplication.
+    const cleanDocxXml = stripDocxRevisionMarks(docxOriginalXml);
+    window._docxCleanXml = cleanDocxXml; // stored for downloadAsDOCX to use same cleaned XML
+    const { bodyParas: bps, totalDocParas } = extractBodyParasWithPos(cleanDocxXml);
     if (bps.length > 0) {
       // Tag each body para with <<<N>>> so the AI can be matched by marker, not by sequential
       // position. If the AI merges two paragraphs the missing marker means that body position
@@ -5740,16 +5744,27 @@ function isSubstantialPara(t) {
 // Checked against: named Word heading styles AND explicit outline levels.
 // Both extraction and replacement use this so positions stay in sync.
 function isDocxHeading(paraXml) {
-  // Primary: named paragraph style (Heading1, Heading 2, Title, Subtitle, TOCHeading)
+  // Primary: named paragraph style — covers Heading1, Heading 2, Heading_1, heading3, etc.
   const styleM = paraXml.match(/<w:pStyle\s+w:val="([^"]+)"/i);
   if (styleM) {
     const s = styleM[1];
-    if (/^Heading[\s\d]/i.test(s) || /^(Title|Subtitle|TOCHeading)$/i.test(s)) return true;
+    // Standard variants: "Heading1", "Heading 2", "Heading_3", case-insensitive
+    if (/^Heading[\s_\d]/i.test(s) || /^(Title|Subtitle|TOCHeading)$/i.test(s)) return true;
   }
   // Secondary: explicit outline level 0–8 (level 9 = body text, not a heading)
   const lvlM = paraXml.match(/<w:outlineLvl\s+w:val="(\d+)"/i);
   if (lvlM && parseInt(lvlM[1], 10) <= 8) return true;
   return false;
+}
+
+// Remove Track Changes deletion runs from DOCX XML before processing.
+// <w:del>...</w:del> blocks contain <w:delText> (the old, deleted text).
+// If left in, our replacement only touches <w:t> elements, leaving <w:delText>
+// intact — Word then shows both the paraphrased text AND the old deleted text,
+// which looks like duplication. Stripping <w:del> blocks first removes this.
+// <w:ins>...</w:ins> wrappers are transparent (their <w:t> children are kept).
+function stripDocxRevisionMarks(xml) {
+  return xml.replace(/<w:del\b[^>]*>[\s\S]*?<\/w:del>/g, '');
 }
 
 // Shared skip-filters used by both extraction and mapping functions.
@@ -5866,10 +5881,18 @@ function docxReplaceParasAbsolute(xml, paraArray) {
     if (para.includes('\x00TBL')) return para;
     const idx = absPos++;
     const newText = (idx < paraArray.length) ? paraArray[idx] : null;
-    if (!newText) return para; // heading, short, unmatched — keep original
     const origText = para.replace(/<[^>]+>/g, '').trim();
-    if (newText.length < origText.length * 0.3) return para; // quality guard
+    if (!newText) {
+      const kind = isDocxHeading(para) ? 'heading' : (!isSubstantialPara(origText) ? 'short/skip' : 'null-slot');
+      console.log(`[DOCX pos=${idx}] ${kind} — KEPT: "${origText.substring(0, 55)}"`);
+      return para;
+    }
+    if (newText.length < origText.length * 0.3) {
+      console.log(`[DOCX pos=${idx}] quality-guard (${newText.length} < 30% of ${origText.length}) — KEPT original`);
+      return para;
+    }
     replaced++;
+    console.log(`[DOCX pos=${idx}] REPLACED: "${origText.substring(0, 40)}" → "${newText.substring(0, 40)}"`);
     let firstDone = false;
     return para.replace(/(<w:t[^>]*>)([\s\S]*?)(<\/w:t>)/g, (m, open, txt, close) => {
       if (!txt.trim()) return m;
@@ -5916,14 +5939,22 @@ async function downloadAsDOCX() {
         console.log('[DOCX download] fallback segments:', paraArray.length);
       }
 
+      // Use the cleaned XML (Track Changes deletion runs stripped) so <w:delText>
+      // doesn't appear in the output alongside the paraphrased <w:t> content.
+      const sourceXml = window._docxCleanXml || docxOriginalXml;
+
       // Stash tables — never modified, always preserved as-is
       const tblStash = [];
-      let xml = docxOriginalXml.replace(/<w:tbl[\s\S]*?<\/w:tbl>/g, match => {
+      let xml = sourceXml.replace(/<w:tbl[\s\S]*?<\/w:tbl>/g, match => {
         tblStash.push(match);
         return '\x00TBL' + (tblStash.length - 1) + '\x00';
       });
       const stashedBodyParas = (xml.match(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g) || []).length;
-      console.log('[DOCX download] tables stashed:', tblStash.length, '— body <w:p> nodes:', stashedBodyParas);
+      console.log('[DOCX download] tables stashed:', tblStash.length, '— body <w:p> nodes:', stashedBodyParas,
+        '— expected from extraction:', window._docxTotalParas || '(not set)');
+      if (window._docxTotalParas && stashedBodyParas !== window._docxTotalParas) {
+        console.warn(`[DOCX download] ⚠️ para count mismatch: extraction saw ${window._docxTotalParas}, download sees ${stashedBodyParas} — positions may be off`);
+      }
 
       // Absolute mode: each paraArray slot corresponds to the paragraph at that absolute
       // document position (null = keep original). Body-relative fallback uses sequential subIdx.
