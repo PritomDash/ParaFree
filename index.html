@@ -4357,17 +4357,19 @@ async function paraphrase() {
   let docxParaCount = 0;
   window._docxParaMap = null;
 
-  // DOCX mode: send plain body text (no [N] markers).
-  // Global [N] numbering caused corruption when AI models renumbered from [1]
-  // within each parallel chunk — chunk 2's [1] overwrote chunk 1's position 0.
-  // Fix: send plain paragraphs, map results back positionally after joining.
+  // DOCX mode: extract body paragraphs tagged with their ABSOLUTE document position.
+  // Sending plain text (no [N] markers) avoids AI renumbering. Using absolute positions
+  // means headings never shift body alignment — each body para is keyed by its position
+  // in the full XML, so even if the AI merges paragraphs, the matched ones land correctly.
   if (docxOriginalXml) {
-    const bodyText = extractBodyTextFromDocx(docxOriginalXml);
-    const bodyParas = bodyText ? bodyText.split(/\n\n+/).filter(p => p.trim()) : [];
-    if (bodyParas.length > 0) {
-      apiText = bodyParas.join('\n\n');
-      docxParaCount = bodyParas.length;
-      console.log('[DOCX] sending', docxParaCount, 'plain paragraphs to API (no [N] markers)');
+    const { bodyParas: bps, totalDocParas } = extractBodyParasWithPos(docxOriginalXml);
+    if (bps.length > 0) {
+      apiText = bps.map(b => b.text).join('\n\n');
+      window._docxBodyParas = bps;
+      window._docxTotalParas = totalDocParas;
+      docxParaCount = bps.length;
+      console.log(`[DOCX] sending ${docxParaCount} body paras (of ${totalDocParas} total) — absolute-position mode`);
+      console.log('[DOCX] body para positions:', bps.map(b => b.docPos).join(', '));
     }
   }
 
@@ -4389,20 +4391,27 @@ async function paraphrase() {
       .trim();
     let displayText = cleanResult;
     if (docxParaCount > 0) {
-      // Positional mapping: split by blank lines, map result[i] → original position i.
-      // This is robust against AI renumbering (there are no numbers to renumber).
-      // If the AI merges paragraphs (fewer results), unmatched positions stay null
-      // and docxReplaceParas keeps the original DOCX text for those positions.
+      // Absolute-position mapping: each result para is stored at its ORIGINAL document
+      // position (docPos), not a body-relative index. Headings never occupy a slot —
+      // their docPos values stay null in the map and are kept as-is during replacement.
+      // If the AI returns fewer paragraphs, unmatched body positions stay null →
+      // docxReplaceParasAbsolute keeps the original DOCX text for those paragraphs.
       const resultParas = cleanResult.split(/\n\n+/).filter(p => p.trim());
-      window._docxParaMap = new Array(docxParaCount).fill(null);
-      for (let i = 0; i < Math.min(docxParaCount, resultParas.length); i++) {
+      const bps = window._docxBodyParas || [];
+      const totalDocParas = window._docxTotalParas || docxParaCount;
+      window._docxParaMap = new Array(totalDocParas).fill(null);
+      window._docxParaMapMode = 'absolute';
+      for (let i = 0; i < Math.min(bps.length, resultParas.length); i++) {
         const p = resultParas[i].trim();
-        if (p) window._docxParaMap[i] = p;
+        if (p) {
+          window._docxParaMap[bps[i].docPos] = p;
+          console.log(`[DOCX] map body[${i}] docPos=${bps[i].docPos} → "${p.substring(0, 60)}${p.length > 60 ? '…' : ''}"`);
+        }
       }
       const filled = window._docxParaMap.filter(p => p !== null).length;
-      console.log(`[DOCX] positional map: ${filled}/${docxParaCount} positions filled (result had ${resultParas.length} paras)`);
+      console.log(`[DOCX] abs map: ${filled}/${docxParaCount} body positions filled (result had ${resultParas.length} paras, doc has ${totalDocParas} total)`);
       if (resultParas.length !== docxParaCount) {
-        console.warn(`[DOCX] count mismatch: expected ${docxParaCount}, got ${resultParas.length} — ${resultParas.length < docxParaCount ? 'short positions keep original DOCX text' : 'extra paras truncated'}`);
+        console.warn(`[DOCX] count mismatch: expected ${docxParaCount} body paras, got ${resultParas.length} — ${resultParas.length < docxParaCount ? 'short positions keep original DOCX text' : 'extra paras truncated'}`);
       }
     }
     const processedResult = processParaphraseOutput(displayText);
@@ -5794,6 +5803,23 @@ function extractBodyTextFromDocx(xml) {
   return paras.join('\n\n');
 }
 
+// Extracts body paragraphs tagged with their ABSOLUTE document position.
+// Returns { bodyParas: [{docPos, text}], totalDocParas }.
+// docPos is the paragraph's index in the full XML list (0-based, excluding tables).
+// Headings, short, and junk paragraphs are skipped from bodyParas but still
+// counted in docPos — so absolute positions are stable regardless of heading count.
+function extractBodyParasWithPos(xml) {
+  const noTables = xml.replace(/<w:tbl[\s\S]*?<\/w:tbl>/g, '');
+  const allParas = noTables.match(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g) || [];
+  const bodyParas = [];
+  allParas.forEach((p, docPos) => {
+    const t = p.replace(/<[^>]+>/g, '').trim();
+    if (docxSkip(t) || isDocxHeading(p) || !isSubstantialPara(t)) return;
+    bodyParas.push({ docPos, text: t });
+  });
+  return { bodyParas, totalDocParas: allParas.length };
+}
+
 // Paragraph-level DOCX text replacement.
 // paraArray is position-indexed (from parseNumberedParagraphs or flat split fallback).
 // subIdx tracks which substantial paragraph we're at — always increments for substantial
@@ -5819,6 +5845,34 @@ function docxReplaceParas(xml, paraArray) {
   return result;
 }
 
+// Absolute-position paragraph replacement.
+// paraArray is indexed by ABSOLUTE document position (0-based, same order as the
+// XML walk, tables excluded). Slots that are null keep their original text — this
+// covers headings, short paragraphs, and any position where the AI produced fewer
+// results than expected. No body-relative counter: every paragraph's docPos is its
+// own key, so skipped headings never shift the alignment of subsequent body text.
+function docxReplaceParasAbsolute(xml, paraArray) {
+  let absPos = 0;
+  let replaced = 0;
+  const result = xml.replace(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g, (para) => {
+    if (para.includes('\x00TBL')) return para;
+    const idx = absPos++;
+    const newText = (idx < paraArray.length) ? paraArray[idx] : null;
+    if (!newText) return para; // heading, short, unmatched — keep original
+    const origText = para.replace(/<[^>]+>/g, '').trim();
+    if (newText.length < origText.length * 0.3) return para; // quality guard
+    replaced++;
+    let firstDone = false;
+    return para.replace(/(<w:t[^>]*>)([\s\S]*?)(<\/w:t>)/g, (m, open, txt, close) => {
+      if (!txt.trim()) return m;
+      if (!firstDone) { firstDone = true; return open + pptxEncodeXml(newText) + close; }
+      return open + close;
+    });
+  });
+  console.log(`[DOCX] abs-replace: walked ${absPos} paras, replaced ${replaced}/${paraArray.filter(Boolean).length} filled slots`);
+  return result;
+}
+
 async function downloadAsDOCX() {
   const currentText = getCurrentOutputText();
   if (!currentText) return;
@@ -5834,9 +5888,11 @@ async function downloadAsDOCX() {
       // edited the output (edits change paragraph boundaries, making the locked map stale).
       // Fallback: split current output text on double-newline.
       let paraArray;
+      let useAbsoluteReplace = false;
       if (window._docxParaMap && window._docxParaMap.length > 0 && !_userHasEdited) {
         paraArray = window._docxParaMap;
-        console.log('[DOCX download] position-locked map:', paraArray.length, 'positions,', paraArray.filter(Boolean).length, 'filled');
+        useAbsoluteReplace = (window._docxParaMapMode === 'absolute');
+        console.log(`[DOCX download] ${useAbsoluteReplace ? 'absolute-position' : 'body-relative'} map: ${paraArray.length} slots, ${paraArray.filter(Boolean).length} filled`);
       } else {
         const cleaned = stripMarkdown(currentText)
           .replace(/`{1,3}[^`]*`{1,3}/g, '$&'.replace(/`/g, ''))
@@ -5861,7 +5917,9 @@ async function downloadAsDOCX() {
       const stashedBodyParas = (xml.match(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g) || []).length;
       console.log('[DOCX download] tables stashed:', tblStash.length, '— body <w:p> nodes:', stashedBodyParas);
 
-      xml = docxReplaceParas(xml, paraArray);
+      // Absolute mode: each paraArray slot corresponds to the paragraph at that absolute
+      // document position (null = keep original). Body-relative fallback uses sequential subIdx.
+      xml = useAbsoluteReplace ? docxReplaceParasAbsolute(xml, paraArray) : docxReplaceParas(xml, paraArray);
 
       // Restore tables unchanged
       tblStash.forEach((tbl, i) => {
