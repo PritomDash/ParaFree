@@ -4364,11 +4364,15 @@ async function paraphrase() {
   if (docxOriginalXml) {
     const { bodyParas: bps, totalDocParas } = extractBodyParasWithPos(docxOriginalXml);
     if (bps.length > 0) {
-      apiText = bps.map(b => b.text).join('\n\n');
+      // Tag each body para with <<<N>>> so the AI can be matched by marker, not by sequential
+      // position. If the AI merges two paragraphs the missing marker means that body position
+      // keeps its original text — no cascade shift onto subsequent paragraphs.
+      apiText = bps.map((b, i) => `<<<${i + 1}>>> ${b.text}`).join('\n\n');
       window._docxBodyParas = bps;
       window._docxTotalParas = totalDocParas;
       docxParaCount = bps.length;
-      console.log(`[DOCX] sending ${docxParaCount} body paras (of ${totalDocParas} total) — absolute-position mode`);
+      apiPrompt = apiPrompt + '\n\nPOSITION MARKERS: Each paragraph begins with <<<N>>> where N is its position number. You MUST keep these markers EXACTLY as-is at the start of each paragraph. Only paraphrase the text that follows the marker on the same line. Never remove, renumber, or move markers. Never merge two marked paragraphs into one.';
+      console.log(`[DOCX] sending ${docxParaCount} body paras (of ${totalDocParas} total) — marker mode`);
       console.log('[DOCX] body para positions:', bps.map(b => b.docPos).join(', '));
     }
   }
@@ -4391,27 +4395,31 @@ async function paraphrase() {
       .trim();
     let displayText = cleanResult;
     if (docxParaCount > 0) {
-      // Absolute-position mapping: each result para is stored at its ORIGINAL document
-      // position (docPos), not a body-relative index. Headings never occupy a slot —
-      // their docPos values stay null in the map and are kept as-is during replacement.
-      // If the AI returns fewer paragraphs, unmatched body positions stay null →
-      // docxReplaceParasAbsolute keeps the original DOCX text for those paragraphs.
-      const resultParas = cleanResult.split(/\n\n+/).filter(p => p.trim());
+      // Marker-based mapping: each result paragraph starts with <<<N>>> which was inserted
+      // before the API call. Parse by marker so each paragraph lands at its correct docPos
+      // even when the AI changes paragraph count. Missing markers = keep original DOCX text.
       const bps = window._docxBodyParas || [];
       const totalDocParas = window._docxTotalParas || docxParaCount;
       window._docxParaMap = new Array(totalDocParas).fill(null);
       window._docxParaMapMode = 'absolute';
-      for (let i = 0; i < Math.min(bps.length, resultParas.length); i++) {
-        const p = resultParas[i].trim();
-        if (p) {
-          window._docxParaMap[bps[i].docPos] = p;
-          console.log(`[DOCX] map body[${i}] docPos=${bps[i].docPos} → "${p.substring(0, 60)}${p.length > 60 ? '…' : ''}"`);
+      // Strip markers from display text so the user sees clean output
+      displayText = cleanResult.replace(/^<<<\d+>>>\s*/gm, '');
+      // Parse each <<<N>>> block: find the marker, then take everything until the next marker
+      const markerRe = /<<<(\d+)>>>\s*([\s\S]*?)(?=<<<\d+>>>|$)/g;
+      let match, filled = 0;
+      while ((match = markerRe.exec(cleanResult)) !== null) {
+        const markerN = parseInt(match[1], 10);
+        const paraText = match[2].trim();
+        const bpIdx = markerN - 1; // <<<N>>> is 1-based
+        if (bpIdx >= 0 && bpIdx < bps.length && paraText) {
+          window._docxParaMap[bps[bpIdx].docPos] = paraText;
+          filled++;
+          console.log(`[DOCX] marker <<<${markerN}>>> docPos=${bps[bpIdx].docPos} → "${paraText.substring(0, 60)}${paraText.length > 60 ? '…' : ''}"`);
         }
       }
-      const filled = window._docxParaMap.filter(p => p !== null).length;
-      console.log(`[DOCX] abs map: ${filled}/${docxParaCount} body positions filled (result had ${resultParas.length} paras, doc has ${totalDocParas} total)`);
-      if (resultParas.length !== docxParaCount) {
-        console.warn(`[DOCX] count mismatch: expected ${docxParaCount} body paras, got ${resultParas.length} — ${resultParas.length < docxParaCount ? 'short positions keep original DOCX text' : 'extra paras truncated'}`);
+      console.log(`[DOCX] marker map: ${filled}/${docxParaCount} body positions filled`);
+      if (filled < docxParaCount) {
+        console.warn(`[DOCX] ${docxParaCount - filled} markers missing from AI response — those positions keep original DOCX text`);
       }
     }
     const processedResult = processParaphraseOutput(displayText);
