@@ -1034,6 +1034,9 @@ footer p { margin: 0; font-size: 13px; color: #999; }
   .engine-bar { gap: 8px; }
   .tool-btn { font-size: 11px; padding: 3px 7px; }
   pre, code { overflow-x: auto; max-width: 100%; }
+  /* Prevent iOS Safari auto-zoom on input focus (triggers when font-size < 16px) */
+  #chatInput { font-size: 16px; }
+  #previewEditInput { font-size: 16px !important; }
 }
 
 /* ── Reduced motion ── */
