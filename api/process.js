@@ -674,19 +674,21 @@ function buildWritingCandidates(text, prompt, keys) {
   const add = (name, fn, keyOk = true) => {
     if (keyOk) c.push({ name, fn });
   };
-  // ── Tier 1: fast, confirmed reliable ──
-  add("mistral",    () => callMistral(text, prompt, MISTRAL_KEY),                    validKey(MISTRAL_KEY));
-  add("groq",       () => callGroq(text, prompt, GROQ_KEY),                          validKey(GROQ_KEY));
-  add("cloudflare", () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT),          cfOk);
-  add("nvidia",     () => callNvidia(text, prompt, NVIDIA_KEY),                      validKey(NVIDIA_KEY));
+  // ── Tier 1: highest free-tier capacity first ──
+  // Gemini: ~60 RPM / 1500 RPD free. Groq: ~30 RPM free. Both handle cold-start bursts well.
   add("gemini",     () => callGemini(text, prompt, GEMINI_KEY),                      validKey(GEMINI_KEY));
-  // ── Tier 2: free tier, rate-limited but generally functional ──
-  add("openrouter", () => callOpenRouter(text, prompt, OPENROUTER_KEY),              validKey(OPENROUTER_KEY));
-  add("ovhcloud",   () => callOVHcloud(text, prompt),                                true); // no key needed
-  // ── Tier 3: billing-walled or high-latency — kept for future revival ──
-  add("glm",        () => callGLM(text, prompt, GLM_KEY),                            validKey(GLM_KEY));
+  add("groq",       () => callGroq(text, prompt, GROQ_KEY),                          validKey(GROQ_KEY));
   add("sambanova",  () => callSambaNova(text, prompt, SAMBANOVA_KEY),                validKey(SAMBANOVA_KEY));
+  add("ovhcloud",   () => callOVHcloud(text, prompt),                                true); // no key needed
+  add("openrouter", () => callOpenRouter(text, prompt, OPENROUTER_KEY),              validKey(OPENROUTER_KEY));
+  add("cloudflare", () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT),          cfOk);
+  // ── Tier 2: small free quota — absorbs overflow only ──
+  // Mistral free tier is ~1-5 RPM on La Plateforme — too low to be primary.
+  add("mistral",    () => callMistral(text, prompt, MISTRAL_KEY),                    validKey(MISTRAL_KEY));
+  add("glm",        () => callGLM(text, prompt, GLM_KEY),                            validKey(GLM_KEY));
   add("deepseek",   () => callDeepSeek(text, prompt, DEEPSEEK_KEY),                 validKey(DEEPSEEK_KEY));
+  // ── NVIDIA: last — free credits are one-time and likely exhausted ──
+  add("nvidia",     () => callNvidia(text, prompt, NVIDIA_KEY),                      validKey(NVIDIA_KEY));
   // ── Extra slots: unused placeholders — populated when new providers are added ──
   add("extra1",     () => callExtra(text, prompt, EXTRA1_KEY, "Extra1"),             validKey(EXTRA1_KEY));
   add("extra2",     () => callExtra(text, prompt, EXTRA2_KEY, "Extra2"),             validKey(EXTRA2_KEY));
@@ -706,10 +708,12 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset) {
     return null;
   }
   const n = candidates.length;
-  const start = startOffset % n;
+  // Random start spreads cold-start bursts across all providers even when
+  // requestCounter resets to 0 on a new Vercel instance (stateless, no shared state needed).
+  const start = Math.floor(Math.random() * n);
   const rotated = [...candidates.slice(start), ...candidates.slice(0, start)];
   const chunkStart = Date.now();
-  console.log(`[ParaFree] paraphraseChunk: ${chunkText.length} chars, ${candidates.length} providers, offset=${start}`);
+  console.log(`[ParaFree] paraphraseChunk: ${chunkText.length} chars, ${candidates.length} providers, rand-offset=${start}`);
   for (const c of rotated) {
     const t0 = Date.now();
     try {
@@ -733,7 +737,8 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset) {
 }
 
 // ── MAIN API CHAIN ──
-// Writing:  parallel chunks — each chunk starts at a different provider (spread load)
+// Writing:  parallel chunks — each chunk starts at a random provider offset (cold-start safe)
+//           Chain order: Gemini → Groq → SambaNova → OVHcloud → OpenRouter → Cloudflare → Mistral → GLM → DeepSeek → NVIDIA
 // AI chat:  Gemini → Cerebras → Groq-70b → DeepSeek → Qwen → Mistral → Cloudflare → SambaNova → NVIDIA → Extras
 // CV extract: Gemini → Groq-70b → Cerebras → Mistral → Cloudflare
 async function runChain(text, prompt, type) {
@@ -783,7 +788,7 @@ async function runChain(text, prompt, type) {
     // Chunks may complete in any order during parallel processing — the seq
     // number is the only authoritative record of original position.
     const indexedChunks = chunks.map((text, seq) => ({ seq, text }));
-    console.log(`[ParaFree] writing: ${indexedChunks.length} chunk(s) × ${sampleCandidates.length} providers — concurrency=${Math.min(CHUNK_CONCURRENCY, indexedChunks.length)} (offsets ${baseOffset}–${baseOffset + indexedChunks.length - 1}), input=${inputWords} words, isPPTX=${isPPTX}, seqs=[${indexedChunks.map(c => c.seq).join(',')}]`);
+    console.log(`[ParaFree] writing: ${indexedChunks.length} chunk(s) × ${sampleCandidates.length} providers — concurrency=${Math.min(CHUNK_CONCURRENCY, indexedChunks.length)} (rand-offset per chunk), input=${inputWords} words, isPPTX=${isPPTX}, seqs=[${indexedChunks.map(c => c.seq).join(',')}]`);
     const t0 = Date.now();
 
     // Each thunk returns {seq, result} so the sequence number travels with the result.
