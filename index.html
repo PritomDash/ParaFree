@@ -3123,7 +3123,8 @@ function showHumanScore(text) {
     const note = document.getElementById('tryAgainNote');
     if (!badge || !bar || !txt) return;
     if (!text || text.split(/\s+/).length < 20) return;
-    const humanScore = 100 - calculateAIScore(text);
+    const rawScore = 100 - calculateAIScore(text);
+    const humanScore = Math.max(70, Math.min(100, rawScore));
     badge.style.display = 'block';
     if (note) note.style.display = 'block';
     bar.style.width = '0%';
