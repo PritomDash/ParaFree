@@ -491,6 +491,7 @@ const PHOTOS = {
     border-radius: var(--radius);
     padding: 6px;
     width: fit-content;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
   }
 
   .tool-tab {
@@ -514,6 +515,7 @@ const PHOTOS = {
   .tool-tab.active {
     background: var(--accent);
     color: white;
+    box-shadow: 0 2px 8px rgba(45,106,79,0.25);
   }
 
   .home-chip {
@@ -710,7 +712,10 @@ const PHOTOS = {
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.06);
+    transition: box-shadow 0.2s;
   }
+  .panel:hover { box-shadow: 0 4px 24px rgba(0,0,0,0.09); }
 
   .panel-header {
     padding: 14px 18px;
@@ -958,9 +963,10 @@ const PHOTOS = {
     display: flex;
     align-items: center;
     gap: 10px;
+    box-shadow: 0 4px 16px rgba(45,106,79,0.3);
   }
 
-  .btn-paraphrase:hover { background: #245a41; transform: translateY(-1px); }
+  .btn-paraphrase:hover { background: #245a41; transform: translateY(-2px); box-shadow: 0 6px 24px rgba(45,106,79,0.4); }
   .btn-paraphrase:active { transform: translateY(0); }
   .btn-paraphrase:disabled { background: var(--text3); cursor: not-allowed; transform: none; }
 
