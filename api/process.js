@@ -674,21 +674,21 @@ function buildWritingCandidates(text, prompt, keys) {
   const add = (name, fn, keyOk = true) => {
     if (keyOk) c.push({ name, fn });
   };
-  // ── Tier 1: highest free-tier capacity first ──
-  // Gemini: ~60 RPM / 1500 RPD free. Groq: ~30 RPM free. Both handle cold-start bursts well.
+  // ── Tier 1: confirmed working, highest free-tier capacity ──
   add("gemini",     () => callGemini(text, prompt, GEMINI_KEY),                      validKey(GEMINI_KEY));
   add("groq",       () => callGroq(text, prompt, GROQ_KEY),                          validKey(GROQ_KEY));
-  add("sambanova",  () => callSambaNova(text, prompt, SAMBANOVA_KEY),                validKey(SAMBANOVA_KEY));
-  add("ovhcloud",   () => callOVHcloud(text, prompt),                                true); // no key needed
-  add("openrouter", () => callOpenRouter(text, prompt, OPENROUTER_KEY),              validKey(OPENROUTER_KEY));
   add("cloudflare", () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT),          cfOk);
-  // ── Tier 2: small free quota — absorbs overflow only ──
+  // ── Tier 2: small free quota but working — absorbs overflow ──
   // Mistral free tier is ~1-5 RPM on La Plateforme — too low to be primary.
   add("mistral",    () => callMistral(text, prompt, MISTRAL_KEY),                    validKey(MISTRAL_KEY));
   add("glm",        () => callGLM(text, prompt, GLM_KEY),                            validKey(GLM_KEY));
   add("deepseek",   () => callDeepSeek(text, prompt, DEEPSEEK_KEY),                 validKey(DEEPSEEK_KEY));
-  // ── NVIDIA: last — free credits are one-time and likely exhausted ──
+  // ── NVIDIA: one-time credits, likely exhausted ──
   add("nvidia",     () => callNvidia(text, prompt, NVIDIA_KEY),                      validKey(NVIDIA_KEY));
+  // ── Currently not working — kept as last-resort fallbacks ──
+  add("sambanova",  () => callSambaNova(text, prompt, SAMBANOVA_KEY),                validKey(SAMBANOVA_KEY));
+  add("openrouter", () => callOpenRouter(text, prompt, OPENROUTER_KEY),              validKey(OPENROUTER_KEY));
+  add("ovhcloud",   () => callOVHcloud(text, prompt),                                true); // no key needed
   // ── Extra slots: unused placeholders — populated when new providers are added ──
   add("extra1",     () => callExtra(text, prompt, EXTRA1_KEY, "Extra1"),             validKey(EXTRA1_KEY));
   add("extra2",     () => callExtra(text, prompt, EXTRA2_KEY, "Extra2"),             validKey(EXTRA2_KEY));
@@ -738,7 +738,7 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset) {
 
 // ── MAIN API CHAIN ──
 // Writing:  parallel chunks — each chunk starts at a random provider offset (cold-start safe)
-//           Chain order: Gemini → Groq → SambaNova → OVHcloud → OpenRouter → Cloudflare → Mistral → GLM → DeepSeek → NVIDIA
+//           Chain order: Gemini → Groq → Cloudflare → Mistral → GLM → DeepSeek → NVIDIA → SambaNova → OpenRouter → OVHcloud
 // AI chat:  Gemini → Cerebras → Groq-70b → DeepSeek → Qwen → Mistral → Cloudflare → SambaNova → NVIDIA → Extras
 // CV extract: Gemini → Groq-70b → Cerebras → Mistral → Cloudflare
 async function runChain(text, prompt, type) {
