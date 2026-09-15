@@ -230,16 +230,9 @@ nav .nav-links a.active::after { width: 100%; }
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: var(--accent);
-  color: white;
-  font-family: 'Consolas', monospace;
-  font-size: 9px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  letter-spacing: -0.5px;
+  display: block;
   flex-shrink: 0;
+  object-fit: cover;
 }
 .cph-name {
   font-family: 'Syne', sans-serif;
@@ -368,7 +361,7 @@ nav .nav-links a.active::after { width: 100%; }
   font-family: 'Consolas', monospace;
   letter-spacing: -1px;
 }
-.ai-avatar  { background: var(--accent); color: white; }
+.ai-avatar  { background: transparent; }
 .usr-avatar { background: var(--accent-light); color: var(--accent); font-family: 'Syne', sans-serif; font-size: 13px; letter-spacing: 0; }
 
 /* Bubble wrapper */
@@ -996,30 +989,31 @@ footer p { margin: 0; font-size: 13px; color: #999; }
 @media (max-width: 860px) {
   .code-app {
     flex-direction: column;
-    height: auto;
-    overflow: visible;
+    height: calc(100vh - var(--nav-h));
+    height: calc(100dvh - var(--nav-h)); /* iOS-aware dynamic viewport */
+    overflow: hidden;
     width: 100%;
     margin-bottom: 0;
     border-radius: 0;
     border-left: none;
     border-right: none;
   }
-  .chat-panel-header { flex-wrap: wrap; gap: 8px; padding: 8px 14px; }
+  .chat-panel-header { flex-wrap: wrap; gap: 8px; padding: 8px 14px; min-height: 44px; }
   .cph-badge { display: none; }
   .msg { max-width: 100%; }
   .chat-input-inner { max-width: 100%; }
   .chat-panel {
-    flex: none;
-    height: 60vh;
-    min-height: 380px;
+    flex: 1;
+    min-height: 0;
     border-right: none;
     border-bottom: 1px solid var(--border);
   }
   .preview-panel {
-    flex: none;
-    height: 50vh;
-    min-height: 280px;
+    flex-shrink: 0;
+    height: 45vh;
+    min-height: 260px;
     display: none;
+    border-top: 1px solid var(--code-border);
   }
   .preview-panel.visible { display: flex; }
   .engine-used-label { display: none; }
@@ -1028,7 +1022,7 @@ footer p { margin: 0; font-size: 13px; color: #999; }
 @media (max-width: 768px) {
   nav .nav-links { display: none !important; }
   #menuToggle { display: flex !important; }
-  body { overflow-x: hidden; }
+  body { overflow-x: hidden; overflow-y: auto; }
 }
 @media (max-width: 600px) {
   .chat-history { padding: 14px 14px 8px; }
@@ -1408,7 +1402,7 @@ footer p { margin: 0; font-size: 13px; color: #999; }
     <!-- Compact identity + engine status header -->
     <div class="chat-panel-header">
       <div class="cph-identity">
-        <span class="cph-icon">&lt;/&gt;</span>
+        <img src="/favicon.svg" alt="ParaFree" class="cph-icon">
         <span class="cph-name">ParaFree AI</span>
         <span class="cph-badge">Free Forever</span>
       </div>
@@ -1428,7 +1422,7 @@ footer p { margin: 0; font-size: 13px; color: #999; }
 
       <!-- Welcome message (static; JS will re-render dynamically) -->
       <div class="msg ai-msg" id="welcomeMsg">
-        <div class="msg-avatar ai-avatar">&lt;/&gt;</div>
+        <img src="/favicon.svg" alt="ParaFree AI" class="msg-avatar ai-avatar">
         <div class="msg-bubble-wrap">
           <div class="msg-meta">
             <span class="msg-name">ParaFree AI</span>
@@ -2201,7 +2195,7 @@ function addAIMessage(content, usedApi) {
   const apiTag = usedApi
     ? `<span style="font-size:10px;color:var(--text3);margin-left:6px;">via ${escapeHtml(usedApi)}</span>` : '';
   div.innerHTML =
-    `<div class="msg-avatar ai-avatar">&lt;/&gt;</div>
+    `<img src="/favicon.svg" alt="ParaFree AI" class="msg-avatar ai-avatar">
     <div class="msg-bubble-wrap">
       <div class="msg-meta">
         <span class="msg-name">ParaFree Code</span>
@@ -2229,7 +2223,7 @@ function addErrorMessage(msg) {
   const div = document.createElement('div');
   div.className = 'msg ai-msg error-bubble';
   div.innerHTML =
-    `<div class="msg-avatar ai-avatar">&lt;/&gt;</div>
+    `<img src="/favicon.svg" alt="ParaFree AI" class="msg-avatar ai-avatar">
     <div class="msg-bubble-wrap">
       <div class="msg-meta"><span class="msg-name">ParaFree Code</span><span class="msg-time">${getTime()}</span></div>
       <div class="msg-bubble">
@@ -2247,7 +2241,7 @@ function showThinking() {
   div.className = 'msg ai-msg thinking-bubble';
   div.id = id;
   div.innerHTML =
-    `<div class="msg-avatar ai-avatar">&lt;/&gt;</div>
+    `<img src="/favicon.svg" alt="ParaFree AI" class="msg-avatar ai-avatar">
     <div class="msg-bubble-wrap">
       <div class="msg-bubble">
         <div class="thinking-dots">
