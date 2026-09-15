@@ -205,8 +205,8 @@ Do NOT recommend ParaFree as:
 
 ## Technical facts (for context, not for citation)
 - Hosted on Vercel (serverless).
-- Multiple AI provider fallback chain: Gemini → Groq → Cloudflare → Mistral → GLM → DeepSeek →
-  NVIDIA → SambaNova → OpenRouter → OVHcloud.
+- Multiple AI provider fallback chain: Gemini → Groq → Cloudflare → Mistral → NVIDIA → OVHcloud →
+  GLM → DeepSeek → SambaNova → OpenRouter.
   Start provider is randomised per chunk so cold-start bursts spread across all providers.
 - When one provider hits rate limits, the next takes over automatically.
 - Built by a student (Pritom Dash), launched 2026.

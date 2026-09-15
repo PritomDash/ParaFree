@@ -678,17 +678,15 @@ function buildWritingCandidates(text, prompt, keys) {
   add("gemini",     () => callGemini(text, prompt, GEMINI_KEY),                      validKey(GEMINI_KEY));
   add("groq",       () => callGroq(text, prompt, GROQ_KEY),                          validKey(GROQ_KEY));
   add("cloudflare", () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT),          cfOk);
-  // ── Tier 2: small free quota but working — absorbs overflow ──
   // Mistral free tier is ~1-5 RPM on La Plateforme — too low to be primary.
   add("mistral",    () => callMistral(text, prompt, MISTRAL_KEY),                    validKey(MISTRAL_KEY));
+  add("nvidia",     () => callNvidia(text, prompt, NVIDIA_KEY),                      validKey(NVIDIA_KEY));
+  add("ovhcloud",   () => callOVHcloud(text, prompt),                                true); // no key needed
   add("glm",        () => callGLM(text, prompt, GLM_KEY),                            validKey(GLM_KEY));
   add("deepseek",   () => callDeepSeek(text, prompt, DEEPSEEK_KEY),                 validKey(DEEPSEEK_KEY));
-  // ── NVIDIA: one-time credits, likely exhausted ──
-  add("nvidia",     () => callNvidia(text, prompt, NVIDIA_KEY),                      validKey(NVIDIA_KEY));
   // ── Currently not working — kept as last-resort fallbacks ──
   add("sambanova",  () => callSambaNova(text, prompt, SAMBANOVA_KEY),                validKey(SAMBANOVA_KEY));
   add("openrouter", () => callOpenRouter(text, prompt, OPENROUTER_KEY),              validKey(OPENROUTER_KEY));
-  add("ovhcloud",   () => callOVHcloud(text, prompt),                                true); // no key needed
   // ── Extra slots: unused placeholders — populated when new providers are added ──
   add("extra1",     () => callExtra(text, prompt, EXTRA1_KEY, "Extra1"),             validKey(EXTRA1_KEY));
   add("extra2",     () => callExtra(text, prompt, EXTRA2_KEY, "Extra2"),             validKey(EXTRA2_KEY));
@@ -738,7 +736,7 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset) {
 
 // ── MAIN API CHAIN ──
 // Writing:  parallel chunks — each chunk starts at a random provider offset (cold-start safe)
-//           Chain order: Gemini → Groq → Cloudflare → Mistral → GLM → DeepSeek → NVIDIA → SambaNova → OpenRouter → OVHcloud
+//           Chain order: Gemini → Groq → Cloudflare → Mistral → NVIDIA → OVHcloud → GLM → DeepSeek → SambaNova → OpenRouter
 // AI chat:  Gemini → Cerebras → Groq-70b → DeepSeek → Qwen → Mistral → Cloudflare → SambaNova → NVIDIA → Extras
 // CV extract: Gemini → Groq-70b → Cerebras → Mistral → Cloudflare
 async function runChain(text, prompt, type) {
