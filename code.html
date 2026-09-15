@@ -171,14 +171,26 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* ── Nav (exact match to existing pages) ── */
+/* ── sr-only (SEO / accessibility) ── */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Nav ── */
 nav {
   background: #1a3a2a;
-  padding: 10px 24px;
+  padding: 0 24px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap;
   gap: 8px;
   font-family: 'DM Sans', sans-serif;
   height: var(--nav-h);
@@ -195,51 +207,61 @@ nav .nav-links a:hover::after { width: 100%; }
 nav .nav-links a.active { color: #52b788; font-weight: 600; }
 nav .nav-links a.active::after { width: 100%; }
 
-/* ── Hero ── */
-.code-hero {
-  background: linear-gradient(135deg, #1a3a2a 0%, #2d6a4f 100%);
-  color: white;
-  padding: 36px 24px 28px;
-  text-align: center;
-}
-.code-hero h1 {
-  font-family: 'Syne', sans-serif;
-  font-weight: 800;
-  font-size: clamp(22px, 3.5vw, 34px);
-  margin-bottom: 10px;
-  letter-spacing: -0.3px;
-}
-.code-hero p {
-  font-size: 15px;
-  opacity: 0.85;
-  max-width: 540px;
-  margin: 0 auto 18px;
-  line-height: 1.55;
-}
-.hero-badges {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.hero-badge {
-  background: rgba(255,255,255,0.13);
-  border: 1px solid rgba(255,255,255,0.22);
-  color: white;
-  font-size: 12px;
-  padding: 4px 11px;
-  border-radius: 20px;
-  font-weight: 500;
-}
-
-/* ── Engine Status Bar ── */
-.engine-bar {
-  background: var(--surface2);
+/* ── Chat Panel Header ── */
+.chat-panel-header {
+  flex-shrink: 0;
+  background: var(--surface);
   border-bottom: 1px solid var(--border);
-  padding: 7px 20px;
+  padding: 10px 20px;
   display: flex;
   align-items: center;
-  gap: 14px;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-height: 46px;
+}
+.cph-identity {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-shrink: 0;
+}
+.cph-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: white;
+  font-family: 'Consolas', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: -0.5px;
+  flex-shrink: 0;
+}
+.cph-name {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text);
+}
+.cph-badge {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent);
+  background: var(--accent-light);
+  border: 1px solid #b7e4c7;
+  border-radius: 20px;
+  padding: 2px 9px;
+}
+
+/* ── Engine Status (now lives inside .chat-panel-header) ── */
+.engine-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   flex-wrap: wrap;
   font-size: 12px;
   color: var(--text2);
@@ -277,20 +299,16 @@ nav .nav-links a.active::after { width: 100%; }
   font-style: italic;
 }
 
-/* ── App Layout ── */
+/* ── App Layout — full-page immersive ── */
 .code-app {
   display: flex;
-  max-width: 1400px;
-  width: calc(100% - 40px);
-  margin: 0 auto;
-  height: calc(100vh - var(--nav-h) - 130px - 44px); /* nav + hero + engine bar */
+  width: 100%;
+  height: calc(100vh - var(--nav-h));
   min-height: 480px;
   overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-top: 1px solid var(--border);
   background: var(--surface);
-  box-shadow: 0 2px 16px rgba(0,0,0,0.06);
-  margin-bottom: 24px;
+  margin-bottom: 0;
 }
 
 /* ─── Chat Panel (left 55%) ─── */
@@ -986,6 +1004,8 @@ footer p { margin: 0; font-size: 13px; color: #999; }
     border-left: none;
     border-right: none;
   }
+  .chat-panel-header { flex-wrap: wrap; gap: 8px; padding: 8px 14px; }
+  .cph-badge { display: none; }
   .msg { max-width: 100%; }
   .chat-input-inner { max-width: 100%; }
   .chat-panel {
@@ -1011,16 +1031,15 @@ footer p { margin: 0; font-size: 13px; color: #999; }
   body { overflow-x: hidden; }
 }
 @media (max-width: 600px) {
-  .code-hero { padding: 28px 16px 22px; }
   .chat-history { padding: 14px 14px 8px; }
   .chat-input-area { padding: 8px 12px 10px; }
   .msg-bubble-wrap { max-width: 92%; }
   .preview-ctrl { padding: 3px 4px; font-size: 12px; }
-  nav { padding: 8px 14px; }
-  .engine-bar { padding: 6px 14px; gap: 10px; }
+  nav { padding: 0 14px; }
+  .chat-panel-header { padding: 6px 14px; }
+  .engine-bar { gap: 8px; }
   .tool-btn { font-size: 11px; padding: 3px 7px; }
   pre, code { overflow-x: auto; max-width: 100%; }
-  .hero-badges { flex-wrap: wrap; justify-content: center; gap: 6px; }
 }
 
 /* ── Reduced motion ── */
@@ -1031,7 +1050,7 @@ footer p { margin: 0; font-size: 13px; color: #999; }
   }
 }
 
-@media print { nav, footer, #pf-scroll-top, .chat-input-area, .engine-bar { display: none !important; } }
+@media print { nav, footer, #pf-scroll-top, .chat-input-area, .chat-panel-header { display: none !important; } }
 
 /* ── Token Tracker Section ── */
 .token-section {
@@ -1377,36 +1396,32 @@ footer p { margin: 0; font-size: 13px; color: #999; }
   </button>
 </nav>
 
-<!-- Hero -->
-<div class="code-hero">
-  <h1>ParaFree AI</h1>
-  <p>Your free AI assistant for chat, coding, research and more — upload files, live preview, unlimited conversation, no signup</p>
-  <div class="hero-badges">
-    <span class="hero-badge">✓ General AI Chat</span>
-    <span class="hero-badge">✓ Code Assistant</span>
-    <span class="hero-badge">✓ File Uploads</span>
-    <span class="hero-badge">✓ Live Preview</span>
-    <span class="hero-badge">✓ No Signup</span>
-    <span class="hero-badge">✓ Always Free</span>
-  </div>
-</div>
+<!-- SEO title (visually hidden, present for crawlers) -->
+<h1 class="sr-only">ParaFree AI — Free AI Assistant for Chat, Coding &amp; Research</h1>
 
-<!-- Engine Status Bar -->
-<div class="engine-bar">
-  <span class="engine-bar-label">AI Engines:</span>
-  <span class="engine-chip" id="chip-gemini"><span class="dot idle" id="dot-gemini"></span>Gemini</span>
-  <span class="engine-chip" id="chip-deepseek"><span class="dot idle" id="dot-deepseek"></span>DeepSeek</span>
-  <span class="engine-chip" id="chip-qwen"><span class="dot idle" id="dot-qwen"></span>Qwen</span>
-  <span class="engine-chip" id="chip-groq"><span class="dot idle" id="dot-groq"></span>Groq</span>
-  <span class="engine-chip" id="chip-mistral"><span class="dot idle" id="dot-mistral"></span>Mistral</span>
-  <span class="engine-used-label" id="engineUsedLabel"></span>
-</div>
-
-<!-- Main App -->
+<!-- Main App — full-page immersive interface -->
 <div class="code-app" id="codeApp">
 
   <!-- ── Chat Panel ── -->
   <div class="chat-panel" id="chatPanel">
+
+    <!-- Compact identity + engine status header -->
+    <div class="chat-panel-header">
+      <div class="cph-identity">
+        <span class="cph-icon">&lt;/&gt;</span>
+        <span class="cph-name">ParaFree AI</span>
+        <span class="cph-badge">Free Forever</span>
+      </div>
+      <div class="engine-bar" id="engineBar">
+        <span class="engine-bar-label">Engines:</span>
+        <span class="engine-chip" id="chip-gemini"><span class="dot idle" id="dot-gemini"></span>Gemini</span>
+        <span class="engine-chip" id="chip-deepseek"><span class="dot idle" id="dot-deepseek"></span>DeepSeek</span>
+        <span class="engine-chip" id="chip-qwen"><span class="dot idle" id="dot-qwen"></span>Qwen</span>
+        <span class="engine-chip" id="chip-groq"><span class="dot idle" id="dot-groq"></span>Groq</span>
+        <span class="engine-chip" id="chip-mistral"><span class="dot idle" id="dot-mistral"></span>Mistral</span>
+        <span class="engine-used-label" id="engineUsedLabel"></span>
+      </div>
+    </div>
 
     <!-- Scrollable message history -->
     <div class="chat-history" id="chatHistory">
@@ -1420,9 +1435,16 @@ footer p { margin: 0; font-size: 13px; color: #999; }
             <span class="msg-time">just now</span>
           </div>
           <div class="msg-bubble">
-            <p>Hey! 👋 I'm ParaFree AI.</p>
-            <p>Ask me anything — build a website, debug code, answer questions, do research. I'll just do it, no unnecessary questions.</p>
-            <p>What do you need? 😊</p>
+            <p>Hey! 👋 I'm <strong>ParaFree AI</strong> — your free AI assistant. No signup, no limits.</p>
+            <p>I can help you with:</p>
+            <ul>
+              <li><strong>Build anything</strong> — websites, apps, games, dashboards (live preview included)</li>
+              <li><strong>Write &amp; research</strong> — essays, emails, summaries, explanations</li>
+              <li><strong>Debug &amp; review code</strong> — paste your code and I'll fix it</li>
+              <li><strong>Upload files</strong> — code, images, ZIP archives, PDFs</li>
+              <li><strong>Create documents</strong> — Word (.docx) and PowerPoint (.pptx) files</li>
+            </ul>
+            <p>What do you need? Just ask. 🚀</p>
           </div>
         </div>
       </div>
