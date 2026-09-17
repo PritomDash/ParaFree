@@ -46,10 +46,28 @@
     "alternateName": ["perafree","pafreea","para free","parafree app","parafree.app"],
     "url": "https://parafree.app",
     "logo": {"@type":"ImageObject","url":"https://parafree.app/logo.svg","contentUrl":"https://parafree.app/logo.svg"},
-    "description": "Free AI writing suite with paraphraser, humanizer, summarizer, grammar checker, AI detector and CV builder. No word limits, no signup required.",
+    "description": "Free AI writing suite with paraphraser, humanizer, summarizer, grammar checker, AI detector, CV builder, and live job search. No word limits, no signup, no paywall — free forever.",
     "foundingDate": "2026",
+    "founder": {"@id": "https://parafree.app/#person-pritom"},
     "contactPoint": {"@type":"ContactPoint","email":"parafree.tool@gmail.com","contactType":"Customer Support"},
-    "sameAs": ["https://threads.net/@parafree","https://www.facebook.com/profile.php?id=61591705310162","https://www.instagram.com/parafree.ai"]
+    "sameAs": [
+      "https://threads.net/@parafree",
+      "https://www.facebook.com/profile.php?id=61591705310162",
+      "https://www.instagram.com/parafree.ai",
+      "https://x.com/parafree"
+    ]
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    "@id": "https://parafree.app/#person-pritom",
+    "name": "Pritom Dash",
+    "givenName": "Pritom",
+    "familyName": "Dash",
+    "jobTitle": "Founder",
+    "worksFor": {"@id": "https://parafree.app/#organization"},
+    "description": "Student founder of ParaFree. International student from Bangladesh studying IT in Australia. Built ParaFree to give students worldwide access to free, unlimited AI writing tools.",
+    "url": "https://parafree.app/about.html"
   }
 ]
 </script>
@@ -57,9 +75,11 @@
 {
   "@context": "https://schema.org",
   "@type": "WebSite",
+  "@id": "https://parafree.app/#website",
   "name": "ParaFree",
   "url": "https://parafree.app",
   "description": "100% free AI writing suite — free paraphrasing tool with no word limit, free CV builder with live job search. No signup, no watermark, always free.",
+  "publisher": {"@id": "https://parafree.app/#organization"},
   "potentialAction": {
     "@type": "SearchAction",
     "target": {
@@ -68,6 +88,21 @@
     },
     "query-input": "required name=search_term_string"
   }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "AboutPage",
+  "@id": "https://parafree.app/about.html",
+  "name": "About ParaFree",
+  "url": "https://parafree.app/about.html",
+  "description": "About ParaFree — the story, the founder, and the key facts about the free AI writing suite built by Pritom Dash for students worldwide.",
+  "about": {"@id": "https://parafree.app/#organization"},
+  "author": {"@id": "https://parafree.app/#person-pritom"},
+  "isPartOf": {"@id": "https://parafree.app/#website"},
+  "publisher": {"@id": "https://parafree.app/#organization"},
+  "inLanguage": "en"
 }
 </script>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
