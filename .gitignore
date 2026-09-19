@@ -4,4 +4,10 @@ node_modules/
 tests/results/
 tests/downloads/
 tests/.compiled/
+tests/fixtures/
+tests/screenshots/
 playwright-report/
+
+# Workspace / agent artifacts
+.agents/
+check-syntax2.cjs
