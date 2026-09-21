@@ -14,6 +14,10 @@ const DUPE_THRESHOLD     = 8;              // same text N times = bot (was 5)
 const DUPE_BLOCK         = 30 * 60 * 1000; // block 30 mins on duplicate spam
 const MAX_TEXT_LENGTH    = 50000;
 
+// Provider timeout budget (writing chain)
+const FAST_TIMEOUT = 4000;   // ms per provider in the main chain; fail-fast to reach the next
+const LAST_TIMEOUT = 14000;  // ms for the last-resort provider; slow success beats all-fail
+
 // NOTE: In-memory only — resets on every Vercel cold start.
 const rateLimitMap = new Map();
 let lastCleanup = Date.now();
@@ -224,8 +228,8 @@ function validKey(k) {
 }
 
 // ── FETCH WITH TIMEOUT ──
-// Wraps fetch with an AbortController so a hanging provider fails in 4s,
-// leaving the remaining Vercel budget for fallbacks (10s Vercel Hobby limit).
+// Wraps fetch with an AbortController so a hanging provider fails fast,
+// leaving budget for fallbacks. Default 4 s (FAST_TIMEOUT); last-resort provider passes LAST_TIMEOUT.
 function fetchWithTimeout(url, options, ms = 4000) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), ms);
@@ -443,7 +447,7 @@ async function callSambaNova(text, prompt, key) {
   return data.choices[0].message.content;
 }
 
-async function callNvidia(text, prompt, key) {
+async function callNvidia(text, prompt, key, ms = 4000) {
   console.log("[ParaFree] Trying: nvidia");
   const res = await fetchWithTimeout("https://integrate.api.nvidia.com/v1/chat/completions", {
     method: "POST",
@@ -455,7 +459,7 @@ async function callNvidia(text, prompt, key) {
       max_tokens: 2048,
       stream: false
     })
-  });
+  }, ms);
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("NVIDIA:" + res.status + " " + b.slice(0,200)); }
   const data = await res.json();
   if (!data.choices?.[0]) throw new Error("NVIDIA: no response");
@@ -756,61 +760,78 @@ async function parallelLimit(fns, limit) {
 
 // Builds the writing provider list with closures bound to the given text.
 // Called per-chunk so each chunk gets its own bound calls.
-// Priority order: mistral → groq → cloudflare → nvidia → gemini → openrouter → ovhcloud
-//                 → glm → sambanova → deepseek → extra1-6 (unused placeholders)
-// Cerebras removed (now requires payment method).
-// Any provider with a missing key is silently skipped. OVHcloud needs no key.
-// All providers are always tried in order — no health cooldown.
-// The 4s fetchWithTimeout protects against slow providers on every path.
+//
+// Returns { chain, lastResort }:
+//   chain      — rotation pool; random start spreads cold-start load (FAST_TIMEOUT each).
+//   lastResort — tried after chain exhausts; NOT rotated; gets LAST_TIMEOUT.
+//
+// Active chain: Gemini → Groq → Cloudflare → OVHcloud → Mistral
+// Last resort:  NVIDIA (LAST_TIMEOUT — more time since it's the final attempt)
+// Disabled (billing-walled / consistently 402): GLM, DeepSeek, SambaNova, OpenRouter
+//   Re-enable by moving to the add() block below if billing status changes.
 function buildWritingCandidates(text, prompt, keys) {
   const { DEEPSEEK_KEY, GEMINI_KEY, GROQ_KEY, MISTRAL_KEY, CF_KEY, CF_ACCOUNT,
           OPENROUTER_KEY, GLM_KEY, SAMBANOVA_KEY, NVIDIA_KEY,
           EXTRA1_KEY, EXTRA2_KEY, EXTRA3_KEY, EXTRA4_KEY, EXTRA5_KEY, EXTRA6_KEY } = keys;
   const cfOk = validKey(CF_KEY) && validKey(CF_ACCOUNT);
-  const c = [];
-  const add = (name, fn, keyOk = true) => {
-    if (keyOk) c.push({ name, fn });
-  };
-  // ── Tier 1: confirmed working, highest free-tier capacity ──
-  add("gemini",     () => callGemini(text, prompt, GEMINI_KEY),                      validKey(GEMINI_KEY));
-  add("groq",       () => callGroq(text, prompt, GROQ_KEY),                          validKey(GROQ_KEY));
-  add("cloudflare", () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT),          cfOk);
-  // Mistral free tier is ~1-5 RPM on La Plateforme — too low to be primary.
-  add("mistral",    () => callMistral(text, prompt, MISTRAL_KEY),                    validKey(MISTRAL_KEY));
-  add("nvidia",     () => callNvidia(text, prompt, NVIDIA_KEY),                      validKey(NVIDIA_KEY));
-  add("ovhcloud",   () => callOVHcloud(text, prompt),                                true); // no key needed
-  add("glm",        () => callGLM(text, prompt, GLM_KEY),                            validKey(GLM_KEY));
-  add("deepseek",   () => callDeepSeek(text, prompt, DEEPSEEK_KEY),                 validKey(DEEPSEEK_KEY));
-  // ── Currently not working — kept as last-resort fallbacks ──
-  add("sambanova",  () => callSambaNova(text, prompt, SAMBANOVA_KEY),                validKey(SAMBANOVA_KEY));
-  add("openrouter", () => callOpenRouter(text, prompt, OPENROUTER_KEY),              validKey(OPENROUTER_KEY));
-  // ── Extra slots: unused placeholders — populated when new providers are added ──
-  add("extra1",     () => callExtra(text, prompt, EXTRA1_KEY, "Extra1"),             validKey(EXTRA1_KEY));
-  add("extra2",     () => callExtra(text, prompt, EXTRA2_KEY, "Extra2"),             validKey(EXTRA2_KEY));
-  add("extra3",     () => callExtra(text, prompt, EXTRA3_KEY, "Extra3"),             validKey(EXTRA3_KEY));
-  add("extra4",     () => callExtra(text, prompt, EXTRA4_KEY, "Extra4"),             validKey(EXTRA4_KEY));
-  add("extra5",     () => callExtra(text, prompt, EXTRA5_KEY, "Extra5"),             validKey(EXTRA5_KEY));
-  add("extra6",     () => callExtra(text, prompt, EXTRA6_KEY, "Extra6"),             validKey(EXTRA6_KEY));
-  return c;
+
+  // ── Active chain (rotation pool) — confirmed-working free-tier providers only ──
+  const chain = [];
+  const add = (name, fn, keyOk = true) => { if (keyOk) chain.push({ name, fn }); };
+
+  add("gemini",     () => callGemini(text, prompt, GEMINI_KEY),               validKey(GEMINI_KEY));
+  add("groq",       () => callGroq(text, prompt, GROQ_KEY),                   validKey(GROQ_KEY));
+  add("cloudflare", () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT),   cfOk);
+  add("ovhcloud",   () => callOVHcloud(text, prompt),                         true); // no key needed
+  add("mistral",    () => callMistral(text, prompt, MISTRAL_KEY),             validKey(MISTRAL_KEY)); // ~1-5 RPM free tier
+
+  // ── Extra slots — populated when new providers are added ──
+  add("extra1", () => callExtra(text, prompt, EXTRA1_KEY, "Extra1"), validKey(EXTRA1_KEY));
+  add("extra2", () => callExtra(text, prompt, EXTRA2_KEY, "Extra2"), validKey(EXTRA2_KEY));
+  add("extra3", () => callExtra(text, prompt, EXTRA3_KEY, "Extra3"), validKey(EXTRA3_KEY));
+  add("extra4", () => callExtra(text, prompt, EXTRA4_KEY, "Extra4"), validKey(EXTRA4_KEY));
+  add("extra5", () => callExtra(text, prompt, EXTRA5_KEY, "Extra5"), validKey(EXTRA5_KEY));
+  add("extra6", () => callExtra(text, prompt, EXTRA6_KEY, "Extra6"), validKey(EXTRA6_KEY));
+
+  // ── Last resort — NOT in rotation pool; always tried last with LAST_TIMEOUT ──
+  // If all chain providers fail, NVIDIA gets more time: slow success beats "all AI busy".
+  const lastResort = validKey(NVIDIA_KEY)
+    ? { name: "nvidia", fn: () => callNvidia(text, prompt, NVIDIA_KEY, LAST_TIMEOUT) }
+    : null;
+
+  // ── Disabled (billing-walled / consistently 402) ──
+  // Re-enable by moving to the add() block above when billing status changes:
+  // add("glm",        () => callGLM(text, prompt, GLM_KEY),               validKey(GLM_KEY));
+  // add("deepseek",   () => callDeepSeek(text, prompt, DEEPSEEK_KEY),     validKey(DEEPSEEK_KEY));
+  // add("sambanova",  () => callSambaNova(text, prompt, SAMBANOVA_KEY),   validKey(SAMBANOVA_KEY));
+  // add("openrouter", () => callOpenRouter(text, prompt, OPENROUTER_KEY), validKey(OPENROUTER_KEY));
+
+  return { chain, lastResort };
 }
 
-// Tries every writing provider for one chunk, starting at startOffset (rotation).
-// Returns the result string, or null if every provider failed this chunk.
+// Tries every writing provider for one chunk.
+// Main chain providers are randomly rotated for load spreading (FAST_TIMEOUT each).
+// Last-resort provider (NVIDIA) is always tried last, not rotated, with LAST_TIMEOUT.
+// Returns the result string, or null if every provider failed.
 async function paraphraseChunk(chunkText, prompt, envKeys, startOffset) {
-  const candidates = buildWritingCandidates(chunkText, prompt, envKeys);
-  if (candidates.length === 0) {
+  const { chain, lastResort } = buildWritingCandidates(chunkText, prompt, envKeys);
+  const totalProviders = chain.length + (lastResort ? 1 : 0);
+  if (totalProviders === 0) {
     console.error('[ParaFree] ❌ paraphraseChunk: 0 providers — no valid API keys configured');
     return null;
   }
-  const n = candidates.length;
-  // Random start spreads cold-start bursts across all providers even when
-  // requestCounter resets to 0 on a new Vercel instance (stateless, no shared state needed).
-  const start = Math.floor(Math.random() * n);
-  const rotated = [...candidates.slice(start), ...candidates.slice(0, start)];
+  // Rotate main chain only; lastResort is always appended at the end (not rotated).
+  const n = chain.length;
+  const start = n > 0 ? Math.floor(Math.random() * n) : 0;
+  const rotated = n > 0 ? [...chain.slice(start), ...chain.slice(0, start)] : [];
+  const ordered = lastResort ? [...rotated, lastResort] : rotated;
+
   const chunkStart = Date.now();
-  console.log(`[ParaFree] paraphraseChunk: ${chunkText.length} chars, ${candidates.length} providers, rand-offset=${start}`);
-  for (const c of rotated) {
+  console.log(`[ParaFree] paraphraseChunk: ${chunkText.length} chars, chain=${chain.length} + last-resort=${lastResort ? 1 : 0}, rand-offset=${start}`);
+  for (const c of ordered) {
     const t0 = Date.now();
+    const isLast = lastResort !== null && c.name === lastResort.name;
+    const expectedTimeout = isLast ? LAST_TIMEOUT : FAST_TIMEOUT;
     try {
       const result = await c.fn();
       const ms = Date.now() - t0;
@@ -822,20 +843,22 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset) {
     } catch (e) {
       const ms = Date.now() - t0;
       const msg = e.message || 'unknown';
-      const isAbort = msg.includes('abort') || msg.includes('AbortError') || ms >= 3900;
-      const tag = msg.includes(':429') ? '429-rate-limit' : msg.includes(':401') ? '401-auth' : msg.includes(':403') ? '403-forbidden' : msg.includes(':404') ? '404-model-not-found' : msg.includes(':503') ? '503-unavailable' : isAbort ? 'TIMEOUT-4s' : 'error';
+      const isAbort = msg.includes('abort') || msg.includes('AbortError') || ms >= expectedTimeout - 100;
+      const tag = msg.includes(':429') ? '429-rate-limit' : msg.includes(':401') ? '401-auth' : msg.includes(':403') ? '403-forbidden' : msg.includes(':404') ? '404-model-not-found' : msg.includes(':503') ? '503-unavailable' : isAbort ? `TIMEOUT-${expectedTimeout}ms` : 'error';
       console.log(`[ParaFree] ❌ chunk ${c.name} [${tag}] in ${ms}ms — ${msg.slice(0, 200)}`);
     }
   }
-  console.error(`[ParaFree] ❌ chunk exhausted all ${rotated.length} providers in ${Date.now() - chunkStart}ms`);
+  console.error(`[ParaFree] ❌ chunk exhausted all ${ordered.length} providers in ${Date.now() - chunkStart}ms`);
   return null;
 }
 
 // ── MAIN API CHAIN ──
 // Writing:  parallel chunks — each chunk starts at a random provider offset (cold-start safe)
-//           Chain order: Gemini → Groq → Cloudflare → Mistral → NVIDIA → OVHcloud → GLM → DeepSeek → SambaNova → OpenRouter
-// AI chat:  Gemini → Cerebras → Groq-70b → DeepSeek → Qwen → Mistral → Cloudflare → SambaNova → NVIDIA → Extras
-// CV extract: Gemini → Groq-70b → Cerebras → Mistral → Cloudflare
+//           Active chain (rotated, FAST_TIMEOUT): Gemini → Groq → Cloudflare → OVHcloud → Mistral
+//           Last resort (not rotated, LAST_TIMEOUT): NVIDIA
+//           Disabled (billing-walled 402): GLM, DeepSeek, SambaNova, OpenRouter
+// AI chat:  Groq → Gemini → NVIDIA → DeepSeek/Qwen(via OpenRouter) → Mistral → Cloudflare → OVHcloud → Extras
+// CV extract: Groq → Gemini → Mistral → Cloudflare → OVHcloud
 async function runChain(text, prompt, type) {
   const GROQ_KEY       = process.env.GROQ_KEY;
   const GEMINI_KEY     = process.env.GEMINI_KEY;
@@ -868,8 +891,9 @@ async function runChain(text, prompt, type) {
       OPENROUTER_KEY, GLM_KEY, SAMBANOVA_KEY, NVIDIA_KEY,
       EXTRA1_KEY, EXTRA2_KEY, EXTRA3_KEY, EXTRA4_KEY, EXTRA5_KEY, EXTRA6_KEY
     };
-    const sampleCandidates = buildWritingCandidates("x", "x", envKeys);
-    if (sampleCandidates.length === 0) {
+    const { chain: sampleChain, lastResort: sampleLast } = buildWritingCandidates("x", "x", envKeys);
+    const sampleTotal = sampleChain.length + (sampleLast ? 1 : 0);
+    if (sampleTotal === 0) {
       console.error("[ParaFree] ❌ No valid API keys — check Vercel environment variables");
       return { success: false, error: "no_keys", apiStatuses: {} };
     }
@@ -883,7 +907,7 @@ async function runChain(text, prompt, type) {
     // Chunks may complete in any order during parallel processing — the seq
     // number is the only authoritative record of original position.
     const indexedChunks = chunks.map((text, seq) => ({ seq, text }));
-    console.log(`[ParaFree] writing: ${indexedChunks.length} chunk(s) × ${sampleCandidates.length} providers — concurrency=${Math.min(CHUNK_CONCURRENCY, indexedChunks.length)} (rand-offset per chunk), input=${inputWords} words, isPPTX=${isPPTX}, seqs=[${indexedChunks.map(c => c.seq).join(',')}]`);
+    console.log(`[ParaFree] writing: ${indexedChunks.length} chunk(s) × ${sampleTotal} providers (chain=${sampleChain.length} + last-resort=${sampleLast ? 1 : 0}) — concurrency=${Math.min(CHUNK_CONCURRENCY, indexedChunks.length)}, input=${inputWords} words, isPPTX=${isPPTX}, seqs=[${indexedChunks.map(c => c.seq).join(',')}]`);
     const t0 = Date.now();
 
     // Each thunk returns {seq, result} so the sequence number travels with the result.
@@ -927,22 +951,21 @@ async function runChain(text, prompt, type) {
   if (isCVExtract) {
     addC("groq",       () => callGroqModel(text, prompt, GROQ_KEY, "openai/gpt-oss-20b"), validKey(GROQ_KEY));
     addC("gemini",     () => callGemini(text, prompt, GEMINI_KEY),                         validKey(GEMINI_KEY));
-    addC("sambanova",  () => callSambaNova(text, prompt, SAMBANOVA_KEY),                   validKey(SAMBANOVA_KEY));
+    // sambanova removed — billing-walled (402 insufficient balance)
     addC("mistral",    () => callMistral(text, prompt, MISTRAL_KEY),                       validKey(MISTRAL_KEY));
     addC("cloudflare", () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT),             cfOk);
     addC("ovhcloud",   () => callOVHcloud(text, prompt),                                   true);
   } else {
     // AI chat path — Cerebras removed (requires payment). groq first for speed.
+    // sambanova / deepseek direct removed — billing-walled (402 insufficient balance).
     addC("groq",           () => callGroqModel(text, prompt, GROQ_KEY, "openai/gpt-oss-20b"),                              validKey(GROQ_KEY));
     addC("gemini",         () => callGemini(text, prompt, GEMINI_KEY),                                                     validKey(GEMINI_KEY));
-    addC("sambanova",      () => callSambaNova(text, prompt, SAMBANOVA_KEY),                                               validKey(SAMBANOVA_KEY));
     addC("nvidia",         () => callNvidia(text, prompt, NVIDIA_KEY),                                                     validKey(NVIDIA_KEY));
     addC("deepseek-coder", () => callOpenRouterModel(text, prompt, OPENROUTER_KEY, "deepseek/deepseek-coder-v2-instruct:free"), validKey(OPENROUTER_KEY));
     addC("qwen-coder",     () => callOpenRouterModel(text, prompt, OPENROUTER_KEY, "qwen/qwen-2.5-coder-32b-instruct:free"),    validKey(OPENROUTER_KEY));
     addC("mistral",        () => callMistral(text, prompt, MISTRAL_KEY),                                                   validKey(MISTRAL_KEY));
     addC("cloudflare",     () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT),                                         cfOk);
     addC("ovhcloud",       () => callOVHcloud(text, prompt),                                                               true);
-    addC("deepseek",       () => callDeepSeek(text, prompt, DEEPSEEK_KEY),                                                 validKey(DEEPSEEK_KEY));
     addC("extra1",         () => callExtra(text, prompt, EXTRA1_KEY, "Extra1"),                                            validKey(EXTRA1_KEY));
     addC("extra2",         () => callExtra(text, prompt, EXTRA2_KEY, "Extra2"),                                            validKey(EXTRA2_KEY));
     addC("extra3",         () => callExtra(text, prompt, EXTRA3_KEY, "Extra3"),                                            validKey(EXTRA3_KEY));
