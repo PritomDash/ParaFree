@@ -453,7 +453,7 @@ async function callNvidia(text, prompt, key, ms = 4000) {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
     body: JSON.stringify({
-      model: "openai/gpt-oss-20b",
+      model: "mistralai/mistral-7b-instruct-v0.3",
       messages: [{ role: "user", content: prompt + "\n\n" + text }],
       temperature: 0.7,
       max_tokens: 2048,
@@ -499,6 +499,78 @@ async function callDeepSeek(text, prompt, key) {
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("DeepSeek:" + res.status + " " + b.slice(0,200)); }
   const data = await res.json();
   if (!data.choices?.[0]) throw new Error("DeepSeek: no response");
+  return data.choices[0].message.content;
+}
+
+async function callLLM7(text, prompt) {
+  console.log("[ParaFree] Trying: llm7");
+  const res = await fetchWithTimeout("https://api.llm7.io/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "mistral-Nemo-Instruct-2407",
+      messages: [{ role: "user", content: prompt + "\n\n" + text }],
+      temperature: 0.7,
+      max_tokens: 2048
+    })
+  });
+  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("LLM7:" + res.status + " " + b.slice(0,200)); }
+  const data = await res.json();
+  if (!data.choices?.[0]) throw new Error("LLM7: no response");
+  return data.choices[0].message.content;
+}
+
+async function callScaleway(text, prompt, key) {
+  console.log("[ParaFree] Trying: scaleway");
+  const res = await fetchWithTimeout("https://api.scaleway.ai/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
+    body: JSON.stringify({
+      model: "llama-3.3-70b-instruct",
+      messages: [{ role: "user", content: prompt + "\n\n" + text }],
+      temperature: 0.7,
+      max_tokens: 2048
+    })
+  });
+  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Scaleway:" + res.status + " " + b.slice(0,200)); }
+  const data = await res.json();
+  if (!data.choices?.[0]) throw new Error("Scaleway: no response");
+  return data.choices[0].message.content;
+}
+
+async function callHuggingFace(text, prompt, key) {
+  console.log("[ParaFree] Trying: huggingface");
+  const res = await fetchWithTimeout("https://router.huggingface.co/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
+    body: JSON.stringify({
+      model: "meta-llama/Llama-3.2-3B-Instruct",
+      messages: [{ role: "user", content: prompt + "\n\n" + text }],
+      temperature: 0.7,
+      max_tokens: 2048
+    })
+  });
+  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("HuggingFace:" + res.status + " " + b.slice(0,200)); }
+  const data = await res.json();
+  if (!data.choices?.[0]) throw new Error("HuggingFace: no response");
+  return data.choices[0].message.content;
+}
+
+async function callChutes(text, prompt, key) {
+  console.log("[ParaFree] Trying: chutes");
+  const res = await fetchWithTimeout("https://api.chutes.ai/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
+    body: JSON.stringify({
+      model: "deepseek-ai/DeepSeek-V3-0324",
+      messages: [{ role: "user", content: prompt + "\n\n" + text }],
+      temperature: 0.7,
+      max_tokens: 2048
+    })
+  });
+  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Chutes:" + res.status + " " + b.slice(0,200)); }
+  const data = await res.json();
+  if (!data.choices?.[0]) throw new Error("Chutes: no response");
   return data.choices[0].message.content;
 }
 
@@ -765,27 +837,37 @@ async function parallelLimit(fns, limit) {
 //   chain      — rotation pool; random start spreads cold-start load (FAST_TIMEOUT each).
 //   lastResort — tried after chain exhausts; NOT rotated; gets LAST_TIMEOUT.
 //
-// Active chain: Gemini → Groq → Cloudflare → OVHcloud → Mistral
+// Active chain: Gemini → Groq → Cloudflare → OVHcloud → Mistral → LLM7 → OpenRouter
+//               + Scaleway / HuggingFace / Chutes when their keys are set
 // Last resort:  NVIDIA (LAST_TIMEOUT — more time since it's the final attempt)
-// Disabled (billing-walled / consistently 402): GLM, DeepSeek, SambaNova, OpenRouter
+// Disabled (billing-walled / consistently 402): GLM, DeepSeek, SambaNova
 //   Re-enable by moving to the add() block below if billing status changes.
 function buildWritingCandidates(text, prompt, keys) {
   const { DEEPSEEK_KEY, GEMINI_KEY, GROQ_KEY, MISTRAL_KEY, CF_KEY, CF_ACCOUNT,
           OPENROUTER_KEY, GLM_KEY, SAMBANOVA_KEY, NVIDIA_KEY,
+          SCW_KEY, HF_KEY, CHUTES_KEY,
           EXTRA1_KEY, EXTRA2_KEY, EXTRA3_KEY, EXTRA4_KEY, EXTRA5_KEY, EXTRA6_KEY } = keys;
   const cfOk = validKey(CF_KEY) && validKey(CF_ACCOUNT);
 
-  // ── Active chain (rotation pool) — confirmed-working free-tier providers only ──
+  // ── Active chain (rotation pool) ──
   const chain = [];
   const add = (name, fn, keyOk = true) => { if (keyOk) chain.push({ name, fn }); };
 
-  add("gemini",     () => callGemini(text, prompt, GEMINI_KEY),               validKey(GEMINI_KEY));
-  add("groq",       () => callGroq(text, prompt, GROQ_KEY),                   validKey(GROQ_KEY));
-  add("cloudflare", () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT),   cfOk);
-  add("ovhcloud",   () => callOVHcloud(text, prompt),                         true); // no key needed
-  add("mistral",    () => callMistral(text, prompt, MISTRAL_KEY),             validKey(MISTRAL_KEY)); // ~1-5 RPM free tier
+  // Tier 1 — confirmed reliable free-tier providers
+  add("gemini",      () => callGemini(text, prompt, GEMINI_KEY),               validKey(GEMINI_KEY));
+  add("groq",        () => callGroq(text, prompt, GROQ_KEY),                   validKey(GROQ_KEY));
+  add("cloudflare",  () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT),   cfOk);
+  add("ovhcloud",    () => callOVHcloud(text, prompt),                         true); // no key needed
+  add("llm7",        () => callLLM7(text, prompt),                             true); // no key needed
+  add("mistral",     () => callMistral(text, prompt, MISTRAL_KEY),             validKey(MISTRAL_KEY));
 
-  // ── Extra slots — populated when new providers are added ──
+  // Tier 2 — key-gated free-tier providers (active when key is configured in Vercel)
+  add("openrouter",  () => callOpenRouter(text, prompt, OPENROUTER_KEY),       validKey(OPENROUTER_KEY));
+  add("scaleway",    () => callScaleway(text, prompt, SCW_KEY),                validKey(SCW_KEY));
+  add("huggingface", () => callHuggingFace(text, prompt, HF_KEY),              validKey(HF_KEY));
+  add("chutes",      () => callChutes(text, prompt, CHUTES_KEY),               validKey(CHUTES_KEY));
+
+  // ── Extra slots — additional OpenRouter keys for higher throughput ──
   add("extra1", () => callExtra(text, prompt, EXTRA1_KEY, "Extra1"), validKey(EXTRA1_KEY));
   add("extra2", () => callExtra(text, prompt, EXTRA2_KEY, "Extra2"), validKey(EXTRA2_KEY));
   add("extra3", () => callExtra(text, prompt, EXTRA3_KEY, "Extra3"), validKey(EXTRA3_KEY));
@@ -804,7 +886,6 @@ function buildWritingCandidates(text, prompt, keys) {
   // add("glm",        () => callGLM(text, prompt, GLM_KEY),               validKey(GLM_KEY));
   // add("deepseek",   () => callDeepSeek(text, prompt, DEEPSEEK_KEY),     validKey(DEEPSEEK_KEY));
   // add("sambanova",  () => callSambaNova(text, prompt, SAMBANOVA_KEY),   validKey(SAMBANOVA_KEY));
-  // add("openrouter", () => callOpenRouter(text, prompt, OPENROUTER_KEY), validKey(OPENROUTER_KEY));
 
   return { chain, lastResort };
 }
@@ -854,9 +935,10 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset) {
 
 // ── MAIN API CHAIN ──
 // Writing:  parallel chunks — each chunk starts at a random provider offset (cold-start safe)
-//           Active chain (rotated, FAST_TIMEOUT): Gemini → Groq → Cloudflare → OVHcloud → Mistral
+//           Active chain (rotated, FAST_TIMEOUT): Gemini → Groq → Cloudflare → OVHcloud → LLM7 → Mistral
+//                                                 + OpenRouter (key) → Scaleway (key) → HuggingFace (key) → Chutes (key)
 //           Last resort (not rotated, LAST_TIMEOUT): NVIDIA
-//           Disabled (billing-walled 402): GLM, DeepSeek, SambaNova, OpenRouter
+//           Disabled (billing-walled 402): GLM, DeepSeek, SambaNova
 // AI chat:  Groq → Gemini → NVIDIA → DeepSeek/Qwen(via OpenRouter) → Mistral → Cloudflare → OVHcloud → Extras
 // CV extract: Groq → Gemini → Mistral → Cloudflare → OVHcloud
 async function runChain(text, prompt, type) {
@@ -870,6 +952,9 @@ async function runChain(text, prompt, type) {
   const SAMBANOVA_KEY  = process.env.SAMBANOVA_KEY;
   const NVIDIA_KEY     = process.env.NVIDIA_KEY;
   const DEEPSEEK_KEY   = process.env.DEEPSEEK_KEY;
+  const SCW_KEY        = process.env.SCW_KEY;
+  const HF_KEY         = process.env.HF_KEY;
+  const CHUTES_KEY     = process.env.CHUTES_KEY;
   const EXTRA1_KEY     = process.env.EXTRA1_KEY;
   const EXTRA2_KEY     = process.env.EXTRA2_KEY;
   const EXTRA3_KEY     = process.env.EXTRA3_KEY;
@@ -889,6 +974,7 @@ async function runChain(text, prompt, type) {
     const envKeys = {
       DEEPSEEK_KEY, GEMINI_KEY, GROQ_KEY, MISTRAL_KEY, CF_KEY, CF_ACCOUNT,
       OPENROUTER_KEY, GLM_KEY, SAMBANOVA_KEY, NVIDIA_KEY,
+      SCW_KEY, HF_KEY, CHUTES_KEY,
       EXTRA1_KEY, EXTRA2_KEY, EXTRA3_KEY, EXTRA4_KEY, EXTRA5_KEY, EXTRA6_KEY
     };
     const { chain: sampleChain, lastResort: sampleLast } = buildWritingCandidates("x", "x", envKeys);
@@ -1068,7 +1154,7 @@ async function handleTestKeys(body) {
     { name: "groq",       model: "openai/gpt-oss-20b",              key: process.env.GROQ_KEY,       fn: (k) => callGroq(testText, testPrompt, k) },
     { name: "gemini",     model: "gemini-3.5-flash-lite",                  key: process.env.GEMINI_KEY,     fn: (k) => callGemini(testText, testPrompt, k) },
     { name: "sambanova",  model: "Meta-Llama-3.3-70B-Instruct",       key: process.env.SAMBANOVA_KEY,  fn: (k) => callSambaNova(testText, testPrompt, k) },
-    { name: "nvidia",     model: "openai/gpt-oss-20b",                                 key: process.env.NVIDIA_KEY, fn: (k) => callNvidia(testText, testPrompt, k) },
+    { name: "nvidia",     model: "mistralai/mistral-7b-instruct-v0.3",                 key: process.env.NVIDIA_KEY, fn: (k) => callNvidia(testText, testPrompt, k) },
     { name: "mistral",    model: "mistral-small-latest",              key: process.env.MISTRAL_KEY,    fn: (k) => callMistral(testText, testPrompt, k) },
     { name: "cloudflare", model: "@cf/meta/llama-3.1-8b-instruct",   key: process.env.CF_KEY, account: cfAccount, fn: (k) => callCloudflare(testText, testPrompt, k, cfAccount) },
     { name: "ovhcloud",   model: "Meta-Llama-3_3-70B-Instruct",      key: "no-key-needed",            fn: () => callOVHcloud(testText, testPrompt) },
