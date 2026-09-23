@@ -1161,12 +1161,16 @@ async function handleTestKeys(body) {
     { name: "deepseek",   model: "deepseek-chat",                     key: process.env.DEEPSEEK_KEY,   fn: (k) => callDeepSeek(testText, testPrompt, k) },
     { name: "openrouter", model: "google/gemma-4-31b-it:free",          key: process.env.OPENROUTER_KEY, fn: (k) => callOpenRouter(testText, testPrompt, k) },
     { name: "glm",        model: "glm-4.5",                       key: process.env.GLM_KEY,        fn: (k) => callGLM(testText, testPrompt, k) },
+    { name: "llm7",       model: "mistral-Nemo-Instruct-2407",    key: "no-key-needed",            fn: () => callLLM7(testText, testPrompt) },
+    { name: "scaleway",   model: "llama-3.3-70b-instruct",        key: process.env.SCW_KEY,        fn: (k) => callScaleway(testText, testPrompt, k) },
+    { name: "huggingface",model: "Llama-3.2-3B-Instruct",         key: process.env.HF_KEY,         fn: (k) => callHuggingFace(testText, testPrompt, k) },
+    { name: "chutes",     model: "DeepSeek-V3-0324",              key: process.env.CHUTES_KEY,     fn: (k) => callChutes(testText, testPrompt, k) },
   ];
 
   const results = {};
 
   await Promise.all(tests.map(async (t) => {
-    if (!t.key || t.key.length <= 10) {
+    if (!t.key || (t.key !== "no-key-needed" && t.key.length <= 10)) {
       results[t.name] = { status: "⚠️ no key", error: "Key not set in Vercel environment variables" };
       return;
     }
