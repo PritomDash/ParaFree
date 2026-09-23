@@ -453,7 +453,7 @@ async function callNvidia(text, prompt, key, ms = 4000) {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
     body: JSON.stringify({
-      model: "openai/gpt-oss-20b",
+      model: "mistralai/mistral-7b-instruct-v0.3",
       messages: [{ role: "user", content: prompt + "\n\n" + text }],
       temperature: 0.7,
       max_tokens: 2048,
@@ -1068,7 +1068,7 @@ async function handleTestKeys(body) {
     { name: "groq",       model: "openai/gpt-oss-20b",              key: process.env.GROQ_KEY,       fn: (k) => callGroq(testText, testPrompt, k) },
     { name: "gemini",     model: "gemini-3.5-flash-lite",                  key: process.env.GEMINI_KEY,     fn: (k) => callGemini(testText, testPrompt, k) },
     { name: "sambanova",  model: "Meta-Llama-3.3-70B-Instruct",       key: process.env.SAMBANOVA_KEY,  fn: (k) => callSambaNova(testText, testPrompt, k) },
-    { name: "nvidia",     model: "openai/gpt-oss-20b",                                 key: process.env.NVIDIA_KEY, fn: (k) => callNvidia(testText, testPrompt, k) },
+    { name: "nvidia",     model: "mistralai/mistral-7b-instruct-v0.3",                 key: process.env.NVIDIA_KEY, fn: (k) => callNvidia(testText, testPrompt, k) },
     { name: "mistral",    model: "mistral-small-latest",              key: process.env.MISTRAL_KEY,    fn: (k) => callMistral(testText, testPrompt, k) },
     { name: "cloudflare", model: "@cf/meta/llama-3.1-8b-instruct",   key: process.env.CF_KEY, account: cfAccount, fn: (k) => callCloudflare(testText, testPrompt, k, cfAccount) },
     { name: "ovhcloud",   model: "Meta-Llama-3_3-70B-Instruct",      key: "no-key-needed",            fn: () => callOVHcloud(testText, testPrompt) },
