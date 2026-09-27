@@ -889,7 +889,7 @@ function buildWritingCandidates(text, prompt, keys) {
   // Tier 2 — key-gated free-tier providers (active when key is configured in Vercel)
   add("openrouter",  () => callOpenRouter(text, prompt, OPENROUTER_KEY, mt),       validKey(OPENROUTER_KEY));
   add("scaleway",    () => callScaleway(text, prompt, SCW_KEY, mt),                validKey(SCW_KEY));
-  add("hetzner",     () => callHetzner(text, prompt, HETZNER_KEY, mt),             validKey(HETZNER_KEY));
+  // add("hetzner",  () => callHetzner(text, prompt, HETZNER_KEY, mt),             validKey(HETZNER_KEY)); // requires billing card — card-free policy
 
   // ── Extra slots — additional OpenRouter keys for higher throughput ──
   add("extra1", () => callExtra(text, prompt, EXTRA1_KEY, "Extra1", mt), validKey(EXTRA1_KEY));
@@ -1192,7 +1192,7 @@ async function handleTestKeys(body) {
     { name: "openrouter", model: "google/gemma-4-31b-it:free",          key: process.env.OPENROUTER_KEY, fn: (k) => callOpenRouter(testText, testPrompt, k) },
     { name: "llm7",       model: "mistral-Nemo-Instruct-2407",    key: "no-key-needed",            fn: () => callLLM7(testText, testPrompt) },
     { name: "scaleway",   model: "llama-3.3-70b-instruct",        key: process.env.SCW_KEY,        fn: (k) => callScaleway(testText, testPrompt, k) },
-    { name: "hetzner",    model: "Meta-Llama-3.1-70B-Instruct",   key: process.env.HETZNER_KEY,    fn: (k) => callHetzner(testText, testPrompt, k) },
+    // hetzner removed (requires billing card — card-free policy)
     // kept for diagnostics (not in active chain):
     { name: "huggingface",model: "Llama-3.2-3B-Instruct",         key: process.env.HF_KEY,         fn: (k) => callHuggingFace(testText, testPrompt, k) },
     { name: "chutes",     model: "DeepSeek-V3-0324",              key: process.env.CHUTES_KEY,     fn: (k) => callChutes(testText, testPrompt, k) },
