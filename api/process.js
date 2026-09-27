@@ -857,9 +857,9 @@ async function parallelLimit(fns, limit) {
 //   lastResort — tried after chain exhausts; NOT rotated; gets LAST_TIMEOUT.
 //
 // Active chain: Gemini → Groq → Cloudflare → OVHcloud → LLM7 → Mistral → OpenRouter
-//               + Scaleway / Hetzner / GLM (glm-4-flash, ⚠️ Chinese) when their keys are set
-// Last resort:  none (NVIDIA removed — consistently 404; HuggingFace/Chutes removed — auth issues)
-// Disabled (billing-walled / consistently failing): DeepSeek, SambaNova
+//               + Scaleway / Hetzner when their keys are set
+// Last resort:  none (NVIDIA removed — 404; HuggingFace/Chutes removed — auth issues)
+// Disabled: DeepSeek (billing), SambaNova (billing), GLM (ToS unverifiable, data in China)
 //   Re-enable by moving to the add() block below if billing status changes.
 function buildWritingCandidates(text, prompt, keys) {
   const { DEEPSEEK_KEY, GEMINI_KEY, GROQ_KEY, MISTRAL_KEY, CF_KEY, CF_ACCOUNT,
@@ -890,8 +890,6 @@ function buildWritingCandidates(text, prompt, keys) {
   add("openrouter",  () => callOpenRouter(text, prompt, OPENROUTER_KEY, mt),       validKey(OPENROUTER_KEY));
   add("scaleway",    () => callScaleway(text, prompt, SCW_KEY, mt),                validKey(SCW_KEY));
   add("hetzner",     () => callHetzner(text, prompt, HETZNER_KEY, mt),             validKey(HETZNER_KEY));
-  // GLM-4-flash: free-tier, ⚠️ Zhipu AI (Chinese company) — data processed in China
-  add("glm",         () => callGLM(text, prompt, GLM_KEY, mt),                     validKey(GLM_KEY));
 
   // ── Extra slots — additional OpenRouter keys for higher throughput ──
   add("extra1", () => callExtra(text, prompt, EXTRA1_KEY, "Extra1", mt), validKey(EXTRA1_KEY));
@@ -907,10 +905,11 @@ function buildWritingCandidates(text, prompt, keys) {
   // Chutes removed — 401 (key needs regeneration at app.chutes.ai; re-add when fixed).
   const lastResort = null;
 
-  // ── Disabled (billing-walled / consistently failing) ──
-  // Re-enable by moving to the add() block above when billing/auth status changes:
-  // add("deepseek",   () => callDeepSeek(text, prompt, DEEPSEEK_KEY),     validKey(DEEPSEEK_KEY));
-  // add("sambanova",  () => callSambaNova(text, prompt, SAMBANOVA_KEY),   validKey(SAMBANOVA_KEY));
+  // ── Disabled / unverified ──
+  // Re-enable by moving to the add() block above when conditions change:
+  // add("deepseek",  () => callDeepSeek(text, prompt, DEEPSEEK_KEY),   validKey(DEEPSEEK_KEY));    // billing-walled (402)
+  // add("sambanova", () => callSambaNova(text, prompt, SAMBANOVA_KEY), validKey(SAMBANOVA_KEY));   // billing-walled (402)
+  // add("glm",       () => callGLM(text, prompt, GLM_KEY, mt),         validKey(GLM_KEY));         // ⚠️ ToS unverifiable (Chinese-only, login required); data in China
 
   return { chain, lastResort };
 }
@@ -1191,7 +1190,6 @@ async function handleTestKeys(body) {
     { name: "ovhcloud",   model: "Meta-Llama-3_3-70B-Instruct",      key: "no-key-needed",            fn: () => callOVHcloud(testText, testPrompt) },
     { name: "deepseek",   model: "deepseek-chat",                     key: process.env.DEEPSEEK_KEY,   fn: (k) => callDeepSeek(testText, testPrompt, k) },
     { name: "openrouter", model: "google/gemma-4-31b-it:free",          key: process.env.OPENROUTER_KEY, fn: (k) => callOpenRouter(testText, testPrompt, k) },
-    { name: "glm",        model: "glm-4-flash",                   key: process.env.GLM_KEY,        fn: (k) => callGLM(testText, testPrompt, k) },
     { name: "llm7",       model: "mistral-Nemo-Instruct-2407",    key: "no-key-needed",            fn: () => callLLM7(testText, testPrompt) },
     { name: "scaleway",   model: "llama-3.3-70b-instruct",        key: process.env.SCW_KEY,        fn: (k) => callScaleway(testText, testPrompt, k) },
     { name: "hetzner",    model: "Meta-Llama-3.1-70B-Instruct",   key: process.env.HETZNER_KEY,    fn: (k) => callHetzner(testText, testPrompt, k) },
