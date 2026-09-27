@@ -862,8 +862,8 @@ async function parallelLimit(fns, limit) {
 // Disabled: DeepSeek (billing), SambaNova (billing), GLM (ToS unverifiable, data in China)
 //   Re-enable by moving to the add() block below if billing status changes.
 function buildWritingCandidates(text, prompt, keys) {
-  const { DEEPSEEK_KEY, GEMINI_KEY, GROQ_KEY, MISTRAL_KEY, CF_KEY, CF_ACCOUNT,
-          OPENROUTER_KEY, GLM_KEY, SAMBANOVA_KEY, NVIDIA_KEY,
+  const { DEEPSEEK_KEY, GEMINI_KEY, GROQ_KEY, GROQ_KEY_2, MISTRAL_KEY, MISTRAL_KEY_2,
+          CF_KEY, CF_ACCOUNT, OPENROUTER_KEY, GLM_KEY, SAMBANOVA_KEY, NVIDIA_KEY,
           SCW_KEY, HF_KEY, CHUTES_KEY, HETZNER_KEY,
           EXTRA1_KEY, EXTRA2_KEY, EXTRA3_KEY, EXTRA4_KEY, EXTRA5_KEY, EXTRA6_KEY } = keys;
   const cfOk = validKey(CF_KEY) && validKey(CF_ACCOUNT);
@@ -890,6 +890,10 @@ function buildWritingCandidates(text, prompt, keys) {
   add("openrouter",  () => callOpenRouter(text, prompt, OPENROUTER_KEY, mt),       validKey(OPENROUTER_KEY));
   add("scaleway",    () => callScaleway(text, prompt, SCW_KEY, mt),                validKey(SCW_KEY));
   // add("hetzner",  () => callHetzner(text, prompt, HETZNER_KEY, mt),             validKey(HETZNER_KEY)); // requires billing card — card-free policy
+
+  // ── Secondary keys — fresh-quota fallbacks when primary key's daily limit is exhausted ──
+  add("groq-2",      () => callGroq(text, prompt, GROQ_KEY_2, mt),                validKey(GROQ_KEY_2));
+  add("mistral-2",   () => callMistral(text, prompt, MISTRAL_KEY_2, mt),          validKey(MISTRAL_KEY_2));
 
   // ── Extra slots — additional OpenRouter keys for higher throughput ──
   add("extra1", () => callExtra(text, prompt, EXTRA1_KEY, "Extra1", mt), validKey(EXTRA1_KEY));
@@ -972,10 +976,12 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset) {
 // CV extract: Groq → Gemini → Mistral → Cloudflare → OVHcloud
 async function runChain(text, prompt, type) {
   const GROQ_KEY       = process.env.GROQ_KEY;
+  const GROQ_KEY_2     = process.env.GROQ_KEY_2;
   const GEMINI_KEY     = process.env.GEMINI_KEY;
   const OPENROUTER_KEY = process.env.OPENROUTER_KEY;
   const GLM_KEY        = process.env.GLM_KEY;
   const MISTRAL_KEY    = process.env.MISTRAL_KEY;
+  const MISTRAL_KEY_2  = process.env.MISTRAL_KEY_2;
   const CF_KEY         = process.env.CF_KEY;
   const CF_ACCOUNT     = process.env.CF_ACCOUNT;
   const SAMBANOVA_KEY  = process.env.SAMBANOVA_KEY;
@@ -1002,8 +1008,8 @@ async function runChain(text, prompt, type) {
   // starting at a different offset so parallel calls spread across providers.
   if (!isAIChat && !isCVExtract) {
     const envKeys = {
-      DEEPSEEK_KEY, GEMINI_KEY, GROQ_KEY, MISTRAL_KEY, CF_KEY, CF_ACCOUNT,
-      OPENROUTER_KEY, GLM_KEY, SAMBANOVA_KEY, NVIDIA_KEY,
+      DEEPSEEK_KEY, GEMINI_KEY, GROQ_KEY, GROQ_KEY_2, MISTRAL_KEY, MISTRAL_KEY_2,
+      CF_KEY, CF_ACCOUNT, OPENROUTER_KEY, GLM_KEY, SAMBANOVA_KEY, NVIDIA_KEY,
       SCW_KEY, HF_KEY, CHUTES_KEY, HETZNER_KEY,
       EXTRA1_KEY, EXTRA2_KEY, EXTRA3_KEY, EXTRA4_KEY, EXTRA5_KEY, EXTRA6_KEY
     };
@@ -1065,21 +1071,25 @@ async function runChain(text, prompt, type) {
   const addC = (name, fn, keyOk = true) => { if (keyOk) candidates.push({ name, fn }); };
 
   if (isCVExtract) {
-    addC("groq",       () => callGroqModel(text, prompt, GROQ_KEY, "openai/gpt-oss-20b"), validKey(GROQ_KEY));
-    addC("gemini",     () => callGemini(text, prompt, GEMINI_KEY),                         validKey(GEMINI_KEY));
+    addC("groq",       () => callGroqModel(text, prompt, GROQ_KEY, "openai/gpt-oss-20b"),   validKey(GROQ_KEY));
+    addC("gemini",     () => callGemini(text, prompt, GEMINI_KEY),                           validKey(GEMINI_KEY));
     // sambanova removed — billing-walled (402 insufficient balance)
-    addC("mistral",    () => callMistral(text, prompt, MISTRAL_KEY),                       validKey(MISTRAL_KEY));
-    addC("cloudflare", () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT),             cfOk);
-    addC("ovhcloud",   () => callOVHcloud(text, prompt),                                   true);
+    addC("mistral",    () => callMistral(text, prompt, MISTRAL_KEY),                         validKey(MISTRAL_KEY));
+    addC("cloudflare", () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT),               cfOk);
+    addC("ovhcloud",   () => callOVHcloud(text, prompt),                                     true);
+    addC("groq-2",     () => callGroqModel(text, prompt, GROQ_KEY_2, "openai/gpt-oss-20b"), validKey(GROQ_KEY_2));
+    addC("mistral-2",  () => callMistral(text, prompt, MISTRAL_KEY_2),                       validKey(MISTRAL_KEY_2));
   } else {
     // AI chat path — Cerebras removed (requires payment). groq first for speed.
     // sambanova / deepseek direct removed — billing-walled (402 insufficient balance).
     addC("groq",           () => callGroqModel(text, prompt, GROQ_KEY, "openai/gpt-oss-20b"),                              validKey(GROQ_KEY));
+    addC("groq-2",         () => callGroqModel(text, prompt, GROQ_KEY_2, "openai/gpt-oss-20b"),                            validKey(GROQ_KEY_2));
     addC("gemini",         () => callGemini(text, prompt, GEMINI_KEY),                                                     validKey(GEMINI_KEY));
     addC("nvidia",         () => callNvidia(text, prompt, NVIDIA_KEY),                                                     validKey(NVIDIA_KEY));
     addC("deepseek-coder", () => callOpenRouterModel(text, prompt, OPENROUTER_KEY, "deepseek/deepseek-coder-v2-instruct:free"), validKey(OPENROUTER_KEY));
     addC("qwen-coder",     () => callOpenRouterModel(text, prompt, OPENROUTER_KEY, "qwen/qwen-2.5-coder-32b-instruct:free"),    validKey(OPENROUTER_KEY));
     addC("mistral",        () => callMistral(text, prompt, MISTRAL_KEY),                                                   validKey(MISTRAL_KEY));
+    addC("mistral-2",      () => callMistral(text, prompt, MISTRAL_KEY_2),                                                 validKey(MISTRAL_KEY_2));
     addC("cloudflare",     () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT),                                         cfOk);
     addC("ovhcloud",       () => callOVHcloud(text, prompt),                                                               true);
     addC("extra1",         () => callExtra(text, prompt, EXTRA1_KEY, "Extra1"),                                            validKey(EXTRA1_KEY));
@@ -1182,10 +1192,12 @@ async function handleTestKeys(body) {
 
   const tests = [
     { name: "groq",       model: "openai/gpt-oss-20b",              key: process.env.GROQ_KEY,       fn: (k) => callGroq(testText, testPrompt, k) },
+    { name: "groq-2",     model: "openai/gpt-oss-20b",              key: process.env.GROQ_KEY_2,     fn: (k) => callGroq(testText, testPrompt, k) },
     { name: "gemini",     model: "gemini-3.5-flash-lite",                  key: process.env.GEMINI_KEY,     fn: (k) => callGemini(testText, testPrompt, k) },
     { name: "sambanova",  model: "Meta-Llama-3.3-70B-Instruct",       key: process.env.SAMBANOVA_KEY,  fn: (k) => callSambaNova(testText, testPrompt, k) },
     { name: "nvidia",     model: "meta/llama-3.1-8b-instruct",           key: process.env.NVIDIA_KEY, fn: (k) => callNvidia(testText, testPrompt, k) },
     { name: "mistral",    model: "mistral-small-latest",              key: process.env.MISTRAL_KEY,    fn: (k) => callMistral(testText, testPrompt, k) },
+    { name: "mistral-2",  model: "mistral-small-latest",              key: process.env.MISTRAL_KEY_2,  fn: (k) => callMistral(testText, testPrompt, k) },
     { name: "cloudflare", model: "@cf/meta/llama-3.1-8b-instruct",   key: process.env.CF_KEY, account: cfAccount, fn: (k) => callCloudflare(testText, testPrompt, k, cfAccount) },
     { name: "ovhcloud",   model: "Meta-Llama-3_3-70B-Instruct",      key: "no-key-needed",            fn: () => callOVHcloud(testText, testPrompt) },
     { name: "deepseek",   model: "deepseek-chat",                     key: process.env.DEEPSEEK_KEY,   fn: (k) => callDeepSeek(testText, testPrompt, k) },
@@ -1229,10 +1241,12 @@ module.exports = async function handler(req, res) {
   // KEYS FOUND — absolute first line so this appears in every Vercel function invocation
   console.log("KEYS FOUND:", {
     groq:       process.env.GROQ_KEY       ? process.env.GROQ_KEY.slice(0, 8)       + "..." : "(not set)",
+    groq2:      process.env.GROQ_KEY_2    ? process.env.GROQ_KEY_2.slice(0, 8)    + "..." : "(not set)",
     gemini:     process.env.GEMINI_KEY     ? process.env.GEMINI_KEY.slice(0, 8)     + "..." : "(not set)",
     sambanova:  process.env.SAMBANOVA_KEY  ? process.env.SAMBANOVA_KEY.slice(0, 8)  + "..." : "(not set)",
     nvidia:     process.env.NVIDIA_KEY     ? process.env.NVIDIA_KEY.slice(0, 8)     + "..." : "(not set)",
     mistral:    process.env.MISTRAL_KEY    ? process.env.MISTRAL_KEY.slice(0, 8)    + "..." : "(not set)",
+    mistral2:   process.env.MISTRAL_KEY_2 ? process.env.MISTRAL_KEY_2.slice(0, 8) + "..." : "(not set)",
     cloudflare: process.env.CF_KEY         ? process.env.CF_KEY.slice(0, 8)         + "..." : "(not set)",
     ovhcloud:   "no-key-needed",
     deepseek:   process.env.DEEPSEEK_KEY   ? process.env.DEEPSEEK_KEY.slice(0, 8)   + "..." : "(not set)",
