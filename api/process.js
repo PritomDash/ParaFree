@@ -243,7 +243,7 @@ function getAdminPassword() {
 }
 
 // ── API CALLERS ──
-async function callGroq(text, prompt, key) {
+async function callGroq(text, prompt, key, maxTokens = 2048) {
   console.log("[ParaFree] Trying: groq");
   const res = await fetchWithTimeout("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
@@ -252,7 +252,7 @@ async function callGroq(text, prompt, key) {
       model: "openai/gpt-oss-20b",
       messages: [{ role: "user", content: prompt + "\n\n" + text }],
       temperature: 0.7,
-      max_tokens: 2048
+      max_tokens: maxTokens
     })
   });
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Groq:" + res.status + " " + b.slice(0,200)); }
@@ -261,7 +261,7 @@ async function callGroq(text, prompt, key) {
   return data.choices[0].message.content;
 }
 
-async function callGemini(text, prompt, key) {
+async function callGemini(text, prompt, key, maxTokens = 2048) {
   console.log("[ParaFree] Trying: gemini");
   const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=" + key;
   const res = await fetchWithTimeout(url, {
@@ -269,7 +269,7 @@ async function callGemini(text, prompt, key) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt + "\n\n" + text }] }],
-      generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
+      generationConfig: { temperature: 0.7, maxOutputTokens: maxTokens }
     })
   });
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Gemini:" + res.status + " " + b.slice(0,200)); }
@@ -301,7 +301,7 @@ async function callCerebras(text, prompt, key) {
   return data.choices[0].message.content;
 }
 
-async function callOpenRouter(text, prompt, key) {
+async function callOpenRouter(text, prompt, key, maxTokens = 2048) {
   console.log("[ParaFree] Trying: openrouter");
   const res = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
@@ -315,7 +315,7 @@ async function callOpenRouter(text, prompt, key) {
       model: "google/gemma-4-31b-it:free",
       messages: [{ role: "user", content: prompt + "\n\n" + text }],
       temperature: 0.7,
-      max_tokens: 2048
+      max_tokens: maxTokens
     })
   });
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("OpenRouter:" + res.status + " " + b.slice(0,200)); }
@@ -350,7 +350,7 @@ async function callGroqModel(text, prompt, key, model) {
   return data.choices[0].message.content;
 }
 
-async function callMistral(text, prompt, key) {
+async function callMistral(text, prompt, key, maxTokens = 2048) {
   console.log("[ParaFree] Trying: mistral");
   const res = await fetchWithTimeout("https://api.mistral.ai/v1/chat/completions", {
     method: "POST",
@@ -359,7 +359,7 @@ async function callMistral(text, prompt, key) {
       model: "mistral-small-latest",
       messages: [{ role: "user", content: prompt + "\n\n" + text }],
       temperature: 0.7,
-      max_tokens: 2048
+      max_tokens: maxTokens
     })
   });
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Mistral:" + res.status + " " + b.slice(0,200)); }
@@ -368,14 +368,14 @@ async function callMistral(text, prompt, key) {
   return data.choices[0].message.content;
 }
 
-async function callCloudflare(text, prompt, key, account) {
+async function callCloudflare(text, prompt, key, account, maxTokens = 2048) {
   console.log("[ParaFree] Trying: cloudflare");
   const res = await fetchWithTimeout(
     "https://api.cloudflare.com/client/v4/accounts/" + account + "/ai/run/@cf/meta/llama-3.1-8b-instruct",
     {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
-      body: JSON.stringify({ messages: [{ role: "user", content: prompt + "\n\n" + text }], max_tokens: 2048 })
+      body: JSON.stringify({ messages: [{ role: "user", content: prompt + "\n\n" + text }], max_tokens: maxTokens })
     }
   );
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Cloudflare:" + res.status + " " + b.slice(0,200)); }
@@ -384,7 +384,7 @@ async function callCloudflare(text, prompt, key, account) {
   return data.result.response;
 }
 
-async function callGLM(text, prompt, key) {
+async function callGLM(text, prompt, key, maxTokens = 1500) {
   console.log("[ParaFree] Trying: glm");
   const res = await fetchWithTimeout("https://open.bigmodel.cn/api/paas/v4/chat/completions", {
     method: "POST",
@@ -395,7 +395,7 @@ async function callGLM(text, prompt, key) {
         { role: "system", content: prompt },
         { role: "user",   content: text }
       ],
-      max_tokens: 2048,
+      max_tokens: maxTokens,
       temperature: 0.7
     })
   });
@@ -406,7 +406,7 @@ async function callGLM(text, prompt, key) {
   return result;
 }
 
-async function callExtra(text, prompt, key, label) {
+async function callExtra(text, prompt, key, label, maxTokens = 1500) {
   console.log("[ParaFree] Trying:", label);
   const res = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
@@ -420,7 +420,7 @@ async function callExtra(text, prompt, key, label) {
       model: "google/gemma-4-31b-it:free",
       messages: [{ role: "user", content: prompt + "\n\n" + text }],
       temperature: 0.7,
-      max_tokens: 2048
+      max_tokens: maxTokens
     })
   });
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error(label + ":" + res.status + " " + b.slice(0,200)); }
@@ -466,7 +466,7 @@ async function callNvidia(text, prompt, key, ms = 4000) {
   return data.choices[0].message.content;
 }
 
-async function callOVHcloud(text, prompt) {
+async function callOVHcloud(text, prompt, maxTokens = 1500) {
   console.log("[ParaFree] Trying: ovhcloud");
   const res = await fetchWithTimeout("https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/chat/completions", {
     method: "POST",
@@ -475,7 +475,7 @@ async function callOVHcloud(text, prompt) {
       model: "Meta-Llama-3_3-70B-Instruct",
       messages: [{ role: "user", content: prompt + "\n\n" + text }],
       temperature: 0.7,
-      max_tokens: 2048
+      max_tokens: maxTokens
     })
   });
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("OVHcloud:" + res.status + " " + b.slice(0,200)); }
@@ -502,7 +502,7 @@ async function callDeepSeek(text, prompt, key) {
   return data.choices[0].message.content;
 }
 
-async function callLLM7(text, prompt) {
+async function callLLM7(text, prompt, maxTokens = 1500) {
   console.log("[ParaFree] Trying: llm7");
   const res = await fetchWithTimeout("https://api.llm7.io/v1/chat/completions", {
     method: "POST",
@@ -511,7 +511,7 @@ async function callLLM7(text, prompt) {
       model: "mistral-Nemo-Instruct-2407",
       messages: [{ role: "user", content: prompt + "\n\n" + text }],
       temperature: 0.7,
-      max_tokens: 2048
+      max_tokens: maxTokens
     })
   });
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("LLM7:" + res.status + " " + b.slice(0,200)); }
@@ -520,7 +520,7 @@ async function callLLM7(text, prompt) {
   return data.choices[0].message.content;
 }
 
-async function callScaleway(text, prompt, key) {
+async function callScaleway(text, prompt, key, maxTokens = 1500) {
   console.log("[ParaFree] Trying: scaleway");
   const res = await fetchWithTimeout("https://api.scaleway.ai/v1/chat/completions", {
     method: "POST",
@@ -529,7 +529,7 @@ async function callScaleway(text, prompt, key) {
       model: "llama-3.3-70b-instruct",
       messages: [{ role: "user", content: prompt + "\n\n" + text }],
       temperature: 0.7,
-      max_tokens: 2048
+      max_tokens: maxTokens
     })
   });
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Scaleway:" + res.status + " " + b.slice(0,200)); }
@@ -574,7 +574,7 @@ async function callChutes(text, prompt, key) {
   return data.choices[0].message.content;
 }
 
-async function callHetzner(text, prompt, key) {
+async function callHetzner(text, prompt, key, maxTokens = 1500) {
   console.log("[ParaFree] Trying: hetzner");
   const res = await fetchWithTimeout("https://api.hetzner.ai/v1/chat/completions", {
     method: "POST",
@@ -583,7 +583,7 @@ async function callHetzner(text, prompt, key) {
       model: "meta-llama/Meta-Llama-3.1-70B-Instruct",
       messages: [{ role: "user", content: prompt + "\n\n" + text }],
       temperature: 0.7,
-      max_tokens: 2048
+      max_tokens: maxTokens
     })
   });
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Hetzner:" + res.status + " " + b.slice(0,200)); }
@@ -795,13 +795,14 @@ function getPrompt(mode, language) {
 }
 
 // ── CHUNKING HELPERS ──
-// Dynamic word-based chunking: target ~400 words/chunk, 1–12 chunks max.
-// Formula: chunkCount = clamp(ceil(wordCount / 400), 1, 12)
+// Dynamic word-based chunking: target ~600 words/chunk, 1–8 chunks max.
+// Formula: chunkCount = clamp(ceil(wordCount / 600), 1, 8)
 //          chunkSize  = wordCount / chunkCount  (auto-adjusts for large docs)
-// Small docs (≤400 words) → 1 chunk; huge docs → capped at 12 with bigger chunks.
-const CHUNK_TARGET_WORDS = 400;
-const CHUNK_MAX_COUNT    = 12;
-const CHUNK_CONCURRENCY  = 4; // max simultaneous API calls (rate-limit guard)
+// Small docs (≤600 words) → 1 chunk; huge docs → capped at 8 with bigger chunks.
+// Keeping chunks larger reduces total API calls and provider token consumption.
+const CHUNK_TARGET_WORDS = 600;
+const CHUNK_MAX_COUNT    = 8;
+const CHUNK_CONCURRENCY  = 3; // max simultaneous API calls (rate-limit guard)
 
 function countWordsApprox(text) {
   return text.trim().split(/\s+/).filter(Boolean).length;
@@ -871,28 +872,34 @@ function buildWritingCandidates(text, prompt, keys) {
   const chain = [];
   const add = (name, fn, keyOk = true) => { if (keyOk) chain.push({ name, fn }); };
 
+  // Dynamic max_tokens: cap output at ~1.5× input word count in tokens (1 word ≈ 1.5 tokens),
+  // floored at 600 and capped at 1500. Prevents over-provisioning on short chunks and
+  // reduces per-request token consumption on providers with daily quota limits.
+  const chunkWords = countWordsApprox(text);
+  const mt = Math.min(1500, Math.max(600, Math.ceil(chunkWords * 1.5)));
+
   // Tier 1 — confirmed reliable free-tier providers
-  add("gemini",      () => callGemini(text, prompt, GEMINI_KEY),               validKey(GEMINI_KEY));
-  add("groq",        () => callGroq(text, prompt, GROQ_KEY),                   validKey(GROQ_KEY));
-  add("cloudflare",  () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT),   cfOk);
-  add("ovhcloud",    () => callOVHcloud(text, prompt),                         true); // no key needed
-  add("llm7",        () => callLLM7(text, prompt),                             true); // no key needed
-  add("mistral",     () => callMistral(text, prompt, MISTRAL_KEY),             validKey(MISTRAL_KEY));
+  add("gemini",      () => callGemini(text, prompt, GEMINI_KEY, mt),               validKey(GEMINI_KEY));
+  add("groq",        () => callGroq(text, prompt, GROQ_KEY, mt),                   validKey(GROQ_KEY));
+  add("cloudflare",  () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT, mt),   cfOk);
+  add("ovhcloud",    () => callOVHcloud(text, prompt, mt),                         true); // no key needed
+  add("llm7",        () => callLLM7(text, prompt, mt),                             true); // no key needed
+  add("mistral",     () => callMistral(text, prompt, MISTRAL_KEY, mt),             validKey(MISTRAL_KEY));
 
   // Tier 2 — key-gated free-tier providers (active when key is configured in Vercel)
-  add("openrouter",  () => callOpenRouter(text, prompt, OPENROUTER_KEY),       validKey(OPENROUTER_KEY));
-  add("scaleway",    () => callScaleway(text, prompt, SCW_KEY),                validKey(SCW_KEY));
-  add("hetzner",     () => callHetzner(text, prompt, HETZNER_KEY),             validKey(HETZNER_KEY));
+  add("openrouter",  () => callOpenRouter(text, prompt, OPENROUTER_KEY, mt),       validKey(OPENROUTER_KEY));
+  add("scaleway",    () => callScaleway(text, prompt, SCW_KEY, mt),                validKey(SCW_KEY));
+  add("hetzner",     () => callHetzner(text, prompt, HETZNER_KEY, mt),             validKey(HETZNER_KEY));
   // GLM-4-flash: free-tier, ⚠️ Zhipu AI (Chinese company) — data processed in China
-  add("glm",         () => callGLM(text, prompt, GLM_KEY),                     validKey(GLM_KEY));
+  add("glm",         () => callGLM(text, prompt, GLM_KEY, mt),                     validKey(GLM_KEY));
 
   // ── Extra slots — additional OpenRouter keys for higher throughput ──
-  add("extra1", () => callExtra(text, prompt, EXTRA1_KEY, "Extra1"), validKey(EXTRA1_KEY));
-  add("extra2", () => callExtra(text, prompt, EXTRA2_KEY, "Extra2"), validKey(EXTRA2_KEY));
-  add("extra3", () => callExtra(text, prompt, EXTRA3_KEY, "Extra3"), validKey(EXTRA3_KEY));
-  add("extra4", () => callExtra(text, prompt, EXTRA4_KEY, "Extra4"), validKey(EXTRA4_KEY));
-  add("extra5", () => callExtra(text, prompt, EXTRA5_KEY, "Extra5"), validKey(EXTRA5_KEY));
-  add("extra6", () => callExtra(text, prompt, EXTRA6_KEY, "Extra6"), validKey(EXTRA6_KEY));
+  add("extra1", () => callExtra(text, prompt, EXTRA1_KEY, "Extra1", mt), validKey(EXTRA1_KEY));
+  add("extra2", () => callExtra(text, prompt, EXTRA2_KEY, "Extra2", mt), validKey(EXTRA2_KEY));
+  add("extra3", () => callExtra(text, prompt, EXTRA3_KEY, "Extra3", mt), validKey(EXTRA3_KEY));
+  add("extra4", () => callExtra(text, prompt, EXTRA4_KEY, "Extra4", mt), validKey(EXTRA4_KEY));
+  add("extra5", () => callExtra(text, prompt, EXTRA5_KEY, "Extra5", mt), validKey(EXTRA5_KEY));
+  add("extra6", () => callExtra(text, prompt, EXTRA6_KEY, "Extra6", mt), validKey(EXTRA6_KEY));
 
   // ── Last resort ──
   // NVIDIA removed — consistently 404 for this account.
@@ -920,13 +927,18 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset) {
     return null;
   }
   // Rotate main chain only; lastResort is always appended at the end (not rotated).
+  // startOffset comes from runChain's sequential counter (baseOffset + chunkSeq),
+  // guaranteeing each chunk in a document starts at a DIFFERENT provider.
+  // Previously used Math.random() here — that ignored startOffset entirely and
+  // allowed all chunks to cluster on the same provider (Groq/Gemini), exhausting
+  // their daily quotas. The deterministic modulo ensures even load spreading.
   const n = chain.length;
-  const start = n > 0 ? Math.floor(Math.random() * n) : 0;
+  const start = n > 0 ? startOffset % n : 0;
   const rotated = n > 0 ? [...chain.slice(start), ...chain.slice(0, start)] : [];
   const ordered = lastResort ? [...rotated, lastResort] : rotated;
 
   const chunkStart = Date.now();
-  console.log(`[ParaFree] paraphraseChunk: ${chunkText.length} chars, chain=${chain.length} + last-resort=${lastResort ? 1 : 0}, rand-offset=${start}`);
+  console.log(`[ParaFree] paraphraseChunk: ${chunkText.length} chars, chain=${chain.length} + last-resort=${lastResort ? 1 : 0}, offset=${start}`);
   for (const c of ordered) {
     const t0 = Date.now();
     const isLast = lastResort !== null && c.name === lastResort.name;
