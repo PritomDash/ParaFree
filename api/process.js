@@ -312,7 +312,7 @@ async function callOpenRouter(text, prompt, key, maxTokens = 2048) {
       "X-Title": "ParaFree"
     },
     body: JSON.stringify({
-      model: "google/gemma-4-31b-it:free",
+      model: "qwen/qwen3.8-27b:free",
       messages: [{ role: "user", content: prompt + "\n\n" + text }],
       temperature: 0.7,
       max_tokens: maxTokens
@@ -417,7 +417,7 @@ async function callExtra(text, prompt, key, label, maxTokens = 1500) {
       "X-Title": "ParaFree"
     },
     body: JSON.stringify({
-      model: "google/gemma-4-31b-it:free",
+      model: "qwen/qwen3.8-27b:free",
       messages: [{ role: "user", content: prompt + "\n\n" + text }],
       temperature: 0.7,
       max_tokens: maxTokens
@@ -1189,7 +1189,7 @@ async function handleTestKeys(body) {
     { name: "cloudflare", model: "@cf/meta/llama-3.1-8b-instruct",   key: process.env.CF_KEY, account: cfAccount, fn: (k) => callCloudflare(testText, testPrompt, k, cfAccount) },
     { name: "ovhcloud",   model: "Meta-Llama-3_3-70B-Instruct",      key: "no-key-needed",            fn: () => callOVHcloud(testText, testPrompt) },
     { name: "deepseek",   model: "deepseek-chat",                     key: process.env.DEEPSEEK_KEY,   fn: (k) => callDeepSeek(testText, testPrompt, k) },
-    { name: "openrouter", model: "google/gemma-4-31b-it:free",          key: process.env.OPENROUTER_KEY, fn: (k) => callOpenRouter(testText, testPrompt, k) },
+    { name: "openrouter", model: "qwen/qwen3.8-27b:free",               key: process.env.OPENROUTER_KEY, fn: (k) => callOpenRouter(testText, testPrompt, k) },
     { name: "llm7",       model: "mistral-Nemo-Instruct-2407",    key: "no-key-needed",            fn: () => callLLM7(testText, testPrompt) },
     { name: "scaleway",   model: "llama-3.3-70b-instruct",        key: process.env.SCW_KEY,        fn: (k) => callScaleway(testText, testPrompt, k) },
     // hetzner removed (requires billing card — card-free policy)
