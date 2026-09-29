@@ -1229,7 +1229,7 @@ async function handleTestKeys(body) {
     { name: "sambanova",  model: "Meta-Llama-3.3-70B-Instruct",       key: process.env.SAMBANOVA_KEY,  fn: (k) => callSambaNova(testText, testPrompt, k) },
     { name: "nvidia",     model: "meta/llama-3.3-70b-instruct",          key: process.env.NVIDIA_KEY, fn: (k) => callNvidia(testText, testPrompt, k) },
     { name: "mistral",    model: "mistral-small-latest",              key: process.env.MISTRAL_KEY,    fn: (k) => callMistral(testText, testPrompt, k) },
-    { name: "mistral-2",  model: "mistral-small-latest",              key: process.env.MISTRAL_KEY_2,  fn: async (k) => { await new Promise(r => setTimeout(r, 1200)); return callMistral(testText, testPrompt, k); } },
+    { name: "mistral-2",  model: "mistral-small-latest",              key: process.env.MISTRAL_KEY_2,  fn: async (k) => { await new Promise(r => setTimeout(r, 3500)); return callMistral(testText, testPrompt, k); } },
     { name: "cloudflare", model: "@cf/meta/llama-3.1-8b-instruct",   key: process.env.CF_KEY, account: cfAccount, fn: (k) => callCloudflare(testText, testPrompt, k, cfAccount) },
     { name: "ovhcloud",   model: "Meta-Llama-3_3-70B-Instruct",      key: "no-key-needed",            fn: () => callOVHcloud(testText, testPrompt) },
     { name: "deepseek",   model: "deepseek-chat",                     key: process.env.DEEPSEEK_KEY,   fn: (k) => callDeepSeek(testText, testPrompt, k) },
