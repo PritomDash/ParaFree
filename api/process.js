@@ -247,7 +247,9 @@ function getAdminPassword() {
 
 // ── API CALLERS ──
 // Set GROQ_MODEL env var in Vercel to override — check console.groq.com/docs/models for current IDs.
-const GROQ_MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
+const GROQ_MODEL   = process.env.GROQ_MODEL   || "openai/gpt-oss-120b";
+// Set NVIDIA_MODEL env var in Vercel to override — check integrate.api.nvidia.com for current model IDs.
+const NVIDIA_MODEL = process.env.NVIDIA_MODEL || "nvidia/llama-3.3-nemotron-super-49b-v1";
 
 async function callGroq(text, prompt, key, maxTokens = 2048) {
   console.log("[ParaFree] Trying: groq/" + GROQ_MODEL);
@@ -471,12 +473,12 @@ async function callSambaNova(text, prompt, key) {
 }
 
 async function callNvidia(text, prompt, key, ms = 4000) {
-  console.log("[ParaFree] Trying: nvidia");
+  console.log("[ParaFree] Trying: nvidia/" + NVIDIA_MODEL);
   const res = await fetchWithTimeout("https://integrate.api.nvidia.com/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
     body: JSON.stringify({
-      model: "meta/llama-3.3-70b-instruct",
+      model: NVIDIA_MODEL,
       messages: [{ role: "user", content: prompt + "\n\n" + text }],
       temperature: 0.7,
       max_tokens: 2048,
@@ -1223,7 +1225,7 @@ async function handleTestKeys(body) {
     { name: "groq-2",     model: GROQ_MODEL,                          key: process.env.GROQ_KEY_2,     fn: (k) => callGroq(testText, testPrompt, k) },
     { name: "gemini",     model: "gemini-3.5-flash-lite",                  key: process.env.GEMINI_KEY,     fn: (k) => callGemini(testText, testPrompt, k) },
     { name: "sambanova",  model: "Meta-Llama-3.3-70B-Instruct",       key: process.env.SAMBANOVA_KEY,  fn: (k) => callSambaNova(testText, testPrompt, k) },
-    { name: "nvidia",     model: "meta/llama-3.3-70b-instruct",          key: process.env.NVIDIA_KEY, fn: (k) => callNvidia(testText, testPrompt, k) },
+    { name: "nvidia",     model: NVIDIA_MODEL,                            key: process.env.NVIDIA_KEY, fn: (k) => callNvidia(testText, testPrompt, k) },
     { name: "mistral",    model: "mistral-small-latest",              key: process.env.MISTRAL_KEY,    fn: (k) => callMistral(testText, testPrompt, k) },
     { name: "mistral-2",  model: "mistral-small-latest",              key: process.env.MISTRAL_KEY_2,  fn: async (k) => { await new Promise(r => setTimeout(r, 3500)); return callMistral(testText, testPrompt, k); } },
     { name: "cloudflare", model: "@cf/meta/llama-3.1-8b-instruct",   key: process.env.CF_KEY, account: cfAccount, fn: (k) => callCloudflare(testText, testPrompt, k, cfAccount) },
