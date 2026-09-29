@@ -249,7 +249,18 @@ function getAdminPassword() {
 // Set GROQ_MODEL env var in Vercel to override — check console.groq.com/docs/models for current IDs.
 const GROQ_MODEL   = process.env.GROQ_MODEL   || "openai/gpt-oss-120b";
 // Set NVIDIA_MODEL env var in Vercel to override — check integrate.api.nvidia.com for current model IDs.
-const NVIDIA_MODEL = process.env.NVIDIA_MODEL || "nvidia/nemotron-3.5-lightning-30b-a3b";
+// NVIDIA auto-fallback: if a model is EOL (410), advances to the next one.
+// Override the first slot via NVIDIA_MODEL env var. _nvidiaIdx cached per warm instance.
+const NVIDIA_MODELS = (process.env.NVIDIA_MODEL ? [process.env.NVIDIA_MODEL] : []).concat([
+  "nvidia/llama-3.1-nemotron-70b-instruct",
+  "nvidia/nemotron-3-ultra-550b-a55b",
+  "deepseek-ai/deepseek-v4.1-flash",
+  "mistralai/mistral-large-2-instruct",
+  "nvidia/nemotron-3.5-lightning-30b-a3b",
+  "z-ai/glm-5.3-flash",
+  "nv-mistralai/mistral-nemo-12b-instruct",
+]);
+let _nvidiaIdx = 0;
 
 async function callGroq(text, prompt, key, maxTokens = 2048) {
   console.log("[ParaFree] Trying: groq/" + GROQ_MODEL);
@@ -472,23 +483,29 @@ async function callSambaNova(text, prompt, key) {
   return data.choices[0].message.content;
 }
 
-async function callNvidia(text, prompt, key, ms = 4000) {
-  console.log("[ParaFree] Trying: nvidia/" + NVIDIA_MODEL);
-  const res = await fetchWithTimeout("https://integrate.api.nvidia.com/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
-    body: JSON.stringify({
-      model: NVIDIA_MODEL,
-      messages: [{ role: "user", content: prompt + "\n\n" + text }],
-      temperature: 0.7,
-      max_tokens: 2048,
-      stream: false
-    })
-  }, ms);
-  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("NVIDIA:" + res.status + " " + b.slice(0,200)); }
-  const data = await res.json();
-  if (!data.choices?.[0]) throw new Error("NVIDIA: no response");
-  return data.choices[0].message.content;
+async function callNvidia(text, prompt, key, maxTokens = 1500) {
+  while (_nvidiaIdx < NVIDIA_MODELS.length) {
+    const model = NVIDIA_MODELS[_nvidiaIdx];
+    console.log("[ParaFree] Trying: nvidia/" + model);
+    const res = await fetchWithTimeout("https://integrate.api.nvidia.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
+      body: JSON.stringify({ model, messages: [{ role: "user", content: prompt + "\n\n" + text }], temperature: 0.7, max_tokens: maxTokens, stream: false })
+    }, FAST_TIMEOUT);
+    if (res.status === 410) {
+      let b = ""; try { b = await res.text(); } catch (_) {}
+      console.warn("[ParaFree] NVIDIA " + model + " EOL — next model");
+      _nvidiaIdx++;
+      continue;
+    }
+    if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("NVIDIA:" + res.status + " " + b.slice(0,200)); }
+    const data = await res.json();
+    if (!data.choices?.[0]) throw new Error("NVIDIA: no response");
+    const content = data.choices[0].message?.content;
+    if (content === null || content === undefined) throw new Error("NVIDIA: null content (finish_reason=" + (data.choices[0].finish_reason || "unknown") + ")");
+    return content;
+  }
+  throw new Error("NVIDIA: all fallback models exhausted");
 }
 
 async function callOVHcloud(text, prompt, maxTokens = 1500) {
@@ -1225,7 +1242,7 @@ async function handleTestKeys(body) {
     { name: "groq-2",     model: GROQ_MODEL,                          key: process.env.GROQ_KEY_2,     fn: (k) => callGroq(testText, testPrompt, k) },
     { name: "gemini",     model: "gemini-3.5-flash-lite",                  key: process.env.GEMINI_KEY,     fn: (k) => callGemini(testText, testPrompt, k) },
     { name: "sambanova",  model: "Meta-Llama-3.3-70B-Instruct",       key: process.env.SAMBANOVA_KEY,  fn: (k) => callSambaNova(testText, testPrompt, k) },
-    { name: "nvidia",     model: NVIDIA_MODEL,                            key: process.env.NVIDIA_KEY, fn: (k) => callNvidia(testText, testPrompt, k) },
+    { name: "nvidia",     model: NVIDIA_MODELS[_nvidiaIdx] || "exhausted", key: process.env.NVIDIA_KEY, fn: (k) => callNvidia(testText, testPrompt, k) },
     { name: "mistral",    model: "mistral-small-latest",              key: process.env.MISTRAL_KEY,    fn: (k) => callMistral(testText, testPrompt, k) },
     { name: "mistral-2",  model: "mistral-small-latest",              key: process.env.MISTRAL_KEY_2,  fn: async (k) => { await new Promise(r => setTimeout(r, 3500)); return callMistral(testText, testPrompt, k); } },
     { name: "cloudflare", model: "@cf/meta/llama-3.1-8b-instruct",   key: process.env.CF_KEY, account: cfAccount, fn: (k) => callCloudflare(testText, testPrompt, k, cfAccount) },
