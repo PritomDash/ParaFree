@@ -934,8 +934,9 @@ function buildWritingCandidates(text, prompt, keys) {
   add("cloudflare", () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT, mt),   cfOk);
   add("llm7",       () => callLLM7(text, prompt, mt),                             true);
   add("ovhcloud",   () => callOVHcloud(text, prompt, mt),                         true);
-  add("mistral",    () => callMistral(text, prompt, MISTRAL_KEY, mt),             validKey(MISTRAL_KEY));
-  add("mistral-2",  () => callMistral(text, prompt, MISTRAL_KEY_2, mt),           validKey(MISTRAL_KEY_2));
+  // mistral / mistral-2 removed — Mistral free plan requires paid upgrade to activate keys (card required)
+  // add("mistral",   () => callMistral(text, prompt, MISTRAL_KEY, mt),   validKey(MISTRAL_KEY));
+  // add("mistral-2", () => callMistral(text, prompt, MISTRAL_KEY_2, mt), validKey(MISTRAL_KEY_2));
   add("nvidia",     () => callNvidia(text, prompt, NVIDIA_KEY, mt),               validKey(NVIDIA_KEY)); // re-add when model is fixed
 
   // ── Extra OpenRouter keys (active when configured in Vercel) ──
@@ -1121,11 +1122,10 @@ async function runChain(text, prompt, type) {
     addC("groq",       () => callGroqModel(text, prompt, GROQ_KEY, GROQ_MODEL),   validKey(GROQ_KEY));
     addC("gemini",     () => callGemini(text, prompt, GEMINI_KEY),               validKey(GEMINI_KEY));
     // sambanova removed — billing-walled (402 insufficient balance)
-    addC("mistral",    () => callMistral(text, prompt, MISTRAL_KEY),             validKey(MISTRAL_KEY));
     addC("cloudflare", () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT),   cfOk);
     addC("ovhcloud",   () => callOVHcloud(text, prompt),                         true);
     addC("groq-2",     () => callGroqModel(text, prompt, GROQ_KEY_2, GROQ_MODEL), validKey(GROQ_KEY_2));
-    addC("mistral-2",  () => callMistral(text, prompt, MISTRAL_KEY_2),                       validKey(MISTRAL_KEY_2));
+    // mistral removed — free plan requires paid upgrade to activate keys
   } else {
     // AI chat path — Cerebras removed (requires payment). groq first for speed.
     // sambanova / deepseek direct removed — billing-walled (402 insufficient balance).
@@ -1135,8 +1135,7 @@ async function runChain(text, prompt, type) {
     // nvidia removed — all NIM llama models EOL'd 2026-08-26
     addC("deepseek-coder", () => callOpenRouterModel(text, prompt, OPENROUTER_KEY, "deepseek/deepseek-coder-v2-instruct:free"), validKey(OPENROUTER_KEY));
     addC("qwen-coder",     () => callOpenRouterModel(text, prompt, OPENROUTER_KEY, "qwen/qwen-2.5-coder-32b-instruct:free"),    validKey(OPENROUTER_KEY));
-    addC("mistral",        () => callMistral(text, prompt, MISTRAL_KEY),                                                   validKey(MISTRAL_KEY));
-    addC("mistral-2",      () => callMistral(text, prompt, MISTRAL_KEY_2),                                                 validKey(MISTRAL_KEY_2));
+    // mistral removed — free plan requires paid upgrade to activate keys
     addC("cloudflare",     () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT),                                         cfOk);
     addC("ovhcloud",       () => callOVHcloud(text, prompt),                                                               true);
     addC("extra1",         () => callExtra(text, prompt, EXTRA1_KEY, "Extra1"),                                            validKey(EXTRA1_KEY));
