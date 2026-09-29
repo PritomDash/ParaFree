@@ -258,7 +258,8 @@ async function callGroq(text, prompt, key, maxTokens = 2048) {
       model: GROQ_MODEL,
       messages: [{ role: "user", content: prompt + "\n\n" + text }],
       temperature: 0.7,
-      max_tokens: maxTokens
+      max_tokens: maxTokens,
+      reasoning_effort: "low"   // gpt-oss models are reasoning models; "low" is fastest for paraphrase
     })
   });
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Groq:" + res.status + " " + b.slice(0,200)); }
