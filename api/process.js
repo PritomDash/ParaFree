@@ -249,7 +249,7 @@ function getAdminPassword() {
 // Set GROQ_MODEL env var in Vercel to override — check console.groq.com/docs/models for current IDs.
 const GROQ_MODEL   = process.env.GROQ_MODEL   || "openai/gpt-oss-120b";
 // Set NVIDIA_MODEL env var in Vercel to override — check integrate.api.nvidia.com for current model IDs.
-const NVIDIA_MODEL = process.env.NVIDIA_MODEL || "nvidia/llama-3.3-nemotron-super-49b-v1";
+const NVIDIA_MODEL = process.env.NVIDIA_MODEL || "nvidia/nemotron-3.5-lightning-30b-a3b";
 
 async function callGroq(text, prompt, key, maxTokens = 2048) {
   console.log("[ParaFree] Trying: groq/" + GROQ_MODEL);
