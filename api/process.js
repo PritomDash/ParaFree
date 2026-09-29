@@ -246,13 +246,16 @@ function getAdminPassword() {
 }
 
 // ── API CALLERS ──
+// Set GROQ_MODEL env var in Vercel to override — check console.groq.com/docs/models for current IDs.
+const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.1-8b-instant";
+
 async function callGroq(text, prompt, key, maxTokens = 2048) {
-  console.log("[ParaFree] Trying: groq");
+  console.log("[ParaFree] Trying: groq/" + GROQ_MODEL);
   const res = await fetchWithTimeout("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
     body: JSON.stringify({
-      model: "llama-3.1-8b-instant",
+      model: GROQ_MODEL,
       messages: [{ role: "user", content: prompt + "\n\n" + text }],
       temperature: 0.7,
       max_tokens: maxTokens
@@ -1099,21 +1102,21 @@ async function runChain(text, prompt, type) {
   const addC = (name, fn, keyOk = true) => { if (keyOk) candidates.push({ name, fn }); };
 
   if (isCVExtract) {
-    addC("groq",       () => callGroqModel(text, prompt, GROQ_KEY, "llama-3.1-8b-instant"),   validKey(GROQ_KEY));
-    addC("gemini",     () => callGemini(text, prompt, GEMINI_KEY),                             validKey(GEMINI_KEY));
+    addC("groq",       () => callGroqModel(text, prompt, GROQ_KEY, GROQ_MODEL),   validKey(GROQ_KEY));
+    addC("gemini",     () => callGemini(text, prompt, GEMINI_KEY),               validKey(GEMINI_KEY));
     // sambanova removed — billing-walled (402 insufficient balance)
-    addC("mistral",    () => callMistral(text, prompt, MISTRAL_KEY),                           validKey(MISTRAL_KEY));
-    addC("cloudflare", () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT),                 cfOk);
-    addC("ovhcloud",   () => callOVHcloud(text, prompt),                                       true);
-    addC("groq-2",     () => callGroqModel(text, prompt, GROQ_KEY_2, "llama-3.1-8b-instant"), validKey(GROQ_KEY_2));
+    addC("mistral",    () => callMistral(text, prompt, MISTRAL_KEY),             validKey(MISTRAL_KEY));
+    addC("cloudflare", () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT),   cfOk);
+    addC("ovhcloud",   () => callOVHcloud(text, prompt),                         true);
+    addC("groq-2",     () => callGroqModel(text, prompt, GROQ_KEY_2, GROQ_MODEL), validKey(GROQ_KEY_2));
     addC("mistral-2",  () => callMistral(text, prompt, MISTRAL_KEY_2),                       validKey(MISTRAL_KEY_2));
   } else {
     // AI chat path — Cerebras removed (requires payment). groq first for speed.
     // sambanova / deepseek direct removed — billing-walled (402 insufficient balance).
-    addC("groq",           () => callGroqModel(text, prompt, GROQ_KEY, "llama-3.1-8b-instant"),                              validKey(GROQ_KEY));
-    addC("groq-2",         () => callGroqModel(text, prompt, GROQ_KEY_2, "llama-3.1-8b-instant"),                            validKey(GROQ_KEY_2));
-    addC("gemini",         () => callGemini(text, prompt, GEMINI_KEY),                                                     validKey(GEMINI_KEY));
-    addC("nvidia",         () => callNvidia(text, prompt, NVIDIA_KEY),                                                     validKey(NVIDIA_KEY));
+    addC("groq",           () => callGroqModel(text, prompt, GROQ_KEY, GROQ_MODEL),   validKey(GROQ_KEY));
+    addC("groq-2",         () => callGroqModel(text, prompt, GROQ_KEY_2, GROQ_MODEL), validKey(GROQ_KEY_2));
+    addC("gemini",         () => callGemini(text, prompt, GEMINI_KEY),               validKey(GEMINI_KEY));
+    // nvidia removed — all NIM llama models EOL'd 2026-08-26
     addC("deepseek-coder", () => callOpenRouterModel(text, prompt, OPENROUTER_KEY, "deepseek/deepseek-coder-v2-instruct:free"), validKey(OPENROUTER_KEY));
     addC("qwen-coder",     () => callOpenRouterModel(text, prompt, OPENROUTER_KEY, "qwen/qwen-2.5-coder-32b-instruct:free"),    validKey(OPENROUTER_KEY));
     addC("mistral",        () => callMistral(text, prompt, MISTRAL_KEY),                                                   validKey(MISTRAL_KEY));
@@ -1219,8 +1222,8 @@ async function handleTestKeys(body) {
   const cfAccount = process.env.CF_ACCOUNT;
 
   const tests = [
-    { name: "groq",       model: "llama-3.1-8b-instant",             key: process.env.GROQ_KEY,       fn: (k) => callGroq(testText, testPrompt, k) },
-    { name: "groq-2",     model: "llama-3.1-8b-instant",             key: process.env.GROQ_KEY_2,     fn: (k) => callGroq(testText, testPrompt, k) },
+    { name: "groq",       model: GROQ_MODEL,                          key: process.env.GROQ_KEY,       fn: (k) => callGroq(testText, testPrompt, k) },
+    { name: "groq-2",     model: GROQ_MODEL,                          key: process.env.GROQ_KEY_2,     fn: (k) => callGroq(testText, testPrompt, k) },
     { name: "gemini",     model: "gemini-3.5-flash-lite",                  key: process.env.GEMINI_KEY,     fn: (k) => callGemini(testText, testPrompt, k) },
     { name: "sambanova",  model: "Meta-Llama-3.3-70B-Instruct",       key: process.env.SAMBANOVA_KEY,  fn: (k) => callSambaNova(testText, testPrompt, k) },
     { name: "nvidia",     model: "meta/llama-3.3-70b-instruct",          key: process.env.NVIDIA_KEY, fn: (k) => callNvidia(testText, testPrompt, k) },
