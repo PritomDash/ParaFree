@@ -4494,12 +4494,31 @@ async function paraphrase() {
     docxParaCount > 0 ? window._docxBodyParas : null
   );
 
+  const _totalWords = countWords(apiText);
+  const _isLongDoc = _batches.length > 1;
+
+  function _showBatchProgress(_bi) {
+    const _pct = Math.round((_bi / _batches.length) * 100);
+    const _longNote = _isLongDoc && _bi === 0
+      ? `<p style="margin:10px 0 0;font-size:0.8em;opacity:0.7;">Long document detected — this may take up to a minute.</p>`
+      : '';
+    document.getElementById("outputText").innerHTML = `
+      <div style="padding:20px 10px;text-align:center;">
+        <div style="font-size:0.95em;margin-bottom:14px;color:var(--text2);">
+          Paraphrasing… <strong>part ${_bi + 1} of ${_batches.length}</strong>
+        </div>
+        <div style="background:var(--border,#e0e0e0);border-radius:99px;height:8px;overflow:hidden;max-width:320px;margin:0 auto;">
+          <div style="height:100%;border-radius:99px;background:var(--accent,#4f8ef7);width:${_pct}%;transition:width 0.4s ease;"></div>
+        </div>
+        <div style="font-size:0.78em;margin-top:8px;opacity:0.6;">${_pct}% complete</div>
+        ${_longNote}
+      </div>`;
+  }
+
   let combinedResult = '';
   for (let _bi = 0; _bi < _batches.length; _bi++) {
-    if (_batches.length > 1) {
-      const _pct = Math.round((_bi / _batches.length) * 100);
-      document.getElementById("outputText").innerHTML =
-        `<span class="output-placeholder">Paraphrasing… Part ${_bi + 1} of ${_batches.length} (${_pct}%)</span>`;
+    if (_isLongDoc) {
+      _showBatchProgress(_bi);
     }
     const _batchResult = await runAPIChain(_batches[_bi].text, apiPrompt, currentMode, getLang(), 'paraphrase');
     console.log(`[paraphrase] batch ${_bi + 1}/${_batches.length} result chars:`, _batchResult ? _batchResult.length : 'null');
