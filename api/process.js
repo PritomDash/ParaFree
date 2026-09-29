@@ -802,7 +802,7 @@ function getPrompt(mode, language) {
 // Keeping chunks larger reduces total API calls and provider token consumption.
 const CHUNK_TARGET_WORDS = 600;
 const CHUNK_MAX_COUNT    = 8;
-const CHUNK_CONCURRENCY  = 3; // max simultaneous API calls (rate-limit guard)
+const CHUNK_CONCURRENCY  = 1; // sequential: one chunk at a time — only 1 working provider needed per batch
 
 function countWordsApprox(text) {
   return text.trim().split(/\s+/).filter(Boolean).length;
@@ -1029,7 +1029,7 @@ async function runChain(text, prompt, type) {
     // Chunks may complete in any order during parallel processing — the seq
     // number is the only authoritative record of original position.
     const indexedChunks = chunks.map((text, seq) => ({ seq, text }));
-    console.log(`[ParaFree] writing: ${indexedChunks.length} chunk(s) × ${sampleTotal} providers (chain=${sampleChain.length} + last-resort=${sampleLast ? 1 : 0}) — concurrency=${Math.min(CHUNK_CONCURRENCY, indexedChunks.length)}, input=${inputWords} words, isPPTX=${isPPTX}, seqs=[${indexedChunks.map(c => c.seq).join(',')}]`);
+    console.log(`[ParaFree] writing: ${indexedChunks.length} chunk(s) × ${sampleTotal} providers (chain=${sampleChain.length} + last-resort=${sampleLast ? 1 : 0}) — sequential, input=${inputWords} words, isPPTX=${isPPTX}, seqs=[${indexedChunks.map(c => c.seq).join(',')}]`);
     const t0 = Date.now();
 
     // Each thunk returns {seq, result} so the sequence number travels with the result.

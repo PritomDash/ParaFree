@@ -3523,6 +3523,56 @@ function renderDetectorResult(aiScore, humanScore, metrics) {
 // SECURE BACKEND CALL — No keys in browser!
 // All API calls go through /api/process
 // ════════════════════════════════════════════
+// ════════════════════════════════════════════
+// FRONTEND BATCH SPLITTING (long-doc support)
+// ════════════════════════════════════════════
+// Docs ≤3500 words → single API call. Longer docs are split into ~3000-word
+// batches processed sequentially; the frontend merges results in order.
+// DOCX batches use globally-numbered <<<N>>> markers so the combined result
+// parses correctly in one pass (batch 1 = <<<1..K>>>, batch 2 = <<<K+1..M>>>).
+const BATCH_SPLIT_THRESHOLD = 3500;
+const BATCH_TARGET_WORDS    = 3000;
+
+function buildFrontendBatches(apiText, bps) {
+  if (bps && bps.length > 0) {
+    // DOCX mode: split on bps word count
+    const totalWords = bps.reduce((sum, b) => sum + countWords(b.text), 0);
+    if (totalWords <= BATCH_SPLIT_THRESHOLD) return [{ text: apiText }];
+
+    const batches = [];
+    let cur = [], curWords = 0, offset = 0;
+    for (const bp of bps) {
+      const pw = countWords(bp.text);
+      if (curWords >= BATCH_TARGET_WORDS && cur.length > 0) {
+        batches.push({ text: cur.map((b, j) => `<<<${offset + j + 1}>>> ${b.text}`).join('\n\n') });
+        offset += cur.length;
+        cur = []; curWords = 0;
+      }
+      cur.push(bp); curWords += pw;
+    }
+    if (cur.length) batches.push({ text: cur.map((b, j) => `<<<${offset + j + 1}>>> ${b.text}`).join('\n\n') });
+    return batches;
+  }
+
+  // Plain-text mode
+  const totalWords = countWords(apiText);
+  if (totalWords <= BATCH_SPLIT_THRESHOLD) return [{ text: apiText }];
+
+  const paras = apiText.split(/\n\n+/).filter(p => p.trim());
+  const batches = [];
+  let cur = [], curWords = 0;
+  for (const para of paras) {
+    const pw = countWords(para);
+    if (curWords >= BATCH_TARGET_WORDS && cur.length > 0) {
+      batches.push({ text: cur.join('\n\n') });
+      cur = []; curWords = 0;
+    }
+    cur.push(para); curWords += pw;
+  }
+  if (cur.length) batches.push({ text: cur.join('\n\n') });
+  return batches;
+}
+
 async function runAPIChain(text, prompt, mode, language, toolType) {
   showStatus("Processing...", "info");
   try {
@@ -4438,16 +4488,41 @@ async function paraphrase() {
     }
   }
 
-  // Backend handles chunking + parallel processing (seq-numbered, order guaranteed).
-  const result = await runAPIChain(apiText, apiPrompt, currentMode, getLang(), 'paraphrase');
-  console.log('[paraphrase] result chars:', result ? result.length : 'null');
+  // Split into frontend batches (single call for ≤3.5k words; sequential for longer docs).
+  const _batches = buildFrontendBatches(
+    apiText,
+    docxParaCount > 0 ? window._docxBodyParas : null
+  );
+
+  let combinedResult = '';
+  for (let _bi = 0; _bi < _batches.length; _bi++) {
+    if (_batches.length > 1) {
+      const _pct = Math.round((_bi / _batches.length) * 100);
+      document.getElementById("outputText").innerHTML =
+        `<span class="output-placeholder">Paraphrasing… Part ${_bi + 1} of ${_batches.length} (${_pct}%)</span>`;
+    }
+    const _batchResult = await runAPIChain(_batches[_bi].text, apiPrompt, currentMode, getLang(), 'paraphrase');
+    console.log(`[paraphrase] batch ${_bi + 1}/${_batches.length} result chars:`, _batchResult ? _batchResult.length : 'null');
+    if (!_batchResult) {
+      setLoading(false);
+      window._docxParaMap = null;
+      document.getElementById("outputText").innerHTML = '<span class="output-placeholder">Your paraphrased text will appear here...</span>';
+      const _batchLabel = _batches.length > 1 ? ` (Part ${_bi + 1} of ${_batches.length})` : '';
+      showStatus(`All AI engines are busy right now${_batchLabel}. Please try again in a few hours!`, "error");
+      resetApiDots();
+      document.getElementById("activeApiLabel").textContent = "All busy";
+      return;
+    }
+    combinedResult += (_bi > 0 ? '\n\n' : '') + _batchResult;
+  }
+  console.log('[paraphrase] combined chars:', combinedResult.length, '— batches:', _batches.length);
 
   setLoading(false);
 
-  if (result) {
-    window._lastRawOutput = result.trim();
+  if (combinedResult) {
+    window._lastRawOutput = combinedResult.trim();
     // Strip common AI preamble patterns before splitting
-    const cleanResult = result
+    const cleanResult = combinedResult
       .replace(/^\s*Here('s| is) the paraphrased[^\n]*\n*/gim, '')
       .replace(/^\s*(Sure|Certainly|Of course)[,!.][^\n]*\n*/gim, '')
       .replace(/^\s*Paraphrased (text|version|content):?\s*\n*/gim, '')
@@ -4459,6 +4534,8 @@ async function paraphrase() {
       // Marker-based mapping: each result paragraph starts with <<<N>>> which was inserted
       // before the API call. Parse by marker so each paragraph lands at its correct docPos
       // even when the AI changes paragraph count. Missing markers = keep original DOCX text.
+      // For multi-batch DOCX: markers are globally numbered across all batches so the
+      // combined result parses correctly in one pass (<<<1..K>>> batch1, <<<K+1..M>>> batch2).
       const bps = window._docxBodyParas || [];
       const totalDocParas = window._docxTotalParas || docxParaCount;
       window._docxParaMap = new Array(totalDocParas).fill(null);
