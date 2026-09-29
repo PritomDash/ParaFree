@@ -907,35 +907,31 @@ function buildWritingCandidates(text, prompt, keys) {
   const chunkWords = countWordsApprox(text);
   const mt = Math.min(1500, Math.max(600, Math.ceil(chunkWords * 1.5)));
 
-  // Tier 1 — confirmed reliable free-tier providers
-  add("gemini",      () => callGemini(text, prompt, GEMINI_KEY, mt),               validKey(GEMINI_KEY));
-  add("groq",        () => callGroq(text, prompt, GROQ_KEY, mt),                   validKey(GROQ_KEY));
-  add("cloudflare",  () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT, mt),   cfOk);
-  add("ovhcloud",    () => callOVHcloud(text, prompt, mt),                         true); // no key needed
-  add("llm7",        () => callLLM7(text, prompt, mt),                             true); // no key needed
-  add("mistral",     () => callMistral(text, prompt, MISTRAL_KEY, mt),             validKey(MISTRAL_KEY));
+  // Chain order (startOffset rotation spreads load across all entries):
+  // groq → gemini → groq-2 → cloudflare → llm7 → ovhcloud → mistral → mistral-2 → nvidia
+  add("groq",       () => callGroq(text, prompt, GROQ_KEY, mt),                   validKey(GROQ_KEY));
+  add("gemini",     () => callGemini(text, prompt, GEMINI_KEY, mt),               validKey(GEMINI_KEY));
+  add("groq-2",     () => callGroq(text, prompt, GROQ_KEY_2, mt),                 validKey(GROQ_KEY_2));
+  add("cloudflare", () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT, mt),   cfOk);
+  add("llm7",       () => callLLM7(text, prompt, mt),                             true);
+  add("ovhcloud",   () => callOVHcloud(text, prompt, mt),                         true);
+  add("mistral",    () => callMistral(text, prompt, MISTRAL_KEY, mt),             validKey(MISTRAL_KEY));
+  add("mistral-2",  () => callMistral(text, prompt, MISTRAL_KEY_2, mt),           validKey(MISTRAL_KEY_2));
+  add("nvidia",     () => callNvidia(text, prompt, NVIDIA_KEY, mt),               validKey(NVIDIA_KEY)); // re-add when model is fixed
 
-  // Tier 2 — key-gated free-tier providers (active when key is configured in Vercel)
-  add("openrouter",  () => callOpenRouter(text, prompt, OPENROUTER_KEY, mt),       validKey(OPENROUTER_KEY));
-  add("scaleway",    () => callScaleway(text, prompt, SCW_KEY, mt),                validKey(SCW_KEY));
-  // add("hetzner",  () => callHetzner(text, prompt, HETZNER_KEY, mt),             validKey(HETZNER_KEY)); // requires billing card — card-free policy
-
-  // ── Secondary keys — fresh-quota fallbacks when primary key's daily limit is exhausted ──
-  add("groq-2",      () => callGroq(text, prompt, GROQ_KEY_2, mt),                validKey(GROQ_KEY_2));
-  add("mistral-2",   () => callMistral(text, prompt, MISTRAL_KEY_2, mt),          validKey(MISTRAL_KEY_2));
-
-  // ── Extra slots — additional OpenRouter keys for higher throughput ──
-  add("extra1", () => callExtra(text, prompt, EXTRA1_KEY, "Extra1", mt), validKey(EXTRA1_KEY));
-  add("extra2", () => callExtra(text, prompt, EXTRA2_KEY, "Extra2", mt), validKey(EXTRA2_KEY));
-  add("extra3", () => callExtra(text, prompt, EXTRA3_KEY, "Extra3", mt), validKey(EXTRA3_KEY));
-  add("extra4", () => callExtra(text, prompt, EXTRA4_KEY, "Extra4", mt), validKey(EXTRA4_KEY));
-  add("extra5", () => callExtra(text, prompt, EXTRA5_KEY, "Extra5", mt), validKey(EXTRA5_KEY));
-  add("extra6", () => callExtra(text, prompt, EXTRA6_KEY, "Extra6", mt), validKey(EXTRA6_KEY));
+  // ── Extra OpenRouter keys (active when configured in Vercel) ──
+  add("openrouter", () => callOpenRouter(text, prompt, OPENROUTER_KEY, mt),       validKey(OPENROUTER_KEY));
+  add("scaleway",   () => callScaleway(text, prompt, SCW_KEY, mt),                validKey(SCW_KEY));
+  add("extra1",     () => callExtra(text, prompt, EXTRA1_KEY, "Extra1", mt),      validKey(EXTRA1_KEY));
+  add("extra2",     () => callExtra(text, prompt, EXTRA2_KEY, "Extra2", mt),      validKey(EXTRA2_KEY));
+  add("extra3",     () => callExtra(text, prompt, EXTRA3_KEY, "Extra3", mt),      validKey(EXTRA3_KEY));
+  add("extra4",     () => callExtra(text, prompt, EXTRA4_KEY, "Extra4", mt),      validKey(EXTRA4_KEY));
+  add("extra5",     () => callExtra(text, prompt, EXTRA5_KEY, "Extra5", mt),      validKey(EXTRA5_KEY));
+  add("extra6",     () => callExtra(text, prompt, EXTRA6_KEY, "Extra6", mt),      validKey(EXTRA6_KEY));
 
   // ── Last resort ──
-  // NVIDIA removed — consistently 404 for this account.
-  // HuggingFace removed — no working free key (email verification pending).
-  // Chutes removed — 401 (key needs regeneration at app.chutes.ai; re-add when fixed).
+  // HuggingFace removed — no working free key.
+  // Chutes removed — 401 (regenerate key at app.chutes.ai to re-add).
   const lastResort = null;
 
   // ── Disabled / unverified ──
