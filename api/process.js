@@ -15,8 +15,11 @@ const DUPE_BLOCK         = 30 * 60 * 1000; // block 30 mins on duplicate spam
 const MAX_TEXT_LENGTH    = 50000;
 
 // Provider timeout budget (writing chain)
-const FAST_TIMEOUT = 4000;   // ms per provider in the main chain; fail-fast to reach the next
-const LAST_TIMEOUT = 14000;  // ms for the last-resort provider; slow success beats all-fail
+// Sequential processing (CHUNK_CONCURRENCY=1) means no parallel pressure — give providers time.
+// Many providers need 5-10s for 600-word output (OVH, LLM7, OpenRouter Qwen, Scaleway).
+// With 4 max chunks × 10s = 40s per backend call — safely under the 60s Vercel limit.
+const FAST_TIMEOUT = 10000;  // ms per provider; was 4000 which timed out working slow providers
+const LAST_TIMEOUT = 14000;  // ms for the last-resort provider
 
 // NOTE: In-memory only — resets on every Vercel cold start.
 const rateLimitMap = new Map();
@@ -229,7 +232,7 @@ function validKey(k) {
 
 // ── FETCH WITH TIMEOUT ──
 // Wraps fetch with an AbortController so a hanging provider fails fast,
-// leaving budget for fallbacks. Default 4 s (FAST_TIMEOUT); last-resort provider passes LAST_TIMEOUT.
+// leaving budget for fallbacks. Default FAST_TIMEOUT (10 s); last-resort provider passes LAST_TIMEOUT.
 function fetchWithTimeout(url, options, ms = 4000) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), ms);
@@ -801,7 +804,7 @@ function getPrompt(mode, language) {
 // Small docs (≤600 words) → 1 chunk; huge docs → capped at 8 with bigger chunks.
 // Keeping chunks larger reduces total API calls and provider token consumption.
 const CHUNK_TARGET_WORDS = 600;
-const CHUNK_MAX_COUNT    = 8;
+const CHUNK_MAX_COUNT    = 4; // max 4 sequential chunks per call: 4 × 10s = 40s max, under 60s Vercel limit
 const CHUNK_CONCURRENCY  = 1; // sequential: one chunk at a time — only 1 working provider needed per batch
 
 function countWordsApprox(text) {
