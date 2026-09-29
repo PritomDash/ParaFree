@@ -252,7 +252,7 @@ async function callGroq(text, prompt, key, maxTokens = 2048) {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
     body: JSON.stringify({
-      model: "openai/gpt-oss-20b",
+      model: "llama-3.3-70b-versatile",
       messages: [{ role: "user", content: prompt + "\n\n" + text }],
       temperature: 0.7,
       max_tokens: maxTokens
@@ -261,7 +261,11 @@ async function callGroq(text, prompt, key, maxTokens = 2048) {
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Groq:" + res.status + " " + b.slice(0,200)); }
   const data = await res.json();
   if (!data.choices || !data.choices[0]) throw new Error("Groq: no response");
-  return data.choices[0].message.content;
+  const content = data.choices[0].message?.content;
+  if (content === null || content === undefined) {
+    throw new Error("Groq: null content (finish_reason=" + (data.choices[0].finish_reason || "unknown") + ")");
+  }
+  return content;
 }
 
 async function callGemini(text, prompt, key, maxTokens = 2048) {
@@ -324,7 +328,9 @@ async function callOpenRouter(text, prompt, key, maxTokens = 2048) {
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("OpenRouter:" + res.status + " " + b.slice(0,200)); }
   const data = await res.json();
   if (!data.choices || !data.choices[0]) throw new Error("OpenRouter: no response");
-  return data.choices[0].message.content;
+  const _oc = data.choices[0].message?.content;
+  if (_oc === null || _oc === undefined) throw new Error("OpenRouter: null content (finish_reason=" + (data.choices[0].finish_reason || "unknown") + ")");
+  return _oc;
 }
 
 async function callOpenRouterModel(text, prompt, key, model) {
@@ -337,7 +343,9 @@ async function callOpenRouterModel(text, prompt, key, model) {
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("OpenRouter/" + model + ":" + res.status + " " + b.slice(0,200)); }
   const data = await res.json();
   if (!data.choices || !data.choices[0]) throw new Error("OpenRouter/" + model + ": no response");
-  return data.choices[0].message.content;
+  const _orm = data.choices[0].message?.content;
+  if (_orm === null || _orm === undefined) throw new Error("OpenRouter/" + model + ": null content (finish_reason=" + (data.choices[0].finish_reason || "unknown") + ")");
+  return _orm;
 }
 
 async function callGroqModel(text, prompt, key, model) {
@@ -350,7 +358,11 @@ async function callGroqModel(text, prompt, key, model) {
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Groq/" + model + ":" + res.status + " " + b.slice(0,200)); }
   const data = await res.json();
   if (!data.choices || !data.choices[0]) throw new Error("Groq/" + model + ": no response");
-  return data.choices[0].message.content;
+  const content = data.choices[0].message?.content;
+  if (content === null || content === undefined) {
+    throw new Error("Groq/" + model + ": null content (finish_reason=" + (data.choices[0].finish_reason || "unknown") + ")");
+  }
+  return content;
 }
 
 async function callMistral(text, prompt, key, maxTokens = 2048) {
@@ -368,7 +380,9 @@ async function callMistral(text, prompt, key, maxTokens = 2048) {
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Mistral:" + res.status + " " + b.slice(0,200)); }
   const data = await res.json();
   if (!data.choices || !data.choices[0]) throw new Error("Mistral: no response");
-  return data.choices[0].message.content;
+  const _mc = data.choices[0].message?.content;
+  if (_mc === null || _mc === undefined) throw new Error("Mistral: null content (finish_reason=" + (data.choices[0].finish_reason || "unknown") + ")");
+  return _mc;
 }
 
 async function callCloudflare(text, prompt, key, account, maxTokens = 2048) {
@@ -429,7 +443,9 @@ async function callExtra(text, prompt, key, label, maxTokens = 1500) {
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error(label + ":" + res.status + " " + b.slice(0,200)); }
   const data = await res.json();
   if (!data.choices || !data.choices[0]) throw new Error(label + ": no response");
-  return data.choices[0].message.content;
+  const _ec = data.choices[0].message?.content;
+  if (_ec === null || _ec === undefined) throw new Error(label + ": null content (finish_reason=" + (data.choices[0].finish_reason || "unknown") + ")");
+  return _ec;
 }
 
 async function callSambaNova(text, prompt, key) {
@@ -484,7 +500,9 @@ async function callOVHcloud(text, prompt, maxTokens = 1500) {
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("OVHcloud:" + res.status + " " + b.slice(0,200)); }
   const data = await res.json();
   if (!data.choices?.[0]) throw new Error("OVHcloud: no response");
-  return data.choices[0].message.content;
+  const _ovc = data.choices[0].message?.content;
+  if (_ovc === null || _ovc === undefined) throw new Error("OVHcloud: null content (finish_reason=" + (data.choices[0].finish_reason || "unknown") + ")");
+  return _ovc;
 }
 
 async function callDeepSeek(text, prompt, key) {
@@ -520,7 +538,9 @@ async function callLLM7(text, prompt, maxTokens = 1500) {
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("LLM7:" + res.status + " " + b.slice(0,200)); }
   const data = await res.json();
   if (!data.choices?.[0]) throw new Error("LLM7: no response");
-  return data.choices[0].message.content;
+  const _lc = data.choices[0].message?.content;
+  if (_lc === null || _lc === undefined) throw new Error("LLM7: null content (finish_reason=" + (data.choices[0].finish_reason || "unknown") + ")");
+  return _lc;
 }
 
 async function callScaleway(text, prompt, key, maxTokens = 1500) {
@@ -538,7 +558,9 @@ async function callScaleway(text, prompt, key, maxTokens = 1500) {
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Scaleway:" + res.status + " " + b.slice(0,200)); }
   const data = await res.json();
   if (!data.choices?.[0]) throw new Error("Scaleway: no response");
-  return data.choices[0].message.content;
+  const _sc = data.choices[0].message?.content;
+  if (_sc === null || _sc === undefined) throw new Error("Scaleway: null content (finish_reason=" + (data.choices[0].finish_reason || "unknown") + ")");
+  return _sc;
 }
 
 async function callHuggingFace(text, prompt, key) {
@@ -1049,16 +1071,17 @@ async function runChain(text, prompt, type) {
     // but the explicit sort makes the ordering guarantee visible and self-verifying.
     rawResults.sort((a, b) => a.seq - b.seq);
 
-    // Verify: every seq 0..N-1 must be present exactly once with a non-null result.
-    // Any gap or failure means the document would be incomplete — abort cleanly.
+    // Verify sequence integrity and apply graceful fallback for any failed chunk.
+    // Sequence gaps are still fatal (structural error). Individual chunk failures
+    // fall back to the original text for that chunk so the document still completes.
     for (let i = 0; i < indexedChunks.length; i++) {
       if (!rawResults[i] || rawResults[i].seq !== i) {
         console.error(`[ParaFree] ❌ Sequence gap at index ${i} — expected seq=${i}, got seq=${rawResults[i] ? rawResults[i].seq : 'undefined'}`);
         return { success: false, error: "high_demand", apiStatuses: {} };
       }
       if (rawResults[i].result === null) {
-        console.error(`[ParaFree] ❌ Chunk seq=${i} (${i + 1}/${indexedChunks.length}) failed all providers (total elapsed ${elapsed}ms)`);
-        return { success: false, error: "high_demand", apiStatuses: {} };
+        console.warn(`[ParaFree] ⚠️ Chunk seq=${i} (${i + 1}/${indexedChunks.length}) failed all providers — keeping original text for this chunk`);
+        rawResults[i].result = indexedChunks[i].text; // graceful: partial doc beats total failure
       }
     }
 
@@ -1194,8 +1217,8 @@ async function handleTestKeys(body) {
   const cfAccount = process.env.CF_ACCOUNT;
 
   const tests = [
-    { name: "groq",       model: "openai/gpt-oss-20b",              key: process.env.GROQ_KEY,       fn: (k) => callGroq(testText, testPrompt, k) },
-    { name: "groq-2",     model: "openai/gpt-oss-20b",              key: process.env.GROQ_KEY_2,     fn: (k) => callGroq(testText, testPrompt, k) },
+    { name: "groq",       model: "llama-3.3-70b-versatile",          key: process.env.GROQ_KEY,       fn: (k) => callGroq(testText, testPrompt, k) },
+    { name: "groq-2",     model: "llama-3.3-70b-versatile",          key: process.env.GROQ_KEY_2,     fn: (k) => callGroq(testText, testPrompt, k) },
     { name: "gemini",     model: "gemini-3.5-flash-lite",                  key: process.env.GEMINI_KEY,     fn: (k) => callGemini(testText, testPrompt, k) },
     { name: "sambanova",  model: "Meta-Llama-3.3-70B-Instruct",       key: process.env.SAMBANOVA_KEY,  fn: (k) => callSambaNova(testText, testPrompt, k) },
     { name: "nvidia",     model: "meta/llama-3.1-8b-instruct",           key: process.env.NVIDIA_KEY, fn: (k) => callNvidia(testText, testPrompt, k) },
