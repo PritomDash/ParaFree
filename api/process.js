@@ -821,13 +821,13 @@ function getPrompt(mode, language) {
 
 // ── CHUNKING HELPERS ──
 // Dynamic word-based chunking: target ~600 words/chunk, 1–8 chunks max.
-// Formula: chunkCount = clamp(ceil(wordCount / 600), 1, 8)
-//          chunkSize  = wordCount / chunkCount  (auto-adjusts for large docs)
-// Small docs (≤600 words) → 1 chunk; huge docs → capped at 8 with bigger chunks.
-// Keeping chunks larger reduces total API calls and provider token consumption.
-const CHUNK_TARGET_WORDS = 600;
-const CHUNK_MAX_COUNT    = 4; // max 4 sequential chunks per call: 4 × 10s = 40s max, under 60s Vercel limit
+// Formula: chunkCount = clamp(ceil(wordCount / CHUNK_TARGET_WORDS), 1, CHUNK_MAX_COUNT)
+// Smaller chunks = fewer tokens per API call = less rate-limit pressure and faster responses.
+// 350 words ≈ 500 tokens input → OVHcloud/LLM7 respond in <8s (under FAST_TIMEOUT).
+const CHUNK_TARGET_WORDS = 350;
+const CHUNK_MAX_COUNT    = 4; // max 4 sequential chunks: 4 × 10s = 40s max, under 60s Vercel limit
 const CHUNK_CONCURRENCY  = 1; // sequential: one chunk at a time — only 1 working provider needed per batch
+const CHUNK_INTER_DELAY  = 600; // ms pause between chunks — lets rate-limited providers recover
 
 function countWordsApprox(text) {
   return text.trim().split(/\s+/).filter(Boolean).length;
@@ -1058,8 +1058,10 @@ async function runChain(text, prompt, type) {
     const t0 = Date.now();
 
     // Each thunk returns {seq, result} so the sequence number travels with the result.
+    // A brief inter-chunk pause lets rate-limited providers (Groq, Gemini) recover quota.
     const rawResults = await parallelLimit(
       indexedChunks.map(({ seq, text: chunkText }) => async () => {
+        if (seq > 0) await new Promise(r => setTimeout(r, CHUNK_INTER_DELAY));
         const result = await paraphraseChunk(chunkText, prompt, envKeys, baseOffset + seq);
         return { seq, result };
       }),

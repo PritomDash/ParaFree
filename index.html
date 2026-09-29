@@ -3530,8 +3530,8 @@ function renderDetectorResult(aiScore, humanScore, metrics) {
 // batches processed sequentially; the frontend merges results in order.
 // DOCX batches use globally-numbered <<<N>>> markers so the combined result
 // parses correctly in one pass (batch 1 = <<<1..K>>>, batch 2 = <<<K+1..M>>>).
-const BATCH_SPLIT_THRESHOLD = 3500;
-const BATCH_TARGET_WORDS    = 3000;
+const BATCH_SPLIT_THRESHOLD = 1400; // split docs > 1400 words into batches
+const BATCH_TARGET_WORDS    = 1200; // each batch ≈ 1200 words → 3-4 chunks of ~350 words, no rate-limit pressure
 
 function buildFrontendBatches(apiText, bps) {
   if (bps && bps.length > 0) {
