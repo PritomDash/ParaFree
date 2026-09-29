@@ -247,7 +247,7 @@ function getAdminPassword() {
 
 // ── API CALLERS ──
 // Set GROQ_MODEL env var in Vercel to override — check console.groq.com/docs/models for current IDs.
-const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.1-8b-instant";
+const GROQ_MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
 
 async function callGroq(text, prompt, key, maxTokens = 2048) {
   console.log("[ParaFree] Trying: groq/" + GROQ_MODEL);
