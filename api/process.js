@@ -492,9 +492,9 @@ async function callNvidia(text, prompt, key, maxTokens = 1500) {
       headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
       body: JSON.stringify({ model, messages: [{ role: "user", content: prompt + "\n\n" + text }], temperature: 0.7, max_tokens: maxTokens, stream: false })
     }, FAST_TIMEOUT);
-    if (res.status === 410) {
+    if (res.status === 410 || res.status === 404) {
       let b = ""; try { b = await res.text(); } catch (_) {}
-      console.warn("[ParaFree] NVIDIA " + model + " EOL — next model");
+      console.warn("[ParaFree] NVIDIA " + model + " unavailable (" + res.status + ") — next model");
       _nvidiaIdx++;
       continue;
     }
