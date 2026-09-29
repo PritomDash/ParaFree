@@ -252,7 +252,7 @@ async function callGroq(text, prompt, key, maxTokens = 2048) {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
     body: JSON.stringify({
-      model: "llama-3.3-70b-versatile",
+      model: "llama-3.1-8b-instant",
       messages: [{ role: "user", content: prompt + "\n\n" + text }],
       temperature: 0.7,
       max_tokens: maxTokens
@@ -472,7 +472,7 @@ async function callNvidia(text, prompt, key, ms = 4000) {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
     body: JSON.stringify({
-      model: "meta/llama-3.1-8b-instruct",
+      model: "meta/llama-3.3-70b-instruct",
       messages: [{ role: "user", content: prompt + "\n\n" + text }],
       temperature: 0.7,
       max_tokens: 2048,
@@ -1099,19 +1099,19 @@ async function runChain(text, prompt, type) {
   const addC = (name, fn, keyOk = true) => { if (keyOk) candidates.push({ name, fn }); };
 
   if (isCVExtract) {
-    addC("groq",       () => callGroqModel(text, prompt, GROQ_KEY, "openai/gpt-oss-20b"),   validKey(GROQ_KEY));
-    addC("gemini",     () => callGemini(text, prompt, GEMINI_KEY),                           validKey(GEMINI_KEY));
+    addC("groq",       () => callGroqModel(text, prompt, GROQ_KEY, "llama-3.1-8b-instant"),   validKey(GROQ_KEY));
+    addC("gemini",     () => callGemini(text, prompt, GEMINI_KEY),                             validKey(GEMINI_KEY));
     // sambanova removed — billing-walled (402 insufficient balance)
-    addC("mistral",    () => callMistral(text, prompt, MISTRAL_KEY),                         validKey(MISTRAL_KEY));
-    addC("cloudflare", () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT),               cfOk);
-    addC("ovhcloud",   () => callOVHcloud(text, prompt),                                     true);
-    addC("groq-2",     () => callGroqModel(text, prompt, GROQ_KEY_2, "openai/gpt-oss-20b"), validKey(GROQ_KEY_2));
+    addC("mistral",    () => callMistral(text, prompt, MISTRAL_KEY),                           validKey(MISTRAL_KEY));
+    addC("cloudflare", () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT),                 cfOk);
+    addC("ovhcloud",   () => callOVHcloud(text, prompt),                                       true);
+    addC("groq-2",     () => callGroqModel(text, prompt, GROQ_KEY_2, "llama-3.1-8b-instant"), validKey(GROQ_KEY_2));
     addC("mistral-2",  () => callMistral(text, prompt, MISTRAL_KEY_2),                       validKey(MISTRAL_KEY_2));
   } else {
     // AI chat path — Cerebras removed (requires payment). groq first for speed.
     // sambanova / deepseek direct removed — billing-walled (402 insufficient balance).
-    addC("groq",           () => callGroqModel(text, prompt, GROQ_KEY, "openai/gpt-oss-20b"),                              validKey(GROQ_KEY));
-    addC("groq-2",         () => callGroqModel(text, prompt, GROQ_KEY_2, "openai/gpt-oss-20b"),                            validKey(GROQ_KEY_2));
+    addC("groq",           () => callGroqModel(text, prompt, GROQ_KEY, "llama-3.1-8b-instant"),                              validKey(GROQ_KEY));
+    addC("groq-2",         () => callGroqModel(text, prompt, GROQ_KEY_2, "llama-3.1-8b-instant"),                            validKey(GROQ_KEY_2));
     addC("gemini",         () => callGemini(text, prompt, GEMINI_KEY),                                                     validKey(GEMINI_KEY));
     addC("nvidia",         () => callNvidia(text, prompt, NVIDIA_KEY),                                                     validKey(NVIDIA_KEY));
     addC("deepseek-coder", () => callOpenRouterModel(text, prompt, OPENROUTER_KEY, "deepseek/deepseek-coder-v2-instruct:free"), validKey(OPENROUTER_KEY));
@@ -1219,11 +1219,11 @@ async function handleTestKeys(body) {
   const cfAccount = process.env.CF_ACCOUNT;
 
   const tests = [
-    { name: "groq",       model: "llama-3.3-70b-versatile",          key: process.env.GROQ_KEY,       fn: (k) => callGroq(testText, testPrompt, k) },
-    { name: "groq-2",     model: "llama-3.3-70b-versatile",          key: process.env.GROQ_KEY_2,     fn: (k) => callGroq(testText, testPrompt, k) },
+    { name: "groq",       model: "llama-3.1-8b-instant",             key: process.env.GROQ_KEY,       fn: (k) => callGroq(testText, testPrompt, k) },
+    { name: "groq-2",     model: "llama-3.1-8b-instant",             key: process.env.GROQ_KEY_2,     fn: (k) => callGroq(testText, testPrompt, k) },
     { name: "gemini",     model: "gemini-3.5-flash-lite",                  key: process.env.GEMINI_KEY,     fn: (k) => callGemini(testText, testPrompt, k) },
     { name: "sambanova",  model: "Meta-Llama-3.3-70B-Instruct",       key: process.env.SAMBANOVA_KEY,  fn: (k) => callSambaNova(testText, testPrompt, k) },
-    { name: "nvidia",     model: "meta/llama-3.1-8b-instruct",           key: process.env.NVIDIA_KEY, fn: (k) => callNvidia(testText, testPrompt, k) },
+    { name: "nvidia",     model: "meta/llama-3.3-70b-instruct",          key: process.env.NVIDIA_KEY, fn: (k) => callNvidia(testText, testPrompt, k) },
     { name: "mistral",    model: "mistral-small-latest",              key: process.env.MISTRAL_KEY,    fn: (k) => callMistral(testText, testPrompt, k) },
     { name: "mistral-2",  model: "mistral-small-latest",              key: process.env.MISTRAL_KEY_2,  fn: (k) => callMistral(testText, testPrompt, k) },
     { name: "cloudflare", model: "@cf/meta/llama-3.1-8b-instruct",   key: process.env.CF_KEY, account: cfAccount, fn: (k) => callCloudflare(testText, testPrompt, k, cfAccount) },
