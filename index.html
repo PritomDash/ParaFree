@@ -4482,7 +4482,7 @@ async function paraphrase() {
       window._docxBodyParas = bps;
       window._docxTotalParas = totalDocParas;
       docxParaCount = bps.length;
-      apiPrompt = apiPrompt + '\n\nPOSITION MARKERS: Each paragraph begins with <<<N>>> where N is its position number. You MUST keep these markers EXACTLY as-is at the start of each paragraph. Only paraphrase the text that follows the marker on the same line. Never remove, renumber, or move markers. Never merge two marked paragraphs into one.';
+      apiPrompt = apiPrompt + '\n\nPOSITION MARKERS: Each paragraph begins with <<<N>>> where N is its position number. You MUST keep these markers EXACTLY as-is at the start of each paragraph. Only paraphrase the text that follows the marker on the same line. Never remove, renumber, or move markers. Never merge two marked paragraphs into one. Never add any text that is not preceded by a <<<N>>> marker — every line of output must start with a marker. Output exactly one paraphrased paragraph per marker with no blank lines within it.';
       console.log(`[DOCX] sending ${docxParaCount} body paras (of ${totalDocParas} total) — marker mode`);
       console.log('[DOCX] body para positions:', bps.map(b => b.docPos).join(', '));
     }
@@ -4566,7 +4566,9 @@ async function paraphrase() {
       let match, filled = 0;
       while ((match = markerRe.exec(cleanResult)) !== null) {
         const markerN = parseInt(match[1], 10);
-        const paraText = match[2].trim();
+        // Only take text up to the first blank line — prevents un-marked AI filler
+        // from bleeding into the preceding paragraph and duplicating the original section.
+        const paraText = match[2].split(/\n\s*\n/)[0].trim();
         const bpIdx = markerN - 1; // <<<N>>> is 1-based
         if (bpIdx >= 0 && bpIdx < bps.length && paraText) {
           window._docxParaMap[bps[bpIdx].docPos] = paraText;
