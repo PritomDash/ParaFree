@@ -62,6 +62,7 @@ footer p{margin:0;font-size:13px;color:#999;}
 #pf-scroll-top:hover{background:#245a41;}
 @media(max-width:768px){nav>div:not(#mobileMenu){display:none!important;}#menuToggle{display:flex!important;}body{overflow-x:hidden;}h1{font-size:24px!important;}.container{margin:32px auto;}}
 </style>
+<style>/* donate link: hide desktop nav entry where the nav gets crowded (still in mobile menu + footer) */@media (max-width:1023px){nav .donate-nav{display:none !important}}</style>
 </head>
 <body>
 <div id="mobileMenu" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9998;" onclick="if(event.target===this)toggleMenu()">
@@ -75,6 +76,7 @@ footer p{margin:0;font-size:13px;color:#999;}
     <a href="/faq.html" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;">FAQ</a>
     <a href="/contact.html" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,0.08);display:block;">Contact</a>
     <a href="/privacy.html" style="color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;display:block;">Privacy</a>
+    <a href="https://ko-fi.com/parafree" target="_blank" rel="noopener" style="border-top:1px solid rgba(255,255,255,0.08);color:#ccc;text-decoration:none;font-size:16px;padding:12px 8px;display:block;" onclick="if(typeof gtag==='function')gtag('event','donate_click',{placement:'header'})">☕ Support ParaFree</a>
   </div>
 </div>
 <nav>
@@ -88,6 +90,7 @@ footer p{margin:0;font-size:13px;color:#999;}
     <a href="/faq.html">FAQ</a>
     <a href="/contact.html">Contact</a>
     <a href="/privacy.html">Privacy</a>
+    <a href="https://ko-fi.com/parafree" target="_blank" rel="noopener" class="donate-nav" onclick="if(typeof gtag==='function')gtag('event','donate_click',{placement:'header'})">☕ Support</a>
   </div>
   <button id="menuToggle" aria-label="Open menu" onclick="toggleMenu()" style="display:none;background:none;border:none;cursor:pointer;padding:8px;flex-direction:column;gap:5px;align-items:center;justify-content:center;min-width:44px;min-height:44px;">
     <span style="display:block;width:22px;height:2px;background:#ccc;border-radius:2px;"></span>
@@ -142,6 +145,7 @@ footer p{margin:0;font-size:13px;color:#999;}
     <a href="/contact.html">Contact</a>
     <a href="/privacy.html">Privacy</a>
     <a href="/terms.html">Terms</a>
+    <a href="https://ko-fi.com/parafree" target="_blank" rel="noopener" onclick="if(typeof gtag==='function')gtag('event','donate_click',{placement:'footer'})">☕ Support ParaFree</a>
   </div>
   <p>&copy; 2026 ParaFree &middot; Free AI Writing Suite &middot; No limits, no signup, always free</p>
 </footer>
