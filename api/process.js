@@ -293,13 +293,20 @@ function orderChain(candidates, startOffset) {
 }
 
 // ── PROVIDER COOLDOWN ──
-// A provider that returns a rate-limit/quota error is skipped for 2 minutes instead
-// of being retried on every chunk. In-memory only — resets on cold start.
-const PROVIDER_COOLDOWN = 2 * 60 * 1000;
+// A provider that returns a rate-limit/quota error is skipped for a while instead of
+// being retried on every chunk: 60 s for per-minute limits, 2 min for daily quotas.
+// In-memory only — resets on cold start.
+const MINUTE_COOLDOWN = 60 * 1000;
+const DAILY_COOLDOWN  = 2 * 60 * 1000;
 const providerCooldowns = new Map(); // name → epoch ms when it may be tried again
 
 function isQuotaError(msg) {
   return /:429\b|quota|rate.?limit|RESOURCE_EXHAUSTED|too many requests/i.test(msg || "");
+}
+// Daily quotas: Groq "requests per day (RPD)" / TPD, Gemini "...PerDay..." / "per_day",
+// Cloudflare "used up your daily free allocation". Anything else is treated as per-minute.
+function quotaCooldown(msg) {
+  return /per.?day|daily|\bRPD\b|\bTPD\b/i.test(msg || "") ? DAILY_COOLDOWN : MINUTE_COOLDOWN;
 }
 function isCoolingDown(name) {
   const until = providerCooldowns.get(name);
@@ -307,9 +314,18 @@ function isCoolingDown(name) {
   if (until <= Date.now()) { providerCooldowns.delete(name); return false; }
   return true;
 }
-function startCooldown(name) {
-  providerCooldowns.set(name, Date.now() + PROVIDER_COOLDOWN);
-  console.log(`[ParaFree] ⏸ ${name} rate-limited — skipping it for ${PROVIDER_COOLDOWN / 1000}s`);
+function startCooldown(name, msg) {
+  const ms = quotaCooldown(msg);
+  providerCooldowns.set(name, Date.now() + ms);
+  console.log(`[ParaFree] ⏸ ${name} ${ms === DAILY_COOLDOWN ? 'daily quota' : 'rate-limited'} — skipping it for ${ms / 1000}s`);
+}
+// If EVERY candidate is cooling down, returns the one whose cooldown ends soonest
+// (it gets tried anyway rather than failing outright); otherwise null.
+function soonestIfAllCooling(candidates) {
+  if (candidates.length === 0 || !candidates.every(c => isCoolingDown(c.name))) return null;
+  const pick = candidates.reduce((a, b) => providerCooldowns.get(b.name) < providerCooldowns.get(a.name) ? b : a);
+  console.log(`[ParaFree] ⏸ all providers cooling down — trying ${pick.name} (cooldown ends soonest, in ${Math.ceil((providerCooldowns.get(pick.name) - Date.now()) / 1000)}s)`);
+  return pick;
 }
 // Per-provider timeout, clipped to what's left of the request budget.
 function providerTimeout(name, deadline) {
@@ -1029,8 +1045,9 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0,
 
   const chunkStart = Date.now();
   console.log(`[ParaFree] chunk seq=${seq}: ${chunkText.length} chars, chain: ${ordered.map(c => c.name).join(' → ')}`);
+  const forced = soonestIfAllCooling(ordered);
   for (const c of ordered) {
-    if (isCoolingDown(c.name)) {
+    if (c !== forced && isCoolingDown(c.name)) {
       console.log(`[ParaFree] ⏭ chunk seq=${seq} ${c.name} [cooldown] — skipped`);
       continue;
     }
@@ -1056,7 +1073,7 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0,
       const quota = isQuotaError(msg);
       const tag = quota ? '429-rate-limit' : msg.includes(':401') ? '401-auth' : msg.includes(':403') ? '403-forbidden' : msg.includes(':404') ? '404-model-not-found' : msg.includes(':503') ? '503-unavailable' : isAbort ? `TIMEOUT-${expectedTimeout}ms` : 'error';
       console.log(`[ParaFree] ❌ chunk seq=${seq} ${c.name} [${tag}] in ${ms}ms — ${msg.slice(0, 200)}`);
-      if (quota) startCooldown(c.name);
+      if (quota) startCooldown(c.name, msg);
     }
   }
   console.error(`[ParaFree] ❌ chunk seq=${seq} exhausted all ${ordered.length} providers in ${Date.now() - chunkStart}ms`);
@@ -1208,8 +1225,9 @@ async function runChain(text, prompt, type) {
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     const apiStatuses = {};
     candidates.forEach(c => { apiStatuses[c.name] = "skipped"; });
+    const forced = soonestIfAllCooling(candidates);
     for (const c of candidates) {
-      if (isCoolingDown(c.name)) {
+      if (c !== forced && isCoolingDown(c.name)) {
         apiStatuses[c.name] = "limit";
         console.log(`[ParaFree] ⏭ ${c.name} [cooldown] — skipped`);
         continue;
@@ -1234,7 +1252,7 @@ async function runChain(text, prompt, type) {
         const quota = isQuotaError(msg);
         apiStatuses[c.name] = quota ? "limit" : (msg.includes(":401") || msg.includes(":403")) ? "expired" : msg.includes(":404") ? "model_not_found" : "failed";
         console.log(`[ParaFree] ❌ ${c.name} — ${msg}`);
-        if (quota) startCooldown(c.name);
+        if (quota) startCooldown(c.name, msg);
       }
     }
     lastApiStatuses = { ...apiStatuses };

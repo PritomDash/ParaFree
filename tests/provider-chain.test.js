@@ -1,6 +1,7 @@
 'use strict';
 // Provider-chain tests for api/process.js — order, Groq rotation, disabled providers,
-// 2-minute rate-limit cooldown, slow-provider timeouts, per-chunk logging, testKeys.
+// rate-limit cooldown (60s per-minute / 2 min daily, soonest-expiry fallback when all
+// are cooling), slow-provider timeouts, per-chunk logging, testKeys.
 // ALL providers are mocked via global.fetch. No live API calls: any URL not in the
 // mock map throws, so a real request can never leave this process.
 // Run: node tests/provider-chain.test.js
@@ -61,7 +62,7 @@ function respond(status, json) {
 }
 
 let calls = [];          // [{ name, timeoutMs }]
-let behaviour = {};      // name → 'ok' | 'fail' | 'quota'
+let behaviour = {};      // name → 'ok' | 'fail' | 'quota' (per-minute) | 'daily' | { status, body }
 let lastTimeoutMs = null;
 const realSetTimeout = global.setTimeout;
 global.setTimeout = function (fn, ms, ...rest) { lastTimeoutMs = ms; return realSetTimeout(fn, ms, ...rest); };
@@ -72,7 +73,10 @@ global.fetch = async (url, opts) => {
   calls.push({ name, timeoutMs: lastTimeoutMs });
   const b = behaviour[name] || 'fail';
   if (b === 'ok') return respond(200, okBody(name));
-  if (b === 'quota') return respond(429, { error: { message: 'Rate limit reached / quota exceeded' } });
+  if (typeof b === 'object') return respond(b.status, b.body);
+  // Real-world message shapes (Groq): per-minute TPM vs daily RPD
+  if (b === 'quota') return respond(429, { error: { message: 'Rate limit reached for model on tokens per minute (TPM): Limit 8000, Used 7990' } });
+  if (b === 'daily') return respond(429, { error: { message: 'Rate limit reached for model on requests per day (RPD): Limit 1000, Used 1000' } });
   return respond(500, { error: 'mock failure' });
 };
 
@@ -167,28 +171,67 @@ const LONG = Array.from({ length: 12 }, (_, i) => `Paragraph ${i} ` + 'word '.re
   r = await call({ text: SHORT, type: 'code_assistant' });
   assert('chat path logs handler', r.logs.some(l => /AI request handled by groq-2/.test(l)));
 
-  // ── 4. Rate-limit cooldown (2 min) ──
-  console.log('\n── 4. Rate-limit cooldown ──');
+  // ── 4a. Per-minute rate limit → 60 s cooldown ──
+  console.log('\n── 4a. Per-minute 429 → 60s cooldown ──');
   reset({ groq: 'quota', 'groq-2': 'quota', 'groq-3': 'quota', gemini: 'ok' });
-  const cooldownStart = Date.now(); // cooldowns are set during chunk 0, just after this
+  let cooldownStart = Date.now(); // cooldowns are set during chunk 0, just after this
   r = await call({ text: LONG, mode: 'standard' });
   const groqCalls = r.calls.filter(n => n.startsWith('groq'));
   assert('each 429 Groq key called once across 4 chunks', groqCalls.length === 3, r.calls.join(','));
   assert('remaining chunks go straight to gemini', r.calls.filter(n => n === 'gemini').length === 4, r.calls.join(','));
-  assert('cooldown logged', r.logs.some(l => /groq.* rate-limited — skipping it for 120s/.test(l)));
+  assert('60s cooldown logged', r.logs.some(l => /groq.* rate-limited — skipping it for 60s/.test(l)));
 
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('next request (<2 min) skips cooled keys', r.calls.join(',') === 'gemini', r.calls.join(','));
+  assert('next request skips cooled keys', r.calls.join(',') === 'gemini', r.calls.join(','));
   r = await call({ text: SHORT, type: 'code_assistant' });
   assert('cooldown applies to chat path too', r.calls.join(',') === 'gemini', r.calls.join(','));
 
-  advance(119 * 1000 - (Date.now() - cooldownStart)); // 1:59 after the cooldown began
+  advance(59 * 1000 - (Date.now() - cooldownStart)); // 0:59 after the cooldown began
+  r = await call({ text: SHORT, mode: 'standard' });
+  assert('still cooling at 0:59', !r.calls.some(n => n.startsWith('groq')), r.calls.join(','));
+  advance(2 * 1000);
+  behaviour = { groq: 'ok', 'groq-2': 'ok', 'groq-3': 'ok' };
+  r = await call({ text: SHORT, mode: 'standard' });
+  assert('Groq tried again after 60s', r.calls.length === 1 && r.calls[0].startsWith('groq'), r.calls.join(','));
+
+  // ── 4b. Daily quota → 2 min cooldown ──
+  console.log('\n── 4b. Daily quota → 2 min cooldown ──');
+  reset({ groq: 'daily', 'groq-2': 'daily', 'groq-3': 'daily', gemini: 'ok' });
+  cooldownStart = Date.now();
+  r = await call({ text: SHORT, mode: 'standard' });
+  assert('120s cooldown logged', r.logs.some(l => /groq.* daily quota — skipping it for 120s/.test(l)));
+  advance(119 * 1000 - (Date.now() - cooldownStart)); // 1:59
   r = await call({ text: SHORT, mode: 'standard' });
   assert('still cooling at 1:59', !r.calls.some(n => n.startsWith('groq')), r.calls.join(','));
   advance(2 * 1000);
   behaviour = { groq: 'ok', 'groq-2': 'ok', 'groq-3': 'ok' };
   r = await call({ text: SHORT, mode: 'standard' });
   assert('Groq tried again after 2 min', r.calls.length === 1 && r.calls[0].startsWith('groq'), r.calls.join(','));
+
+  // Daily message shapes from other providers
+  reset({
+    gemini:     { status: 429, body: { error: { status: 'RESOURCE_EXHAUSTED', message: 'Quota exceeded for metric: generate_requests_per_model_per_day (GenerateRequestsPerDayPerProjectPerModel)' } } },
+    cloudflare: { status: 429, body: { success: false, errors: [{ code: 4006, message: 'you have used up your daily free allocation of 10,000 neurons' }] } },
+    ovhcloud:   { status: 429, body: { error: 'Too Many Requests' } },
+  });
+  r = await call({ text: SHORT, mode: 'standard' });
+  assert('Gemini per-day quota → 120s', r.logs.some(l => /gemini daily quota — skipping it for 120s/.test(l)));
+  assert('Cloudflare daily allocation → 120s', r.logs.some(l => /cloudflare daily quota — skipping it for 120s/.test(l)));
+  assert('plain 429 → 60s', r.logs.some(l => /ovhcloud rate-limited — skipping it for 60s/.test(l)));
+
+  // ── 4c. Every provider cooling → try the one whose cooldown ends soonest ──
+  console.log('\n── 4c. All cooling → soonest-expiring provider tried ──');
+  for (const [label, body] of [['writing', { text: SHORT, mode: 'standard' }], ['chat', { text: SHORT, type: 'code_assistant' }]]) {
+    // Everyone hits a daily quota (120s) except llm7, which hits a per-minute limit (60s).
+    reset(Object.fromEntries(ACTIVE.map(n => [n, n === 'llm7' ? 'quota' : 'daily'])));
+    r = await call(body);
+    assert(`${label}: first request cools every provider`, ACTIVE.every(n => r.calls.includes(n)), r.calls.join(','));
+    behaviour = Object.fromEntries(ACTIVE.map(n => [n, 'ok']));
+    r = await call(body);
+    assert(`${label}: only llm7 (soonest expiry) tried`, r.calls.join(',') === 'llm7', r.calls.join(','));
+    assert(`${label}: request still succeeds`, r.status === 200 && r.payload.success, String(r.status));
+    assert(`${label}: fallback logged`, r.logs.some(l => /all providers cooling down — trying llm7/.test(l)));
+  }
 
   reset({ groq: 'fail', 'groq-2': 'fail', 'groq-3': 'fail', gemini: 'ok' });
   await call({ text: SHORT, mode: 'standard' });
