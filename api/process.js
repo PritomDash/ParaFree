@@ -20,6 +20,9 @@ const MAX_TEXT_LENGTH    = 50000;
 // With 4 max chunks × 10s = 40s per backend call — safely under the 60s Vercel limit.
 const FAST_TIMEOUT = 10000;  // ms per provider; was 4000 which timed out working slow providers
 const LAST_TIMEOUT = 14000;  // ms for the last-resort provider
+const SLOW_TIMEOUT = 25000;  // ms for slow providers (OVHcloud, LLM7, NVIDIA) — they need 10-20s per chunk
+const REQUEST_BUDGET = 55000; // ms — every provider timeout is clipped so the whole request ends under maxDuration=60s
+const MIN_ATTEMPT_MS = 1500;  // don't start a provider call with less time than this left in the budget
 
 // NOTE: In-memory only — resets on every Vercel cold start.
 const rateLimitMap = new Map();
@@ -262,7 +265,58 @@ const NVIDIA_MODELS = (process.env.NVIDIA_MODEL ? [process.env.NVIDIA_MODEL] : [
 ]);
 let _nvidiaIdx = 0;
 
-async function callGroq(text, prompt, key, maxTokens = 2048) {
+// ── PROVIDER CHAIN ──
+// One working chain shared by every tool: paraphrase, humanize, summarize, grammar,
+// detector, CV builder and ParaFree AI chat/code. The three Groq keys lead and are
+// rotated per chunk/request (startOffset) so load spreads evenly across them.
+const PROVIDER_ORDER = ["groq", "groq-2", "groq-3", "gemini", "cloudflare", "ovhcloud", "llm7", "nvidia"];
+
+// Permanently dead providers (billing walls, paid-only plans, revoked keys).
+// Their callers and add() lines are kept — remove a name here to re-enable it.
+const DISABLED_PROVIDERS = new Set([
+  "openrouter", "mistral", "mistral-2", "sambanova", "chutes", "scaleway",
+  "deepseek", "deepseek-coder", "huggingface", "qwen-coder",
+  "extra1", "extra2", "extra3", "extra4", "extra5", "extra6",
+]);
+
+const PROVIDER_TIMEOUTS = { ovhcloud: SLOW_TIMEOUT, llm7: SLOW_TIMEOUT, nvidia: SLOW_TIMEOUT };
+
+// Drops disabled providers, sorts into PROVIDER_ORDER (unlisted names keep insertion
+// order at the end) and rotates the Groq keys by startOffset.
+function orderChain(candidates, startOffset) {
+  const rank = (name) => { const i = PROVIDER_ORDER.indexOf(name); return i === -1 ? PROVIDER_ORDER.length : i; };
+  const active = candidates.filter(c => !DISABLED_PROVIDERS.has(c.name)).sort((a, b) => rank(a.name) - rank(b.name));
+  const groq = active.filter(c => c.name.startsWith("groq"));
+  const rest = active.filter(c => !c.name.startsWith("groq"));
+  const s = groq.length ? startOffset % groq.length : 0;
+  return [...groq.slice(s), ...groq.slice(0, s), ...rest];
+}
+
+// ── PROVIDER COOLDOWN ──
+// A provider that returns a rate-limit/quota error is skipped for 2 minutes instead
+// of being retried on every chunk. In-memory only — resets on cold start.
+const PROVIDER_COOLDOWN = 2 * 60 * 1000;
+const providerCooldowns = new Map(); // name → epoch ms when it may be tried again
+
+function isQuotaError(msg) {
+  return /:429\b|quota|rate.?limit|RESOURCE_EXHAUSTED|too many requests/i.test(msg || "");
+}
+function isCoolingDown(name) {
+  const until = providerCooldowns.get(name);
+  if (!until) return false;
+  if (until <= Date.now()) { providerCooldowns.delete(name); return false; }
+  return true;
+}
+function startCooldown(name) {
+  providerCooldowns.set(name, Date.now() + PROVIDER_COOLDOWN);
+  console.log(`[ParaFree] ⏸ ${name} rate-limited — skipping it for ${PROVIDER_COOLDOWN / 1000}s`);
+}
+// Per-provider timeout, clipped to what's left of the request budget.
+function providerTimeout(name, deadline) {
+  return Math.min(PROVIDER_TIMEOUTS[name] || FAST_TIMEOUT, deadline - Date.now());
+}
+
+async function callGroq(text, prompt, key, maxTokens = 2048, ms) {
   console.log("[ParaFree] Trying: groq/" + GROQ_MODEL);
   const res = await fetchWithTimeout("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
@@ -274,7 +328,7 @@ async function callGroq(text, prompt, key, maxTokens = 2048) {
       max_tokens: maxTokens,
       reasoning_effort: "low"   // gpt-oss models are reasoning models; "low" is fastest for paraphrase
     })
-  });
+  }, ms);
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Groq:" + res.status + " " + b.slice(0,200)); }
   const data = await res.json();
   if (!data.choices || !data.choices[0]) throw new Error("Groq: no response");
@@ -285,7 +339,7 @@ async function callGroq(text, prompt, key, maxTokens = 2048) {
   return content;
 }
 
-async function callGemini(text, prompt, key, maxTokens = 2048) {
+async function callGemini(text, prompt, key, maxTokens = 2048, ms) {
   console.log("[ParaFree] Trying: gemini");
   const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=" + key;
   const res = await fetchWithTimeout(url, {
@@ -295,7 +349,7 @@ async function callGemini(text, prompt, key, maxTokens = 2048) {
       contents: [{ parts: [{ text: prompt + "\n\n" + text }] }],
       generationConfig: { temperature: 0.7, maxOutputTokens: maxTokens }
     })
-  });
+  }, ms);
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Gemini:" + res.status + " " + b.slice(0,200)); }
   const data = await res.json();
   if (data.error) throw new Error("Gemini:" + data.error.message);
@@ -365,13 +419,13 @@ async function callOpenRouterModel(text, prompt, key, model) {
   return _orm;
 }
 
-async function callGroqModel(text, prompt, key, model) {
+async function callGroqModel(text, prompt, key, model, ms) {
   console.log("[ParaFree] Trying: groq/" + model);
   const res = await fetchWithTimeout("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
     body: JSON.stringify({ model, messages: [{ role: "user", content: prompt + "\n\n" + text }], temperature: 0.7, max_tokens: 4096 })
-  });
+  }, ms);
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Groq/" + model + ":" + res.status + " " + b.slice(0,200)); }
   const data = await res.json();
   if (!data.choices || !data.choices[0]) throw new Error("Groq/" + model + ": no response");
@@ -402,7 +456,7 @@ async function callMistral(text, prompt, key, maxTokens = 2048) {
   return _mc;
 }
 
-async function callCloudflare(text, prompt, key, account, maxTokens = 2048) {
+async function callCloudflare(text, prompt, key, account, maxTokens = 2048, ms) {
   console.log("[ParaFree] Trying: cloudflare");
   const res = await fetchWithTimeout(
     "https://api.cloudflare.com/client/v4/accounts/" + account + "/ai/run/@cf/meta/llama-3.1-8b-instruct",
@@ -410,7 +464,8 @@ async function callCloudflare(text, prompt, key, account, maxTokens = 2048) {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
       body: JSON.stringify({ messages: [{ role: "user", content: prompt + "\n\n" + text }], max_tokens: maxTokens })
-    }
+    },
+    ms
   );
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Cloudflare:" + res.status + " " + b.slice(0,200)); }
   const data = await res.json();
@@ -483,7 +538,7 @@ async function callSambaNova(text, prompt, key) {
   return data.choices[0].message.content;
 }
 
-async function callNvidia(text, prompt, key, maxTokens = 1500) {
+async function callNvidia(text, prompt, key, maxTokens = 1500, ms = FAST_TIMEOUT) {
   while (_nvidiaIdx < NVIDIA_MODELS.length) {
     const model = NVIDIA_MODELS[_nvidiaIdx];
     console.log("[ParaFree] Trying: nvidia/" + model);
@@ -491,7 +546,7 @@ async function callNvidia(text, prompt, key, maxTokens = 1500) {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
       body: JSON.stringify({ model, messages: [{ role: "user", content: prompt + "\n\n" + text }], temperature: 0.7, max_tokens: maxTokens, stream: false })
-    }, FAST_TIMEOUT);
+    }, ms);
     if (res.status === 410 || res.status === 404) {
       let b = ""; try { b = await res.text(); } catch (_) {}
       console.warn("[ParaFree] NVIDIA " + model + " unavailable (" + res.status + ") — next model");
@@ -508,7 +563,7 @@ async function callNvidia(text, prompt, key, maxTokens = 1500) {
   throw new Error("NVIDIA: all fallback models exhausted");
 }
 
-async function callOVHcloud(text, prompt, maxTokens = 1500) {
+async function callOVHcloud(text, prompt, maxTokens = 1500, ms) {
   console.log("[ParaFree] Trying: ovhcloud");
   const res = await fetchWithTimeout("https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/chat/completions", {
     method: "POST",
@@ -519,7 +574,7 @@ async function callOVHcloud(text, prompt, maxTokens = 1500) {
       temperature: 0.7,
       max_tokens: maxTokens
     })
-  });
+  }, ms);
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("OVHcloud:" + res.status + " " + b.slice(0,200)); }
   const data = await res.json();
   if (!data.choices?.[0]) throw new Error("OVHcloud: no response");
@@ -546,7 +601,7 @@ async function callDeepSeek(text, prompt, key) {
   return data.choices[0].message.content;
 }
 
-async function callLLM7(text, prompt, maxTokens = 1500) {
+async function callLLM7(text, prompt, maxTokens = 1500, ms) {
   console.log("[ParaFree] Trying: llm7");
   const res = await fetchWithTimeout("https://api.llm7.io/v1/chat/completions", {
     method: "POST",
@@ -557,7 +612,7 @@ async function callLLM7(text, prompt, maxTokens = 1500) {
       temperature: 0.7,
       max_tokens: maxTokens
     })
-  });
+  }, ms);
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("LLM7:" + res.status + " " + b.slice(0,200)); }
   const data = await res.json();
   if (!data.choices?.[0]) throw new Error("LLM7: no response");
@@ -901,16 +956,14 @@ async function parallelLimit(fns, limit) {
 // Called per-chunk so each chunk gets its own bound calls.
 //
 // Returns { chain, lastResort }:
-//   chain      — rotation pool; random start spreads cold-start load (FAST_TIMEOUT each).
-//   lastResort — tried after chain exhausts; NOT rotated; gets LAST_TIMEOUT.
+//   chain      — every candidate whose key is set; orderChain() later drops DISABLED_PROVIDERS,
+//                applies PROVIDER_ORDER and rotates the Groq keys. Each fn takes a timeout (ms).
+//   lastResort — tried after chain exhausts; NOT rotated; gets LAST_TIMEOUT. Currently none.
 //
-// Active chain: Gemini → Groq → Cloudflare → OVHcloud → LLM7 → Mistral → OpenRouter
-//               + Scaleway / Hetzner when their keys are set
-// Last resort:  none (NVIDIA removed — 404; HuggingFace/Chutes removed — auth issues)
-// Disabled: DeepSeek (billing), SambaNova (billing), GLM (ToS unverifiable, data in China)
-//   Re-enable by moving to the add() block below if billing status changes.
+// Active chain: groq → groq-2 → groq-3 → gemini → cloudflare → ovhcloud → llm7 → nvidia
+// Disabled: see DISABLED_PROVIDERS; GLM (ToS unverifiable, data in China) stays commented out.
 function buildWritingCandidates(text, prompt, keys) {
-  const { DEEPSEEK_KEY, GEMINI_KEY, GROQ_KEY, GROQ_KEY_2, MISTRAL_KEY, MISTRAL_KEY_2,
+  const { DEEPSEEK_KEY, GEMINI_KEY, GROQ_KEY, GROQ_KEY_2, GROQ_KEY_3, MISTRAL_KEY, MISTRAL_KEY_2,
           CF_KEY, CF_ACCOUNT, OPENROUTER_KEY, GLM_KEY, SAMBANOVA_KEY, NVIDIA_KEY,
           SCW_KEY, HF_KEY, CHUTES_KEY, HETZNER_KEY,
           EXTRA1_KEY, EXTRA2_KEY, EXTRA3_KEY, EXTRA4_KEY, EXTRA5_KEY, EXTRA6_KEY } = keys;
@@ -926,20 +979,20 @@ function buildWritingCandidates(text, prompt, keys) {
   const chunkWords = countWordsApprox(text);
   const mt = Math.min(1500, Math.max(600, Math.ceil(chunkWords * 1.5)));
 
-  // Chain order (startOffset rotation spreads load across all entries):
-  // groq → gemini → groq-2 → cloudflare → llm7 → ovhcloud → mistral → mistral-2 → nvidia
-  add("groq",       () => callGroq(text, prompt, GROQ_KEY, mt),                   validKey(GROQ_KEY));
-  add("gemini",     () => callGemini(text, prompt, GEMINI_KEY, mt),               validKey(GEMINI_KEY));
-  add("groq-2",     () => callGroq(text, prompt, GROQ_KEY_2, mt),                 validKey(GROQ_KEY_2));
-  add("cloudflare", () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT, mt),   cfOk);
-  add("llm7",       () => callLLM7(text, prompt, mt),                             true);
-  add("ovhcloud",   () => callOVHcloud(text, prompt, mt),                         true);
-  // mistral / mistral-2 removed — Mistral free plan requires paid upgrade to activate keys (card required)
-  // add("mistral",   () => callMistral(text, prompt, MISTRAL_KEY, mt),   validKey(MISTRAL_KEY));
-  // add("mistral-2", () => callMistral(text, prompt, MISTRAL_KEY_2, mt), validKey(MISTRAL_KEY_2));
-  add("nvidia",     () => callNvidia(text, prompt, NVIDIA_KEY, mt),               validKey(NVIDIA_KEY)); // re-add when model is fixed
+  // Working chain (final order comes from PROVIDER_ORDER via orderChain)
+  add("groq",       (ms) => callGroq(text, prompt, GROQ_KEY, mt, ms),                 validKey(GROQ_KEY));
+  add("groq-2",     (ms) => callGroq(text, prompt, GROQ_KEY_2, mt, ms),               validKey(GROQ_KEY_2));
+  add("groq-3",     (ms) => callGroq(text, prompt, GROQ_KEY_3, mt, ms),               validKey(GROQ_KEY_3));
+  add("gemini",     (ms) => callGemini(text, prompt, GEMINI_KEY, mt, ms),             validKey(GEMINI_KEY));
+  add("cloudflare", (ms) => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT, mt, ms), cfOk);
+  add("ovhcloud",   (ms) => callOVHcloud(text, prompt, mt, ms),                       true);
+  add("llm7",       (ms) => callLLM7(text, prompt, mt, ms),                           true);
+  add("nvidia",     (ms) => callNvidia(text, prompt, NVIDIA_KEY, mt, ms),             validKey(NVIDIA_KEY));
 
-  // ── Extra OpenRouter keys (active when configured in Vercel) ──
+  // ── DISABLED (listed in DISABLED_PROVIDERS — filtered out by orderChain) ──
+  // mistral / mistral-2 — free plan requires paid upgrade to activate keys (card required)
+  add("mistral",    () => callMistral(text, prompt, MISTRAL_KEY, mt),             validKey(MISTRAL_KEY));
+  add("mistral-2",  () => callMistral(text, prompt, MISTRAL_KEY_2, mt),           validKey(MISTRAL_KEY_2));
   add("openrouter", () => callOpenRouter(text, prompt, OPENROUTER_KEY, mt),       validKey(OPENROUTER_KEY));
   add("scaleway",   () => callScaleway(text, prompt, SCW_KEY, mt),                validKey(SCW_KEY));
   add("extra1",     () => callExtra(text, prompt, EXTRA1_KEY, "Extra1", mt),      validKey(EXTRA1_KEY));
@@ -948,80 +1001,78 @@ function buildWritingCandidates(text, prompt, keys) {
   add("extra4",     () => callExtra(text, prompt, EXTRA4_KEY, "Extra4", mt),      validKey(EXTRA4_KEY));
   add("extra5",     () => callExtra(text, prompt, EXTRA5_KEY, "Extra5", mt),      validKey(EXTRA5_KEY));
   add("extra6",     () => callExtra(text, prompt, EXTRA6_KEY, "Extra6", mt),      validKey(EXTRA6_KEY));
+  add("deepseek",   () => callDeepSeek(text, prompt, DEEPSEEK_KEY),               validKey(DEEPSEEK_KEY));    // billing-walled (402)
+  add("sambanova",  () => callSambaNova(text, prompt, SAMBANOVA_KEY),             validKey(SAMBANOVA_KEY));   // billing-walled (402)
+  add("huggingface",() => callHuggingFace(text, prompt, HF_KEY),                  validKey(HF_KEY));          // no working free key
+  add("chutes",     () => callChutes(text, prompt, CHUTES_KEY),                   validKey(CHUTES_KEY));      // 401
+  // add("glm",       () => callGLM(text, prompt, GLM_KEY, mt),         validKey(GLM_KEY));         // ⚠️ ToS unverifiable (Chinese-only, login required); data in China
 
   // ── Last resort ──
-  // HuggingFace removed — no working free key.
-  // Chutes removed — 401 (regenerate key at app.chutes.ai to re-add).
   const lastResort = null;
-
-  // ── Disabled / unverified ──
-  // Re-enable by moving to the add() block above when conditions change:
-  // add("deepseek",  () => callDeepSeek(text, prompt, DEEPSEEK_KEY),   validKey(DEEPSEEK_KEY));    // billing-walled (402)
-  // add("sambanova", () => callSambaNova(text, prompt, SAMBANOVA_KEY), validKey(SAMBANOVA_KEY));   // billing-walled (402)
-  // add("glm",       () => callGLM(text, prompt, GLM_KEY, mt),         validKey(GLM_KEY));         // ⚠️ ToS unverifiable (Chinese-only, login required); data in China
 
   return { chain, lastResort };
 }
 
-// Tries every writing provider for one chunk.
-// Main chain providers are randomly rotated for load spreading (FAST_TIMEOUT each).
-// Last-resort provider (NVIDIA) is always tried last, not rotated, with LAST_TIMEOUT.
-// Returns the result string, or null if every provider failed.
-async function paraphraseChunk(chunkText, prompt, envKeys, startOffset) {
+// Tries every writing provider for one chunk, in PROVIDER_ORDER with the Groq keys
+// rotated by startOffset. Providers in cooldown are skipped; every timeout is clipped
+// to the request deadline. Returns the result string, or null if every provider failed.
+async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0, deadline = Date.now() + REQUEST_BUDGET) {
   const { chain, lastResort } = buildWritingCandidates(chunkText, prompt, envKeys);
-  const totalProviders = chain.length + (lastResort ? 1 : 0);
-  if (totalProviders === 0) {
+  // startOffset comes from runChain's sequential counter (baseOffset + chunkSeq), so
+  // consecutive chunks start on a DIFFERENT Groq key — even load across the three keys.
+  const rotated = orderChain(chain, startOffset);
+  const ordered = lastResort ? [...rotated, lastResort] : rotated;
+  if (ordered.length === 0) {
     console.error('[ParaFree] ❌ paraphraseChunk: 0 providers — no valid API keys configured');
     return null;
   }
-  // Rotate main chain only; lastResort is always appended at the end (not rotated).
-  // startOffset comes from runChain's sequential counter (baseOffset + chunkSeq),
-  // guaranteeing each chunk in a document starts at a DIFFERENT provider.
-  // Previously used Math.random() here — that ignored startOffset entirely and
-  // allowed all chunks to cluster on the same provider (Groq/Gemini), exhausting
-  // their daily quotas. The deterministic modulo ensures even load spreading.
-  const n = chain.length;
-  const start = n > 0 ? startOffset % n : 0;
-  const rotated = n > 0 ? [...chain.slice(start), ...chain.slice(0, start)] : [];
-  const ordered = lastResort ? [...rotated, lastResort] : rotated;
 
   const chunkStart = Date.now();
-  console.log(`[ParaFree] paraphraseChunk: ${chunkText.length} chars, chain=${chain.length} + last-resort=${lastResort ? 1 : 0}, offset=${start}`);
+  console.log(`[ParaFree] chunk seq=${seq}: ${chunkText.length} chars, chain: ${ordered.map(c => c.name).join(' → ')}`);
   for (const c of ordered) {
-    const t0 = Date.now();
+    if (isCoolingDown(c.name)) {
+      console.log(`[ParaFree] ⏭ chunk seq=${seq} ${c.name} [cooldown] — skipped`);
+      continue;
+    }
     const isLast = lastResort !== null && c.name === lastResort.name;
-    const expectedTimeout = isLast ? LAST_TIMEOUT : FAST_TIMEOUT;
+    const expectedTimeout = isLast ? Math.min(LAST_TIMEOUT, deadline - Date.now()) : providerTimeout(c.name, deadline);
+    if (expectedTimeout < MIN_ATTEMPT_MS) {
+      console.warn(`[ParaFree] ⏱ chunk seq=${seq} request budget exhausted before ${c.name}`);
+      break;
+    }
+    const t0 = Date.now();
     try {
-      const result = await c.fn();
+      const result = await c.fn(expectedTimeout);
       const ms = Date.now() - t0;
       if (result && result.trim().length > 5) {
-        console.log(`[ParaFree] ✅ chunk[offset=${start}] done by ${c.name} in ${ms}ms (${result.trim().length} chars out)`);
+        console.log(`[ParaFree] ✅ chunk seq=${seq} handled by ${c.name} in ${ms}ms (${result.trim().length} chars out)`);
         return result.trim();
       }
-      console.warn(`[ParaFree] ⚠️ chunk ${c.name} empty/short (${result?.length || 0} chars, ${ms}ms) — next`);
+      console.warn(`[ParaFree] ⚠️ chunk seq=${seq} ${c.name} empty/short (${result?.length || 0} chars, ${ms}ms) — next`);
     } catch (e) {
       const ms = Date.now() - t0;
       const msg = e.message || 'unknown';
       const isAbort = msg.includes('abort') || msg.includes('AbortError') || ms >= expectedTimeout - 100;
-      const tag = msg.includes(':429') ? '429-rate-limit' : msg.includes(':401') ? '401-auth' : msg.includes(':403') ? '403-forbidden' : msg.includes(':404') ? '404-model-not-found' : msg.includes(':503') ? '503-unavailable' : isAbort ? `TIMEOUT-${expectedTimeout}ms` : 'error';
-      console.log(`[ParaFree] ❌ chunk ${c.name} [${tag}] in ${ms}ms — ${msg.slice(0, 200)}`);
+      const quota = isQuotaError(msg);
+      const tag = quota ? '429-rate-limit' : msg.includes(':401') ? '401-auth' : msg.includes(':403') ? '403-forbidden' : msg.includes(':404') ? '404-model-not-found' : msg.includes(':503') ? '503-unavailable' : isAbort ? `TIMEOUT-${expectedTimeout}ms` : 'error';
+      console.log(`[ParaFree] ❌ chunk seq=${seq} ${c.name} [${tag}] in ${ms}ms — ${msg.slice(0, 200)}`);
+      if (quota) startCooldown(c.name);
     }
   }
-  console.error(`[ParaFree] ❌ chunk exhausted all ${ordered.length} providers in ${Date.now() - chunkStart}ms`);
+  console.error(`[ParaFree] ❌ chunk seq=${seq} exhausted all ${ordered.length} providers in ${Date.now() - chunkStart}ms`);
   return null;
 }
 
 // ── MAIN API CHAIN ──
-// Writing:  parallel chunks — each chunk starts at a random provider offset (cold-start safe)
-//           Active chain (rotated, FAST_TIMEOUT): Gemini → Groq → Cloudflare → OVHcloud → LLM7 → Mistral
-//                                                 + OpenRouter / Scaleway / Hetzner / GLM (key-gated)
-//           Last resort: none (NVIDIA removed — 404; HF/Chutes removed — auth issues)
-//           Disabled (billing-walled / failing): DeepSeek, SambaNova
-// AI chat:  Groq → Gemini → NVIDIA → DeepSeek/Qwen(via OpenRouter) → Mistral → Cloudflare → OVHcloud → Extras
-// CV extract: Groq → Gemini → Mistral → Cloudflare → OVHcloud
+// Every tool (writing chunks, AI chat/code, CV extract) uses the same chain:
+//   groq → groq-2 → groq-3 → gemini → cloudflare → ovhcloud → llm7 → nvidia
+// The Groq keys rotate per chunk (writing) or per request (chat/CV). Disabled providers:
+// DISABLED_PROVIDERS. Rate-limited providers sit out PROVIDER_COOLDOWN.
 async function runChain(text, prompt, type) {
+  const deadline       = Date.now() + REQUEST_BUDGET;
   const GROQ_KEY       = process.env.GROQ_KEY;
   const GROQ_KEY_2     = process.env.GROQ_KEY_2;
+  const GROQ_KEY_3     = process.env.GROQ_KEY_3;
   const GEMINI_KEY     = process.env.GEMINI_KEY;
   const OPENROUTER_KEY = process.env.OPENROUTER_KEY;
   const GLM_KEY        = process.env.GLM_KEY;
@@ -1053,12 +1104,13 @@ async function runChain(text, prompt, type) {
   // starting at a different offset so parallel calls spread across providers.
   if (!isAIChat && !isCVExtract) {
     const envKeys = {
-      DEEPSEEK_KEY, GEMINI_KEY, GROQ_KEY, GROQ_KEY_2, MISTRAL_KEY, MISTRAL_KEY_2,
+      DEEPSEEK_KEY, GEMINI_KEY, GROQ_KEY, GROQ_KEY_2, GROQ_KEY_3, MISTRAL_KEY, MISTRAL_KEY_2,
       CF_KEY, CF_ACCOUNT, OPENROUTER_KEY, GLM_KEY, SAMBANOVA_KEY, NVIDIA_KEY,
       SCW_KEY, HF_KEY, CHUTES_KEY, HETZNER_KEY,
       EXTRA1_KEY, EXTRA2_KEY, EXTRA3_KEY, EXTRA4_KEY, EXTRA5_KEY, EXTRA6_KEY
     };
-    const { chain: sampleChain, lastResort: sampleLast } = buildWritingCandidates("x", "x", envKeys);
+    const { chain: sampleAll, lastResort: sampleLast } = buildWritingCandidates("x", "x", envKeys);
+    const sampleChain = orderChain(sampleAll, 0);
     const sampleTotal = sampleChain.length + (sampleLast ? 1 : 0);
     if (sampleTotal === 0) {
       console.error("[ParaFree] ❌ No valid API keys — check Vercel environment variables");
@@ -1082,7 +1134,7 @@ async function runChain(text, prompt, type) {
     const rawResults = await parallelLimit(
       indexedChunks.map(({ seq, text: chunkText }) => async () => {
         if (seq > 0) await new Promise(r => setTimeout(r, CHUNK_INTER_DELAY));
-        const result = await paraphraseChunk(chunkText, prompt, envKeys, baseOffset + seq);
+        const result = await paraphraseChunk(chunkText, prompt, envKeys, baseOffset + seq, seq, deadline);
         return { seq, result };
       }),
       CHUNK_CONCURRENCY
@@ -1118,26 +1170,20 @@ async function runChain(text, prompt, type) {
   let candidates = [];
   const addC = (name, fn, keyOk = true) => { if (keyOk) candidates.push({ name, fn }); };
 
-  if (isCVExtract) {
-    addC("groq",       () => callGroqModel(text, prompt, GROQ_KEY, GROQ_MODEL),   validKey(GROQ_KEY));
-    addC("gemini",     () => callGemini(text, prompt, GEMINI_KEY),               validKey(GEMINI_KEY));
-    // sambanova removed — billing-walled (402 insufficient balance)
-    addC("cloudflare", () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT),   cfOk);
-    addC("ovhcloud",   () => callOVHcloud(text, prompt),                         true);
-    addC("groq-2",     () => callGroqModel(text, prompt, GROQ_KEY_2, GROQ_MODEL), validKey(GROQ_KEY_2));
-    // mistral removed — free plan requires paid upgrade to activate keys
-  } else {
-    // AI chat path — Cerebras removed (requires payment). groq first for speed.
-    // sambanova / deepseek direct removed — billing-walled (402 insufficient balance).
-    addC("groq",           () => callGroqModel(text, prompt, GROQ_KEY, GROQ_MODEL),   validKey(GROQ_KEY));
-    addC("groq-2",         () => callGroqModel(text, prompt, GROQ_KEY_2, GROQ_MODEL), validKey(GROQ_KEY_2));
-    addC("gemini",         () => callGemini(text, prompt, GEMINI_KEY),               validKey(GEMINI_KEY));
-    // nvidia removed — all NIM llama models EOL'd 2026-08-26
+  // AI chat/code and CV extract share one chain (Cerebras removed — requires payment).
+  // Same default max_tokens per caller as before; order comes from PROVIDER_ORDER.
+  addC("groq",       (ms) => callGroqModel(text, prompt, GROQ_KEY, GROQ_MODEL, ms),        validKey(GROQ_KEY));
+  addC("groq-2",     (ms) => callGroqModel(text, prompt, GROQ_KEY_2, GROQ_MODEL, ms),      validKey(GROQ_KEY_2));
+  addC("groq-3",     (ms) => callGroqModel(text, prompt, GROQ_KEY_3, GROQ_MODEL, ms),      validKey(GROQ_KEY_3));
+  addC("gemini",     (ms) => callGemini(text, prompt, GEMINI_KEY, undefined, ms),          validKey(GEMINI_KEY));
+  addC("cloudflare", (ms) => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT, undefined, ms), cfOk);
+  addC("ovhcloud",   (ms) => callOVHcloud(text, prompt, undefined, ms),                    true);
+  addC("llm7",       (ms) => callLLM7(text, prompt, undefined, ms),                        true);
+  addC("nvidia",     (ms) => callNvidia(text, prompt, NVIDIA_KEY, undefined, ms),          validKey(NVIDIA_KEY));
+  if (isAIChat) {
+    // ── DISABLED (listed in DISABLED_PROVIDERS — filtered out by orderChain) ──
     addC("deepseek-coder", () => callOpenRouterModel(text, prompt, OPENROUTER_KEY, "deepseek/deepseek-coder-v2-instruct:free"), validKey(OPENROUTER_KEY));
     addC("qwen-coder",     () => callOpenRouterModel(text, prompt, OPENROUTER_KEY, "qwen/qwen-2.5-coder-32b-instruct:free"),    validKey(OPENROUTER_KEY));
-    // mistral removed — free plan requires paid upgrade to activate keys
-    addC("cloudflare",     () => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT),                                         cfOk);
-    addC("ovhcloud",       () => callOVHcloud(text, prompt),                                                               true);
     addC("extra1",         () => callExtra(text, prompt, EXTRA1_KEY, "Extra1"),                                            validKey(EXTRA1_KEY));
     addC("extra2",         () => callExtra(text, prompt, EXTRA2_KEY, "Extra2"),                                            validKey(EXTRA2_KEY));
     addC("extra3",         () => callExtra(text, prompt, EXTRA3_KEY, "Extra3"),                                            validKey(EXTRA3_KEY));
@@ -1146,6 +1192,9 @@ async function runChain(text, prompt, type) {
     addC("extra6",         () => callExtra(text, prompt, EXTRA6_KEY, "Extra6"),                                            validKey(EXTRA6_KEY));
   }
 
+  const chatOffset = requestCounter;
+  requestCounter = (requestCounter + 1) % 100000;
+  candidates = orderChain(candidates, chatOffset);
   console.log(`[ParaFree] Chain (${isCVExtract ? 'CV' : 'AI'}): ${candidates.map(c => c.name).join(' → ') || 'EMPTY'}`);
 
   if (candidates.length === 0) {
@@ -1160,11 +1209,21 @@ async function runChain(text, prompt, type) {
     const apiStatuses = {};
     candidates.forEach(c => { apiStatuses[c.name] = "skipped"; });
     for (const c of candidates) {
+      if (isCoolingDown(c.name)) {
+        apiStatuses[c.name] = "limit";
+        console.log(`[ParaFree] ⏭ ${c.name} [cooldown] — skipped`);
+        continue;
+      }
+      const ms = providerTimeout(c.name, deadline);
+      if (ms < MIN_ATTEMPT_MS) {
+        console.warn(`[ParaFree] ⏱ request budget exhausted before ${c.name}`);
+        break;
+      }
       apiStatuses[c.name] = "trying";
       try {
-        const result = await c.fn();
+        const result = await c.fn(ms);
         if (result && result.trim().length > 5) {
-          console.log(`[ParaFree] ✅ ${c.name}${attempt > 0 ? ' (retry)' : ''}`);
+          console.log(`[ParaFree] ✅ ${isCVExtract ? 'CV' : 'AI'} request handled by ${c.name}${attempt > 0 ? ' (retry)' : ''}`);
           apiStatuses[c.name] = "success";
           return { success: true, result: result.trim(), usedApi: c.name, apiStatuses };
         }
@@ -1172,8 +1231,10 @@ async function runChain(text, prompt, type) {
         apiStatuses[c.name] = "failed";
       } catch (e) {
         const msg = e.message || "";
-        apiStatuses[c.name] = msg.includes(":429") ? "limit" : (msg.includes(":401") || msg.includes(":403")) ? "expired" : msg.includes(":404") ? "model_not_found" : "failed";
+        const quota = isQuotaError(msg);
+        apiStatuses[c.name] = quota ? "limit" : (msg.includes(":401") || msg.includes(":403")) ? "expired" : msg.includes(":404") ? "model_not_found" : "failed";
         console.log(`[ParaFree] ❌ ${c.name} — ${msg}`);
+        if (quota) startCooldown(c.name);
       }
     }
     lastApiStatuses = { ...apiStatuses };
@@ -1239,6 +1300,7 @@ async function handleTestKeys(body) {
   const tests = [
     { name: "groq",       model: GROQ_MODEL,                          key: process.env.GROQ_KEY,       fn: (k) => callGroq(testText, testPrompt, k) },
     { name: "groq-2",     model: GROQ_MODEL,                          key: process.env.GROQ_KEY_2,     fn: (k) => callGroq(testText, testPrompt, k) },
+    { name: "groq-3",     model: GROQ_MODEL,                          key: process.env.GROQ_KEY_3,     fn: (k) => callGroq(testText, testPrompt, k) },
     { name: "gemini",     model: "gemini-3.5-flash-lite",                  key: process.env.GEMINI_KEY,     fn: (k) => callGemini(testText, testPrompt, k) },
     { name: "sambanova",  model: "Meta-Llama-3.3-70B-Instruct",       key: process.env.SAMBANOVA_KEY,  fn: (k) => callSambaNova(testText, testPrompt, k) },
     { name: "nvidia",     model: NVIDIA_MODELS[_nvidiaIdx] || "exhausted", key: process.env.NVIDIA_KEY, fn: (k) => callNvidia(testText, testPrompt, k) },
@@ -1259,6 +1321,10 @@ async function handleTestKeys(body) {
   const results = {};
 
   await Promise.all(tests.map(async (t) => {
+    if (DISABLED_PROVIDERS.has(t.name)) {
+      results[t.name] = { status: "⏸ disabled", error: "In DISABLED_PROVIDERS — not called" };
+      return;
+    }
     if (!t.key || (t.key !== "no-key-needed" && t.key.length <= 10)) {
       results[t.name] = { status: "⚠️ no key", error: "Key not set in Vercel environment variables" };
       return;
@@ -1288,6 +1354,7 @@ module.exports = async function handler(req, res) {
   console.log("KEYS FOUND:", {
     groq:       process.env.GROQ_KEY       ? process.env.GROQ_KEY.slice(0, 8)       + "..." : "(not set)",
     groq2:      process.env.GROQ_KEY_2    ? process.env.GROQ_KEY_2.slice(0, 8)    + "..." : "(not set)",
+    groq3:      process.env.GROQ_KEY_3    ? process.env.GROQ_KEY_3.slice(0, 8)    + "..." : "(not set)",
     gemini:     process.env.GEMINI_KEY     ? process.env.GEMINI_KEY.slice(0, 8)     + "..." : "(not set)",
     sambanova:  process.env.SAMBANOVA_KEY  ? process.env.SAMBANOVA_KEY.slice(0, 8)  + "..." : "(not set)",
     nvidia:     process.env.NVIDIA_KEY     ? process.env.NVIDIA_KEY.slice(0, 8)     + "..." : "(not set)",
