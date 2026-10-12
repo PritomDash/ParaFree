@@ -312,6 +312,7 @@
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+<script src="/lib/protect.js"></script>
 <script>
   if (typeof pdfjsLib !== 'undefined') {
     pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -3350,11 +3351,17 @@ If no errors exist, write under ERRORS FOUND: "No errors found! Your text looks 
 
 Text to check:`;
 
-  const result = await runAPIChain(text, prompt, currentMode, getLang(), currentTool);
+  // Reference section (if any) is never sent — appended unchanged to the corrected text.
+  const _refSplit = typeof PFProtect !== 'undefined' ? PFProtect.splitReferences(text) : { body: text, gap: '', tail: '' };
+  const result = _refSplit.body.trim()
+    ? await runAPIChain(_refSplit.body, prompt, currentMode, getLang(), currentTool)
+    : 'CORRECTED TEXT:\n\n\nERRORS FOUND:\nNo errors found! Your text looks great.';
   setToolLoading('grammar', false, "✓ Check Grammar");
 
   if (result) {
-    renderGrammarOutput(result.trim());
+    renderGrammarOutput(_refSplit.tail
+      ? PFProtect.appendToCorrected(result.trim(), (_refSplit.body.trim() ? _refSplit.gap : '') + _refSplit.tail)
+      : result.trim());
     document.getElementById("outputCount").textContent = countWords(fullOutputText) + " words";
     showStatus("✓ Grammar check complete!", "success");
     showDownloadBtn();
@@ -3590,13 +3597,41 @@ function buildFrontendBatches(apiText, bps) {
   return batches;
 }
 
-async function runAPIChain(text, prompt, mode, language, toolType) {
+// protectCtx (optional): { skipMarkers: Set<number> } in, { keepOriginal: Set<number> } out.
+// Paraphrase/humanize/grammar requests go through PFProtect (lib/protect.js): links and
+// citations are masked as ⟦L#⟧ and restored, reference entries are never sent.
+async function runAPIChain(text, prompt, mode, language, toolType, protectCtx) {
   showStatus("Processing...", "info");
+  const _tool = toolType || currentTool;
+  const _guard = (typeof PFProtect !== 'undefined' && PFProtect.TOOLS.has(_tool))
+    ? PFProtect.prepare(text, prompt, {
+        tool: _tool,
+        skipMarkers: protectCtx && protectCtx.skipMarkers,
+        pptxSlides: (typeof pptxMode !== 'undefined' && pptxMode && pptxData) ? pptxData.slides : null
+      })
+    : null;
+  const _guarded = (raw) => {
+    if (!_guard || !_guard.changed) return raw;
+    const restored = _guard.restore(raw);
+    if (protectCtx) {
+      protectCtx.keepOriginal = protectCtx.keepOriginal || new Set();
+      _guard.keepOriginal.forEach(n => protectCtx.keepOriginal.add(n));
+    }
+    // A PPTX batch whose boxes were all skipped/kept restores to '' — return a non-empty
+    // string so paraphrasePPTX doesn't treat it as a failed call (every box keeps its text).
+    return (!restored && /\[SLIDE\d+_BOX\d+\]/.test(text)) ? ' ' : restored;
+  };
+  if (_guard && _guard.changed) console.log(`[protect] ${_tool}: masked/skipped — sending ${_guard.sendText.length} of ${text.length} chars`);
+  if (_guard && _guard.nothingToSend) return _guarded('');
   try {
     const res = await fetch(BACKEND_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, prompt, mode, language, type: toolType || currentTool })
+      body: JSON.stringify({
+        text: _guard ? _guard.sendText : text,
+        prompt: _guard ? _guard.prompt : prompt,
+        mode, language, type: _tool
+      })
     });
     const data = await res.json();
     if (res.status === 429) {
@@ -3618,7 +3653,7 @@ async function runAPIChain(text, prompt, mode, language, toolType) {
       document.getElementById("activeApiLabel").textContent = "Used: " + label;
       apiLabelLocked = true;
     }
-    return data.result;
+    return _guarded(data.result);
   } catch(e) {
     showStatus("Connection error. Please check your internet.", "error");
     return null;
@@ -3798,7 +3833,11 @@ async function humanize() {
   document.getElementById("loadingDots").className = "loading-dots show";
 
   const prompt = HUMANIZE_PROMPTS[currentHMode];
-  const result = await runAPIChain(text, prompt, currentHMode, getLang(), 'humanize');
+  // Reference section (if any) is never sent — re-attached unchanged after the result.
+  const _refSplit = typeof PFProtect !== 'undefined' ? PFProtect.splitReferences(text) : { body: text, gap: '', tail: '' };
+  const result = _refSplit.body.trim()
+    ? await runAPIChain(_refSplit.body, prompt, currentHMode, getLang(), 'humanize')
+    : ' ';
 
   isLoading = false;
   btn.disabled = false;
@@ -3809,8 +3848,11 @@ async function humanize() {
   if (result) {
     window._lastRawOutput = result.trim();
     window._lastParaphraseStructured = null;
-    renderOutput(cleanMarkdown(result.trim()));
-    document.getElementById("outputCount").textContent = countWords(result) + " words";
+    const _humanized = _refSplit.tail
+      ? (cleanMarkdown(result.trim()) + _refSplit.gap + _refSplit.tail).replace(/^\s+/, '')
+      : cleanMarkdown(result.trim());
+    renderOutput(_humanized);
+    document.getElementById("outputCount").textContent = countWords(_humanized) + " words";
     showStatus("✓ Humanized — sounds human now!", "success");
     showDownloadBtn();
 
@@ -4480,6 +4522,8 @@ async function paraphrase() {
   let apiPrompt = MODE_PROMPTS[currentMode];
   let docxParaCount = 0;
   window._docxParaMap = null;
+  const _protectCtx = { skipMarkers: new Set(), keepOriginal: new Set() };
+  let _refSplit = { body: text, gap: '', tail: '' };
 
   // DOCX mode: extract body paragraphs tagged with their ABSOLUTE document position.
   // Sending plain text (no [N] markers) avoids AI renumbering. Using absolute positions
@@ -4502,6 +4546,30 @@ async function paraphrase() {
       apiPrompt = apiPrompt + '\n\nPOSITION MARKERS: Each paragraph begins with <<<N>>> where N is its position number. You MUST keep these markers EXACTLY as-is at the start of each paragraph. Only paraphrase the text that follows the marker on the same line. Never remove, renumber, or move markers. Never merge two marked paragraphs into one. Never add any text that is not preceded by a <<<N>>> marker — every line of output must start with a marker. Output exactly one paraphrased paragraph per marker with no blank lines within it.';
       console.log(`[DOCX] sending ${docxParaCount} body paras (of ${totalDocParas} total) — marker mode`);
       console.log('[DOCX] body para positions:', bps.map(b => b.docPos).join(', '));
+      // Paragraphs after a References heading, reference entries and paragraphs with
+      // hyperlinks are never sent and keep their original XML (runs, links, formatting).
+      if (typeof PFProtect !== 'undefined') {
+        const _keepPos = PFProtect.docxKeepOriginalPositions(cleanDocxXml);
+        bps.forEach((b, i) => { if (_keepPos.has(b.docPos)) _protectCtx.skipMarkers.add(i + 1); });
+        if (_protectCtx.skipMarkers.size) console.log(`[DOCX] ${_protectCtx.skipMarkers.size} paras kept original (references/hyperlinks):`, [..._protectCtx.skipMarkers].join(', '));
+      }
+    }
+  }
+
+  // Pasted text / PDF: a References/Bibliography/… heading and everything after it is
+  // never sent to the AI — it's re-attached byte-for-byte after the result is processed.
+  if (docxParaCount === 0 && typeof PFProtect !== 'undefined') {
+    _refSplit = PFProtect.splitReferences(apiText);
+    if (_refSplit.tail) {
+      console.log(`[protect] reference section kept unchanged (${_refSplit.tail.length} chars)`);
+      if (!_refSplit.body.trim()) {
+        setLoading(false);
+        renderOutput(text);
+        document.getElementById("outputCount").textContent = countWords(text) + " words";
+        showStatus("Only a reference section was found — it is returned unchanged.", "info");
+        return;
+      }
+      apiText = _refSplit.body;
     }
   }
 
@@ -4537,7 +4605,7 @@ async function paraphrase() {
     if (_isLongDoc) {
       _showBatchProgress(_bi);
     }
-    const _batchResult = await runAPIChain(_batches[_bi].text, apiPrompt, currentMode, getLang(), 'paraphrase');
+    const _batchResult = await runAPIChain(_batches[_bi].text, apiPrompt, currentMode, getLang(), 'paraphrase', _protectCtx);
     console.log(`[paraphrase] batch ${_bi + 1}/${_batches.length} result chars:`, _batchResult ? _batchResult.length : 'null');
     if (!_batchResult) {
       setLoading(false);
@@ -4597,8 +4665,12 @@ async function paraphrase() {
       if (filled < docxParaCount) {
         console.warn(`[DOCX] ${docxParaCount - filled} markers missing from AI response — those positions keep original DOCX text`);
       }
+      // Skipped paragraphs (references, hyperlinks) and paragraphs whose placeholders came
+      // back broken: null slot → docxReplaceParasAbsolute leaves the original XML untouched.
+      _protectCtx.keepOriginal.forEach(n => { const bp = bps[n - 1]; if (bp) window._docxParaMap[bp.docPos] = null; });
     }
-    const processedResult = processParaphraseOutput(displayText);
+    let processedResult = processParaphraseOutput(displayText);
+    if (_refSplit.tail) processedResult = processedResult + _refSplit.gap + _refSplit.tail;
     renderOutput(processedResult);
     document.getElementById("outputCount").textContent = countWords(displayText) + " words";
     showStatus("✓ Paraphrased successfully!", "success");
