@@ -251,42 +251,31 @@ function getAdminPassword() {
 // ── API CALLERS ──
 // Set GROQ_MODEL env var in Vercel to override — check console.groq.com/docs/models for current IDs.
 const GROQ_MODEL   = process.env.GROQ_MODEL   || "openai/gpt-oss-120b";
-// Tier-2 Groq models: separate per-model quotas on the same three keys.
-const GROQ_FAST_MODELS = ["openai/gpt-oss-20b", "llama-3.3-70b-versatile"].filter(m => m !== GROQ_MODEL);
-const GROQ_KEY_NAMES   = ["groq", "groq-2", "groq-3"];
 const isGptOss = (model) => /gpt-oss/i.test(model);
-// Gemini-key models (Google AI Studio free tier, separate quota per model).
-const GEMINI_MODEL      = "gemini-3.5-flash-lite";
-const GEMINI_LITE_MODEL = process.env.GEMINI_LITE_MODEL || "gemini-3.1-flash-lite";
-const GEMMA_MODEL       = process.env.GEMMA_MODEL       || "gemma-3-27b-it";
-// Set NVIDIA_MODEL env var in Vercel to override — check integrate.api.nvidia.com for current model IDs.
-// NVIDIA auto-fallback: if a model is EOL (410), advances to the next one.
-// Override the first slot via NVIDIA_MODEL env var. _nvidiaIdx cached per warm instance.
-const NVIDIA_MODELS = (process.env.NVIDIA_MODEL ? [process.env.NVIDIA_MODEL] : []).concat([
-  "nvidia/llama-3.1-nemotron-70b-instruct",
-  "nvidia/nemotron-3-ultra-550b-a55b",
-  "deepseek-ai/deepseek-v4.1-flash",
-  "mistralai/mistral-large-2-instruct",
-  "nvidia/nemotron-3.5-lightning-30b-a3b",
-  "z-ai/glm-5.3-flash",
-  "nv-mistralai/mistral-nemo-12b-instruct",
-]);
-let _nvidiaIdx = 0;
+const GEMINI_MODEL = "gemini-3.5-flash-lite";            // callGemini default (health check, legacy callers)
+const CF_MODEL     = "@cf/meta/llama-3.1-8b-instruct";   // callCloudflare default
+
+// ── MODEL DISCOVERY ──
+// Which model each slot uses comes from preference lists (GROQ_MODEL_PREFS, GEMINI_MODEL_PREFS,
+// CF_MODEL_PREFS, NVIDIA_MODEL_PREFS) resolved against each provider's live model list —
+// retired models are replaced without code changes. See api/_model-discovery.js.
+const { createModelDiscovery } = require("./_model-discovery");
+const discovery = createModelDiscovery({ fetchWithTimeout, getRedis: () => redis });
 
 // ── PROVIDER CHAIN ──
 // One working chain shared by every tool: paraphrase, humanize, summarize, grammar,
 // detector, CV builder and ParaFree AI chat/code. Every key+model is its own entry
 // (own cooldown), named "<key>/<model>" for Groq and Gemini-key models.
 // Each Groq model group is rotated per chunk/request (startOffset) across the 3 keys.
-const groqTier = (model) => GROQ_KEY_NAMES.map(k => k + "/" + model);
-const PROVIDER_ORDER = [...new Set([
-  // TIER 1 — best quality
-  ...groqTier(GROQ_MODEL), "gemini/" + GEMINI_MODEL, "cloudflare",
-  // TIER 2 — fast alternates
-  ...GROQ_FAST_MODELS.flatMap(groqTier), "gemini/" + GEMINI_LITE_MODEL, "gemini/" + GEMMA_MODEL,
-  // TIER 3 — slow backups
-  "ovhcloud", "llm7", "nvidia",
-])];
+//   TIER 1 — first resolved model of: groq ×3 keys → gemini → cloudflare
+//   TIER 2 — following resolved models: groq ×3 per model → gemini → cloudflare
+//   TIER 3 — slow backups, in PROVIDER_ORDER: ovhcloud → llm7 → nvidia
+const PROVIDER_ORDER = ["ovhcloud", "llm7", "nvidia"];
+const SLOT_RANK = {
+  groq:       (slot) => slot === 0 ? 0 : 10 + slot,
+  gemini:     (slot) => slot === 0 ? 1 : 100 + slot,
+  cloudflare: (slot) => slot === 0 ? 2 : 200 + slot,
+};
 
 // Permanently dead providers (billing walls, paid-only plans, revoked keys).
 // Their callers and add() lines are kept — remove a name here to re-enable it.
@@ -298,12 +287,63 @@ const DISABLED_PROVIDERS = new Set([
 
 const PROVIDER_TIMEOUTS = { ovhcloud: SLOW_TIMEOUT, llm7: SLOW_TIMEOUT, nvidia: SLOW_TIMEOUT };
 
-// Drops disabled providers, sorts into PROVIDER_ORDER (unlisted names keep insertion
-// order at the end) and rotates each run of same-`group` entries (one Groq model across
-// the three keys) by startOffset, so consecutive chunks start on a different key.
+// One chain entry for a resolved slot (`slot` = position among the key's resolved models).
+// If the model turns out to be retired (HTTP 404/410, or decommissioned/retired/deprecated),
+// it is marked dead and the SAME entry retries at once with the model the slot now resolves to.
+function slotEntry(provider, pk, slot, model, call, nameFor) {
+  const entry = {
+    name: nameFor(model), rank: SLOT_RANK[provider](slot), group: provider === "groq" ? "groq:" + slot : undefined,
+    async fn(ms) {
+      const deadline = Date.now() + ms;
+      let m = model;
+      for (let attempt = 0; ; attempt++) {
+        try {
+          return await call(m, Math.max(MIN_ATTEMPT_MS, deadline - Date.now()));
+        } catch (e) {
+          if (attempt >= 3 || !discovery.isDeadModelError(e.message)) throw e;
+          const next = await discovery.markDead(provider, m, e.message, pk, slot);
+          if (!next || next === m || deadline - Date.now() < MIN_ATTEMPT_MS) throw e;
+          m = next;
+          entry.name = nameFor(m);
+        }
+      }
+    }
+  };
+  return entry;
+}
+
+// Tier 1 + Tier 2 entries for every resolved slot. callers.groq(key) / gemini / cloudflare
+// return (model, ms) => Promise<string> for the path being built (writing or chat).
+function slotEntries(keys, callers) {
+  const out = [];
+  const groqKeys = { "groq": keys.GROQ_KEY, "groq-2": keys.GROQ_KEY_2, "groq-3": keys.GROQ_KEY_3 };
+  for (const [k, key] of Object.entries(groqKeys)) {
+    if (!validKey(key)) continue;
+    discovery.models(k).forEach((model, slot) =>
+      out.push(slotEntry("groq", k, slot, model, callers.groq(key), (m) => k + "/" + m)));
+  }
+  if (validKey(keys.GEMINI_KEY)) {
+    discovery.models("gemini").forEach((model, slot) =>
+      out.push(slotEntry("gemini", "gemini", slot, model, callers.gemini, (m) => "gemini/" + m)));
+  }
+  if (validKey(keys.CF_KEY) && validKey(keys.CF_ACCOUNT)) {
+    discovery.models("cloudflare").forEach((model, slot) =>
+      out.push(slotEntry("cloudflare", "cloudflare", slot, model, callers.cloudflare, (m) => slot === 0 ? "cloudflare" : "cloudflare/" + m)));
+  }
+  return out;
+}
+
+// Drops disabled providers, sorts by tier (slot entries carry `rank`; Tier 3 follows
+// PROVIDER_ORDER; unlisted names keep insertion order at the end) and rotates each run of
+// same-`group` entries (one Groq slot across the three keys) by startOffset, so
+// consecutive chunks start on a different key.
 function orderChain(candidates, startOffset) {
-  const rank = (name) => { const i = PROVIDER_ORDER.indexOf(name); return i === -1 ? PROVIDER_ORDER.length : i; };
-  const active = candidates.filter(c => !DISABLED_PROVIDERS.has(c.name)).sort((a, b) => rank(a.name) - rank(b.name));
+  const rank = (c) => {
+    if (c.rank !== undefined) return c.rank;
+    const i = PROVIDER_ORDER.indexOf(c.name);
+    return i === -1 ? 9999 : 1000 + i;
+  };
+  const active = candidates.filter(c => !DISABLED_PROVIDERS.has(c.name)).sort((a, b) => rank(a) - rank(b));
   const out = [];
   for (let i = 0; i < active.length;) {
     let j = i + 1;
@@ -497,10 +537,10 @@ async function callMistral(text, prompt, key, maxTokens = 2048) {
   return _mc;
 }
 
-async function callCloudflare(text, prompt, key, account, maxTokens = 2048, ms) {
-  console.log("[ParaFree] Trying: cloudflare");
+async function callCloudflare(text, prompt, key, account, maxTokens = 2048, ms, model = CF_MODEL) {
+  console.log("[ParaFree] Trying: cloudflare/" + model);
   const res = await fetchWithTimeout(
-    "https://api.cloudflare.com/client/v4/accounts/" + account + "/ai/run/@cf/meta/llama-3.1-8b-instruct",
+    "https://api.cloudflare.com/client/v4/accounts/" + account + "/ai/run/" + model,
     {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
@@ -579,9 +619,11 @@ async function callSambaNova(text, prompt, key) {
   return data.choices[0].message.content;
 }
 
-async function callNvidia(text, prompt, key, maxTokens = 1500, ms = FAST_TIMEOUT) {
-  while (_nvidiaIdx < NVIDIA_MODELS.length) {
-    const model = NVIDIA_MODELS[_nvidiaIdx];
+// Walks the resolved NVIDIA models (NVIDIA_MODEL_PREFS); a model answering 404/410 is
+// marked dead for 24 h (memory + Upstash) and the next one is tried at once.
+async function callNvidia(text, prompt, key, maxTokens = 1500, ms = FAST_TIMEOUT, models = discovery.models("nvidia")) {
+  for (const model of models) {
+    if (discovery.isDead("nvidia", model)) continue;
     console.log("[ParaFree] Trying: nvidia/" + model);
     const res = await fetchWithTimeout("https://integrate.api.nvidia.com/v1/chat/completions", {
       method: "POST",
@@ -591,7 +633,7 @@ async function callNvidia(text, prompt, key, maxTokens = 1500, ms = FAST_TIMEOUT
     if (res.status === 410 || res.status === 404) {
       let b = ""; try { b = await res.text(); } catch (_) {}
       console.warn("[ParaFree] NVIDIA " + model + " unavailable (" + res.status + ") — next model");
-      _nvidiaIdx++;
+      await discovery.markDead("nvidia", model, "HTTP " + res.status + " " + b.slice(0, 60));
       continue;
     }
     if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("NVIDIA:" + res.status + " " + b.slice(0,200)); }
@@ -1021,18 +1063,13 @@ function buildWritingCandidates(text, prompt, keys) {
   const chunkWords = countWordsApprox(text);
   const mt = Math.min(1500, Math.max(600, Math.ceil(chunkWords * 1.5)));
 
-  // Working chain (final order comes from PROVIDER_ORDER via orderChain)
-  // One entry per Groq key × model; `group` lets orderChain rotate each model across the keys.
-  const groqKeys = { "groq": GROQ_KEY, "groq-2": GROQ_KEY_2, "groq-3": GROQ_KEY_3 };
-  for (const model of [GROQ_MODEL, ...GROQ_FAST_MODELS]) {
-    for (const [k, key] of Object.entries(groqKeys)) {
-      if (validKey(key)) chain.push({ name: k + "/" + model, group: "groq:" + model, fn: (ms) => callGroq(text, prompt, key, mt, ms, model) });
-    }
-  }
-  for (const model of new Set([GEMINI_MODEL, GEMINI_LITE_MODEL, GEMMA_MODEL])) {
-    add("gemini/" + model, (ms) => callGemini(text, prompt, GEMINI_KEY, mt, ms, model), validKey(GEMINI_KEY));
-  }
-  add("cloudflare", (ms) => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT, mt, ms), cfOk);
+  // Working chain (final order from orderChain: slot ranks for Tiers 1–2, PROVIDER_ORDER for Tier 3)
+  // One entry per resolved key+model slot; `group` lets orderChain rotate each Groq slot across the keys.
+  chain.push(...slotEntries(keys, {
+    groq:       (key) => (m, ms) => callGroq(text, prompt, key, mt, ms, m),
+    gemini:     (m, ms) => callGemini(text, prompt, GEMINI_KEY, mt, ms, m),
+    cloudflare: (m, ms) => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT, mt, ms, m),
+  }));
   add("ovhcloud",   (ms) => callOVHcloud(text, prompt, mt, ms),                       true);
   add("llm7",       (ms) => callLLM7(text, prompt, mt, ms),                           true);
   add("nvidia",     (ms) => callNvidia(text, prompt, NVIDIA_KEY, mt, ms),             validKey(NVIDIA_KEY));
@@ -1120,6 +1157,7 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0,
 // DISABLED_PROVIDERS. Rate-limited providers sit out PROVIDER_COOLDOWN.
 async function runChain(text, prompt, type) {
   const deadline       = Date.now() + REQUEST_BUDGET;
+  await discovery.ensure();   // model lists: never waits more than ~1 s (cold instance only)
   const GROQ_KEY       = process.env.GROQ_KEY;
   const GROQ_KEY_2     = process.env.GROQ_KEY_2;
   const GROQ_KEY_3     = process.env.GROQ_KEY_3;
@@ -1222,18 +1260,13 @@ async function runChain(text, prompt, type) {
 
   // AI chat/code and CV extract share one chain (Cerebras removed — requires payment).
   // Same default max_tokens per caller as before; order comes from PROVIDER_ORDER.
-  // One entry per Groq key × model (rotated per request by orderChain); Groq calls here are
-  // unchanged otherwise — callGroqModel never sends reasoning_effort.
-  const groqKeys = { "groq": GROQ_KEY, "groq-2": GROQ_KEY_2, "groq-3": GROQ_KEY_3 };
-  for (const model of [GROQ_MODEL, ...GROQ_FAST_MODELS]) {
-    for (const [k, key] of Object.entries(groqKeys)) {
-      if (validKey(key)) candidates.push({ name: k + "/" + model, group: "groq:" + model, fn: (ms) => callGroqModel(text, prompt, key, model, ms) });
-    }
-  }
-  for (const model of new Set([GEMINI_MODEL, GEMINI_LITE_MODEL, GEMMA_MODEL])) {
-    addC("gemini/" + model, (ms) => callGemini(text, prompt, GEMINI_KEY, undefined, ms, model), validKey(GEMINI_KEY));
-  }
-  addC("cloudflare", (ms) => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT, undefined, ms), cfOk);
+  // One entry per resolved key+model slot (rotated per request by orderChain); Groq calls here
+  // are unchanged otherwise — callGroqModel never sends reasoning_effort.
+  candidates.push(...slotEntries({ GROQ_KEY, GROQ_KEY_2, GROQ_KEY_3, GEMINI_KEY, CF_KEY, CF_ACCOUNT }, {
+    groq:       (key) => (m, ms) => callGroqModel(text, prompt, key, m, ms),
+    gemini:     (m, ms) => callGemini(text, prompt, GEMINI_KEY, undefined, ms, m),
+    cloudflare: (m, ms) => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT, undefined, ms, m),
+  }));
   addC("ovhcloud",   (ms) => callOVHcloud(text, prompt, undefined, ms),                    true);
   addC("llm7",       (ms) => callLLM7(text, prompt, undefined, ms),                        true);
   addC("nvidia",     (ms) => callNvidia(text, prompt, NVIDIA_KEY, undefined, ms),          validKey(NVIDIA_KEY));
@@ -1355,17 +1388,31 @@ async function handleTestKeys(body) {
 
   const cfAccount = process.env.CF_ACCOUNT;
 
+  // Health check refreshes the model lists (Upstash cache respected; body.refreshModels forces live).
+  await discovery.refresh({ force: !!body.refreshModels });
+
+  // One row per preference slot: pattern → resolved model → status. Names match the chain
+  // entries (e.g. "groq-2/openai/gpt-oss-20b"); a pattern that matched nothing gets its own row.
+  const slotRows = (pk, provider, key, call, nameFor, extra = {}) => {
+    let pos = -1;
+    return discovery.slots(pk).map((s) => {
+      if (!s.model) return { name: `${pk}/(no match) ${s.pattern}`, pattern: s.pattern, model: null, tier: null, key, noMatch: true };
+      pos++;
+      const position = pos;
+      return { name: nameFor(s.model, position), pattern: s.pattern, model: s.model, tier: discovery.tierLabel(provider, position), key, fn: (k) => call(k, s.model), ...extra };
+    });
+  };
+
   const tests = [
-    // One row per key+model — same names as the chain entries, e.g. "groq-2/openai/gpt-oss-20b"
-    ...[GROQ_MODEL, ...GROQ_FAST_MODELS].flatMap(m => [["groq", process.env.GROQ_KEY], ["groq-2", process.env.GROQ_KEY_2], ["groq-3", process.env.GROQ_KEY_3]]
-      .map(([n, key]) => ({ name: n + "/" + m, model: m, key, fn: (k) => callGroq(testText, testPrompt, k, undefined, undefined, m) }))),
-    ...[...new Set([GEMINI_MODEL, GEMINI_LITE_MODEL, GEMMA_MODEL])].map(m =>
-      ({ name: "gemini/" + m, model: m, key: process.env.GEMINI_KEY, fn: (k) => callGemini(testText, testPrompt, k, undefined, undefined, m) })),
+    ...[["groq", process.env.GROQ_KEY], ["groq-2", process.env.GROQ_KEY_2], ["groq-3", process.env.GROQ_KEY_3]].flatMap(([n, key]) =>
+      slotRows(n, "groq", key, (k, m) => callGroq(testText, testPrompt, k, undefined, undefined, m), (m) => n + "/" + m)),
+    ...slotRows("gemini", "gemini", process.env.GEMINI_KEY, (k, m) => callGemini(testText, testPrompt, k, undefined, undefined, m), (m) => "gemini/" + m),
+    ...slotRows("cloudflare", "cloudflare", process.env.CF_KEY, (k, m) => callCloudflare(testText, testPrompt, k, cfAccount, undefined, undefined, m),
+      (m, pos) => pos === 0 ? "cloudflare" : "cloudflare/" + m, { account: cfAccount }),
+    ...slotRows("nvidia", "nvidia", process.env.NVIDIA_KEY, (k, m) => callNvidia(testText, testPrompt, k, undefined, undefined, [m]), (m) => "nvidia/" + m),
     { name: "sambanova",  model: "Meta-Llama-3.3-70B-Instruct",       key: process.env.SAMBANOVA_KEY,  fn: (k) => callSambaNova(testText, testPrompt, k) },
-    { name: "nvidia",     model: NVIDIA_MODELS[_nvidiaIdx] || "exhausted", key: process.env.NVIDIA_KEY, fn: (k) => callNvidia(testText, testPrompt, k) },
     { name: "mistral",    model: "mistral-small-latest",              key: process.env.MISTRAL_KEY,    fn: (k) => callMistral(testText, testPrompt, k) },
     { name: "mistral-2",  model: "mistral-small-latest",              key: process.env.MISTRAL_KEY_2,  fn: async (k) => { await new Promise(r => setTimeout(r, 3500)); return callMistral(testText, testPrompt, k); } },
-    { name: "cloudflare", model: "@cf/meta/llama-3.1-8b-instruct",   key: process.env.CF_KEY, account: cfAccount, fn: (k) => callCloudflare(testText, testPrompt, k, cfAccount) },
     { name: "ovhcloud",   model: "Meta-Llama-3_3-70B-Instruct",      key: "no-key-needed",            fn: () => callOVHcloud(testText, testPrompt) },
     { name: "deepseek",   model: "deepseek-chat",                     key: process.env.DEEPSEEK_KEY,   fn: (k) => callDeepSeek(testText, testPrompt, k) },
     { name: "openrouter", model: "qwen/qwen3.8-27b:free",               key: process.env.OPENROUTER_KEY, fn: (k) => callOpenRouter(testText, testPrompt, k) },
@@ -1380,6 +1427,10 @@ async function handleTestKeys(body) {
   const results = {};
 
   await Promise.all(tests.map(async (t) => {
+    if (t.noMatch) {
+      results[t.name] = { status: "⚠️ no match", error: "No available text/chat model matches this preference pattern" };
+      return;
+    }
     if (DISABLED_PROVIDERS.has(t.name)) {
       results[t.name] = { status: "⏸ disabled", error: "In DISABLED_PROVIDERS — not called" };
       return;
@@ -1413,8 +1464,16 @@ async function handleTestKeys(body) {
     const until = providerCooldowns.get(name);
     if (until && until > Date.now()) results[name].cooldownSecondsLeft = Math.ceil((until - Date.now()) / 1000);
   }
+  // Slot rows: show the preference pattern, the resolved model and the tier next to the status.
+  for (const t of tests) {
+    if (t.pattern !== undefined && results[t.name]) Object.assign(results[t.name], { tier: t.tier, pattern: t.pattern, model: t.model });
+  }
 
-  return { success: true, results, note: "CF_ACCOUNT " + (cfAccount ? "is set" : "NOT SET — add to Vercel env vars") };
+  return {
+    success: true, results,
+    discovery: discovery.status(),   // when each model list was last refreshed, its source, dead models, preference lists
+    note: "CF_ACCOUNT " + (cfAccount ? "is set" : "NOT SET — add to Vercel env vars")
+  };
 }
 
 // ── MAIN HANDLER ──
