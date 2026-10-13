@@ -2,25 +2,40 @@
 // ParaFree — automatic model discovery (api/_model-discovery.js)
 // The leading underscore keeps Vercel from exposing this file as an endpoint.
 //
-// Each provider has a PREFERENCE LIST of model patterns (env *_MODEL_PREFS, comma-separated,
-// "*" = wildcard). Every pattern resolves to the NEWEST matching text/chat model the key can
-// access, taken from the provider's live model list. Slot 0 = Tier 1, slots 1+ = Tier 2
-// (NVIDIA: all slots are its Tier 3 fallback list).
+// Each provider has a PREFERENCE LIST of model patterns (env *_MODEL_PREFS, comma-separated
+// slots; within a slot "*" = wildcard and "|" = any of several patterns). Every slot resolves
+// to the best matching text/chat model the key can access, taken from the provider's live
+// model list. Slot 0 = Tier 1, slots 1+ = Tier 2 (NVIDIA: all slots are its Tier 3 list).
+//
+// A slot never goes empty: pattern match → last model that worked for that slot (Upstash)
+// → hard-coded default → automatic pick of the best text model in the provider's list.
 //
 // Lists are cached in Upstash (fresh for 6 h, kept 7 days as a fallback). If a live fetch
 // fails: last cached list → defaults. A user request never waits more than ~1 s for it.
-// A model that answers HTTP 404/410, or whose error says decommissioned/retired/deprecated, is marked dead for
-// 24 h (memory + Upstash) and its slot re-resolves to the next model immediately.
+// A model that answers HTTP 404/410, or whose error says decommissioned/retired/deprecated,
+// is marked dead for 24 h (memory + Upstash) and its slot re-resolves immediately.
+//
+// Shared across instances via Upstash hashes: each entry's last success time (used to try
+// the most recently working entry first WITHIN a tier), each slot's last good model, and
+// health-check skips (non-quota failures, 15 min).
 // ═══════════════════════════════════════════════════
 'use strict';
 
-const FRESH_MS       = 6 * 60 * 60 * 1000;   // list considered fresh for 6 h
-const CACHE_KEEP_S   = 7 * 24 * 60 * 60;     // Upstash keeps the last list 7 days (stale fallback)
-const RETRY_MS       = 5 * 60 * 1000;        // after a failed/partial refresh, retry at most every 5 min
-const WAIT_MS        = 1000;                 // max time a user request waits for discovery
-const FETCH_MS       = 4000;                 // per list-fetch timeout (background)
-const DEAD_MS        = 24 * 60 * 60 * 1000;  // dead model kept out for 24 h
-const DEAD_REDIS_KEY = 'pf_dead_models';
+const FRESH_MS         = 6 * 60 * 60 * 1000;   // list considered fresh for 6 h
+const CACHE_KEEP_S     = 7 * 24 * 60 * 60;     // Upstash keeps lists / stats 7 days
+const RETRY_MS         = 5 * 60 * 1000;        // after a failed/partial refresh, retry at most every 5 min
+const WAIT_MS          = 1000;                 // max time a user request waits for discovery
+const FETCH_MS         = 4000;                 // per list-fetch timeout (background)
+const DEAD_MS          = 24 * 60 * 60 * 1000;  // dead model kept out for 24 h
+const SKIP_MS          = 15 * 60 * 1000;       // health-check non-quota failure: entry skipped 15 min
+const STATS_TTL_MS     = 60 * 1000;            // re-read shared success/skip stats at most every 60 s
+const STATS_WRITE_MS   = 60 * 1000;            // write an entry's success time at most every 60 s
+const RECENT_WINDOW_MS = 60 * 60 * 1000;       // only successes in the last hour affect ordering
+const RECENT_BUCKET_MS = 10 * 60 * 1000;       // successes in the same 10-min bucket tie → rotation decides
+const DEAD_REDIS_KEY   = 'pf_dead_models';
+const SUCCESS_KEY      = 'pf_last_success';    // hash: entry name → epoch ms
+const LAST_GOOD_KEY    = 'pf_last_good';       // hash: "<key>:<slot>" → { model, at }
+const SKIP_KEY         = 'pf_skip';            // hash: entry name → until (epoch ms)
 const listKey = (pk) => 'pf_models:' + pk;
 
 // Non-chat model families — excluded unless the pattern names the word explicitly.
@@ -29,24 +44,33 @@ const EXCLUDE_WORDS = ['embed', 'vision', 'whisper', 'tts', 'guard', 'moderation
 
 const GROQ_KEY_NAMES = ['groq', 'groq-2', 'groq-3'];
 
+// How each provider ranks several matching models:
+//   largest  — biggest parameter count first (e.g. 70b before 32b), then newest
+//   newest   — highest version first (gemini-3.5 before 3.1), then size, then `created`
+//   smallest — smallest/cheapest first (Cloudflare bills per neuron), then newest
+const PROVIDER_SORT = { groq: 'largest', gemini: 'newest', cloudflare: 'smallest', nvidia: 'largest' };
+// Providers whose slots keep the previously working model while it still fits the pattern.
+const PREFER_PREVIOUS = { cloudflare: true };
+
 function parsePrefs(v) {
   return String(v || '').split(',').map(s => s.trim()).filter(Boolean);
 }
 
-// Defaults resolve, with today's model lists, to exactly the v2.4 chain. Old single-model
-// env overrides (GROQ_MODEL, GEMINI_LITE_MODEL, GEMMA_MODEL, NVIDIA_MODEL) still work.
+// Old single-model env overrides (GROQ_MODEL, GEMINI_LITE_MODEL, GEMMA_MODEL, NVIDIA_MODEL) still work.
 function defaultPrefs(env) {
   return {
-    groq:       [env.GROQ_MODEL || 'openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'llama-*-versatile'],
-    gemini:     ['gemini-*-flash-lite', env.GEMINI_LITE_MODEL || 'gemini-*-flash-lite', env.GEMMA_MODEL || 'gemma-*-it'],
-    cloudflare: ['@cf/meta/llama-*-8b-instruct'],
+    groq:       [env.GROQ_MODEL || 'openai/gpt-oss-120b', 'openai/gpt-oss-20b',
+                 'llama-*|qwen*|meta-llama/*|moonshotai/*|*-instruct'],
+    gemini:     ['gemini-*-flash-lite', env.GEMINI_LITE_MODEL || 'gemini-*-flash', env.GEMMA_MODEL || 'gemma-*-it'],
+    cloudflare: ['@cf/*instruct*'],
     nvidia:     [...(env.NVIDIA_MODEL ? [env.NVIDIA_MODEL] : []),
                  'nvidia/llama-3.1-nemotron-70b-instruct', 'nvidia/nemotron-3-ultra-550b-a55b',
                  'deepseek-ai/deepseek-v4.1-flash', 'mistralai/mistral-large-2-instruct',
                  'nvidia/nemotron-3.5-lightning-30b-a3b', 'z-ai/glm-5.3-flash', 'nv-mistralai/mistral-nemo-12b-instruct'],
   };
 }
-// Concrete models used when no list is available and a pattern has a wildcard.
+// The old hard-coded models — used when there is no list and a pattern has a wildcard, and as
+// a slot's fallback when its pattern matches nothing.
 function defaultModels(env) {
   return {
     groq:       [env.GROQ_MODEL || 'openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'llama-3.3-70b-versatile'],
@@ -62,11 +86,14 @@ function prefsFor(provider, env) {
 }
 
 // ── Matching ──
+// "a*|b*" → matches either alternative; "*" = any characters; anchored, case-insensitive.
 function patternRe(pattern) {
-  return new RegExp('^' + pattern.split('*').map(s => s.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('.*') + '$', 'i');
+  const alt = String(pattern).split('|').map(p => p.trim()).filter(Boolean)
+    .map(p => p.split('*').map(s => s.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('.*'));
+  return new RegExp('^(?:' + alt.join('|') + ')$', 'i');
 }
 function isTextModel(id, pattern) {
-  const lid = id.toLowerCase(), lp = pattern.toLowerCase();
+  const lid = id.toLowerCase(), lp = String(pattern || '').toLowerCase();
   return !EXCLUDE_WORDS.some(w => lid.includes(w) && !lp.includes(w));
 }
 // Version groups, e.g. "llama-3.3-70b" → [[3,3],[70]]; "gemma-3n-e4b-it" → [[3],[4]].
@@ -84,27 +111,56 @@ function compareVersions(a, b) {
   }
   return 0;
 }
+// Parameter count in billions from the name ("70b", "17b-16e", "e4b"); 0 if none.
+function sizeOf(id) {
+  let max = 0;
+  for (const m of String(id).matchAll(/(\d+(?:\.\d+)?)b(?![a-z])/gi)) max = Math.max(max, Number(m[1]));
+  return max;
+}
 // Newest first: higher version numbers, then newer `created`, then name.
 function newestFirst(a, b) {
   return compareVersions(versionKey(b.id), versionKey(a.id)) || ((b.created || 0) - (a.created || 0)) || a.id.localeCompare(b.id);
 }
+const SORTERS = {
+  newest:   newestFirst,
+  largest:  (a, b) => (sizeOf(b.id) - sizeOf(a.id)) || newestFirst(a, b),
+  smallest: (a, b) => ((sizeOf(a.id) || Infinity) - (sizeOf(b.id) || Infinity)) || newestFirst(a, b),
+};
 
-// prefs × list → [{ pattern, model|null }], one per pattern. Each pattern picks the newest
-// matching model not already picked by an earlier pattern and not dead.
-function resolveSlots(prefs, list, isDead, defaults) {
+// prefs × list → [{ pattern, model|null, from }], one per slot. `from` says how the model was
+// picked: "previous" (kept the model used before), "match" (best pattern match in the list),
+// "literal" (exact name, no list), "last-good", "default", or "auto" (pattern matched nothing —
+// best text model in the provider's list). A slot never goes empty unless every candidate is
+// dead (retired) or already taken by an earlier slot.
+// opts: { sort: 'newest'|'largest'|'smallest', preferPrevious: bool }
+function resolveSlots(prefs, list, isDead, defaults, lastGood = [], opts = {}) {
+  const sorter = SORTERS[opts.sort] || newestFirst;
   const chosen = new Set();
+  const usable = (m) => !!m && !isDead(m) && !chosen.has(m);
   return prefs.map((pattern, i) => {
-    let model = null;
-    if (list) {
-      const re = patternRe(pattern);
-      const cands = list.filter(m => re.test(m.id) && isTextModel(m.id, pattern) && !isDead(m.id) && !chosen.has(m.id)).sort(newestFirst);
-      model = cands.length ? cands[0].id : null;
-    } else {
-      const lit = pattern.includes('*') ? (defaults[i] || null) : pattern;
-      model = lit && !isDead(lit) && !chosen.has(lit) ? lit : null;
+    const re = patternRe(pattern);
+    let model = null, from = null;
+    // Cloudflare-style: keep the model used before while it still fits the pattern.
+    if (opts.preferPrevious) {
+      for (const [c, f] of [[lastGood[i], 'previous'], [defaults[i], 'previous']]) {
+        if (!model && usable(c) && re.test(c)) { model = c; from = f; }
+      }
     }
+    if (!model && list) {
+      const cands = list.filter(m => re.test(m.id) && isTextModel(m.id, pattern) && usable(m.id)).sort(sorter);
+      if (cands.length) { model = cands[0].id; from = 'match'; }
+    } else if (!model && !pattern.includes('*') && !pattern.includes('|') && usable(pattern)) {
+      model = pattern; from = 'literal';
+    }
+    if (!model && usable(lastGood[i])) { model = lastGood[i]; from = 'last-good'; }
+    if (!model && usable(defaults[i])) { model = defaults[i]; from = 'default'; }
+    if (!model && list) {
+      const best = list.filter(m => isTextModel(m.id, '') && usable(m.id)).sort(sorter)[0];
+      if (best) { model = best.id; from = 'auto'; }
+    }
+    if (!model) { const alt = defaults.find(usable); if (alt) { model = alt; from = 'default'; } }
     if (model) chosen.add(model);
-    return { pattern, model };
+    return { pattern, model, from };
   });
 }
 
@@ -116,13 +172,16 @@ function isDeadModelError(msg) {
 
 // ── Discovery service ──
 function createModelDiscovery({ fetchWithTimeout, getRedis, env = process.env, log = console }) {
-  const LISTS = {};     // providerKey → { models:[{id,created}], fetchedAt, source, error? }
-  const STATUS = {};    // providerKey → { source, error } for keys without a list
-  const DEAD = new Map(); // "provider:model" → until (epoch ms)
-  const LAST = {};      // providerKey → last resolved models by slot (for swap logs)
-  let refreshing = null;
-  let lastAttempt = 0;
-  let lastRefresh = 0;
+  const LISTS = {};          // providerKey → { models:[{id,created}], fetchedAt, source, error? }
+  const STATUS = {};         // providerKey → { source, error } for keys without a list
+  const DEAD = new Map();    // "provider:model" → until (epoch ms)
+  const LAST = {};           // providerKey → last resolved models by position (for swap logs)
+  const SUCCESS = new Map(); // entry name → last success (epoch ms)
+  const SKIP = new Map();    // entry name → until (epoch ms)
+  const LAST_GOOD = {};      // "<key>:<slot>" → { model, at }
+  const lastWrite = new Map();
+  let refreshing = null, statsLoading = null;
+  let lastAttempt = 0, lastRefresh = 0, statsLoadedAt = 0;
 
   const validKey = (k) => !!(k && k.length > 10);
   const providerOf = (pk) => pk.startsWith('groq') ? 'groq' : pk;
@@ -133,8 +192,15 @@ function createModelDiscovery({ fetchWithTimeout, getRedis, env = process.env, l
     return true;
   };
 
-  async function redisGet(k) { const r = getRedis(); if (!r) return null; try { return await r.get(k); } catch (_) { return null; } }
-  async function redisSet(k, v, ex) { const r = getRedis(); if (!r) return; try { await r.set(k, v, { ex }); } catch (_) {} }
+  const R = () => getRedis();
+  async function redisGet(k) { const r = R(); if (!r) return null; try { return await r.get(k); } catch (_) { return null; } }
+  async function redisSet(k, v, ex) { const r = R(); if (!r) return; try { await r.set(k, v, { ex }); } catch (_) {} }
+  async function hgetall(k) { const r = R(); if (!r || !r.hgetall) return null; try { return await r.hgetall(k); } catch (_) { return null; } }
+  async function hset(k, obj) {
+    const r = R(); if (!r || !r.hset) return;
+    try { await r.hset(k, obj); if (r.expire) await r.expire(k, CACHE_KEEP_S); } catch (_) {}
+  }
+  async function hdel(k, field) { const r = R(); if (!r || !r.hdel) return; try { await r.hdel(k, field); } catch (_) {} }
 
   async function getJson(url, headers) {
     const res = await fetchWithTimeout(url, { method: 'GET', headers }, FETCH_MS);
@@ -165,10 +231,20 @@ function createModelDiscovery({ fetchWithTimeout, getRedis, env = process.env, l
       }
       return out;
     };
+    // Cloudflare's model search is paginated — read every page (a first page alone can miss
+    // the model in use, which made the Cloudflare slot look empty).
     if (validKey(env.CF_KEY) && validKey(env.CF_ACCOUNT)) f.cloudflare = async () => {
-      const d = await getJson('https://api.cloudflare.com/client/v4/accounts/' + env.CF_ACCOUNT + '/ai/models/search?task=Text%20Generation&per_page=1000',
-        { Authorization: 'Bearer ' + env.CF_KEY });
-      return (d.result || []).filter(m => m.name).map(m => ({ id: m.name, created: m.created_at ? Math.floor(Date.parse(m.created_at) / 1000) || 0 : 0 }));
+      const out = [];
+      const PER = 100;
+      for (let page = 1; page <= 10; page++) {
+        const d = await getJson('https://api.cloudflare.com/client/v4/accounts/' + env.CF_ACCOUNT +
+          '/ai/models/search?task=Text%20Generation&per_page=' + PER + '&page=' + page, { Authorization: 'Bearer ' + env.CF_KEY });
+        const items = d.result || [];
+        for (const m of items) if (m.name) out.push({ id: m.name, created: m.created_at ? Math.floor(Date.parse(m.created_at) / 1000) || 0 : 0 });
+        const info = d.result_info || {};
+        if (items.length < PER || (info.total_pages && page >= info.total_pages) || (info.total_count && out.length >= info.total_count)) break;
+      }
+      return out;
     };
     if (validKey(env.NVIDIA_KEY)) f.nvidia = async () => {
       const d = await getJson('https://integrate.api.nvidia.com/v1/models', { Authorization: 'Bearer ' + env.NVIDIA_KEY });
@@ -180,7 +256,10 @@ function createModelDiscovery({ fetchWithTimeout, getRedis, env = process.env, l
   function slots(pk) {
     const provider = providerOf(pk);
     const list = LISTS[pk] ? LISTS[pk].models : null;
-    return resolveSlots(prefsFor(provider, env), list, (m) => isDead(provider, m), defaultModels(env)[provider]);
+    const prefs = prefsFor(provider, env);
+    const lastGood = prefs.map((_, i) => (LAST_GOOD[pk + ':' + i] || {}).model);
+    return resolveSlots(prefs, list, (m) => isDead(provider, m), defaultModels(env)[provider], lastGood,
+      { sort: PROVIDER_SORT[provider], preferPrevious: !!PREFER_PREVIOUS[provider] });
   }
   const models = (pk) => slots(pk).map(s => s.model).filter(Boolean);
 
@@ -214,9 +293,21 @@ function createModelDiscovery({ fetchWithTimeout, getRedis, env = process.env, l
     }
   }
 
+  // Shared success times, last-good models and skips (merged: newest wins).
+  async function loadStats() {
+    const [succ, good, skip] = await Promise.all([hgetall(SUCCESS_KEY), hgetall(LAST_GOOD_KEY), hgetall(SKIP_KEY)]);
+    for (const [k, v] of Object.entries(succ || {})) { const t = Number(v); if (t > (SUCCESS.get(k) || 0)) SUCCESS.set(k, t); }
+    for (const [k, v] of Object.entries(good || {})) {
+      const val = typeof v === 'string' ? (() => { try { return JSON.parse(v); } catch (_) { return null; } })() : v;
+      if (val && val.model && (!LAST_GOOD[k] || val.at > LAST_GOOD[k].at)) LAST_GOOD[k] = { model: val.model, at: Number(val.at) || 0 };
+    }
+    for (const [k, v] of Object.entries(skip || {})) { const u = Number(v); if (u > Date.now() && u > (SKIP.get(k) || 0)) SKIP.set(k, u); }
+    statsLoadedAt = Date.now();
+  }
+
   async function refresh({ force = false } = {}) {
     lastAttempt = Date.now();
-    await loadDead();
+    await Promise.all([loadDead(), loadStats()]);
     const f = fetchers();
     let allOk = true;
     await Promise.all(Object.entries(f).map(async ([pk, fetchList]) => {
@@ -254,10 +345,14 @@ function createModelDiscovery({ fetchWithTimeout, getRedis, env = process.env, l
     if (stale && !refreshing && Date.now() - lastAttempt > RETRY_MS) {
       refreshing = refresh().catch(e => log.warn('[ParaFree] model discovery error: ' + e.message)).finally(() => { refreshing = null; });
     }
+    if (!refreshing && !statsLoading && Date.now() - statsLoadedAt > STATS_TTL_MS) {
+      statsLoading = loadStats().catch(() => {}).finally(() => { statsLoading = null; });
+    }
     // Only a cold instance (nothing loaded yet) waits — and for at most WAIT_MS.
-    if (refreshing && loaded.length === 0) {
+    const pending = [loaded.length === 0 && refreshing, statsLoadedAt === 0 && statsLoading].filter(Boolean);
+    if (pending.length) {
       let timer;
-      await Promise.race([refreshing, new Promise(r => { timer = setTimeout(r, WAIT_MS); if (timer.unref) timer.unref(); })]);
+      await Promise.race([Promise.all(pending), new Promise(r => { timer = setTimeout(r, WAIT_MS); if (timer.unref) timer.unref(); })]);
       clearTimeout(timer);
     }
   }
@@ -277,6 +372,46 @@ function createModelDiscovery({ fetchWithTimeout, getRedis, env = process.env, l
     return pk !== undefined && slot !== undefined ? models(pk)[slot] || null : null;
   }
 
+  // ── Last known good / success ordering ──
+  // Records a successful call. pk + slot (pattern index) + model also update the slot's
+  // last-good model. Upstash writes are throttled and never awaited by the request.
+  function noteSuccess(name, pk, slot, model) {
+    const now = Date.now();
+    SUCCESS.set(name, now);
+    if (SKIP.has(name)) { SKIP.delete(name); hdel(SKIP_KEY, name); }
+    if (now - (lastWrite.get(name) || 0) > STATS_WRITE_MS) {
+      lastWrite.set(name, now);
+      hset(SUCCESS_KEY, { [name]: now });
+    }
+    if (pk !== undefined && slot !== undefined && model) {
+      const k = pk + ':' + slot, prev = LAST_GOOD[k];
+      LAST_GOOD[k] = { model, at: now };
+      if (!prev || prev.model !== model || now - prev.at > STATS_WRITE_MS) hset(LAST_GOOD_KEY, { [k]: LAST_GOOD[k] });
+    }
+  }
+  // Ordering key within a tier: higher = tried earlier. Successes older than an hour count as
+  // none; successes in the same 10-minute bucket tie, so the Groq key rotation still spreads load.
+  function recency(name) {
+    const t = SUCCESS.get(name) || 0;
+    return t && Date.now() - t < RECENT_WINDOW_MS ? Math.floor(t / RECENT_BUCKET_MS) : -1;
+  }
+  function lastSuccess(name) { return SUCCESS.get(name) || 0; }
+
+  // ── Skip list (health-check failures that are not rate limits) ──
+  function skip(name, reason, ms = SKIP_MS) {
+    const until = Date.now() + ms;
+    SKIP.set(name, until);
+    hset(SKIP_KEY, { [name]: until });
+    log.warn(`[ParaFree] skip: ${name} for ${Math.round(ms / 60000)} min (${String(reason).slice(0, 80)})`);
+  }
+  function skipUntil(name) {
+    const u = SKIP.get(name);
+    if (!u) return 0;
+    if (u <= Date.now()) { SKIP.delete(name); return 0; }
+    return u;
+  }
+  const isSkipped = (name) => skipUntil(name) > 0;
+
   function status() {
     const keys = [...new Set([...Object.keys(fetchers()), ...Object.keys(LISTS)])];
     const lists = {};
@@ -288,20 +423,33 @@ function createModelDiscovery({ fetchWithTimeout, getRedis, env = process.env, l
     }
     const dead = [];
     for (const [k, until] of DEAD) if (until > Date.now()) { const i = k.indexOf(':'); dead.push({ provider: k.slice(0, i), model: k.slice(i + 1), until: new Date(until).toISOString() }); }
+    const skipped = [];
+    for (const [name, until] of SKIP) if (until > Date.now()) skipped.push({ entry: name, until: new Date(until).toISOString() });
+    const lastGood = {};
+    for (const [k, v] of Object.entries(LAST_GOOD)) lastGood[k] = { model: v.model, at: new Date(v.at).toISOString() };
+    const recentSuccess = {};
+    for (const [name, t] of SUCCESS) if (Date.now() - t < RECENT_WINDOW_MS) recentSuccess[name] = new Date(t).toISOString();
     return {
       lists,
       lastAttempt: lastAttempt ? new Date(lastAttempt).toISOString() : null,
       lastFullRefresh: lastRefresh ? new Date(lastRefresh).toISOString() : null,
       freshForHours: FRESH_MS / 3600000,
       deadModels: dead,
+      skippedEntries: skipped,
+      lastGood,
+      recentSuccess,
       prefs: { groq: prefsFor('groq', env), gemini: prefsFor('gemini', env), cloudflare: prefsFor('cloudflare', env), nvidia: prefsFor('nvidia', env) },
     };
   }
 
-  return { ensure, refresh, slots, models, markDead, isDead, status, tierLabel, isDeadModelError };
+  return {
+    ensure, refresh, slots, models, markDead, isDead, status, tierLabel, isDeadModelError,
+    noteSuccess, recency, lastSuccess, skip, skipUntil, isSkipped,
+  };
 }
 
 module.exports = {
-  createModelDiscovery, resolveSlots, patternRe, isTextModel, newestFirst, isDeadModelError,
-  defaultPrefs, defaultModels, prefsFor, parsePrefs, EXCLUDE_WORDS, FRESH_MS, WAIT_MS, DEAD_MS,
+  createModelDiscovery, resolveSlots, patternRe, isTextModel, newestFirst, sizeOf, isDeadModelError,
+  defaultPrefs, defaultModels, prefsFor, parsePrefs, EXCLUDE_WORDS, PROVIDER_SORT,
+  FRESH_MS, WAIT_MS, DEAD_MS, SKIP_MS, RECENT_WINDOW_MS, RECENT_BUCKET_MS,
 };

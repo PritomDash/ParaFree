@@ -287,12 +287,14 @@ const DISABLED_PROVIDERS = new Set([
 
 const PROVIDER_TIMEOUTS = { ovhcloud: SLOW_TIMEOUT, llm7: SLOW_TIMEOUT, nvidia: SLOW_TIMEOUT };
 
-// One chain entry for a resolved slot (`slot` = position among the key's resolved models).
+// One chain entry for a resolved slot (`slot` = position among the key's resolved models,
+// `patternIndex` = which preference slot it came from — used for "last good" tracking).
 // If the model turns out to be retired (HTTP 404/410, or decommissioned/retired/deprecated),
 // it is marked dead and the SAME entry retries at once with the model the slot now resolves to.
-function slotEntry(provider, pk, slot, model, call, nameFor) {
+function slotEntry(provider, pk, slot, model, call, nameFor, patternIndex = slot) {
   const entry = {
     name: nameFor(model), rank: SLOT_RANK[provider](slot), group: provider === "groq" ? "groq:" + slot : undefined,
+    pk, patternIndex, model,
     async fn(ms) {
       const deadline = Date.now() + ms;
       let m = model;
@@ -304,6 +306,7 @@ function slotEntry(provider, pk, slot, model, call, nameFor) {
           const next = await discovery.markDead(provider, m, e.message, pk, slot);
           if (!next || next === m || deadline - Date.now() < MIN_ATTEMPT_MS) throw e;
           m = next;
+          entry.model = m;
           entry.name = nameFor(m);
         }
       }
@@ -316,27 +319,35 @@ function slotEntry(provider, pk, slot, model, call, nameFor) {
 // return (model, ms) => Promise<string> for the path being built (writing or chat).
 function slotEntries(keys, callers) {
   const out = [];
+  const add = (provider, pk, call, nameFor) => {
+    let pos = 0;
+    discovery.slots(pk).forEach((s, patternIndex) => {
+      if (!s.model) return;
+      const slot = pos++;
+      out.push(slotEntry(provider, pk, slot, s.model, call, (m) => nameFor(m, slot), patternIndex));
+    });
+  };
   const groqKeys = { "groq": keys.GROQ_KEY, "groq-2": keys.GROQ_KEY_2, "groq-3": keys.GROQ_KEY_3 };
   for (const [k, key] of Object.entries(groqKeys)) {
-    if (!validKey(key)) continue;
-    discovery.models(k).forEach((model, slot) =>
-      out.push(slotEntry("groq", k, slot, model, callers.groq(key), (m) => k + "/" + m)));
+    if (validKey(key)) add("groq", k, callers.groq(key), (m) => k + "/" + m);
   }
-  if (validKey(keys.GEMINI_KEY)) {
-    discovery.models("gemini").forEach((model, slot) =>
-      out.push(slotEntry("gemini", "gemini", slot, model, callers.gemini, (m) => "gemini/" + m)));
-  }
+  if (validKey(keys.GEMINI_KEY)) add("gemini", "gemini", callers.gemini, (m) => "gemini/" + m);
   if (validKey(keys.CF_KEY) && validKey(keys.CF_ACCOUNT)) {
-    discovery.models("cloudflare").forEach((model, slot) =>
-      out.push(slotEntry("cloudflare", "cloudflare", slot, model, callers.cloudflare, (m) => slot === 0 ? "cloudflare" : "cloudflare/" + m)));
+    add("cloudflare", "cloudflare", callers.cloudflare, (m, slot) => slot === 0 ? "cloudflare" : "cloudflare/" + m);
   }
   return out;
 }
+
+// Tier of a chain entry: slot ranks 0–9 = Tier 1, 10–999 = Tier 2, the rest (Tier 3) = 3.
+function tierOf(c) { return c.rank === undefined ? 3 : c.rank < 10 ? 1 : 2; }
 
 // Drops disabled providers, sorts by tier (slot entries carry `rank`; Tier 3 follows
 // PROVIDER_ORDER; unlisted names keep insertion order at the end) and rotates each run of
 // same-`group` entries (one Groq slot across the three keys) by startOffset, so
 // consecutive chunks start on a different key.
+// Then, WITHIN each tier only, the most recently successful entry goes first ("last known
+// good", shared across instances). Tiers are never reordered against each other, and entries
+// that tie (no recent success, or the same 10-minute bucket) keep the rotation order.
 function orderChain(candidates, startOffset) {
   const rank = (c) => {
     if (c.rank !== undefined) return c.rank;
@@ -353,7 +364,14 @@ function orderChain(candidates, startOffset) {
     out.push(...run.slice(s), ...run.slice(0, s));
     i = j;
   }
-  return out;
+  // A Groq group (one model across the three keys) shares the recency of its most recent
+  // member, so the keys tie with each other and the rotation keeps spreading load across them.
+  const groupRecency = {};
+  for (const c of out) if (c.group) groupRecency[c.group] = Math.max(groupRecency[c.group] ?? -1, discovery.recency(c.name));
+  return out
+    .map((c, idx) => ({ c, idx, tier: tierOf(c), recent: c.group ? groupRecency[c.group] : discovery.recency(c.name) }))
+    .sort((a, b) => (a.tier - b.tier) || (b.recent - a.recent) || (a.idx - b.idx))
+    .map(x => x.c);
 }
 
 // ── PROVIDER COOLDOWN ──
@@ -372,11 +390,14 @@ function isQuotaError(msg) {
 function quotaCooldown(msg) {
   return /per.?day|daily|\bRPD\b|\bTPD\b/i.test(msg || "") ? DAILY_COOLDOWN : MINUTE_COOLDOWN;
 }
+// Cooling = rate-limit cooldown (this instance) OR on the shared health-check skip list.
+function cooldownUntil(name) {
+  let until = providerCooldowns.get(name) || 0;
+  if (until && until <= Date.now()) { providerCooldowns.delete(name); until = 0; }
+  return Math.max(until, discovery.skipUntil(name));
+}
 function isCoolingDown(name) {
-  const until = providerCooldowns.get(name);
-  if (!until) return false;
-  if (until <= Date.now()) { providerCooldowns.delete(name); return false; }
-  return true;
+  return cooldownUntil(name) > Date.now();
 }
 function startCooldown(name, msg) {
   const ms = quotaCooldown(msg);
@@ -387,8 +408,8 @@ function startCooldown(name, msg) {
 // (it gets tried anyway rather than failing outright); otherwise null.
 function soonestIfAllCooling(candidates) {
   if (candidates.length === 0 || !candidates.every(c => isCoolingDown(c.name))) return null;
-  const pick = candidates.reduce((a, b) => providerCooldowns.get(b.name) < providerCooldowns.get(a.name) ? b : a);
-  console.log(`[ParaFree] ⏸ all providers cooling down — trying ${pick.name} (cooldown ends soonest, in ${Math.ceil((providerCooldowns.get(pick.name) - Date.now()) / 1000)}s)`);
+  const pick = candidates.reduce((a, b) => cooldownUntil(b.name) < cooldownUntil(a.name) ? b : a);
+  console.log(`[ParaFree] ⏸ all providers cooling down — trying ${pick.name} (cooldown ends soonest, in ${Math.ceil((cooldownUntil(pick.name) - Date.now()) / 1000)}s)`);
   return pick;
 }
 // Per-provider timeout, clipped to what's left of the request budget.
@@ -621,9 +642,12 @@ async function callSambaNova(text, prompt, key) {
 
 // Walks the resolved NVIDIA models (NVIDIA_MODEL_PREFS); a model answering 404/410 is
 // marked dead for 24 h (memory + Upstash) and the next one is tried at once.
-async function callNvidia(text, prompt, key, maxTokens = 1500, ms = FAST_TIMEOUT, models = discovery.models("nvidia")) {
+// Models on the health-check skip list ("nvidia/<model>") are passed over too (checkSkip=false
+// lets the health check itself still test them).
+async function callNvidia(text, prompt, key, maxTokens = 1500, ms = FAST_TIMEOUT, models = discovery.models("nvidia"), checkSkip = true) {
   for (const model of models) {
     if (discovery.isDead("nvidia", model)) continue;
+    if (checkSkip && discovery.isSkipped("nvidia/" + model)) continue;
     console.log("[ParaFree] Trying: nvidia/" + model);
     const res = await fetchWithTimeout("https://integrate.api.nvidia.com/v1/chat/completions", {
       method: "POST",
@@ -1132,6 +1156,7 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0,
       const ms = Date.now() - t0;
       if (result && result.trim().length > 5) {
         console.log(`[ParaFree] ✅ chunk seq=${seq} handled by ${c.name} in ${ms}ms (${result.trim().length} chars out)`);
+        discovery.noteSuccess(c.name, c.pk, c.patternIndex, c.model);
         return result.trim();
       }
       console.warn(`[ParaFree] ⚠️ chunk seq=${seq} ${c.name} empty/short (${result?.length || 0} chars, ${ms}ms) — next`);
@@ -1315,6 +1340,7 @@ async function runChain(text, prompt, type) {
         const result = await c.fn(ms);
         if (result && result.trim().length > 5) {
           console.log(`[ParaFree] ✅ ${isCVExtract ? 'CV' : 'AI'} request handled by ${c.name}${attempt > 0 ? ' (retry)' : ''}`);
+          discovery.noteSuccess(c.name, c.pk, c.patternIndex, c.model);
           apiStatuses[c.name] = "success";
           return { success: true, result: result.trim(), usedApi: c.name, apiStatuses };
         }
@@ -1391,15 +1417,17 @@ async function handleTestKeys(body) {
   // Health check refreshes the model lists (Upstash cache respected; body.refreshModels forces live).
   await discovery.refresh({ force: !!body.refreshModels });
 
-  // One row per preference slot: pattern → resolved model → status. Names match the chain
-  // entries (e.g. "groq-2/openai/gpt-oss-20b"); a pattern that matched nothing gets its own row.
+  // One row per preference slot: pattern → resolved model (and HOW it was picked: match,
+  // previous, last-good, default or auto) → status. Names match the chain entries
+  // (e.g. "groq-2/openai/gpt-oss-20b"); a slot that resolved to nothing gets its own row.
   const slotRows = (pk, provider, key, call, nameFor, extra = {}) => {
     let pos = -1;
-    return discovery.slots(pk).map((s) => {
+    return discovery.slots(pk).map((s, patternIndex) => {
       if (!s.model) return { name: `${pk}/(no match) ${s.pattern}`, pattern: s.pattern, model: null, tier: null, key, noMatch: true };
       pos++;
       const position = pos;
-      return { name: nameFor(s.model, position), pattern: s.pattern, model: s.model, tier: discovery.tierLabel(provider, position), key, fn: (k) => call(k, s.model), ...extra };
+      return { name: nameFor(s.model, position), pattern: s.pattern, model: s.model, pickedBy: s.from, tier: discovery.tierLabel(provider, position),
+               provider, pk, patternIndex, key, fn: (k) => call(k, s.model), ...extra };
     });
   };
 
@@ -1409,7 +1437,7 @@ async function handleTestKeys(body) {
     ...slotRows("gemini", "gemini", process.env.GEMINI_KEY, (k, m) => callGemini(testText, testPrompt, k, undefined, undefined, m), (m) => "gemini/" + m),
     ...slotRows("cloudflare", "cloudflare", process.env.CF_KEY, (k, m) => callCloudflare(testText, testPrompt, k, cfAccount, undefined, undefined, m),
       (m, pos) => pos === 0 ? "cloudflare" : "cloudflare/" + m, { account: cfAccount }),
-    ...slotRows("nvidia", "nvidia", process.env.NVIDIA_KEY, (k, m) => callNvidia(testText, testPrompt, k, undefined, undefined, [m]), (m) => "nvidia/" + m),
+    ...slotRows("nvidia", "nvidia", process.env.NVIDIA_KEY, (k, m) => callNvidia(testText, testPrompt, k, undefined, undefined, [m], false), (m) => "nvidia/" + m),
     { name: "sambanova",  model: "Meta-Llama-3.3-70B-Instruct",       key: process.env.SAMBANOVA_KEY,  fn: (k) => callSambaNova(testText, testPrompt, k) },
     { name: "mistral",    model: "mistral-small-latest",              key: process.env.MISTRAL_KEY,    fn: (k) => callMistral(testText, testPrompt, k) },
     { name: "mistral-2",  model: "mistral-small-latest",              key: process.env.MISTRAL_KEY_2,  fn: async (k) => { await new Promise(r => setTimeout(r, 3500)); return callMistral(testText, testPrompt, k); } },
@@ -1449,13 +1477,25 @@ async function handleTestKeys(body) {
         results[t.name] = { status: "❌ failed", error: "Empty response" };
       } else {
         results[t.name] = { status: "✅ working", model: t.model, response: response.trim().slice(0, 60) };
+        discovery.noteSuccess(t.name, t.pk, t.patternIndex, t.model);   // also clears any skip
       }
     } catch (e) {
       const msg = e.message || "";
+      const quota = isQuotaError(msg);
       results[t.name] = {
-        status: isQuotaError(msg) ? (quotaCooldown(msg) === DAILY_COOLDOWN ? "⏳ daily limit" : "⏳ rate-limited") : "❌ failed",
+        status: quota ? (quotaCooldown(msg) === DAILY_COOLDOWN ? "⏳ daily limit" : "⏳ rate-limited") : "❌ failed",
         model: t.model, error: msg
       };
+      // Non-quota failures (timeouts, 5xx, auth, retired models) go on the shared skip list so
+      // real requests don't spend time on them; a retired model (404/410/…) is marked dead too.
+      if (!quota) {
+        if (t.provider && t.model && discovery.isDeadModelError(msg)) {
+          await discovery.markDead(t.provider, t.model, msg);
+          results[t.name].markedDead = true;
+        }
+        discovery.skip(t.name, msg);
+        results[t.name].skippedForMinutes = Math.round((discovery.skipUntil(t.name) - Date.now()) / 60000);
+      }
     }
   }));
 
@@ -1466,7 +1506,10 @@ async function handleTestKeys(body) {
   }
   // Slot rows: show the preference pattern, the resolved model and the tier next to the status.
   for (const t of tests) {
-    if (t.pattern !== undefined && results[t.name]) Object.assign(results[t.name], { tier: t.tier, pattern: t.pattern, model: t.model });
+    if (t.pattern !== undefined && results[t.name]) {
+      Object.assign(results[t.name], { tier: t.tier, pattern: t.pattern, model: t.model, pickedBy: t.pickedBy || null,
+                                       autoPicked: t.pickedBy === "auto" });
+    }
   }
 
   return {
