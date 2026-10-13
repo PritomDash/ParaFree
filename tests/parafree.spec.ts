@@ -3,6 +3,11 @@ import JSZip from 'jszip';
 import fs from 'fs';
 import path from 'path';
 
+// Never let test runs reach Google Analytics (keeps GA data clean).
+test.beforeEach(async ({ page }) => {
+  await page.route(/google-analytics\.com|googletagmanager\.com/, route => route.abort());
+});
+
 const FIXTURES   = path.join(process.cwd(), 'tests/fixtures');
 const DOWNLOADS  = path.join(process.cwd(), 'tests/downloads');
 const SCREENSHOTS = path.join(process.cwd(), 'tests/screenshots');

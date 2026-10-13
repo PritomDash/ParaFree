@@ -115,6 +115,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
+<script src="/lib/tool-events.js"></script>
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="icon" type="image/png" sizes="192x192" href="/favicon.png">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -2995,16 +2996,19 @@ async function downloadPDF() {
     if (!isMobile) {
       pdf.save(`${name}-CV.pdf`);
       showToast('✓ PDF downloaded!');
+      if (window.PFEvents) PFEvents.cvDownload(currentTemplate, 'pdf');
     } else if (isIOS) {
       const blob = pdf.output('blob');
       const url = URL.createObjectURL(blob);
       if (mobileWin && !mobileWin.closed) {
         mobileWin.location.href = url;
         showToast('✓ PDF opened — tap Share → Save to Files');
+        if (window.PFEvents) PFEvents.cvDownload(currentTemplate, 'pdf');
       } else {
         // Popup was blocked — navigate current tab via data URI
         window.location.href = pdf.output('datauristring');
         showToast('✓ PDF loading — tap Share → Save to Files');
+        if (window.PFEvents) PFEvents.cvDownload(currentTemplate, 'pdf');
       }
       setTimeout(() => URL.revokeObjectURL(url), 60000);
     } else {
@@ -3015,6 +3019,7 @@ async function downloadPDF() {
       a.href = url; a.download = `${name}-CV.pdf`;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       showToast('✓ PDF saved to Downloads');
+      if (window.PFEvents) PFEvents.cvDownload(currentTemplate, 'pdf');
       setTimeout(() => URL.revokeObjectURL(url), 10000);
     }
   } catch(err) {
@@ -3027,6 +3032,7 @@ async function downloadPDF() {
       win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width"><title>CV</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{width:210mm;background:white;}@media print{body{width:210mm;margin:0;padding:0;}@page{size:A4;margin:0;}}</style></head><body>${preview.outerHTML}<script>setTimeout(()=>window.print(),500)<\/script></body></html>`);
       win.document.close();
       showToast('💡 Print → Save as PDF');
+      if (window.PFEvents) PFEvents.cvDownload(currentTemplate, 'pdf');
     } else {
       showToast('❌ Error: ' + err.message);
     }
@@ -3223,14 +3229,17 @@ async function runJobSearch(auto = false) {
       const src = data.source === 'cache' ? 'cached' : 'live';
       status.textContent = `${data.jobs.length} matching jobs (${src}):`;
       area.innerHTML = renderJobCards(data.jobs);
+      if (window.PFEvents) PFEvents.jobSearch(true);
     } else {
       const links = data.fallbackLinks || _buildFallbackLinks(jobTitle, location);
       area.innerHTML = renderFallbackJobLinks(links, jobTitle, location);
       status.textContent = 'Search on your preferred job board:';
+      if (window.PFEvents) PFEvents.jobSearch(false);
     }
     area.style.display = 'block';
   } catch (e) {
     status.textContent = 'Live search unavailable. Use the links below:';
+    if (window.PFEvents) PFEvents.jobSearch(false);
     area.innerHTML = renderFallbackJobLinks(_buildFallbackLinks(jobTitle, location), jobTitle, location);
     area.style.display = 'block';
   } finally {
@@ -5787,6 +5796,7 @@ async function downloadCLasPDF() {
         setTimeout(() => URL.revokeObjectURL(clUrl), 10000);
         showToast('✓ PDF downloaded!');
       }
+      if (window.PFEvents) PFEvents.coverLetterDownload('pdf');
       return;
     } catch(e) { if (iosTab) iosTab.close(); /* fall through to print */ }
   }
@@ -5797,6 +5807,7 @@ async function downloadCLasPDF() {
     win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">${styles}<style>body{margin:0;padding:0;}@media print{body{margin:0;}@page{size:A4;margin:0;}}</style></head><body>${preview.innerHTML}<script>window.print()<\/script></body></html>`);
     win.document.close();
     showToast('💡 Print → Save as PDF');
+    if (window.PFEvents) PFEvents.coverLetterDownload('pdf');
   }
 }
 
@@ -5846,6 +5857,7 @@ ${bodyParas}
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 3000);
   showToast('✓ Word downloaded!');
+  if (window.PFEvents) PFEvents.coverLetterDownload('docx');
 }
 
 // ── Feature 1: CV Completeness Score ──

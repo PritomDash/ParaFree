@@ -1,5 +1,11 @@
 import { test, expect } from '@playwright/test';
 import fs from 'fs';
+
+// Never let test runs reach Google Analytics (keeps GA data clean).
+test.beforeEach(async ({ page }) => {
+  await page.route(/google-analytics\.com|googletagmanager\.com/, route => route.abort());
+});
+
 const KOFI = 'https://ko-fi.com/parafree';
 const pages = fs.readdirSync(process.cwd()).filter(f => f.endsWith('.html') && f !== 'google36f9508fd6ca7a9c.html');
 

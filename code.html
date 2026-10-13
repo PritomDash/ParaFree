@@ -122,6 +122,7 @@
 <!-- jsPDF -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" defer></script>
+<script src="/lib/tool-events.js"></script>
 <!-- Fonts -->
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="icon" type="image/png" sizes="192x192" href="/favicon.png">
@@ -2060,8 +2061,9 @@ async function handleSend() {
   const context = buildContext(processedMessage, filesToSend);
   currentController = new AbortController();
 
+  let resp = null;
   try {
-    const resp = await fetch(API_URL, {
+    resp = await fetch(API_URL, {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({text: context, prompt: '', type: 'code_assistant'}),
@@ -2072,6 +2074,7 @@ async function handleSend() {
 
     if (data.result) {
       addAIMessage(data.result, data.usedApi);
+      if (window.PFEvents) PFEvents.toolUsed('ai_code', 'text', (message || '').split(/\s+/).filter(Boolean).length);
       conversationHistory.push({role:'user', content:message}, {role:'assistant', content:data.result});
       if (conversationHistory.length > MAX_HISTORY * 2) {
         conversationHistory = conversationHistory.slice(-MAX_HISTORY * 2);
@@ -2135,10 +2138,14 @@ async function handleSend() {
       if (data.usedApi) updateEngineStatus(data.usedApi);
     } else {
       addErrorMessage('The AI returned an empty response. Please try again.');
+      if (window.PFEvents) PFEvents.toolError('ai_code', PFEvents.errorTypeFromStatus(resp.status));
     }
   } catch(e) {
     removeThinking(thinkingId);
-    if (e.name !== 'AbortError') addErrorMessage();
+    if (e.name !== 'AbortError') {
+      addErrorMessage();
+      if (window.PFEvents) PFEvents.toolError('ai_code', (resp && resp.status === 504) ? 'timeout' : 'other');
+    }
   } finally {
     isProcessing = false;
     sendBtn.classList.remove('loading');
@@ -2341,6 +2348,7 @@ function downloadCodePre(preId, ext) {
   a.href = url; a.download = 'parafree-code' + ext; a.click();
   URL.revokeObjectURL(url);
   showToast('Downloaded!');
+  if (window.PFEvents) PFEvents.resultDownload('ai_code', 'code');
 }
 
 function toggleCodeBlock(blkId, preId, btn) {
@@ -2737,6 +2745,7 @@ async function createPPTX(data) {
   window._lastDocType = 'pptx';
   showDocumentButtons('pptx', data);
   showToast('✓ Premium PPTX downloaded!');
+  if (window.PFEvents) PFEvents.resultDownload('ai_code', 'pptx');
 }
 
 // ── DOCX creation ────────────────────────────────────────
@@ -2825,6 +2834,7 @@ async function createDOCX(data) {
     showPreviewPanel();
     showDocumentButtons('docx', data);
     showToast('✓ Word document downloaded!');
+    if (window.PFEvents) PFEvents.resultDownload('ai_code', 'docx');
   } catch(err) {
     console.error('[ParaFree] DOCX error:', err);
     showToast('❌ Error: ' + err.message);
@@ -2901,6 +2911,7 @@ async function createPDF(data) {
     showPreviewPanel();
     showDocumentButtons('pdf', data);
     showToast('✓ PDF downloaded!');
+    if (window.PFEvents) PFEvents.resultDownload('ai_code', 'pdf');
   } catch(err) {
     console.error('PDF error:', err);
     showToast('PDF error: ' + err.message);
@@ -3123,7 +3134,7 @@ function showCodeDownloadBar(type, data) {
     const extMap = {html:'.html',css:'.css',javascript:'.js',js:'.js',python:'.py',typescript:'.ts',ts:'.ts',jsx:'.jsx',vue:'.vue',java:'.java',php:'.php',sql:'.sql',bash:'.sh',sh:'.sh'};
     const ext = extMap[(data.lang||'').toLowerCase()] || '.txt';
     bar.innerHTML = `<span style="${lS}">💻 Code ready:</span>
-      <button onclick="(function(){var d=window._lastCodeData;var b=new Blob([d.code],{type:'text/plain'});var u=URL.createObjectURL(b);var a=document.createElement('a');a.href=u;a.download='parafree-code${ext}';a.click();URL.revokeObjectURL(u);showToast('Downloaded!');})();" style="${bS}">⬇️ Download ${ext}</button>
+      <button onclick="(function(){var d=window._lastCodeData;var b=new Blob([d.code],{type:'text/plain'});var u=URL.createObjectURL(b);var a=document.createElement('a');a.href=u;a.download='parafree-code${ext}';a.click();URL.revokeObjectURL(u);showToast('Downloaded!');if(window.PFEvents)PFEvents.resultDownload('ai_code','code');})();" style="${bS}">⬇️ Download ${ext}</button>
       <button onclick="navigator.clipboard.writeText(window._lastCodeData.code).then(function(){showToast('✓ Copied!');});" style="${oS}">📋 Copy Code</button>
       <button onclick="renderInPreview(window._lastCodeData.code);showPreviewPanel();" style="${gS}">👁 Preview</button>`;
   }
