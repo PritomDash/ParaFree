@@ -171,6 +171,31 @@ const sentText = (ctx) => ctx._requests.map(r => r.text).join('\n');
   const toc = 'Contents\nIntroduction\nReferences\n\nIntroduction\n\nBody text here.\n\nReferences\nSmith, J. (2020). T.';
   assert('splitReferences uses the LAST heading (table of contents safe)', PFProtect.splitReferences(toc).body.endsWith('Body text here.'));
 
+  // ── 1b. Heading rule: ≤5 words AND in the last 40% of the document ──
+  console.log('\n── 1b. Mid-document "Sources" heading must NOT cut off the text ──');
+  const LONG_P = (i) => `Section ${i} body text that discusses energy systems in enough detail to matter for the reader here.`;
+  const MID = [LONG_P(1), 'Sources', LONG_P(2), LONG_P(3), LONG_P(4), LONG_P(5), LONG_P(6)].join('\n\n');
+  assert('mid-document "Sources": nothing split off', PFProtect.splitReferences(MID).tail === '');
+  const LATE = [LONG_P(1), LONG_P(2), LONG_P(3), LONG_P(4), 'Sources', 'Smith, J. (2020). Energy. Journal.'].join('\n\n');
+  assert('late "Sources" (last 40%) still splits', PFProtect.splitReferences(LATE).tail.startsWith('Sources'));
+  {
+    const c = makeSandbox('rewrite');
+    c.inputEl.value = MID;
+    await c.paraphrase();
+    const sent = sentText(c), outMid = c._rendered || '';
+    assert('paraphrase: every paragraph after mid "Sources" was sent', [2, 3, 4, 5, 6].every(i => sent.includes(`Section ${i} body`)), sent);
+    assert('paraphrase: text after mid "Sources" was paraphrased', [2, 6].every(i => outMid.includes(`SECTION ${i} BODY`)), outMid);
+    const midXml = '<w:body>' + [
+      `<w:p><w:r><w:t>${LONG_P(1)}</w:t></w:r></w:p>`,
+      '<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Sources</w:t></w:r></w:p>',
+      ...[2, 3, 4, 5, 6].map(i => `<w:p><w:r><w:t>${LONG_P(i)}</w:t></w:r></w:p>`),
+    ].join('') + '</w:body>';
+    assert('DOCX: mid-document "Sources" heading keeps nothing original', PFProtect.docxKeepOriginalPositions(midXml).size === 0);
+    const midSlides = [1, 2, 3, 4, 5].map(n => ({ num: n, textBoxItems: [
+      { text: n === 1 ? 'Sources' : 'Slide ' + n, isTitle: true }, { text: LONG_P(n), isTitle: false }] }));
+    assert('PPTX: "Sources" title on slide 1 of 5 skips nothing', PFProtect.pptxSkipTags(midSlides).size === 0);
+  }
+
   // ── 2. Pasted text / PDF paraphrase ──
   console.log('\n── 2. Paraphrase (pasted text / PDF) — rewrite AI ──');
   let ctx = makeSandbox('rewrite');
