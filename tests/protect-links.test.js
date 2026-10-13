@@ -260,10 +260,11 @@ const sentText = (ctx) => ctx._requests.map(r => r.text).join('\n');
   const W = (inner, style) => `<w:p>${style ? `<w:pPr><w:pStyle w:val="${style}"/></w:pPr>` : ''}${inner}</w:p>`;
   const R = (t, rpr = '') => `<w:r>${rpr}<w:t xml:space="preserve">${t}</w:t></w:r>`;
   const xP0 = W(R('Introduction'), 'Heading1');
-  // URL without '&': DOCX text is extracted XML-escaped and re-escaped on write (pre-existing
-  // &amp;amp; issue in docxReplaceParasAbsolute, independent of link protection).
-  const DOCX_URL = 'https://example.com/path_(x)?q=1';
-  const xP1 = W(R('The study is hosted at ') + R(DOCX_URL, '<w:rPr><w:b/></w:rPr>') + R(' and was cited (Smith et al., 2019, p. 4) by many groups worldwide.'));
+  // URL WITH '&': in document.xml it is stored as &amp;, and the download must write it back
+  // with a single &amp; (no &amp;amp;) — covered by the decode-then-encode DOCX fix.
+  const DOCX_URL = 'https://example.com/path_(x)?a=1&b=2';
+  const DOCX_URL_XML = DOCX_URL.replace(/&/g, '&amp;');
+  const xP1 = W(R('The study is hosted at ') + R(DOCX_URL_XML, '<w:rPr><w:b/></w:rPr>') + R(' and was cited (Smith et al., 2019, p. 4) by many groups worldwide.'));
   const xP2 = W(R('Please read the guidance on ') + '<w:hyperlink r:id="rId9" w:history="1">' + R('the official project website', '<w:rPr><w:rStyle w:val="Hyperlink"/></w:rPr>') + '</w:hyperlink>' + R(' before you submit any of your files.'));
   const xP3 = W(R('A plain body paragraph with enough words to be sent to the model for rewriting.'));
   const xP4 = W(R('[9] Orphan numbered reference entry in the body text, 2020, Publisher.'));
@@ -297,7 +298,7 @@ const sentText = (ctx) => ctx._requests.map(r => r.text).join('\n');
     assert('URL and citation in P1 never sent raw', !sent.includes('example.com') && !sent.includes('Smith et al.'));
     assert('<<<N>>> markers still used', /<<<\d+>>>/.test(sent));
     if (mode === 'rewrite') {
-      assert('P1 paraphrased with exact URL + citation restored', outP[1] !== inP[1] && outP[1].includes(DOCX_URL + ' ') && outP[1].includes('(Smith et al., 2019, p. 4)') && outP[1].includes('STUDY'), outP[1]);
+      assert('P1 paraphrased with exact URL + citation restored', outP[1] !== inP[1] && outP[1].includes(DOCX_URL_XML + ' ') && !outP[1].includes('&amp;amp;') && outP[1].includes('(Smith et al., 2019, p. 4)') && outP[1].includes('STUDY'), outP[1]);
       assert('P3 paraphrased', outP[3].includes('PLAIN BODY PARAGRAPH'));
     } else {
       assert('P1 (placeholder dropped) falls back to original XML byte-identical', outP[1] === inP[1], outP[1]);
