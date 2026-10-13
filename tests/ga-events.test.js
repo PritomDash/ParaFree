@@ -167,6 +167,14 @@ const words = (n, w = 'word') => Array.from({ length: n }, (_, i) => w + i).join
       eq(events(ctx), [['event', 'cv_download', { template: 'modern-blue', format: 'pdf' }],
                        ['event', 'job_search', { has_results: true }], ['event', 'job_search', { has_results: false }]]), JSON.stringify(events(ctx)));
 
+    ctx._gtag.length = 0;
+    E.coverLetterDownload('pdf'); E.coverLetterDownload('docx');
+    E.send('cover_letter_download', { format: 'pdf', company: 'Acme', name: 'Alice' });
+    E.coverLetterDownload('Alice-Cover-Letter.pdf');
+    assert('cover_letter_download sends format only (extras stripped, odd formats dropped)',
+      eq(events(ctx), [['event', 'cover_letter_download', { format: 'pdf' }], ['event', 'cover_letter_download', { format: 'docx' }],
+                       ['event', 'cover_letter_download', { format: 'pdf' }]]), JSON.stringify(events(ctx)));
+
     const noGa = makeSandbox('ok', { noGtag: true });
     let threw = null; try { noGa.PFEvents.toolUsed('paraphrase', 'text', 10); } catch (e) { threw = e; }
     assert('no gtag (GA blocked) → no error', threw === null, threw);
@@ -306,6 +314,13 @@ const words = (n, w = 'word') => Array.from({ length: n }, (_, i) => w + i).join
     assert('index.html still has all 4 donate_click links', (idx.match(/gtag\('event','donate_click'/g) || []).length === 4);
     const cv = fs.readFileSync(path.join(ROOT, 'cv-builder.html'), 'utf8');
     const js = cv.slice(cv.indexOf('async function runJobSearch('), cv.indexOf('function _cleanSnippet('));
+    const clPdf = cv.slice(cv.indexOf('async function downloadCLasPDF('), cv.indexOf('async function downloadCLasDOCX('));
+    const clDocx = cv.slice(cv.indexOf('async function downloadCLasDOCX('), cv.indexOf('// ── Feature 1'));
+    assert('cover letter downloads send cover_letter_download pdf (download + print fallback) and docx',
+      (clPdf.match(/PFEvents\.coverLetterDownload\('pdf'\)/g) || []).length === 2 && /PFEvents\.coverLetterDownload\('docx'\)/.test(clDocx));
+    const chat = idx.slice(idx.indexOf('async function homeSendMessage('), idx.indexOf('async function homeHandleOutput('));
+    assert('ai_chat with no result shows a visible error and sends tool_error',
+      /else \{[^}]*homeAddErrorMessage\('No response from the AI — please try again\.'\);\s*gaToolError\('ai_chat'/.test(chat));
     assert('job_search never passes the title/location', !/jobSearch\([^)]*(jobTitle|location)/.test(js) && (js.match(/PFEvents\.jobSearch\((true|false)\)/g) || []).length === 3);
   }
 

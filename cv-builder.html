@@ -5796,6 +5796,7 @@ async function downloadCLasPDF() {
         setTimeout(() => URL.revokeObjectURL(clUrl), 10000);
         showToast('✓ PDF downloaded!');
       }
+      if (window.PFEvents) PFEvents.coverLetterDownload('pdf');
       return;
     } catch(e) { if (iosTab) iosTab.close(); /* fall through to print */ }
   }
@@ -5806,6 +5807,7 @@ async function downloadCLasPDF() {
     win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">${styles}<style>body{margin:0;padding:0;}@media print{body{margin:0;}@page{size:A4;margin:0;}}</style></head><body>${preview.innerHTML}<script>window.print()<\/script></body></html>`);
     win.document.close();
     showToast('💡 Print → Save as PDF');
+    if (window.PFEvents) PFEvents.coverLetterDownload('pdf');
   }
 }
 
@@ -5855,6 +5857,7 @@ ${bodyParas}
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 3000);
   showToast('✓ Word downloaded!');
+  if (window.PFEvents) PFEvents.coverLetterDownload('docx');
 }
 
 // ── Feature 1: CV Completeness Score ──

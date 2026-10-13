@@ -110,6 +110,43 @@ test.describe('GA4 events', () => {
     await expectNoPersonalData(page);
   });
 
+  test('ParaFree AI chat with no answer back → visible error + tool_error other (never silent)', async ({ page }) => {
+    await serveLocal(page, () => ({ status: 503, json: { success: false, error: 'high_demand', message: 'busy' } }));
+    await page.goto('/');
+    await mockGtag(page);
+    await page.evaluate(() => (window as any).switchTool('ai'));
+    await page.fill('#homeChatInput', SECRET + ' asks a question');
+    await page.click('#homeSendBtn');
+    const err = page.locator('#homeChatHistory').getByText('No response from the AI — please try again.');
+    await expect(err).toBeVisible();
+    // same style as the existing chat error bubble
+    expect(await err.evaluate((el: HTMLElement) => [el.style.color, el.style.background])).toEqual(['rgb(220, 38, 38)', 'rgb(255, 245, 245)']);
+    await expect.poll(() => events(page)).toEqual([['tool_error', { tool: 'ai_chat', error_type: 'other' }]]);
+    await expect(page.locator('#homeSendBtn')).toHaveText('↑');  // ready for a retry
+    await expectNoPersonalData(page);
+  });
+
+  test('cv-builder: cover_letter_download sends format only (pdf, docx)', async ({ page }) => {
+    const net = await serveLocal(page, (b) => b.type === 'cover_letter'
+      ? { json: { success: true, result: 'I would love to bring my skills to your team.\n\nI have led many projects.\n\nI look forward to talking.' } }
+      : { json: { success: false } });
+    await page.goto('/cv-builder.html');
+    await mockGtag(page);
+    await page.evaluate(() => {
+      (document.getElementById('clCompany') as HTMLInputElement).value = 'Underwater Basket Co';
+      (document.getElementById('clJobTitle') as HTMLInputElement).value = 'Underwater Basket Weaver';
+      (document.getElementById('f-name') as HTMLInputElement).value = 'Alice Smith';
+    });
+    await page.evaluate(() => (window as any).generateCoverLetter());
+    expect(net.apiCalls.map(c => c.type)).toEqual(['cover_letter']);
+    await page.evaluate(() => (window as any).downloadCLasPDF());
+    await page.evaluate(() => (window as any).downloadCLasDOCX());
+    await expect.poll(async () => (await events(page)).filter((e: any) => e[0] === 'cover_letter_download')).toEqual([
+      ['cover_letter_download', { format: 'pdf' }], ['cover_letter_download', { format: 'docx' }],
+    ]);
+    await expectNoPersonalData(page);
+  });
+
   test('code.html → tool_used ai_code; empty/busy response → tool_error all_busy', async ({ page }) => {
     let busy = false;
     await serveLocal(page, () => busy
