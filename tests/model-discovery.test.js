@@ -481,6 +481,11 @@ const firstNonNvidia = (names) => names.filter(n => !n.startsWith('nvidia/'));
   assert('Cloudflare: an exact name you set yourself is still allowed (even 1B)', cfExact.model === CF_1B, JSON.stringify(cfExact));
   const ra = MD.resolveSlots(['nothing-*'], [g('whisper-large-v3'), g('playai-tts'), g('meta-llama/llama-guard-4-12b'), g('llama-3.1-8b-instant')], () => false, [], [], { sort: 'largest' });
   assert('no match, no default → auto-pick the best text model with the same exclusions', ra[0].model === 'llama-3.1-8b-instant' && ra[0].from === 'auto', JSON.stringify(ra));
+  // Larger reward / reranker / classifier models must lose to a smaller real chat model.
+  const rr = MD.resolveSlots(['nothing-*'], [g('nvidia/llama-3.1-nemotron-70b-reward'), g('nvidia/llama-3.2-nv-reranker-30b'),
+    g('meta/llama-3.1-40b-classifier'), g('meta/llama-3.1-8b-instruct')], () => false, [], [], { sort: 'largest' });
+  assert('auto-pick skips reward, reranker and classifier models', rr[0].model === 'meta/llama-3.1-8b-instruct' && rr[0].from === 'auto', JSON.stringify(rr));
+  for (const w of ['reward', 'reranker', 'classifier']) assert(`"${w}" is an excluded word`, MD.EXCLUDE_WORDS.includes(w));
   fresh();
   GROQ_LIST = groqNew;
   behaviour = { groq: 'ok', 'groq-2': 'ok', 'groq-3': 'ok', gemini: 'ok', cloudflare: 'ok', nvidia: 'ok' };

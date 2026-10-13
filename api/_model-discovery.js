@@ -40,7 +40,7 @@ const listKey = (pk) => 'pf_models:' + pk;
 
 // Non-chat model families — excluded unless the pattern names the word explicitly.
 const EXCLUDE_WORDS = ['embed', 'vision', 'whisper', 'tts', 'guard', 'moderation', 'audio', 'image', 'preview',
-                       'exp', 'experimental', 'learnlm'];
+                       'exp', 'experimental', 'learnlm', 'reward', 'reranker', 'classifier'];
 
 const GROQ_KEY_NAMES = ['groq', 'groq-2', 'groq-3'];
 
