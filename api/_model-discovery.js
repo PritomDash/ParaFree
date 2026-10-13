@@ -9,7 +9,7 @@
 //
 // Lists are cached in Upstash (fresh for 6 h, kept 7 days as a fallback). If a live fetch
 // fails: last cached list → defaults. A user request never waits more than ~1 s for it.
-// A model that answers 404/410/"not found"/"decommissioned"/"retired" is marked dead for
+// A model that answers HTTP 404/410, or whose error says decommissioned/retired/deprecated, is marked dead for
 // 24 h (memory + Upstash) and its slot re-resolves to the next model immediately.
 // ═══════════════════════════════════════════════════
 'use strict';
@@ -24,7 +24,8 @@ const DEAD_REDIS_KEY = 'pf_dead_models';
 const listKey = (pk) => 'pf_models:' + pk;
 
 // Non-chat model families — excluded unless the pattern names the word explicitly.
-const EXCLUDE_WORDS = ['embed', 'vision', 'whisper', 'tts', 'guard', 'moderation', 'audio', 'image', 'preview'];
+const EXCLUDE_WORDS = ['embed', 'vision', 'whisper', 'tts', 'guard', 'moderation', 'audio', 'image', 'preview',
+                       'exp', 'experimental', 'learnlm'];
 
 const GROQ_KEY_NAMES = ['groq', 'groq-2', 'groq-3'];
 
@@ -107,8 +108,10 @@ function resolveSlots(prefs, list, isDead, defaults) {
   });
 }
 
+// Dead = HTTP 404/410 (callers put the status after a colon, e.g. "Groq/<model>:404 …"), or the
+// error says decommissioned / retired / deprecated. "not found" on its own is NOT enough.
 function isDeadModelError(msg) {
-  return /:40[4]\b|:410\b|not found|decommission|retired/i.test(String(msg || ''));
+  return /:(404|410)\b|decommission|retired|deprecated/i.test(String(msg || ''));
 }
 
 // ── Discovery service ──

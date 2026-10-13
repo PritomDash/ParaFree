@@ -170,9 +170,15 @@ const firstNonNvidia = (names) => names.filter(n => !n.startsWith('nvidia/'));
   assert('no list → literal patterns as-is, wildcards → defaults', r5.map(s => s.model).join(',') === `${M120},llama-3.3-70b-versatile`);
   const r6 = MD.resolveSlots(['@cf/meta/llama-*-8b-instruct'], CF_LIST.map(n => g(n)), () => false, []);
   assert('CF: llama-3.1-8b-instruct beats llama-3-8b-instruct; -fast suffix not matched', r6[0].model === '@cf/meta/llama-3.1-8b-instruct');
-  for (const m of ['Groq/x:404 not found', 'NVIDIA:410 gone', 'model_decommissioned', 'The model has been retired', 'Gemini/x:404 models/x is not found'])
+  const rExp = MD.resolveSlots(['gemini-*', 'gemini-*-exp*'], [g('gemini-9.9-flash-exp-0901'), g('gemini-8.0-pro-experimental'), g('gemini-3.5-flash')], () => false, []);
+  assert('exp / experimental models skipped unless the pattern names them', rExp[0].model === 'gemini-3.5-flash' && rExp[1].model === 'gemini-9.9-flash-exp-0901', JSON.stringify(rExp));
+  const rLearn = MD.resolveSlots(['*flash*', 'learnlm-*'], [g('learnlm-9.0-flash'), g('gemini-3.5-flash')], () => false, []);
+  assert('learnlm skipped unless the pattern names it', rLearn[0].model === 'gemini-3.5-flash' && rLearn[1].model === 'learnlm-9.0-flash', JSON.stringify(rLearn));
+  for (const m of ['Groq/x:404 not found', 'NVIDIA:410 gone', 'Gemini/x:404 models/x is not found', 'Cloudflare:410 gone',
+                   'model_decommissioned', 'The model has been retired', 'Groq/x:400 The model `x` is deprecated'])
     assert(`dead-model error: "${m}"`, MD.isDeadModelError(m));
-  for (const m of ['Groq/x:429 rate limit', 'Gemini/x:500 internal', 'TIMEOUT'])
+  for (const m of ['Groq/x:429 rate limit', 'Gemini/x:500 internal', 'TIMEOUT', 'Groq/x:4040 weird',
+                   'Cloudflare: [{"code":7003,"message":"route not found"}]', 'Groq/x:400 account not found', 'resource not found'])
     assert(`not a dead-model error: "${m}"`, !MD.isDeadModelError(m));
   const dp = MD.defaultPrefs({});
   assert('default prefs: groq', dp.groq.join(', ') === 'openai/gpt-oss-120b, openai/gpt-oss-20b, llama-*-versatile', dp.groq.join(', '));
@@ -266,11 +272,11 @@ const firstNonNvidia = (names) => names.filter(n => !n.startsWith('nvidia/'));
   r = await call({ text: SHORT, mode: 'standard' });
   assert('after 24 h the model is eligible again', r.calls[0].endsWith('/' + M120), r.calls.join(','));
 
-  // Gemini "not found" + NVIDIA 410
+  // Gemini HTTP 404 + NVIDIA 410
   behaviour = { 'gemini/gemini-3.5-flash-lite': { status: 404, body: { error: { code: 404, message: 'models/gemini-3.5-flash-lite is not found for API version v1beta', status: 'NOT_FOUND' } } },
                 'gemini/gemini-3.1-flash-lite': 'ok' };
   r = await call({ text: SHORT, type: 'code_assistant' });
-  assert('Gemini "not found" → swapped to the next resolved Gemini model at once', r.calls.includes('gemini/gemini-3.5-flash-lite') && r.payload.success && r.logs.some(l => l.includes('model swap: gemini tier1 gemini-3.5-flash-lite → gemini-3.1-flash-lite')), r.calls.join(','));
+  assert('Gemini HTTP 404 → swapped to the next resolved Gemini model at once', r.calls.includes('gemini/gemini-3.5-flash-lite') && r.payload.success && r.logs.some(l => l.includes('model swap: gemini tier1 gemini-3.5-flash-lite → gemini-3.1-flash-lite')), r.calls.join(','));
   behaviour = { 'nvidia/nvidia/nemotron-3-ultra-550b-a55b': { status: 410, body: { error: 'model has reached end of life' } }, 'nvidia/deepseek-ai/deepseek-v4.1-flash': 'ok' };
   r = await call({ text: SHORT, mode: 'standard' });
   const nv = r.calls.filter(n => n.startsWith('nvidia/'));

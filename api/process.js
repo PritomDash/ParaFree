@@ -288,7 +288,7 @@ const DISABLED_PROVIDERS = new Set([
 const PROVIDER_TIMEOUTS = { ovhcloud: SLOW_TIMEOUT, llm7: SLOW_TIMEOUT, nvidia: SLOW_TIMEOUT };
 
 // One chain entry for a resolved slot (`slot` = position among the key's resolved models).
-// If the model turns out to be retired (404/410/"not found"/"decommissioned"/"retired"),
+// If the model turns out to be retired (HTTP 404/410, or decommissioned/retired/deprecated),
 // it is marked dead and the SAME entry retries at once with the model the slot now resolves to.
 function slotEntry(provider, pk, slot, model, call, nameFor) {
   const entry = {
