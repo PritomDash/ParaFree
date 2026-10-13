@@ -280,7 +280,12 @@ function createModelDiscovery({ fetchWithTimeout, getRedis, env = process.env, l
   }
   const models = (pk) => slots(pk).map(s => s.model).filter(Boolean);
 
-  function tierLabel(provider, i) { return provider === 'nvidia' ? 'tier3 #' + (i + 1) : i === 0 ? 'tier1' : 'tier2'; }
+  // Cloudflare's slots all sit at the end of Tier 2 (see SLOT_RANK in process.js).
+  function tierLabel(provider, i) {
+    if (provider === 'nvidia') return 'tier3 #' + (i + 1);
+    if (provider === 'cloudflare') return 'tier2';
+    return i === 0 ? 'tier1' : 'tier2';
+  }
 
   // Logs "model swap: <key> <tier> old → new" per tier position (tiers are positional among
   // resolved models). Only positions where a model really left or arrived are logged, so a

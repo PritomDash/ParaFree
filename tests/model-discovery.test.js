@@ -147,8 +147,9 @@ const keyOf = (n) => n.split('/')[0];
 // v2.4 chain (as the chat-call names this mock records)
 function v24Chain(firstKey, geminiT2 = 'gemini-3.1-flash-lite') {
   const ks = rot(GROQS, GROQS.indexOf(firstKey));
-  return [...ks.map(k => k + '/' + M120), 'gemini/gemini-3.5-flash-lite', 'cloudflare/@cf/meta/llama-3.1-8b-instruct',
+  return [...ks.map(k => k + '/' + M120), 'gemini/gemini-3.5-flash-lite',                                   // Tier 1
           ...ks.map(k => k + '/' + M20), ...ks.map(k => k + '/' + LLAMA), 'gemini/' + geminiT2, 'gemini/gemma-3-27b-it',
+          'cloudflare/@cf/meta/llama-3.1-8b-instruct',                                                   // Tier 2 (Cloudflare last)
           'ovhcloud', 'llm7'];
 }
 const SHORT = 'This is a short paragraph that needs paraphrasing for the test suite here.';
@@ -308,7 +309,7 @@ const firstNonNvidia = (names) => names.filter(n => !n.startsWith('nvidia/'));
   const K7 = keyOf(s7[0]);
   assert('Tier 1 Groq = first resolved pref (llama-*-versatile)', s7[0] === `${K7}/${LLAMA}`, s7.join(' → '));
   assert('Tier 1 Gemini = gemini-*-flash → gemini-3.5-flash', s7.includes('gemini/gemini-3.5-flash') && s7.indexOf('gemini/gemini-3.5-flash') === 3, s7.join(' → '));
-  assert('Tier 2 Groq = openai/gpt-oss-* → newest (120b)', s7.slice(5, 8).every(n => n.endsWith('/' + M120)), s7.join(' → '));
+  assert('Tier 2 Groq = openai/gpt-oss-* → newest (120b)', s7.slice(4, 7).every(n => n.endsWith('/' + M120)), s7.join(' → '));
   assert('Tier 2 Gemini = gemma-3-27b-it; no extra slots', s7.includes('gemini/gemma-3-27b-it') && !s7.includes('gemini/gemini-3.1-flash-lite'));
   process.env.GROQ_MODEL_PREFS = 'llama-*';
   coldStart();
@@ -327,7 +328,7 @@ const firstNonNvidia = (names) => names.filter(n => !n.startsWith('nvidia/'));
   assert('slot row shows pattern, resolved model, tier and status', row && row.pattern === 'openai/gpt-oss-20b' && row.model === M20 && row.tier === 'tier2' && row.status === '✅ working', JSON.stringify(row));
   const gRow = res['gemini/gemma-3-27b-it'];
   assert('wildcard slot shows its pattern (gemma-*-it → gemma-3-27b-it)', gRow && gRow.pattern === 'gemma-*-it' && gRow.tier === 'tier2', JSON.stringify(gRow));
-  assert('Tier 1 Cloudflare row', res.cloudflare && res.cloudflare.tier === 'tier1' && res.cloudflare.model === '@cf/meta/llama-3.1-8b-instruct');
+  assert('Cloudflare row is Tier 2', res.cloudflare && res.cloudflare.tier === 'tier2' && res.cloudflare.model === '@cf/meta/llama-3.1-8b-instruct', JSON.stringify(res.cloudflare));
   const auto = Object.entries(res).find(([, v]) => v.pattern === '@cf/nonexistent-*');
   assert('unmatched pattern auto-picks a model and the row says so (pickedBy "auto")', auto && auto[1].pickedBy === 'auto' && auto[1].autoPicked === true && auto[1].model && !/guard/.test(auto[1].model), JSON.stringify(auto));
   assert('no slot is left empty', !Object.keys(res).some(k => k.includes('(no match)')), Object.keys(res).filter(k => k.includes('no match')).join(', '));
@@ -382,25 +383,26 @@ const firstNonNvidia = (names) => names.filter(n => !n.startsWith('nvidia/'));
   // ── 10. Last known good ordering — within a tier only, shared across instances ──
   console.log('\n── 10. Most recently successful first (within each tier) ──');
   fresh();
-  const T1 = (names) => names.filter(n => n.endsWith('/' + M120) || n === 'gemini/gemini-3.5-flash-lite' || n.startsWith('cloudflare/'));
-  behaviour = { ['cloudflare/' + CF_OLD]: 'ok' };                      // only Tier-1 Cloudflare works
+  const G1 = 'gemini/gemini-3.5-flash-lite', CFN = 'cloudflare/' + CF_OLD;
+  const T1 = (names) => names.filter(n => n.endsWith('/' + M120) || n === G1);
+  behaviour = { [G1]: 'ok' };                                         // only Tier-1 Gemini works
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('baseline: Cloudflare is the last Tier 1 entry and handles it', r.calls[r.calls.length - 1] === 'cloudflare/' + CF_OLD && r.calls.length === 5, r.calls.join(','));
+  assert('baseline: Gemini is the last Tier 1 entry and handles it', r.calls[r.calls.length - 1] === G1 && r.calls.length === 4, r.calls.join(','));
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('next request: the most recently successful Tier 1 entry (Cloudflare) is tried first', r.calls.join(',') === 'cloudflare/' + CF_OLD, r.calls.join(','));
-  behaviour = { 'gemini/gemini-3.5-flash': 'ok' };                     // Cloudflare stops working; only a Tier-2 entry works
+  assert('next request: the most recently successful Tier 1 entry (Gemini) is tried first', r.calls.join(',') === G1, r.calls.join(','));
+  behaviour = { [CFN]: 'ok' };                                        // Gemini stops working; only Tier-2 Cloudflare works
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('Tier 2 success only after every Tier 1 entry was tried', T1(r.calls.slice(0, 5)).length === 5 && T1(r.calls.slice(5)).length === 0 && r.calls[r.calls.length - 1] === 'gemini/gemini-3.5-flash', r.calls.join(','));
+  assert('Tier 2 Cloudflare succeeds only after every Tier 1 entry was tried', T1(r.calls.slice(0, 4)).length === 4 && T1(r.calls.slice(4)).length === 0 && r.calls[r.calls.length - 1] === CFN, r.calls.join(','));
+  assert('…and Cloudflare is the LAST Tier 2 entry (after Groq 20b/qwen-slot and Gemini Tier 2)', r.calls.length === 13 && r.calls[11] === 'gemini/gemma-3-27b-it', r.calls.join(','));
   r = await call({ text: SHORT, mode: 'standard' });
-  const firstT2 = r.calls.findIndex(n => !T1([n]).length);
-  assert('Tier 1 still fully before Tier 2 (never reordered across tiers)', firstT2 === 5 && T1(r.calls.slice(0, 5)).length === 5, r.calls.join(','));
-  assert('within Tier 2 the recent winner (gemini-3.5-flash) goes first', r.calls[5] === 'gemini/gemini-3.5-flash' && r.calls.length === 6, r.calls.join(','));
-  assert('within Tier 1 Cloudflare (recent) still first', r.calls[0] === 'cloudflare/' + CF_OLD);
+  assert('Tier 1 still fully before Tier 2 (never reordered across tiers)', T1(r.calls.slice(0, 4)).length === 4 && r.calls[4] === CFN, r.calls.join(','));
+  assert('within Tier 2 the recent winner (Cloudflare) goes first', r.calls.length === 5, r.calls.join(','));
+  assert('within Tier 1 Gemini (recent) still first', r.calls[0] === G1);
   await settle();
-  assert('success times stored in Upstash (shared hash)', hget('pf_last_success', 'cloudflare') > 0 && hget('pf_last_success', 'gemini/gemini-3.5-flash') > 0);
+  assert('success times stored in Upstash (shared hash)', hget('pf_last_success', 'cloudflare') > 0 && hget('pf_last_success', G1) > 0);
   coldStart();
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('a new instance uses the shared order (Cloudflare first, gemini-3.5-flash first in Tier 2)', r.calls[0] === 'cloudflare/' + CF_OLD && r.calls[5] === 'gemini/gemini-3.5-flash', r.calls.join(','));
+  assert('a new instance uses the shared order (Gemini first in Tier 1, Cloudflare first in Tier 2)', r.calls[0] === G1 && r.calls[4] === CFN, r.calls.join(','));
   advance(61 * 60 * 1000);
   r = await call({ text: SHORT, mode: 'standard' });
   assert('successes older than 1 h no longer reorder (back to Groq rotation)', r.calls[0].endsWith('/' + M120), r.calls.join(','));
