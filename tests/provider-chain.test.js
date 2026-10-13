@@ -36,9 +36,9 @@ const keyOf = (name) => name.split('/')[0];
 // Full expected order for a given starting Groq key (all three Groq model groups share the offset).
 function expectedChain(firstKey) {
   const ks = rot(GROQS, GROQS.indexOf(firstKey));
-  return [...ks.map(k => k + '/' + M120), G1, 'cloudflare',
-          ...ks.map(k => k + '/' + M20), ...ks.map(k => k + '/' + LLAMA), GLITE, GEMMA,
-          'ovhcloud', 'llm7', 'nvidia'];
+  return [...ks.map(k => k + '/' + M120), G1,                                   // Tier 1
+          ...ks.map(k => k + '/' + M20), ...ks.map(k => k + '/' + LLAMA), GLITE, GEMMA, 'cloudflare',   // Tier 2 (Cloudflare last)
+          'ovhcloud', 'llm7', 'nvidia'];                                               // Tier 3
 }
 const CHAIN_LEN = 16;
 
@@ -263,8 +263,8 @@ const groqCalls = (names, model) => names.filter(n => n.startsWith('groq') && (!
   reset({ ...Object.fromEntries(GROQS.map(k => [`${k}/${M120}`, 'daily'])), gemini: 'fail', cloudflare: 'fail', groq: 'ok', 'groq-2': 'ok', 'groq-3': 'ok' });
   r = await call({ text: SHORT, mode: 'standard' });
   const firstTier2 = r.calls[r.calls.length - 1];
-  assert('Tier 1 exhausted (3×120b → gemini → cloudflare) before any Tier 2 entry',
-    JSON.stringify(r.calls.slice(0, 5).map(n => n.endsWith(M120) ? '120b' : n)) === JSON.stringify(['120b', '120b', '120b', G1, 'cloudflare']), r.calls.join(','));
+  assert('Tier 1 exhausted (3×120b → gemini) before any Tier 2 entry',
+    JSON.stringify(r.calls.slice(0, 4).map(n => n.endsWith(M120) ? '120b' : n)) === JSON.stringify(['120b', '120b', '120b', G1]), r.calls.join(','));
   assert('Tier 2 gpt-oss-20b handles it', firstTier2.endsWith('/' + M20), r.calls.join(','));
   r = await call({ text: SHORT, mode: 'standard' });
   assert('120b entries now cooling, 20b entries still available', groqCalls(r.calls, M120).length === 0 && r.calls[r.calls.length - 1].endsWith('/' + M20), r.calls.join(','));

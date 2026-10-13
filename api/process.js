@@ -267,14 +267,15 @@ const discovery = createModelDiscovery({ fetchWithTimeout, getRedis: () => redis
 // detector, CV builder and ParaFree AI chat/code. Every key+model is its own entry
 // (own cooldown), named "<key>/<model>" for Groq and Gemini-key models.
 // Each Groq model group is rotated per chunk/request (startOffset) across the 3 keys.
-//   TIER 1 — first resolved model of: groq ×3 keys → gemini → cloudflare
-//   TIER 2 — following resolved models: groq ×3 per model → gemini → cloudflare
+//   TIER 1 — first resolved model of: groq ×3 keys → gemini
+//   TIER 2 — following resolved models: groq ×3 per model → gemini → cloudflare (ALL its slots:
+//            it resolves to a small ~8B model, so it never sits ahead of the stronger Tier 2 models)
 //   TIER 3 — slow backups, in PROVIDER_ORDER: ovhcloud → llm7 → nvidia
 const PROVIDER_ORDER = ["ovhcloud", "llm7", "nvidia"];
 const SLOT_RANK = {
   groq:       (slot) => slot === 0 ? 0 : 10 + slot,
   gemini:     (slot) => slot === 0 ? 1 : 100 + slot,
-  cloudflare: (slot) => slot === 0 ? 2 : 200 + slot,
+  cloudflare: (slot) => 200 + slot,
 };
 
 // Permanently dead providers (billing walls, paid-only plans, revoked keys).
