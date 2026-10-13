@@ -5751,7 +5751,9 @@ async function downloadPPTX() {
       let spIdx = 0;
       xml = xml.replace(/<p:sp\b[^>]*>[\s\S]*?<\/p:sp>/g, function(spXml) {
         const idx = spIdx++;
-        const item = slide.textBoxItems.find(it => it.spIdx === idx && it.paraphrased);
+        // Text unchanged from the original → leave the box's XML completely untouched
+        // (runs, hyperlinks, autofit, formatting) instead of rebuilding it via modifyTextBox.
+        const item = slide.textBoxItems.find(it => it.spIdx === idx && it.paraphrased && it.paraphrased.trim() !== it.text.trim());
         if (item) return modifyTextBox(spXml, item.paraphrased);
         return spXml;
       });
