@@ -85,6 +85,9 @@ const realSetTimeout = global.setTimeout;
 global.setTimeout = function (fn, ms, ...rest) { lastTimeoutMs = ms; return realSetTimeout(fn, ms, ...rest); };
 
 global.fetch = async (url, opts) => {
+  // Model-list discovery (GET …/models) is covered in tests/model-discovery.test.js; here the
+  // lists are "unavailable" so the chain runs on the default models, and these aren't recorded.
+  if (opts && opts.method === 'GET' && /\/models(\?|\/search|$)/.test(url)) return respond(503, { error: 'lists unavailable in this test' });
   let body = {};
   try { body = JSON.parse((opts && opts.body) || '{}'); } catch (_) {}
   const name = providerOf(url, opts, body);
