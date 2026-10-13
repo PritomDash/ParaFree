@@ -116,6 +116,8 @@ function makeSandbox(aiMode) {
     },
   };
   ctx.window = ctx;
+  // GA4 events are stubbed here — they're covered by tests/ga-events.test.js and ga-events.spec.ts
+  Object.assign(ctx, { gaToolUsed() {}, gaToolError() {}, gaDownload() {}, _pfLastApiError: 'other' });
   ctx.inputEl = el('inputText');
   vm.createContext(ctx);
   vm.runInContext(FUNCS.map(extractFn).join('\n\n'), ctx);

@@ -2,6 +2,11 @@ import { test, expect } from '@playwright/test'
 import path from 'path'
 import fs from 'fs'
 
+// Never let test runs reach Google Analytics (keeps GA data clean).
+test.beforeEach(async ({ page }) => {
+  await page.route(/google-analytics\.com|googletagmanager\.com/, route => route.abort())
+})
+
 const BASE = 'https://parafree.app'
 
 test.describe('ParaFree Full A-Z Tests', () => {

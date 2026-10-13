@@ -313,6 +313,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 <script src="/lib/protect.js"></script>
+<script src="/lib/tool-events.js"></script>
 <script>
   if (typeof pdfjsLib !== 'undefined') {
     pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -2962,6 +2963,7 @@ async function handleFileUpload(event) {
       document.getElementById("inputText").value = text;
       const words = countWords(text);
       document.getElementById("inputCount").textContent = words + " words";
+      _pfInputType = 'txt';
     } else if (ext === 'pdf') {
       showStatus("Reading PDF...", "info");
       try {
@@ -2998,6 +3000,7 @@ async function handleFileUpload(event) {
           document.getElementById("inputCount").textContent = words + " words";
           hideStatus();
           showStatus('✓ PDF loaded — ' + words + ' words', 'success');
+          _pfInputType = 'pdf';
         } else {
           // No selectable text — scanned PDF. Try OCR via Tesseract.js.
           showStatus('🔍 Scanned PDF detected. Running OCR... this may take 30–60 seconds.', 'info');
@@ -3032,12 +3035,15 @@ async function handleFileUpload(event) {
               document.getElementById("inputCount").textContent = ocrWords + ' words';
               hideStatus();
               showStatus('✓ PDF scanned with OCR — ' + ocrWords + ' words', 'success');
+              _pfInputType = 'pdf';
             } else {
               showStatus('❌ Could not read this PDF. Please copy and paste the text.', 'error');
+              gaToolError(currentTool, 'file_error');
             }
           } catch(ocrErr) {
             console.error('OCR error:', ocrErr);
             showStatus('❌ Could not read this PDF. Please copy and paste the text.', 'error');
+            gaToolError(currentTool, 'file_error');
           }
         }
       } catch(err) {
@@ -3059,11 +3065,14 @@ async function handleFileUpload(event) {
             document.getElementById("inputCount").textContent = countWords(extracted) + " words";
             hideStatus();
             showStatus('✓ PDF loaded (basic extraction)', 'success');
+            _pfInputType = 'pdf';
           } else {
             showStatus("❌ Could not read this PDF. Please copy and paste the text.", "error");
+            gaToolError(currentTool, 'file_error');
           }
         } catch(e) {
           showStatus("❌ PDF error: " + err.message + ". Please copy and paste.", "error");
+          gaToolError(currentTool, 'file_error');
         }
       }
       return;
@@ -3094,7 +3103,7 @@ async function handleFileUpload(event) {
           const result = await mammoth.extractRawText({arrayBuffer});
           text = (result.value || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
         }
-        if (!text) { showStatus('❌ Could not read document text', 'error'); return; }
+        if (!text) { showStatus('❌ Could not read document text', 'error'); gaToolError(currentTool, 'file_error'); return; }
         console.log('[DOCX upload] body text chars:', text.length, '— paras:', text.split(/\n\n+/).filter(p=>p.trim()).length);
         console.log('[DOCX upload] first 300 chars:', text.slice(0, 300));
         console.log('[DOCX upload] contains table text (Region/Q1/$)?', /region|q1\s|q2\s|\$\d/i.test(text));
@@ -3102,9 +3111,11 @@ async function handleFileUpload(event) {
         document.getElementById("inputCount").textContent = countWords(text) + " words";
         hideStatus();
         showStatus('✓ Document loaded — ' + countWords(text) + ' words', 'success');
+        _pfInputType = ext;
       } catch(err) {
         console.error('DOCX error:', err);
         showStatus('❌ Could not read Word file', 'error');
+        gaToolError(currentTool, 'file_error');
       }
       return;
     } else if (ext === 'pptx') {
@@ -3113,9 +3124,11 @@ async function handleFileUpload(event) {
       await handlePPTXUpload(file);
     } else {
       showStatus("Unsupported file format. Please use TXT, PDF, DOCX, DOC or PPTX.", "error");
+      gaToolError(currentTool, 'file_error');
     }
   } catch(e) {
     showStatus("Error reading file. Please try a different file.", "error");
+    gaToolError(currentTool, 'file_error');
     console.error(e);
   }
 }
@@ -3159,6 +3172,7 @@ async function downloadOutput() {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
   showStatus("✓ File downloaded!", "success");
+  gaDownload('txt');
 }
 
 // Show download buttons after result
@@ -3260,9 +3274,11 @@ async function summarize() {
     document.getElementById("outputCount").textContent = countWords(result) + " words";
     showStatus("✓ Summarized successfully!", "success");
     showDownloadBtn();
+    gaToolUsed('summarize', countWords(text));
   } else {
     document.getElementById("outputText").innerHTML = '<span class="output-placeholder">Try again in a few hours.</span>';
     showStatus("All AI engines busy. Try again later!", "error");
+    gaToolError('summarize');
   }
 }
 
@@ -3365,9 +3381,11 @@ Text to check:`;
     document.getElementById("outputCount").textContent = countWords(fullOutputText) + " words";
     showStatus("✓ Grammar check complete!", "success");
     showDownloadBtn();
+    gaToolUsed('grammar', countWords(text));
   } else {
     document.getElementById("outputText").innerHTML = '<span class="output-placeholder">Try again in a few hours.</span>';
     showStatus("All AI engines busy. Try again later!", "error");
+    gaToolError('grammar');
   }
 }
 
@@ -3395,6 +3413,7 @@ function detectAI() {
 
     document.getElementById("shareBar").style.display = "block";
     showAIBanner();
+    gaToolUsed('detect', countWords(text));
   }, 800);
 }
 
@@ -3623,8 +3642,10 @@ async function runAPIChain(text, prompt, mode, language, toolType, protectCtx) {
   };
   if (_guard && _guard.changed) console.log(`[protect] ${_tool}: masked/skipped — sending ${_guard.sendText.length} of ${text.length} chars`);
   if (_guard && _guard.nothingToSend) return _guarded('');
+  _pfLastApiError = 'other';
+  let res = null;
   try {
-    const res = await fetch(BACKEND_URL, {
+    res = await fetch(BACKEND_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -3641,6 +3662,7 @@ async function runAPIChain(text, prompt, mode, language, toolType, protectCtx) {
     // Always apply dot statuses so failures are shown in red/yellow even on error
     if (data.apiStatuses) applyApiStatuses(data.apiStatuses);
     if (!res.ok || !data.success) {
+      _pfLastApiError = (data.error === 'high_demand' || res.status === 503) ? 'all_busy' : 'other';
       if (data.error === 'high_demand') {
         showStatus("⏳ Our AI is at high demand right now. Please wait 20 seconds and try again — your full document will process.", "error");
       } else {
@@ -3655,9 +3677,32 @@ async function runAPIChain(text, prompt, mode, language, toolType, protectCtx) {
     }
     return _guarded(data.result);
   } catch(e) {
+    // A Vercel timeout comes back as a 504 with a non-JSON body
+    _pfLastApiError = (res && res.status === 504) ? 'timeout' : 'other';
     showStatus("Connection error. Please check your internet.", "error");
     return null;
   }
+}
+
+// ════════════════════════════════════════════
+// GA4 EVENTS (lib/tool-events.js — only fixed enum values are ever sent)
+// ════════════════════════════════════════════
+let _pfLastApiError = 'other';  // why the last runAPIChain call failed: all_busy | timeout | other
+let _pfInputType = 'text';      // where the input text came from: text | txt | pdf | docx | doc | pptx
+
+function gaInputType() {
+  if (pptxMode && pptxData) return 'pptx';
+  if (docxOriginalXml) return 'docx';
+  return _pfInputType;
+}
+function gaToolUsed(tool, words) {
+  if (window.PFEvents) PFEvents.toolUsed(PFEvents.toolName(tool), gaInputType(), words);
+}
+function gaToolError(tool, errorType) {
+  if (window.PFEvents) PFEvents.toolError(PFEvents.toolName(tool), errorType || _pfLastApiError);
+}
+function gaDownload(format, tool) {
+  if (window.PFEvents) PFEvents.resultDownload(tool || PFEvents.toolName(currentTool), format);
 }
 
 // ════════════════════════════════════════════
@@ -3860,10 +3905,12 @@ async function humanize() {
     const afterScore = Math.max(3, Math.round(beforeScore * (0.1 + Math.random() * 0.2)));
     const humanScore = 100 - afterScore;
     showScorePanel(beforeScore, humanScore);
+    gaToolUsed('humanize', countWords(text));
   } else {
     document.getElementById("outputText").innerHTML = '<span class="output-placeholder">Your humanized text will appear here...</span>';
     showStatus("All AI engines are busy right now. Please try again in a few hours!", "error");
     resetApiDots();
+    gaToolError('humanize');
   }
 }
 
@@ -3885,6 +3932,7 @@ const inputEl = document.getElementById("inputText");
 inputEl.addEventListener("input", () => {
   const words = inputEl.value.trim().split(/\s+/).filter(w => w).length;
   document.getElementById("inputCount").textContent = words + " words";
+  if (!words) _pfInputType = 'text';
 });
 
 function countWords(text) {
@@ -4332,6 +4380,7 @@ function clearInput() {
   document.getElementById("inputCount").textContent = "0 words";
   pptxMode = false;
   pptxData = null;
+  _pfInputType = 'text';
   document.getElementById("downloadBtn").textContent = "⬇ TXT";
 }
 
@@ -4615,6 +4664,7 @@ async function paraphrase() {
       showStatus(`All AI engines are busy right now${_batchLabel}. Please try again in a few hours!`, "error");
       resetApiDots();
       document.getElementById("activeApiLabel").textContent = "All busy";
+      gaToolError('paraphrase');
       return;
     }
     combinedResult += (_bi > 0 ? '\n\n' : '') + _batchResult;
@@ -4677,12 +4727,14 @@ async function paraphrase() {
     showDownloadBtn();
     showHumanScore(displayText);
     showDonateNote();
+    gaToolUsed('paraphrase', countWords(text));
   } else {
     window._docxParaMap = null;
     document.getElementById("outputText").innerHTML = '<span class="output-placeholder">Your paraphrased text will appear here...</span>';
     showStatus("All AI engines are busy right now. Please try again in a few hours!", "error");
     resetApiDots();
     document.getElementById("activeApiLabel").textContent = "All busy";
+    gaToolError('paraphrase');
   }
 }
 
@@ -5603,6 +5655,7 @@ function stripMarkdown(text) {
 async function handlePPTXUpload(file) {
   if (typeof JSZip === 'undefined') {
     showStatus("PPTX support is still loading. Please try again.", "error");
+    gaToolError(currentTool, 'file_error');
     return;
   }
   showStatus("Reading PPTX file...", "info");
@@ -5621,6 +5674,7 @@ async function handlePPTXUpload(file) {
     }
     if (slides.length === 0) {
       showStatus("No text found in any PPTX slides.", "error");
+      gaToolError(currentTool, 'file_error');
       return;
     }
     if (currentTool === 'paraphrase') {
@@ -5639,9 +5693,11 @@ async function handlePPTXUpload(file) {
       document.getElementById('inputCount').textContent = countWords(combined) + ' words';
       showStatus('✓ PPTX text extracted from ' + slides.length + ' slide(s). Ready to process.', 'success');
     }
+    _pfInputType = 'pptx';
   } catch (e) {
     console.error(e);
     showStatus("Error reading PPTX. Make sure it is a valid .pptx file.", "error");
+    gaToolError(currentTool, 'file_error');
     pptxMode = false;
     pptxData = null;
   }
@@ -5700,6 +5756,7 @@ async function paraphrasePPTX() {
     if (!raw) {
       setLoading(false);
       showStatus('Paraphrase failed' + (chunks.length > 1 ? ' on ' + partLabel : '') + '. Please try again.', 'error');
+      gaToolError('paraphrase');
       return;
     }
 
@@ -5733,6 +5790,7 @@ async function paraphrasePPTX() {
   document.getElementById('outputCount').textContent = countWords(output) + ' words';
   showStatus('✓ All ' + totalItems + ' text box(es) paraphrased! Download your PPTX below.', 'success');
   showDownloadBtn();
+  gaToolUsed('paraphrase', countWords(inputEl.value));
 }
 
 async function downloadPPTX() {
@@ -5773,6 +5831,7 @@ async function downloadPPTX() {
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 3000);
     showStatus('✓ PPTX downloaded!', 'success');
+    gaDownload('pptx', 'paraphrase');
   } catch (e) {
     console.error('[downloadPPTX]', e);
     alert('PPTX download failed: ' + (e && e.message ? e.message : String(e)));
@@ -5819,6 +5878,7 @@ async function downloadAsPDF() {
       : (pptxMode ? 'paraphrased_presentation' : (toolNames[currentTool] || 'result'));
     pdf.save(baseName + '.pdf');
     showStatus('✓ PDF downloaded!', 'success');
+    gaDownload('pdf');
   } finally {
     restoreDlBtn('downloadPDFBtn');
   }
@@ -5848,6 +5908,7 @@ async function downloadPDFFromDocx(originalFile, originalName, newText) {
     </style></head><body>${updatedHtml}<script>window.onload=function(){setTimeout(function(){window.print()},500)}<\/script></body></html>`);
     printWin.document.close();
     showStatus('✓ PDF print dialog opened — Save as PDF!', 'success');
+    gaDownload('pdf');
   } catch(err) {
     console.error('PDF from DOCX error:', err);
     showStatus('❌ PDF error: ' + err.message, 'error');
@@ -6225,6 +6286,7 @@ async function downloadAsDOCX() {
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 2000);
       showStatus('✓ Document downloaded — original formatting preserved!', 'success');
+      gaDownload('docx');
     } catch(err) {
       console.error('[ParaFree DOCX]', err);
       showStatus('❌ Error: ' + err.message, 'error');
@@ -6245,6 +6307,7 @@ async function downloadAsDOCX() {
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
     showStatus('✓ DOCX downloaded!', 'success');
+    gaDownload('docx');
   } finally {
     restoreDlBtn('downloadDOCXBtn');
   }
@@ -6383,8 +6446,9 @@ async function homeSendMessage() {
   context += `User: ${pm}`;
 
   homeController = new AbortController();
+  let resp = null;
   try {
-    const resp = await fetch('/api/process', {
+    resp = await fetch('/api/process', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({text:context, prompt:'', type:'code_assistant'}),
       signal: homeController.signal
@@ -6395,11 +6459,15 @@ async function homeSendMessage() {
       homeAddAIMessage(data.result, data.usedApi);
       homeConversationHistory.push({role:'user',content:message},{role:'assistant',content:data.result});
       if (homeConversationHistory.length > 40) homeConversationHistory = homeConversationHistory.slice(-40);
+      if (window.PFEvents) PFEvents.toolUsed('ai_chat', 'text', countWords(message || ''));
       await homeHandleOutput(data.result);
     }
   } catch(e) {
     homeRemoveThinking(thinkId);
-    if (e.name !== 'AbortError') homeAddErrorMessage();
+    if (e.name !== 'AbortError') {
+      homeAddErrorMessage();
+      gaToolError('ai_chat', (resp && resp.status === 504) ? 'timeout' : 'other');
+    }
   } finally {
     homeIsProcessing = false;
     if (btn) { btn.innerHTML = '↑'; btn.style.background = 'var(--accent)'; }
@@ -6805,6 +6873,7 @@ async function homeCreatePPTX(data) {
   const fn=(data.title||'presentation').replace(/[^a-z0-9\s]/gi,'').replace(/\s+/g,'-').toLowerCase().slice(0,40);
   await pptx.writeFile({fileName:fn+'.pptx'});
   homeShowToast('✓ PPTX downloaded!');
+  gaDownload('pptx', 'ai_chat');
 }
 
 async function homeCreateDOCX(data) {
@@ -6888,6 +6957,7 @@ async function homeCreateDOCX(data) {
 
     window._homeLastDoc = data;
     homeShowToast('✓ Word document downloaded!');
+    gaDownload('docx', 'ai_chat');
   } catch(err) {
     console.error('[ParaFree] DOCX error:', err);
     homeShowToast('❌ Error: ' + err.message);
@@ -6959,6 +7029,7 @@ async function homeCreatePDF(data) {
 
     doc.save((data.title||'document').replace(/[^a-z0-9\s]/gi,'').replace(/\s+/g,'-').toLowerCase().slice(0,40)+'.pdf');
     homeShowToast('✓ PDF downloaded!');
+    gaDownload('pdf', 'ai_chat');
   } catch(err) { homeShowToast('❌ PDF error: '+err.message); }
 }
 
