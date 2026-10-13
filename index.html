@@ -6069,7 +6069,7 @@ function docxReplaceParasAbsolute(xml, paraArray) {
     let firstDone = false;
     return para.replace(/(<w:t[^>]*>)([\s\S]*?)(<\/w:t>)/g, (m, open, txt, close) => {
       if (!txt.trim()) return m;
-      if (!firstDone) { firstDone = true; return open + pptxEncodeXml(newText) + close; }
+      if (!firstDone) { firstDone = true; return open + pptxEncodeXml(pptxDecodeXml(newText)) + close; }
       return open + close;
     });
   });
