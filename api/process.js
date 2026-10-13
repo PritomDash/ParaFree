@@ -251,6 +251,14 @@ function getAdminPassword() {
 // ── API CALLERS ──
 // Set GROQ_MODEL env var in Vercel to override — check console.groq.com/docs/models for current IDs.
 const GROQ_MODEL   = process.env.GROQ_MODEL   || "openai/gpt-oss-120b";
+// Tier-2 Groq models: separate per-model quotas on the same three keys.
+const GROQ_FAST_MODELS = ["openai/gpt-oss-20b", "llama-3.3-70b-versatile"].filter(m => m !== GROQ_MODEL);
+const GROQ_KEY_NAMES   = ["groq", "groq-2", "groq-3"];
+const isGptOss = (model) => /gpt-oss/i.test(model);
+// Gemini-key models (Google AI Studio free tier, separate quota per model).
+const GEMINI_MODEL      = "gemini-3.5-flash-lite";
+const GEMINI_LITE_MODEL = process.env.GEMINI_LITE_MODEL || "gemini-3.1-flash-lite";
+const GEMMA_MODEL       = process.env.GEMMA_MODEL       || "gemma-3-27b-it";
 // Set NVIDIA_MODEL env var in Vercel to override — check integrate.api.nvidia.com for current model IDs.
 // NVIDIA auto-fallback: if a model is EOL (410), advances to the next one.
 // Override the first slot via NVIDIA_MODEL env var. _nvidiaIdx cached per warm instance.
@@ -267,9 +275,18 @@ let _nvidiaIdx = 0;
 
 // ── PROVIDER CHAIN ──
 // One working chain shared by every tool: paraphrase, humanize, summarize, grammar,
-// detector, CV builder and ParaFree AI chat/code. The three Groq keys lead and are
-// rotated per chunk/request (startOffset) so load spreads evenly across them.
-const PROVIDER_ORDER = ["groq", "groq-2", "groq-3", "gemini", "cloudflare", "ovhcloud", "llm7", "nvidia"];
+// detector, CV builder and ParaFree AI chat/code. Every key+model is its own entry
+// (own cooldown), named "<key>/<model>" for Groq and Gemini-key models.
+// Each Groq model group is rotated per chunk/request (startOffset) across the 3 keys.
+const groqTier = (model) => GROQ_KEY_NAMES.map(k => k + "/" + model);
+const PROVIDER_ORDER = [...new Set([
+  // TIER 1 — best quality
+  ...groqTier(GROQ_MODEL), "gemini/" + GEMINI_MODEL, "cloudflare",
+  // TIER 2 — fast alternates
+  ...GROQ_FAST_MODELS.flatMap(groqTier), "gemini/" + GEMINI_LITE_MODEL, "gemini/" + GEMMA_MODEL,
+  // TIER 3 — slow backups
+  "ovhcloud", "llm7", "nvidia",
+])];
 
 // Permanently dead providers (billing walls, paid-only plans, revoked keys).
 // Their callers and add() lines are kept — remove a name here to re-enable it.
@@ -282,22 +299,29 @@ const DISABLED_PROVIDERS = new Set([
 const PROVIDER_TIMEOUTS = { ovhcloud: SLOW_TIMEOUT, llm7: SLOW_TIMEOUT, nvidia: SLOW_TIMEOUT };
 
 // Drops disabled providers, sorts into PROVIDER_ORDER (unlisted names keep insertion
-// order at the end) and rotates the Groq keys by startOffset.
+// order at the end) and rotates each run of same-`group` entries (one Groq model across
+// the three keys) by startOffset, so consecutive chunks start on a different key.
 function orderChain(candidates, startOffset) {
   const rank = (name) => { const i = PROVIDER_ORDER.indexOf(name); return i === -1 ? PROVIDER_ORDER.length : i; };
   const active = candidates.filter(c => !DISABLED_PROVIDERS.has(c.name)).sort((a, b) => rank(a.name) - rank(b.name));
-  const groq = active.filter(c => c.name.startsWith("groq"));
-  const rest = active.filter(c => !c.name.startsWith("groq"));
-  const s = groq.length ? startOffset % groq.length : 0;
-  return [...groq.slice(s), ...groq.slice(0, s), ...rest];
+  const out = [];
+  for (let i = 0; i < active.length;) {
+    let j = i + 1;
+    if (active[i].group) while (j < active.length && active[j].group === active[i].group) j++;
+    const run = active.slice(i, j);
+    const s = active[i].group ? startOffset % run.length : 0;
+    out.push(...run.slice(s), ...run.slice(0, s));
+    i = j;
+  }
+  return out;
 }
 
 // ── PROVIDER COOLDOWN ──
 // A provider that returns a rate-limit/quota error is skipped for a while instead of
-// being retried on every chunk: 60 s for per-minute limits, 2 min for daily quotas.
+// being retried on every chunk: 60 s for per-minute limits, 15 min for daily quotas.
 // In-memory only — resets on cold start.
 const MINUTE_COOLDOWN = 60 * 1000;
-const DAILY_COOLDOWN  = 2 * 60 * 1000;
+const DAILY_COOLDOWN  = 15 * 60 * 1000;
 const providerCooldowns = new Map(); // name → epoch ms when it may be tried again
 
 function isQuotaError(msg) {
@@ -332,20 +356,21 @@ function providerTimeout(name, deadline) {
   return Math.min(PROVIDER_TIMEOUTS[name] || FAST_TIMEOUT, deadline - Date.now());
 }
 
-async function callGroq(text, prompt, key, maxTokens = 2048, ms) {
-  console.log("[ParaFree] Trying: groq/" + GROQ_MODEL);
+async function callGroq(text, prompt, key, maxTokens = 2048, ms, model = GROQ_MODEL) {
+  console.log("[ParaFree] Trying: groq/" + model);
   const res = await fetchWithTimeout("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
     body: JSON.stringify({
-      model: GROQ_MODEL,
+      model,
       messages: [{ role: "user", content: prompt + "\n\n" + text }],
       temperature: 0.7,
       max_tokens: maxTokens,
-      reasoning_effort: "low"   // gpt-oss models are reasoning models; "low" is fastest for paraphrase
+      // gpt-oss models are reasoning models; "low" is fastest for paraphrase. Other models reject it.
+      ...(isGptOss(model) ? { reasoning_effort: "low" } : {})
     })
   }, ms);
-  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Groq:" + res.status + " " + b.slice(0,200)); }
+  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Groq/" + model + ":" + res.status + " " + b.slice(0,200)); }
   const data = await res.json();
   if (!data.choices || !data.choices[0]) throw new Error("Groq: no response");
   const content = data.choices[0].message?.content;
@@ -355,9 +380,9 @@ async function callGroq(text, prompt, key, maxTokens = 2048, ms) {
   return content;
 }
 
-async function callGemini(text, prompt, key, maxTokens = 2048, ms) {
-  console.log("[ParaFree] Trying: gemini");
-  const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=" + key;
+async function callGemini(text, prompt, key, maxTokens = 2048, ms, model = GEMINI_MODEL) {
+  console.log("[ParaFree] Trying: gemini/" + model);
+  const url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + key;
   const res = await fetchWithTimeout(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -366,10 +391,10 @@ async function callGemini(text, prompt, key, maxTokens = 2048, ms) {
       generationConfig: { temperature: 0.7, maxOutputTokens: maxTokens }
     })
   }, ms);
-  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Gemini:" + res.status + " " + b.slice(0,200)); }
+  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Gemini/" + model + ":" + res.status + " " + b.slice(0,200)); }
   const data = await res.json();
-  if (data.error) throw new Error("Gemini:" + data.error.message);
-  if (!data.candidates || !data.candidates[0]) throw new Error("Gemini: no response");
+  if (data.error) throw new Error("Gemini/" + model + ":" + data.error.message);
+  if (!data.candidates || !data.candidates[0]) throw new Error("Gemini/" + model + ": no response");
   return data.candidates[0].content.parts[0].text;
 }
 
@@ -976,7 +1001,8 @@ async function parallelLimit(fns, limit) {
 //                applies PROVIDER_ORDER and rotates the Groq keys. Each fn takes a timeout (ms).
 //   lastResort — tried after chain exhausts; NOT rotated; gets LAST_TIMEOUT. Currently none.
 //
-// Active chain: groq → groq-2 → groq-3 → gemini → cloudflare → ovhcloud → llm7 → nvidia
+// Active chain (see PROVIDER_ORDER): Tier 1 groq×3/gpt-oss-120b → gemini → cloudflare;
+// Tier 2 groq×3/gpt-oss-20b → groq×3/llama-3.3-70b → gemini-key Flash-Lite → Gemma; Tier 3 ovhcloud → llm7 → nvidia
 // Disabled: see DISABLED_PROVIDERS; GLM (ToS unverifiable, data in China) stays commented out.
 function buildWritingCandidates(text, prompt, keys) {
   const { DEEPSEEK_KEY, GEMINI_KEY, GROQ_KEY, GROQ_KEY_2, GROQ_KEY_3, MISTRAL_KEY, MISTRAL_KEY_2,
@@ -996,10 +1022,16 @@ function buildWritingCandidates(text, prompt, keys) {
   const mt = Math.min(1500, Math.max(600, Math.ceil(chunkWords * 1.5)));
 
   // Working chain (final order comes from PROVIDER_ORDER via orderChain)
-  add("groq",       (ms) => callGroq(text, prompt, GROQ_KEY, mt, ms),                 validKey(GROQ_KEY));
-  add("groq-2",     (ms) => callGroq(text, prompt, GROQ_KEY_2, mt, ms),               validKey(GROQ_KEY_2));
-  add("groq-3",     (ms) => callGroq(text, prompt, GROQ_KEY_3, mt, ms),               validKey(GROQ_KEY_3));
-  add("gemini",     (ms) => callGemini(text, prompt, GEMINI_KEY, mt, ms),             validKey(GEMINI_KEY));
+  // One entry per Groq key × model; `group` lets orderChain rotate each model across the keys.
+  const groqKeys = { "groq": GROQ_KEY, "groq-2": GROQ_KEY_2, "groq-3": GROQ_KEY_3 };
+  for (const model of [GROQ_MODEL, ...GROQ_FAST_MODELS]) {
+    for (const [k, key] of Object.entries(groqKeys)) {
+      if (validKey(key)) chain.push({ name: k + "/" + model, group: "groq:" + model, fn: (ms) => callGroq(text, prompt, key, mt, ms, model) });
+    }
+  }
+  for (const model of new Set([GEMINI_MODEL, GEMINI_LITE_MODEL, GEMMA_MODEL])) {
+    add("gemini/" + model, (ms) => callGemini(text, prompt, GEMINI_KEY, mt, ms, model), validKey(GEMINI_KEY));
+  }
   add("cloudflare", (ms) => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT, mt, ms), cfOk);
   add("ovhcloud",   (ms) => callOVHcloud(text, prompt, mt, ms),                       true);
   add("llm7",       (ms) => callLLM7(text, prompt, mt, ms),                           true);
@@ -1082,7 +1114,8 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0,
 
 // ── MAIN API CHAIN ──
 // Every tool (writing chunks, AI chat/code, CV extract) uses the same chain:
-//   groq → groq-2 → groq-3 → gemini → cloudflare → ovhcloud → llm7 → nvidia
+//   Tier 1 groq×3/gpt-oss-120b → gemini → cloudflare → Tier 2 groq×3/gpt-oss-20b → groq×3/llama
+//   → gemini/Flash-Lite → gemini/Gemma → Tier 3 ovhcloud → llm7 → nvidia (one entry per key+model)
 // The Groq keys rotate per chunk (writing) or per request (chat/CV). Disabled providers:
 // DISABLED_PROVIDERS. Rate-limited providers sit out PROVIDER_COOLDOWN.
 async function runChain(text, prompt, type) {
@@ -1189,10 +1222,17 @@ async function runChain(text, prompt, type) {
 
   // AI chat/code and CV extract share one chain (Cerebras removed — requires payment).
   // Same default max_tokens per caller as before; order comes from PROVIDER_ORDER.
-  addC("groq",       (ms) => callGroqModel(text, prompt, GROQ_KEY, GROQ_MODEL, ms),        validKey(GROQ_KEY));
-  addC("groq-2",     (ms) => callGroqModel(text, prompt, GROQ_KEY_2, GROQ_MODEL, ms),      validKey(GROQ_KEY_2));
-  addC("groq-3",     (ms) => callGroqModel(text, prompt, GROQ_KEY_3, GROQ_MODEL, ms),      validKey(GROQ_KEY_3));
-  addC("gemini",     (ms) => callGemini(text, prompt, GEMINI_KEY, undefined, ms),          validKey(GEMINI_KEY));
+  // One entry per Groq key × model (rotated per request by orderChain); Groq calls here are
+  // unchanged otherwise — callGroqModel never sends reasoning_effort.
+  const groqKeys = { "groq": GROQ_KEY, "groq-2": GROQ_KEY_2, "groq-3": GROQ_KEY_3 };
+  for (const model of [GROQ_MODEL, ...GROQ_FAST_MODELS]) {
+    for (const [k, key] of Object.entries(groqKeys)) {
+      if (validKey(key)) candidates.push({ name: k + "/" + model, group: "groq:" + model, fn: (ms) => callGroqModel(text, prompt, key, model, ms) });
+    }
+  }
+  for (const model of new Set([GEMINI_MODEL, GEMINI_LITE_MODEL, GEMMA_MODEL])) {
+    addC("gemini/" + model, (ms) => callGemini(text, prompt, GEMINI_KEY, undefined, ms, model), validKey(GEMINI_KEY));
+  }
   addC("cloudflare", (ms) => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT, undefined, ms), cfOk);
   addC("ovhcloud",   (ms) => callOVHcloud(text, prompt, undefined, ms),                    true);
   addC("llm7",       (ms) => callLLM7(text, prompt, undefined, ms),                        true);
@@ -1316,10 +1356,11 @@ async function handleTestKeys(body) {
   const cfAccount = process.env.CF_ACCOUNT;
 
   const tests = [
-    { name: "groq",       model: GROQ_MODEL,                          key: process.env.GROQ_KEY,       fn: (k) => callGroq(testText, testPrompt, k) },
-    { name: "groq-2",     model: GROQ_MODEL,                          key: process.env.GROQ_KEY_2,     fn: (k) => callGroq(testText, testPrompt, k) },
-    { name: "groq-3",     model: GROQ_MODEL,                          key: process.env.GROQ_KEY_3,     fn: (k) => callGroq(testText, testPrompt, k) },
-    { name: "gemini",     model: "gemini-3.5-flash-lite",                  key: process.env.GEMINI_KEY,     fn: (k) => callGemini(testText, testPrompt, k) },
+    // One row per key+model — same names as the chain entries, e.g. "groq-2/openai/gpt-oss-20b"
+    ...[GROQ_MODEL, ...GROQ_FAST_MODELS].flatMap(m => [["groq", process.env.GROQ_KEY], ["groq-2", process.env.GROQ_KEY_2], ["groq-3", process.env.GROQ_KEY_3]]
+      .map(([n, key]) => ({ name: n + "/" + m, model: m, key, fn: (k) => callGroq(testText, testPrompt, k, undefined, undefined, m) }))),
+    ...[...new Set([GEMINI_MODEL, GEMINI_LITE_MODEL, GEMMA_MODEL])].map(m =>
+      ({ name: "gemini/" + m, model: m, key: process.env.GEMINI_KEY, fn: (k) => callGemini(testText, testPrompt, k, undefined, undefined, m) })),
     { name: "sambanova",  model: "Meta-Llama-3.3-70B-Instruct",       key: process.env.SAMBANOVA_KEY,  fn: (k) => callSambaNova(testText, testPrompt, k) },
     { name: "nvidia",     model: NVIDIA_MODELS[_nvidiaIdx] || "exhausted", key: process.env.NVIDIA_KEY, fn: (k) => callNvidia(testText, testPrompt, k) },
     { name: "mistral",    model: "mistral-small-latest",              key: process.env.MISTRAL_KEY,    fn: (k) => callMistral(testText, testPrompt, k) },
@@ -1359,9 +1400,19 @@ async function handleTestKeys(body) {
         results[t.name] = { status: "✅ working", model: t.model, response: response.trim().slice(0, 60) };
       }
     } catch (e) {
-      results[t.name] = { status: "❌ failed", error: e.message };
+      const msg = e.message || "";
+      results[t.name] = {
+        status: isQuotaError(msg) ? (quotaCooldown(msg) === DAILY_COOLDOWN ? "⏳ daily limit" : "⏳ rate-limited") : "❌ failed",
+        model: t.model, error: msg
+      };
     }
   }));
+
+  // Active in-memory cooldowns on this warm instance, per key+model
+  for (const name of Object.keys(results)) {
+    const until = providerCooldowns.get(name);
+    if (until && until > Date.now()) results[name].cooldownSecondsLeft = Math.ceil((until - Date.now()) / 1000);
+  }
 
   return { success: true, results, note: "CF_ACCOUNT " + (cfAccount ? "is set" : "NOT SET — add to Vercel env vars") };
 }
@@ -1369,19 +1420,20 @@ async function handleTestKeys(body) {
 // ── MAIN HANDLER ──
 module.exports = async function handler(req, res) {
   // KEYS FOUND — absolute first line so this appears in every Vercel function invocation
+  // Only whether each provider has a key — never any part of the key itself.
+  const hasKey = (name) => !!validKey(process.env[name]);
   console.log("KEYS FOUND:", {
-    groq:       process.env.GROQ_KEY       ? process.env.GROQ_KEY.slice(0, 8)       + "..." : "(not set)",
-    groq2:      process.env.GROQ_KEY_2    ? process.env.GROQ_KEY_2.slice(0, 8)    + "..." : "(not set)",
-    groq3:      process.env.GROQ_KEY_3    ? process.env.GROQ_KEY_3.slice(0, 8)    + "..." : "(not set)",
-    gemini:     process.env.GEMINI_KEY     ? process.env.GEMINI_KEY.slice(0, 8)     + "..." : "(not set)",
-    sambanova:  process.env.SAMBANOVA_KEY  ? process.env.SAMBANOVA_KEY.slice(0, 8)  + "..." : "(not set)",
-    nvidia:     process.env.NVIDIA_KEY     ? process.env.NVIDIA_KEY.slice(0, 8)     + "..." : "(not set)",
-    mistral:    process.env.MISTRAL_KEY    ? process.env.MISTRAL_KEY.slice(0, 8)    + "..." : "(not set)",
-    mistral2:   process.env.MISTRAL_KEY_2 ? process.env.MISTRAL_KEY_2.slice(0, 8) + "..." : "(not set)",
-    cloudflare: process.env.CF_KEY         ? process.env.CF_KEY.slice(0, 8)         + "..." : "(not set)",
-    ovhcloud:   "no-key-needed",
-    deepseek:   process.env.DEEPSEEK_KEY   ? process.env.DEEPSEEK_KEY.slice(0, 8)   + "..." : "(not set)",
-    openrouter: process.env.OPENROUTER_KEY ? process.env.OPENROUTER_KEY.slice(0, 8) + "..." : "(not set)",
+    groq:       hasKey("GROQ_KEY"),
+    groq2:      hasKey("GROQ_KEY_2"),
+    groq3:      hasKey("GROQ_KEY_3"),
+    gemini:     hasKey("GEMINI_KEY"),
+    cloudflare: hasKey("CF_KEY") && hasKey("CF_ACCOUNT"),
+    nvidia:     hasKey("NVIDIA_KEY"),
+    sambanova:  hasKey("SAMBANOVA_KEY"),
+    mistral:    hasKey("MISTRAL_KEY"),
+    mistral2:   hasKey("MISTRAL_KEY_2"),
+    deepseek:   hasKey("DEEPSEEK_KEY"),
+    openrouter: hasKey("OPENROUTER_KEY"),
   });
 
   // CORS
