@@ -48,7 +48,10 @@ const GROQ_KEY_NAMES = ['groq', 'groq-2', 'groq-3'];
 //   largest  — biggest parameter count first (e.g. 70b before 32b), then newest
 //   newest   — highest version first (gemini-3.5 before 3.1), then size, then `created`
 //   smallest — smallest/cheapest first (Cloudflare bills per neuron), then newest
-const PROVIDER_SORT = { groq: 'largest', gemini: 'newest', cloudflare: 'smallest', nvidia: 'largest' };
+//   cloudflare — ~7–8B first, then larger (smallest of those first), then unknown size, then 3–7B
+const PROVIDER_SORT = { groq: 'largest', gemini: 'newest', cloudflare: 'cloudflare', nvidia: 'largest' };
+// Wildcard / automatic picks never go below this many billion parameters (exact names are allowed).
+const MIN_SIZE_B = { cloudflare: 3 };
 // Providers whose slots keep the previously working model while it still fits the pattern.
 const PREFER_PREVIOUS = { cloudflare: true };
 
@@ -125,6 +128,13 @@ const SORTERS = {
   newest:   newestFirst,
   largest:  (a, b) => (sizeOf(b.id) - sizeOf(a.id)) || newestFirst(a, b),
   smallest: (a, b) => ((sizeOf(a.id) || Infinity) - (sizeOf(b.id) || Infinity)) || newestFirst(a, b),
+  // Cloudflare: prefer ~7–8B (good quality, cheap neurons), then larger ones smallest-first,
+  // then models whose size isn't in the name, then 3–7B.
+  cloudflare: (a, b) => {
+    const band = (s) => s >= 7 && s < 9 ? 0 : s >= 9 ? 1 : s === 0 ? 2 : 3;
+    const sa = sizeOf(a.id), sb = sizeOf(b.id);
+    return (band(sa) - band(sb)) || (sa - sb) || newestFirst(a, b);
+  },
 };
 
 // prefs × list → [{ pattern, model|null, from }], one per slot. `from` says how the model was
@@ -132,11 +142,18 @@ const SORTERS = {
 // "literal" (exact name, no list), "last-good", "default", or "auto" (pattern matched nothing —
 // best text model in the provider's list). A slot never goes empty unless every candidate is
 // dead (retired) or already taken by an earlier slot.
-// opts: { sort: 'newest'|'largest'|'smallest', preferPrevious: bool }
+// opts: { sort: 'newest'|'largest'|'smallest'|'cloudflare', preferPrevious: bool, minSizeB: number }
 function resolveSlots(prefs, list, isDead, defaults, lastGood = [], opts = {}) {
   const sorter = SORTERS[opts.sort] || newestFirst;
   const chosen = new Set();
   const usable = (m) => !!m && !isDead(m) && !chosen.has(m);
+  // opts.minSizeB: wildcard / automatic picks skip models whose name shows fewer parameters
+  // (size unknown = allowed). An exact model name in the preferences is always allowed.
+  const bigEnough = (id, pattern) => {
+    if (!opts.minSizeB || !/[*|]/.test(pattern)) return true;
+    const s = sizeOf(id);
+    return s === 0 || s >= opts.minSizeB;
+  };
   return prefs.map((pattern, i) => {
     const re = patternRe(pattern);
     let model = null, from = null;
@@ -147,7 +164,7 @@ function resolveSlots(prefs, list, isDead, defaults, lastGood = [], opts = {}) {
       }
     }
     if (!model && list) {
-      const cands = list.filter(m => re.test(m.id) && isTextModel(m.id, pattern) && usable(m.id)).sort(sorter);
+      const cands = list.filter(m => re.test(m.id) && isTextModel(m.id, pattern) && usable(m.id) && bigEnough(m.id, pattern)).sort(sorter);
       if (cands.length) { model = cands[0].id; from = 'match'; }
     } else if (!model && !pattern.includes('*') && !pattern.includes('|') && usable(pattern)) {
       model = pattern; from = 'literal';
@@ -155,7 +172,7 @@ function resolveSlots(prefs, list, isDead, defaults, lastGood = [], opts = {}) {
     if (!model && usable(lastGood[i])) { model = lastGood[i]; from = 'last-good'; }
     if (!model && usable(defaults[i])) { model = defaults[i]; from = 'default'; }
     if (!model && list) {
-      const best = list.filter(m => isTextModel(m.id, '') && usable(m.id)).sort(sorter)[0];
+      const best = list.filter(m => isTextModel(m.id, '') && usable(m.id) && bigEnough(m.id, '*')).sort(sorter)[0];
       if (best) { model = best.id; from = 'auto'; }
     }
     if (!model) { const alt = defaults.find(usable); if (alt) { model = alt; from = 'default'; } }
@@ -259,7 +276,7 @@ function createModelDiscovery({ fetchWithTimeout, getRedis, env = process.env, l
     const prefs = prefsFor(provider, env);
     const lastGood = prefs.map((_, i) => (LAST_GOOD[pk + ':' + i] || {}).model);
     return resolveSlots(prefs, list, (m) => isDead(provider, m), defaultModels(env)[provider], lastGood,
-      { sort: PROVIDER_SORT[provider], preferPrevious: !!PREFER_PREVIOUS[provider] });
+      { sort: PROVIDER_SORT[provider], preferPrevious: !!PREFER_PREVIOUS[provider], minSizeB: MIN_SIZE_B[provider] || 0 });
   }
   const models = (pk) => slots(pk).map(s => s.model).filter(Boolean);
 
@@ -449,7 +466,7 @@ function createModelDiscovery({ fetchWithTimeout, getRedis, env = process.env, l
 }
 
 module.exports = {
-  createModelDiscovery, resolveSlots, patternRe, isTextModel, newestFirst, sizeOf, isDeadModelError,
+  createModelDiscovery, resolveSlots, patternRe, isTextModel, newestFirst, sizeOf, isDeadModelError, MIN_SIZE_B,
   defaultPrefs, defaultModels, prefsFor, parsePrefs, EXCLUDE_WORDS, PROVIDER_SORT,
   FRESH_MS, WAIT_MS, DEAD_MS, SKIP_MS, RECENT_WINDOW_MS, RECENT_BUCKET_MS,
 };

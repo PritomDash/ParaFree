@@ -1486,10 +1486,13 @@ async function handleTestKeys(body) {
         status: quota ? (quotaCooldown(msg) === DAILY_COOLDOWN ? "⏳ daily limit" : "⏳ rate-limited") : "❌ failed",
         model: t.model, error: msg
       };
-      // Non-quota failures (timeouts, 5xx, auth, retired models) go on the shared skip list so
-      // real requests don't spend time on them; a retired model (404/410/…) is marked dead too.
-      if (!quota) {
-        if (t.provider && t.model && discovery.isDeadModelError(msg)) {
+      // Only failures that won't fix themselves go on the shared skip list: auth (401/403) and
+      // retired models (404/410/decommissioned/retired/deprecated — also marked dead for 24 h).
+      // Timeouts and 5xx are NOT skipped: slow providers (ovhcloud, llm7, nvidia) often time out
+      // in this quick check but work in real requests.
+      const dead = discovery.isDeadModelError(msg);
+      if (!quota && (dead || /:(401|403)\b/.test(msg))) {
+        if (dead && t.provider && t.model) {
           await discovery.markDead(t.provider, t.model, msg);
           results[t.name].markedDead = true;
         }

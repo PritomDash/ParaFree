@@ -409,38 +409,49 @@ const firstNonNvidia = (names) => names.filter(n => !n.startsWith('nvidia/'));
   for (let i = 0; i < 6; i++) usedKeys.add(keyOf((await call({ text: SHORT, mode: 'standard' })).calls[0]));
   assert('Groq keys that all succeed keep rotating (rotation is the tiebreaker)', usedKeys.size === 3, [...usedKeys].join(','));
 
-  // ── 11. Health check: non-quota failures go on the skip list ──
-  console.log('\n── 11. Health-check skip list ──');
+  // ── 11. Health check: only auth / retired failures go on the skip list ──
+  console.log('\n── 11. Health-check skip list (401/403/404/410/retired only) ──');
   fresh();
-  behaviour = { groq: 'ok', 'groq-2': 'ok', 'groq-3': 'ok', gemini: 'ok', cloudflare: 'ok', nvidia: 'ok', ovhcloud: 'ok', llm7: 'ok',
-                [`groq-3/${M120}`]: 'timeout', [`groq-2/${M20}`]: 'dead', [`groq/${M20}`]: 'quota' };
+  const H = { groq: 'ok', 'groq-2': 'ok', 'groq-3': 'ok', gemini: 'ok', cloudflare: 'ok', nvidia: 'ok', ovhcloud: 'ok', llm7: 'ok' };
+  const AUTH = { status: 401, body: { error: { message: 'Invalid API Key', code: 'invalid_api_key' } } };
+  const FORBID = { status: 403, body: { error: { message: 'Forbidden' } } };
+  behaviour = { ...H, [`groq-3/${M120}`]: 'timeout', [`groq-2/${M20}`]: 'dead', [`groq/${M20}`]: 'quota',
+                [`groq/${LLAMA}`]: AUTH, [`groq-3/${LLAMA}`]: FORBID, [`groq-2/${LLAMA}`]: 'fail',
+                ovhcloud: 'timeout', llm7: 'timeout', 'nvidia/deepseek-ai/deepseek-v4.1-flash': 'timeout' };
   r = await call({ type: 'testKeys', adminPassword: 'test-admin' });
   const hk = r.payload.results;
-  assert('timeout row → ❌ failed and skipped for 15 min', hk[`groq-3/${M120}`].status === '❌ failed' && hk[`groq-3/${M120}`].skippedForMinutes === 15, JSON.stringify(hk[`groq-3/${M120}`]));
-  assert('404 row → marked dead (24 h) and skipped', hk[`groq-2/${M20}`].markedDead === true && r.payload.discovery.deadModels.some(d => d.model === M20), JSON.stringify(hk[`groq-2/${M20}`]));
+  const skippedNames = r.payload.discovery.skippedEntries.map(s => s.entry);
+  assert('timeout row → ❌ failed but NOT skipped', hk[`groq-3/${M120}`].status === '❌ failed' && !hk[`groq-3/${M120}`].skippedForMinutes && !skippedNames.includes(`groq-3/${M120}`), JSON.stringify(hk[`groq-3/${M120}`]));
+  assert('slow providers timing out (ovhcloud, llm7, nvidia model) → NOT skipped',
+    ['ovhcloud', 'llm7', 'nvidia/deepseek-ai/deepseek-v4.1-flash'].every(n => hk[n] && hk[n].status === '❌ failed' && !hk[n].skippedForMinutes && !skippedNames.includes(n)),
+    JSON.stringify(['ovhcloud', 'llm7', 'nvidia/deepseek-ai/deepseek-v4.1-flash'].map(n => hk[n])));
+  assert('5xx row → NOT skipped', hk[`groq-2/${LLAMA}`].status === '❌ failed' && !hk[`groq-2/${LLAMA}`].skippedForMinutes, JSON.stringify(hk[`groq-2/${LLAMA}`]));
+  assert('401 row → skipped for 15 min', hk[`groq/${LLAMA}`].skippedForMinutes === 15 && skippedNames.includes(`groq/${LLAMA}`), JSON.stringify(hk[`groq/${LLAMA}`]));
+  assert('403 row → skipped for 15 min', hk[`groq-3/${LLAMA}`].skippedForMinutes === 15, JSON.stringify(hk[`groq-3/${LLAMA}`]));
+  assert('404 row → marked dead (24 h) and skipped', hk[`groq-2/${M20}`].markedDead === true && hk[`groq-2/${M20}`].skippedForMinutes === 15 && r.payload.discovery.deadModels.some(d => d.model === M20), JSON.stringify(hk[`groq-2/${M20}`]));
   assert('429 row → NOT skipped (rate limits use cooldowns)', hk[`groq/${M20}`].status === '⏳ rate-limited' && !hk[`groq/${M20}`].skippedForMinutes, JSON.stringify(hk[`groq/${M20}`]));
-  assert('skip list shown in the discovery section', r.payload.discovery.skippedEntries.some(s => s.entry === `groq-3/${M120}`));
-  behaviour[`groq-3/${M120}`] = 'ok';
+
+  // Real requests: the timed-out entry is still used; the 401 entry is skipped (also on a new instance).
+  behaviour = { [`groq-3/${M120}`]: 'ok', [`groq/${LLAMA}`]: 'ok', ovhcloud: 'ok' };
   const seen11 = [];
   for (let i = 0; i < 3; i++) seen11.push(...(await call({ text: SHORT, mode: 'standard' })).calls);
-  assert('real requests skip the health-check failure (groq-3/120b never called)', !seen11.includes(`groq-3/${M120}`) && seen11.includes(`groq/${M120}`), seen11.join(','));
+  assert('real requests still use the entry that only timed out in the health check', seen11.includes(`groq-3/${M120}`), seen11.join(','));
+  behaviour = { ovhcloud: 'ok' };
+  r = await call({ text: SHORT, mode: 'standard' });
+  assert('real requests skip the 401 entry; slow ovhcloud is still tried', !r.calls.includes(`groq/${LLAMA}`) && r.calls.includes('ovhcloud') && r.payload.success, r.calls.join(','));
   await settle();
   coldStart();
-  const seen11b = [];
-  for (let i = 0; i < 3; i++) seen11b.push(...(await call({ text: SHORT, mode: 'standard' })).calls);
-  assert('skip is shared across instances (Upstash)', !seen11b.includes(`groq-3/${M120}`), seen11b.join(','));
+  r = await call({ text: SHORT, mode: 'standard' });
+  assert('the 401 skip is shared across instances (Upstash)', !r.calls.includes(`groq/${LLAMA}`) && r.calls.includes(`groq-2/${LLAMA}`), r.calls.join(','));
+  behaviour = { ...H };
   r = await call({ type: 'testKeys', adminPassword: 'test-admin' });
-  assert('health-check success clears the skip', r.payload.results[`groq-3/${M120}`].status === '✅ working' && !r.payload.discovery.skippedEntries.some(s => s.entry === `groq-3/${M120}`));
-  const seen11c = [];
-  for (let i = 0; i < 3; i++) seen11c.push(...(await call({ text: SHORT, mode: 'standard' })).calls);
-  assert('…and real requests use it again', seen11c.includes(`groq-3/${M120}`), seen11c.join(','));
-  behaviour[`groq-3/${M120}`] = 'timeout';
+  assert('health-check success clears the skip', r.payload.results[`groq/${LLAMA}`].status === '✅ working' && !r.payload.discovery.skippedEntries.some(s => s.entry === `groq/${LLAMA}`));
+  behaviour = { ...H, [`groq/${LLAMA}`]: AUTH };
   await call({ type: 'testKeys', adminPassword: 'test-admin' });
-  behaviour[`groq-3/${M120}`] = 'ok';
   advance(16 * 60 * 1000);
-  const seen11d = [];
-  for (let i = 0; i < 3; i++) seen11d.push(...(await call({ text: SHORT, mode: 'standard' })).calls);
-  assert('a skip expires after 15 min', seen11d.includes(`groq-3/${M120}`), seen11d.join(','));
+  behaviour = { [`groq/${LLAMA}`]: 'ok' };
+  r = await call({ text: SHORT, mode: 'standard' });
+  assert('a skip expires after 15 min', r.calls.includes(`groq/${LLAMA}`), r.calls.join(','));
 
   // ── 12. Broader automatic patterns ──
   console.log('\n── 12. Broader patterns + auto-pick ──');
@@ -455,11 +466,19 @@ const firstNonNvidia = (names) => names.filter(n => !n.startsWith('nvidia/'));
   const rgm = MD.resolveSlots(MD.defaultPrefs({}).gemini, gemList, () => false, MD.defaultModels({}).gemini, [], { sort: 'newest' });
   assert('Gemini defaults → gemini-3.5-flash-lite, gemini-3.5-flash, gemma-3-27b-it', rgm.map(s => s.model).join(',') === 'gemini-3.5-flash-lite,gemini-3.5-flash,gemma-3-27b-it', JSON.stringify(rgm));
   const cfList = [CF_OLD, CF_1B, '@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/mistral/mistral-7b-instruct-v0.1', '@cf/meta/llama-guard-3-8b'].map(n => g(n));
-  const cfOpts = { sort: 'smallest', preferPrevious: true };
+  const cfOpts = { sort: MD.PROVIDER_SORT.cloudflare, preferPrevious: true, minSizeB: MD.MIN_SIZE_B.cloudflare };   // the provider's real settings
   assert('Cloudflare: previous model kept first', MD.resolveSlots(MD.defaultPrefs({}).cloudflare, cfList, () => false, [CF_OLD], [], cfOpts)[0].model === CF_OLD);
   assert('Cloudflare: last good preferred over the default', MD.resolveSlots(MD.defaultPrefs({}).cloudflare, cfList, () => false, [CF_OLD], ['@cf/mistral/mistral-7b-instruct-v0.1'], cfOpts)[0].model === '@cf/mistral/mistral-7b-instruct-v0.1');
   const cfDead = MD.resolveSlots(MD.defaultPrefs({}).cloudflare, cfList, (m) => m === CF_OLD, [CF_OLD], [], cfOpts)[0];
-  assert('Cloudflare: previous model retired → smallest instruct model (no guard)', cfDead.model === CF_1B && cfDead.from === 'match', JSON.stringify(cfDead));
+  assert('Cloudflare: previous model retired → ~7-8B instruct model (mistral-7b), not 1B, not guard', cfDead.model === '@cf/mistral/mistral-7b-instruct-v0.1' && cfDead.from === 'match', JSON.stringify(cfDead));
+  const cfBig = MD.resolveSlots(MD.defaultPrefs({}).cloudflare, [CF_1B, '@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/mistralai/mistral-small-3.1-24b-instruct', '@cf/meta/llama-3.2-3b-instruct'].map(n => g(n)), (m) => m === CF_OLD, [CF_OLD], [], cfOpts)[0];
+  assert('Cloudflare: no 7-8B → next larger, smallest of those (24B before 70B)', cfBig.model === '@cf/mistralai/mistral-small-3.1-24b-instruct', JSON.stringify(cfBig));
+  const cf3 = MD.resolveSlots(MD.defaultPrefs({}).cloudflare, [CF_1B, '@cf/qwen/qwen1.5-0.5b-chat-instruct', '@cf/meta/llama-3.2-3b-instruct'].map(n => g(n)), (m) => m === CF_OLD, [CF_OLD], [], cfOpts)[0];
+  assert('Cloudflare: only small models → 3B allowed, never 1B / 0.5B', cf3.model === '@cf/meta/llama-3.2-3b-instruct', JSON.stringify(cf3));
+  const cfTiny = MD.resolveSlots(MD.defaultPrefs({}).cloudflare, [CF_1B, '@cf/qwen/qwen1.5-0.5b-chat-instruct'].map(n => g(n)), (m) => m === CF_OLD, [CF_OLD], [], cfOpts)[0];
+  assert('Cloudflare: never auto-picks a model under 3B (slot left without one)', cfTiny.model === null, JSON.stringify(cfTiny));
+  const cfExact = MD.resolveSlots([CF_1B], [CF_1B].map(n => g(n)), () => false, [CF_OLD], [], cfOpts)[0];
+  assert('Cloudflare: an exact name you set yourself is still allowed (even 1B)', cfExact.model === CF_1B, JSON.stringify(cfExact));
   const ra = MD.resolveSlots(['nothing-*'], [g('whisper-large-v3'), g('playai-tts'), g('meta-llama/llama-guard-4-12b'), g('llama-3.1-8b-instant')], () => false, [], [], { sort: 'largest' });
   assert('no match, no default → auto-pick the best text model with the same exclusions', ra[0].model === 'llama-3.1-8b-instant' && ra[0].from === 'auto', JSON.stringify(ra));
   fresh();
