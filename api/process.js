@@ -318,10 +318,10 @@ function orderChain(candidates, startOffset) {
 
 // ── PROVIDER COOLDOWN ──
 // A provider that returns a rate-limit/quota error is skipped for a while instead of
-// being retried on every chunk: 60 s for per-minute limits, 2 min for daily quotas.
+// being retried on every chunk: 60 s for per-minute limits, 15 min for daily quotas.
 // In-memory only — resets on cold start.
 const MINUTE_COOLDOWN = 60 * 1000;
-const DAILY_COOLDOWN  = 2 * 60 * 1000;
+const DAILY_COOLDOWN  = 15 * 60 * 1000;
 const providerCooldowns = new Map(); // name → epoch ms when it may be tried again
 
 function isQuotaError(msg) {

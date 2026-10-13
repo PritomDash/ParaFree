@@ -1,6 +1,6 @@
 'use strict';
 // Provider-chain tests for api/process.js — tiered key+model chain, Groq rotation per
-// model group, disabled providers, per key+model cooldowns (60s per-minute / 2 min daily,
+// model group, disabled providers, per key+model cooldowns (60s per-minute / 15 min daily,
 // soonest-expiry fallback when all are cooling), slow-provider timeouts, per-chunk
 // logging, testKeys per key+model, KEYS FOUND log without key material.
 // ALL providers are mocked via global.fetch. No live API calls: any URL not in the
@@ -129,7 +129,7 @@ async function call(body) {
   try { await handler(req, res); } finally { loud(); }
   return { status, payload, calls: calls.map(c => c.name), rawCalls: calls.slice(), logs: logs.slice(), rawLogs: rawLogs.slice() };
 }
-function reset(b = {}) { behaviour = b; advance(3 * 60 * 1000); } // also expires any cooldowns
+function reset(b = {}) { behaviour = b; advance(16 * 60 * 1000); } // also expires any cooldowns (daily = 15 min)
 
 const SHORT = 'This is a short paragraph that needs paraphrasing for the test suite here.';
 const LONG = Array.from({ length: 12 }, (_, i) => `Paragraph ${i} ` + 'word '.repeat(100)).join('\n\n');
@@ -201,19 +201,22 @@ const groqCalls = (names, model) => names.filter(n => n.startsWith('groq') && (!
   r = await call({ text: SHORT, mode: 'standard' });
   assert('120b tried again after 60s', r.calls.length === 1 && r.calls[0].endsWith('/' + M120), r.calls.join(','));
 
-  // ── 4b. Daily quota → 2 min cooldown ──
-  console.log('\n── 4b. Daily quota → 2 min cooldown ──');
+  // ── 4b. Daily quota → 15 min cooldown ──
+  console.log('\n── 4b. Daily quota → 15 min cooldown ──');
   reset({ groq: 'daily', 'groq-2': 'daily', 'groq-3': 'daily', gemini: 'ok' });
   cooldownStart = Date.now();
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('120s cooldown logged', r.logs.some(l => /groq.* daily quota — skipping it for 120s/.test(l)));
-  advance(119 * 1000 - (Date.now() - cooldownStart));
+  assert('900s (15 min) cooldown logged', r.logs.some(l => /groq.* daily quota — skipping it for 900s/.test(l)));
+  advance(121 * 1000 - (Date.now() - cooldownStart));                      // 2:01 — past the OLD 2-min cooldown
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('still cooling at 1:59', groqCalls(r.calls).length === 0, r.calls.join(','));
+  assert('still cooling at 2:01 (the old 2-min cooldown would have expired)', groqCalls(r.calls).length === 0, r.calls.join(','));
+  advance(899 * 1000 - (Date.now() - cooldownStart));                      // 14:59
+  r = await call({ text: SHORT, mode: 'standard' });
+  assert('still cooling at 14:59', groqCalls(r.calls).length === 0, r.calls.join(','));
   advance(2 * 1000);
   behaviour = { groq: 'ok', 'groq-2': 'ok', 'groq-3': 'ok' };
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('Groq tried again after 2 min', r.calls.length === 1 && r.calls[0].startsWith('groq'), r.calls.join(','));
+  assert('Groq tried again after 15 min', r.calls.length === 1 && r.calls[0].startsWith('groq'), r.calls.join(','));
 
   reset({
     [G1]:       { status: 429, body: { error: { status: 'RESOURCE_EXHAUSTED', message: 'Quota exceeded for metric: generate_requests_per_model_per_day (GenerateRequestsPerDayPerProjectPerModel)' } } },
@@ -221,15 +224,15 @@ const groqCalls = (names, model) => names.filter(n => n.startsWith('groq') && (!
     ovhcloud:   { status: 429, body: { error: 'Too Many Requests' } },
   });
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('Gemini per-day quota → 120s', r.logs.some(l => l.includes(`${G1} daily quota — skipping it for 120s`)));
-  assert('Cloudflare daily allocation → 120s', r.logs.some(l => /cloudflare daily quota — skipping it for 120s/.test(l)));
+  assert('Gemini per-day quota → 900s', r.logs.some(l => l.includes(`${G1} daily quota — skipping it for 900s`)));
+  assert('Cloudflare daily allocation → 900s', r.logs.some(l => /cloudflare daily quota — skipping it for 900s/.test(l)));
   assert('plain 429 → 60s', r.logs.some(l => /ovhcloud rate-limited — skipping it for 60s/.test(l)));
 
   // ── 4c. Every entry cooling → try the one whose cooldown ends soonest ──
   console.log('\n── 4c. All cooling → soonest-expiring entry tried ──');
   const FAMILIES = ['groq', 'groq-2', 'groq-3', 'gemini', 'cloudflare', 'ovhcloud', 'llm7', 'nvidia'];
   for (const [label, body] of [['writing', { text: SHORT, mode: 'standard' }], ['chat', { text: SHORT, type: 'code_assistant' }]]) {
-    // Everything hits a daily quota (120s) except llm7, which hits a per-minute limit (60s).
+    // Everything hits a daily quota (15 min) except llm7, which hits a per-minute limit (60s).
     reset(Object.fromEntries(FAMILIES.map(n => [n, n === 'llm7' ? 'quota' : 'daily'])));
     r = await call(body);
     assert(`${label}: first request cools all ${CHAIN_LEN} entries`, new Set(r.calls).size === CHAIN_LEN, r.calls.join(','));
