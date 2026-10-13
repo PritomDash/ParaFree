@@ -132,7 +132,7 @@ async function call(body) {
   try { await handler(req, res); } finally { loud(); }
   return { status, payload, calls: calls.map(c => c.name), rawCalls: calls.slice(), logs: logs.slice(), rawLogs: rawLogs.slice() };
 }
-function reset(b = {}) { behaviour = b; advance(16 * 60 * 1000); } // also expires any cooldowns (daily = 15 min)
+function reset(b = {}) { behaviour = b; advance(61 * 60 * 1000); } // expires cooldowns (daily = 15 min) and recent-success ordering (1 h)
 
 const SHORT = 'This is a short paragraph that needs paraphrasing for the test suite here.';
 const LONG = Array.from({ length: 12 }, (_, i) => `Paragraph ${i} ` + 'word '.repeat(100)).join('\n\n');
@@ -202,7 +202,9 @@ const groqCalls = (names, model) => names.filter(n => n.startsWith('groq') && (!
   advance(2 * 1000);
   behaviour = { groq: 'ok', 'groq-2': 'ok', 'groq-3': 'ok' };
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('120b tried again after 60s', r.calls.length === 1 && r.calls[0].endsWith('/' + M120), r.calls.join(','));
+  // gemini/G1 succeeded most recently in Tier 1, so it is tried first ("last known good"); it
+  // fails here and the 120b entry — out of cooldown again — handles the request.
+  assert('120b tried again after 60s', r.calls[r.calls.length - 1].endsWith('/' + M120) && r.payload.success && r.calls.every(n => n === G1 || n.endsWith('/' + M120)), r.calls.join(','));
 
   // ── 4b. Daily quota → 15 min cooldown ──
   console.log('\n── 4b. Daily quota → 15 min cooldown ──');
@@ -219,7 +221,7 @@ const groqCalls = (names, model) => names.filter(n => n.startsWith('groq') && (!
   advance(2 * 1000);
   behaviour = { groq: 'ok', 'groq-2': 'ok', 'groq-3': 'ok' };
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('Groq tried again after 15 min', r.calls.length === 1 && r.calls[0].startsWith('groq'), r.calls.join(','));
+  assert('Groq tried again after 15 min', r.calls[r.calls.length - 1].startsWith('groq') && r.payload.success && r.calls.every(n => n === G1 || n.startsWith('groq')), r.calls.join(','));
 
   reset({
     [G1]:       { status: 429, body: { error: { status: 'RESOURCE_EXHAUSTED', message: 'Quota exceeded for metric: generate_requests_per_model_per_day (GenerateRequestsPerDayPerProjectPerModel)' } } },
