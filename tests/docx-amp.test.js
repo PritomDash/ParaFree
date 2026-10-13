@@ -64,7 +64,7 @@ const constVal = (name) => Number((HTML.match(new RegExp('const ' + name + '\\s*
 
 const FUNCS = ['paraphrase', 'runAPIChain', 'buildFrontendBatches', 'processParaphraseOutput', 'parseStructuredOutput',
   'countWords', 'stripDocxRevisionMarks', 'extractBodyParasWithPos', 'docxSkip', 'isDocxHeading', 'isSubstantialPara',
-  'docxReplaceParasAbsolute', 'downloadAsDOCX', 'stripMarkdown', 'pptxEncodeXml', 'pptxDecodeXml'];
+  'docxReplaceParasAbsolute', 'docxReplaceParas', 'downloadAsDOCX', 'stripMarkdown', 'pptxEncodeXml', 'pptxDecodeXml'];
 
 // aiMode 'escaped': the model echoes the XML-escaped text it was sent ("R&amp;D").
 // aiMode 'raw':     the model "helpfully" unescapes it ("R&D").
@@ -72,7 +72,7 @@ function makeSandbox(aiMode) {
   const els = {};
   const el = (id) => els[id] || (els[id] = { innerHTML: '', textContent: '', value: '', style: {}, classList: { add() {}, remove() {} }, click() {} });
   const ctx = {
-    console: { log() {}, warn() {}, error() {} },
+    console: { log() {}, warn() {}, error: (...a) => process.stderr.write('[sandbox error] ' + a.map(String).join(' ') + '\n') },
     _requests: [], _savedXml: null,
     JSON, Math, Set, Map, Array, Object, String, Number, RegExp, Promise, parseInt,
     setTimeout: (fn) => { fn(); return 0; },
@@ -134,6 +134,34 @@ const paraList = (xml) => xml.match(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g) || [];
     assert('no bare "&" (XML stays well-formed)', !/&(?!amp;|lt;|gt;|quot;|apos;|#)/.test(out));
     assert('run formatting kept (bold rPr)', paras.every(p => p.includes('<w:b/>')));
   }
+  // ── Edit-before-download path: _userHasEdited → output text split → docxReplaceParas ──
+  const EDIT_CASES = [
+    ['R&D',          'Edited: our R&D team ships a new prototype each quarter for the clinic.', 'R&amp;D'],
+    ['a && b',       'Edited: the check only passes when a && b are both true in this code.', 'a &amp;&amp; b'],
+    ['URL ?a=1&b=2', 'Edited: full results live at https://example.com/search?a=1&b=2 for all.', 'https://example.com/search?a=1&amp;b=2'],
+  ];
+  const EDIT_XML = '<?xml version="1.0"?><w:document><w:body>' +
+    EDIT_CASES.map(c => P(c[1].replace('Edited: ', 'Original ').replace(/&/g, '&amp;'))).join('') + '<w:sectPr/></w:body></w:document>';
+  for (const [label, transform] of [['user typed "&"', (t) => t], ['output still shows "&amp;"', (t) => t.replace(/&/g, '&amp;')]]) {
+    console.log(`\n── Edited output before download (${label}) → docxReplaceParas ──`);
+    const ctx = makeSandbox('escaped');
+    ctx.docxOriginalXml = EDIT_XML;
+    ctx.docxZip = { file: (name, content) => { if (content !== undefined) ctx._savedXml = content; }, generateAsync: async () => 'blob' };
+    ctx.inputEl.value = 'docx preview';
+    await ctx.paraphrase();
+    ctx._userHasEdited = true;
+    ctx.getCurrentOutputText = () => EDIT_CASES.map(c => transform(c[1])).join('\n\n');
+    await ctx.downloadAsDOCX();
+    const out = ctx._savedXml || '';
+    const paras = paraList(out);
+    assert('no &amp;amp; anywhere in the XML', !out.includes('&amp;amp;'), out.match(/.{0,30}&amp;amp;.{0,30}/));
+    EDIT_CASES.forEach(([caseLabel, , expected], i) => {
+      assert(`${caseLabel}: single &amp; ("${expected}") from the edited text`,
+        paras[i] && paras[i].includes(expected) && paras[i].includes('Edited:'), paras[i]);
+    });
+    assert('no bare "&" (XML stays well-formed)', !/&(?!amp;|lt;|gt;|quot;|apos;|#)/.test(out));
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });
