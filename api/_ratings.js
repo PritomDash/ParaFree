@@ -95,7 +95,8 @@ async function rebuildTotals(redis, { dryRun = true, excludeTs = [], includeTs =
   };
 }
 
-// Public summary: { ok, average, count } only. Memoised per warm instance for 1 h.
+// Public summary: { ok, average, count } only. Memoised per warm instance for 1 h —
+// but only when ok:true, so "no totals yet" is re-checked on the next request.
 let memo = null;
 async function getSummary(redis, now = Date.now()) {
   if (memo && now - memo.at < SUMMARY_TTL_MS) return memo.value;
@@ -105,7 +106,7 @@ async function getSummary(redis, now = Date.now()) {
     const sum = Number(h.sum) || 0, count = Number(h.count) || 0;
     if (count > 0) value = { ok: true, average: Math.round((sum / count) * 10) / 10, count };
   }
-  memo = { at: now, value };
+  memo = value.ok ? { at: now, value } : null;
   return value;
 }
 function _resetMemo() { memo = null; }

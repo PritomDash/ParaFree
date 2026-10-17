@@ -93,6 +93,27 @@ const SITE = { origin: 'https://parafree.app' };
   r = await call({ method: 'GET', query: {} });
   assert('other GETs still 405', r.status === 405);
 
+  console.log('\n── summary cache headers ──');
+  R._resetMemo();
+  r = await call({ method: 'GET', query: { type: 'ratingSummary' } });
+  assert('ok:true → 1 h edge cache', r.json.ok === true && r.headers['cache-control'] === 'public, s-maxage=3600, stale-while-revalidate=86400', r.headers['cache-control']);
+  const savedTotals = hashes.get('pf_rating');
+  hashes.delete('pf_rating');
+  R._resetMemo();
+  r = await call({ method: 'GET', query: { type: 'ratingSummary' } });
+  assert('no totals yet → ok:false + no-store', r.json.ok === false && r.headers['cache-control'] === 'no-store', JSON.stringify(r));
+  hashes.set('pf_rating', savedTotals);
+  r = await call({ method: 'GET', query: { type: 'ratingSummary' } });
+  assert('ok:false is not memoised — totals show on the next request', r.json.ok === true && r.json.count === 3, JSON.stringify(r.json));
+  const realHgetall = fakeRedis.hgetall;
+  fakeRedis.hgetall = async () => { throw new Error('upstash down'); };
+  R._resetMemo();
+  r = await call({ method: 'GET', query: { type: 'ratingSummary' } });
+  assert('Upstash error → 200 ok:false + no-store', r.status === 200 && r.json.ok === false && r.headers['cache-control'] === 'no-store', JSON.stringify(r));
+  fakeRedis.hgetall = realHgetall;
+  r = await call({ method: 'GET', query: { type: 'ratingSummary' } });
+  assert('recovers after the error (cacheable again)', r.json.ok === true && /s-maxage=3600/.test(r.headers['cache-control']), JSON.stringify(r));
+
   console.log('\n── one-time backfill ──');
   // Simulate the real situation: old entries without a counted flag and an empty total.
   lists.set('pf_feedback', [
