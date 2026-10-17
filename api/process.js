@@ -1611,7 +1611,10 @@ module.exports = async function handler(req, res) {
     // Rebuild the public rating totals from the stored list — PIN-gated, dry run by default
     if (body && body.type === "rebuildRatings") {
       try {
-        const correctPin = process.env.FEEDBACK_PIN || "pf2024";
+        const correctPin = process.env.FEEDBACK_PIN;
+        if (!correctPin) {
+          return res.status(503).json({ error: "Feedback PIN is not configured" });
+        }
         if (body.pin !== correctPin) {
           return res.status(403).json({ error: "Invalid PIN" });
         }
@@ -1629,7 +1632,10 @@ module.exports = async function handler(req, res) {
     // Get feedback viewer — PIN-gated, private
     if (body && body.type === "getFeedback") {
       try {
-        const correctPin = process.env.FEEDBACK_PIN || "pf2024";
+        const correctPin = process.env.FEEDBACK_PIN;
+        if (!correctPin) {
+          return res.status(503).json({ error: "Feedback PIN is not configured" });
+        }
         if (body.pin !== correctPin) {
           return res.status(403).json({ error: "Invalid PIN" });
         }

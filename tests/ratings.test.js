@@ -113,6 +113,17 @@ const SITE = { origin: 'https://parafree.app' };
   r = await call({ body: { type: 'rebuildRatings', pin: 'test-pin-123', dryRun: false, excludeTs: [106], includeTs: [104] } });
   assert('re-running the rebuild is safe (same totals)', hashes.get('pf_rating').count === 4 && hashes.get('pf_rating').sum === 15);
 
+  console.log('\n── no FEEDBACK_PIN configured ──');
+  delete process.env.FEEDBACK_PIN;
+  for (const type of ['getFeedback', 'rebuildRatings']) {
+    for (const pin of ['pf2024', undefined, '']) {
+      r = await call({ body: { type, pin, dryRun: false } });
+      assert(`${type} refuses when FEEDBACK_PIN is missing (pin=${JSON.stringify(pin)})`, r.status === 503 && !!r.json.error && !r.json.feedback, JSON.stringify(r));
+    }
+  }
+  assert('nothing rewritten without a PIN', hashes.get('pf_rating').count === 4 && hashes.get('pf_rating').sum === 15);
+  process.env.FEEDBACK_PIN = 'test-pin-123';
+
   assert('no network calls were made', netCalls === 0, netCalls);
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);

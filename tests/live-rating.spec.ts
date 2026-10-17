@@ -159,6 +159,15 @@ test.describe('claim cleanup', () => {
     expect(s).toContain("takes the paragraph's first style");
   });
 
+  test('every JSON-LD block on the edited pages is valid JSON', () => {
+    for (const f of [...PAGES, 'free-cv-builder-international-students.html']) {
+      const s = fs.readFileSync(path.join(ROOT, f), 'utf8');
+      for (const m of s.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)) {
+        expect(() => JSON.parse(m[1]), f).not.toThrow();
+      }
+    }
+  });
+
   test('backups/ is kept out of Vercel deployments', () => {
     const ignore = fs.readFileSync(path.join(ROOT, '.vercelignore'), 'utf8').split(/\r?\n/).map(l => l.trim());
     expect(ignore).toContain('backups/');
