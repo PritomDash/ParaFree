@@ -260,6 +260,7 @@ const CF_MODEL     = "@cf/meta/llama-3.1-8b-instruct";   // callCloudflare defau
 // CF_MODEL_PREFS, NVIDIA_MODEL_PREFS) resolved against each provider's live model list —
 // retired models are replaced without code changes. See api/_model-discovery.js.
 const { createModelDiscovery } = require("./_model-discovery");
+const ratings = require("./_ratings");
 const discovery = createModelDiscovery({ fetchWithTimeout, getRedis: () => redis });
 
 // ── PROVIDER CHAIN ──
@@ -1544,10 +1545,22 @@ module.exports = async function handler(req, res) {
 
   // CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") return res.status(200).end();
+
+  // Public rating summary — average + count only (no comments). GET so the CDN caches it for 1 h.
+  if (req.method === "GET" && req.query && req.query.type === "ratingSummary") {
+    try {
+      const summary = await ratings.getSummary(redis);
+      res.setHeader("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+      return res.status(200).json(summary);
+    } catch (e) {
+      res.setHeader("Cache-Control", "public, s-maxage=300");
+      return res.status(200).json({ ok: false });
+    }
+  }
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   // Get IP
@@ -1583,18 +1596,33 @@ module.exports = async function handler(req, res) {
         if (!rating || rating < 1 || rating > 5) {
           return res.status(400).json({ error: "Invalid rating" });
         }
-        const entry = {
-          rating,
-          comment: (body.comment || "").toString().slice(0, 500),
-          tool: (body.tool || "").toString().slice(0, 50),
-          ts: Date.now()
-        };
-        if (redis) {
-          await redis.lpush("pf_feedback", JSON.stringify(entry));
-        }
+        // Only ratings sent from parafree.app count toward the public total (not previews/tests)
+        let origin = req.headers.origin || "";
+        if (!origin && req.headers.referer) { try { origin = new URL(req.headers.referer).origin; } catch (e) {} }
+        await ratings.recordRating(redis, {
+          rating, comment: body.comment, tool: body.tool, test: body.test === true, origin
+        });
         return res.status(200).json({ ok: true });
       } catch (e) {
         return res.status(200).json({ ok: true }); // fail silently
+      }
+    }
+
+    // Rebuild the public rating totals from the stored list — PIN-gated, dry run by default
+    if (body && body.type === "rebuildRatings") {
+      try {
+        const correctPin = process.env.FEEDBACK_PIN || "pf2024";
+        if (body.pin !== correctPin) {
+          return res.status(403).json({ error: "Invalid PIN" });
+        }
+        const result = await ratings.rebuildTotals(redis, {
+          dryRun: body.dryRun !== false,
+          excludeTs: Array.isArray(body.excludeTs) ? body.excludeTs : [],
+          includeTs: Array.isArray(body.includeTs) ? body.includeTs : [],
+        });
+        return res.status(200).json(result);
+      } catch (e) {
+        return res.status(500).json({ error: "Failed to rebuild ratings" });
       }
     }
 
