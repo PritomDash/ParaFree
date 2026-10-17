@@ -24,6 +24,8 @@ async function serveLocal(page: Page, api: Api) {
   await page.route(BLOCKED, (route: Route) => { blocked.push(route.request().url()); return route.abort(); });
   await page.route('https://parafree.app/**', async (route: Route) => {
     const url = new URL(route.request().url());
+    // Homepage rating summary (GET) — covered by live-rating.spec.ts; not a tool call
+    if (url.pathname === '/api/process' && route.request().method() === 'GET') return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":false}' });
     if (url.pathname === '/api/process') {
       const body = JSON.parse(route.request().postData() || '{}');
       apiCalls.push(body);

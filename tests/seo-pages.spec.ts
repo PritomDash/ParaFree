@@ -29,6 +29,8 @@ async function serveLocal(page: Page) {
   await page.route(BLOCKED, (route: Route) => route.abort());
   await page.route('https://parafree.app/**', async (route: Route) => {
     const url = new URL(route.request().url());
+    // Homepage rating summary (GET) — covered by live-rating.spec.ts; not a tool call
+    if (url.pathname === '/api/process' && route.request().method() === 'GET') return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":false}' });
     if (url.pathname === '/api/process') { apiCalls.push(url.pathname); return route.fulfill({ status: 200, contentType: 'application/json', body: '{"success":false}' }); }
     const file = path.join(ROOT, decodeURIComponent(url.pathname === '/' ? '/index.html' : url.pathname));
     if (!file.startsWith(ROOT) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) return route.fulfill({ status: 404, body: '' });
