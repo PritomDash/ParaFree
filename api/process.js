@@ -1551,15 +1551,18 @@ module.exports = async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
 
   // Public rating summary — average + count only (no comments). GET so the CDN caches it for 1 h.
+  // Only a real summary (ok:true) is cached; failures (no totals yet, Upstash error) use no-store.
   if (req.method === "GET" && req.query && req.query.type === "ratingSummary") {
+    let summary;
     try {
-      const summary = await ratings.getSummary(redis);
-      res.setHeader("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
-      return res.status(200).json(summary);
+      summary = await ratings.getSummary(redis);
     } catch (e) {
-      res.setHeader("Cache-Control", "public, s-maxage=300");
-      return res.status(200).json({ ok: false });
+      summary = { ok: false };
     }
+    res.setHeader("Cache-Control", summary && summary.ok === true
+      ? "public, s-maxage=3600, stale-while-revalidate=86400"
+      : "no-store");
+    return res.status(200).json(summary);
   }
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
