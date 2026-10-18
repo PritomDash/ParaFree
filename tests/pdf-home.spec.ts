@@ -106,7 +106,7 @@ test.describe('homepage load', () => {
     for (const p of local) expect(p, p).not.toMatch(/pdf-tools/);
     // the existing tab row keeps its order; PDF Tools is last
     expect(await page.locator('.tool-tabs .tool-tab').evaluateAll((els) => els.map((e) => e.id)))
-      .toEqual(['tab-paraphrase', 'tab-humanize', 'tab-summarize', 'tab-grammar', 'tab-detect', 'tab-ai', 'tab-pdf']);
+      .toEqual(['tab-paraphrase', 'tab-humanize', 'tab-summarize', 'tab-grammar', 'tab-detect', 'tab-ai', 'tab-pdf', 'tab-cv']);
     expect(net.errors).toEqual([]);
   });
 
@@ -329,5 +329,110 @@ test.describe('Paraphrase this document hand-off', () => {
     await page.waitForLoadState('load');
     await page.waitForTimeout(800);
     expect(net.requests.filter((r) => r.url.includes('handoff.js'))).toEqual([]);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+test.describe('hero CTA buttons (overlap fix)', () => {
+  // short desktop screens are where the buttons used to be cut off under the stats band
+  for (const [w, h] of [[1528, 730], [1280, 720], [1024, 700], [768, 900], [390, 844], [360, 780]]) {
+    test(`${w}×${h}: CTA buttons fully visible, clickable, clear of the stats band and the scroll hint`, async ({ page }) => {
+      await page.setViewportSize({ width: w, height: h });
+      await setup(page);
+      await page.goto('/');
+      await page.waitForLoadState('load');
+      const buttons = page.locator('#mainHero .cta-buttons a');
+      await expect(buttons).toHaveCount(2);
+      for (let i = 0; i < 2; i++) {
+        const btn = buttons.nth(i);
+        await btn.scrollIntoViewIfNeeded();
+        const r = await btn.evaluate((el) => {
+          const box = (e: Element | null) => { if (!e) return null; const b = e.getBoundingClientRect(); return { top: b.top, bottom: b.bottom, left: b.left, right: b.right }; };
+          const b = el.getBoundingClientRect();
+          const hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+          const ind = document.getElementById('heroScrollIndicator')!;
+          return { btn: box(el), stats: box(document.getElementById('statsStrip')), hero: box(document.getElementById('mainHero')),
+            ind: getComputedStyle(ind).display === 'none' ? null : box(ind), hitIsButton: !!hit && (hit === el || el.contains(hit)) };
+        });
+        const overlap = (a: any, b: any) => a && b && a.top < b.bottom && b.top < a.bottom && a.left < b.right && b.left < a.right;
+        expect(overlap(r.btn, r.stats), `button ${i} vs stats band`).toBeFalsy();
+        expect(r.btn.bottom, 'not clipped by the hero').toBeLessThanOrEqual(r.hero.bottom);
+        expect(r.stats.top - r.btn.bottom, 'clear space above the stats band').toBeGreaterThanOrEqual(24);
+        expect(overlap(r.btn, r.ind), `button ${i} vs "Explore Tools"`).toBeFalsy();
+        expect(r.hitIsButton, `elementFromPoint at button ${i} centre`).toBe(true);
+      }
+    });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+test.describe('homepage CV Builder tab', () => {
+  test('shows the light panel (no CV builder code), GA cv_tab_click, button goes to cv-builder.html', async ({ page }) => {
+    const net = await setup(page);
+    await page.goto('/');
+    await page.waitForLoadState('load');
+    await page.fill('#inputText', 'Text that must still be here after visiting the CV tab.');
+    await page.locator('#tab-cv').click();
+    const cv = page.locator('#pfHomeCv');
+    await expect(cv).toBeVisible();
+    await expect(page.locator('#tab-cv')).toHaveClass(/active/);
+    await expect(page.locator('.tool-container')).toBeHidden();
+    await expect(cv.locator('h2')).toHaveText('Free CV Builder — 54 templates, no signup, no watermark');
+    await expect(cv.locator('li')).toHaveCount(4);
+    await expect(cv.locator('a', { hasText: 'See templates' })).toHaveAttribute('href', '/cv-templates.html');
+    await expect(page.locator('#promoBar')).toContainText('Free CV Builder');                    // promo strip kept
+    const ga = () => page.evaluate(() => ((window as any).dataLayer || []).filter((a: any) => a && a[0] === 'event').map((a: any) => [a[1], a[2]]));
+    await expect.poll(ga).toContainEqual(['cv_tab_click', {}]);
+    // no CV builder code (or the PDF tools) loads for this tab
+    expect(net.requests.filter((r) => /cv-builder|cv-templates|\/lib\/pdf-tools\/(?!pdf-events\.js)|cdn\.jsdelivr\.net/.test(r.url)).map((r) => r.url)).toEqual([]);
+    // back to the Paraphraser: exactly as before
+    await page.locator('#tab-paraphrase').click();
+    await expect(cv).toBeHidden();
+    await expect(page.locator('.tool-container')).toBeVisible();
+    expect(await page.inputValue('#inputText')).toBe('Text that must still be here after visiting the CV tab.');
+    // the button opens the full CV builder
+    await page.locator('#tab-cv').click();
+    await Promise.all([page.waitForURL(/\/cv-builder\.html$/), page.locator('#pfCvStart').click()]);
+  });
+
+  test('other tabs unaffected; switching CV ↔ PDF ↔ text tools; #cv-builder deep link', async ({ page }) => {
+    await setup(page);
+    await page.goto('/');
+    await page.locator('#tab-cv').click();
+    await page.locator('#tab-humanize').click();                                                  // existing tab
+    await expect(page.locator('#tab-humanize')).toHaveClass(/active/);
+    await expect(page.locator('#humanizeWrap')).toBeVisible();
+    await expect(page.locator('#pfHomeCv')).toBeHidden();
+    await expect(page.locator('#tab-cv')).not.toHaveClass(/active/);
+    // CV → PDF → CV: only one extra panel at a time
+    await page.locator('#tab-cv').click();
+    await page.locator('#tab-pdf').click();
+    await expect(page.locator('#pfHomeCv')).toBeHidden();
+    await expect(page.locator('#pfHomePdf')).toBeVisible();
+    await expect(page.locator('#tab-cv')).not.toHaveClass(/active/);
+    await page.locator('#tab-cv').click();
+    await expect(page.locator('#pfHomePdf')).toBeHidden();
+    await expect(page.locator('#pfHomeCv')).toBeVisible();
+    await expect(page.locator('.tool-tabs .tool-tab.active')).toHaveCount(1);
+    // back to an existing tab restores it (the humanizer was the last one used)
+    await page.locator('#tab-summarize').click();
+    await expect(page.locator('#summarizeWrap')).toBeVisible();
+    await expect(page.locator('.tool-tabs .tool-tab.active')).toHaveCount(1);
+    // deep link
+    await page.goto('about:blank');
+    await page.goto('/#cv-builder');
+    await expect(page.locator('#pfHomeCv')).toBeVisible();
+    await expect(page.locator('#tab-cv')).toHaveClass(/active/);
+  });
+
+  test('360px: CV tab open, no horizontal scroll', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 780 });
+    await setup(page);
+    await page.goto('/');
+    await page.locator('#tab-cv').click();
+    await expect(page.locator('#pfHomeCv')).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
+    const b = await page.locator('#pfCvStart').boundingBox();
+    expect(b!.x + b!.width).toBeLessThanOrEqual(360);
   });
 });

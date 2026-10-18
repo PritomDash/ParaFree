@@ -44,6 +44,17 @@ E.send('file_uploaded', { tool: 'merge_pdf' });
 E.send('tool_used', null);
 assert('unknown tools / values / events are not sent', sent.length === n, sent.length - n);
 
+console.log('\n── pdf_handoff / cv_tab_click ──');
+E.handoff('pdf_to_word');
+assert('pdf_handoff', JSON.stringify(last()) === JSON.stringify(['event', 'pdf_handoff', { tool: 'pdf_to_word' }]));
+n = sent.length;
+E.send('pdf_handoff', { tool: 'cv' });
+assert('pdf_handoff with an unknown tool is dropped', sent.length === n);
+E.cvTabClick();
+assert('cv_tab_click with no parameters', JSON.stringify(last()) === JSON.stringify(['event', 'cv_tab_click', {}]));
+E.send('cv_tab_click', { name: 'Alice' });
+assert('cv_tab_click never carries extra data', JSON.stringify(last()[2]) === '{}');
+
 console.log('\n── pdf_edit_used once per tool per session ──');
 n = sent.length;
 E.editUsed('pdf_to_word'); E.editUsed('pdf_to_word'); E.editUsed('pdf_to_word');
