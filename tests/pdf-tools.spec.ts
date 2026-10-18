@@ -1000,8 +1000,8 @@ test.describe('layout + SEO', () => {
       expect(copy.match(re)?.[0], String(re)).toBeUndefined();
     }
     await expect(panel(page, 'pdf-to-word')).toContainText('Creates an editable Word file — text, headings, bold/italic, lists and images kept. Complex layouts (multi-column, tables, forms) may not match exactly.');
-    // not linked from the homepage yet
-    expect(fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8')).not.toContain('pdf-tools');
+    // linked from the homepage (nav, footer, tools grid) since v2.11
+    expect(fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8')).toContain('href="/pdf-tools.html"');
     const sitemap = fs.readFileSync(path.join(ROOT, 'sitemap.xml'), 'utf8');
     expect(sitemap.match(/pdf-tools/g)).toHaveLength(1);
     expect(sitemap).toContain('<loc>https://parafree.app/pdf-tools.html</loc>');
