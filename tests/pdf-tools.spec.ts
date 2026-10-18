@@ -419,6 +419,91 @@ test.describe('PDF text fidelity + document structure', () => {
 });
 
 // ─────────────────────────────────────────────────────────────
+// Word sections from document.xml: each <w:sectPr> closes a section → [{ xml, cols, type }].
+async function docxSections(buf: Buffer) {
+  const xml = await (await JSZip.loadAsync(buf)).file('word/document.xml')!.async('string');
+  const body = xml.slice(xml.indexOf('<w:body>'), xml.indexOf('</w:body>'));
+  const parts = body.split('</w:sectPr>').slice(0, -1);
+  return parts.map((p) => {
+    const sect = p.slice(p.lastIndexOf('<w:sectPr'));
+    const num = /<w:cols[^>]*w:num="(\d+)"/.exec(sect);
+    return { xml: p, text: norm((p.match(/<w:t[^>]*>[^<]*<\/w:t>/g) || []).map((t) => xmlText(t.replace(/<[^>]+>/g, ''))).join(' ')), cols: num ? Number(num[1]) : 1, continuous: /<w:type w:val="continuous"\/>/.test(sect), colBreaks: (p.match(/<w:br w:type="column"\/>/g) || []).length };
+  });
+}
+
+test.describe('PDF to Word: columns', () => {
+  async function convert(page: Page, file: string) {
+    await open(page, '#pdf-to-word');
+    const p = panel(page, 'pdf-to-word');
+    await p.locator('input[type=file]').setInputFiles(fx(file));
+    await expect(role(p, 'result')).toBeVisible({ timeout: 60000 });
+    return p;
+  }
+
+  test('two columns: title full width, real 2-column section, column break, source reading order', async ({ page }) => {
+    const p = await convert(page, 'two-columns.pdf');
+    const box = role(p, 'output');
+    // preview shows the columns too
+    const cols = box.locator('.pf-cols');
+    await expect(cols).toHaveCount(1);
+    expect(await cols.evaluate((el) => getComputedStyle(el).columnCount)).toBe('2');
+    await expect(cols.locator(':scope > .pf-col')).toHaveCount(2);
+    await expect(cols.locator(':scope > .pf-col').nth(0).locator('h2')).toHaveText(['Section 1: Cells', 'Section 2: Energy', 'Section 3: Genetics']);
+    await expect(cols.locator(':scope > .pf-col').nth(1).locator('h2')).toHaveText(['Section 4: Evolution', 'Section 5: Ecology', 'Section 6: Immunity']);
+    await expect(box.locator(':scope > h1')).toHaveText('Biology Revision Guide');            // outside the columns
+    await expect(role(p, 'summary')).toContainText('columns kept on 1 page');
+
+    const source = norm(fs.readFileSync(fx('two-columns.txt'), 'utf8'));
+    const d = await download(page, role(p, 'dl-docx'));
+    expect(await docxText(d.buf)).toBe(source);
+    const secs = await docxSections(d.buf);
+    const two = secs.filter((s) => s.cols === 2);
+    expect(two).toHaveLength(1);
+    expect(two[0].continuous).toBe(true);
+    expect(two[0].colBreaks).toBe(1);
+    expect(two[0].text).toContain('Section 1: Cells');
+    expect(two[0].text).toContain('End of immunity notes.');
+    expect(two[0].text).not.toContain('Biology Revision Guide');
+    const titleSec = secs.find((s) => s.text.includes('Biology Revision Guide'))!;
+    expect(titleSec.cols).toBe(1);
+    expect(titleSec.text).toContain('six revision sections that follow below it.');           // intro stays full width
+    // the PDF download keeps the order too
+    expect(await pdfCopyText(page, (await download(page, role(p, 'dl-pdf'))).buf)).toBe(source);
+  });
+
+  test('three columns → w:num="3" in source order', async ({ page }) => {
+    const p = await convert(page, 'three-columns.pdf');
+    await expect(role(p, 'output').locator('.pf-cols > .pf-col')).toHaveCount(3);
+    const d = await download(page, role(p, 'dl-docx'));
+    expect(await docxText(d.buf)).toBe(norm(fs.readFileSync(fx('three-columns.txt'), 'utf8')));
+    const three = (await docxSections(d.buf)).filter((s) => s.cols === 3);
+    expect(three).toHaveLength(1);
+    expect(three[0].colBreaks).toBe(2);
+  });
+
+  test('no false columns: 1-assignment.pdf (table, chart, lists) and the other text PDFs stay single-column', async ({ page }) => {
+    for (const f of ['1-assignment.pdf', 'text.pdf', 'lists.pdf']) {
+      const p = await convert(page, f);
+      await expect(role(p, 'output').locator('.pf-cols')).toHaveCount(0);
+      await expect(role(p, 'summary')).not.toContainText('columns');
+      const secs = await docxSections((await download(page, role(p, 'dl-docx'))).buf);
+      expect(secs.map((s) => s.cols), f).toEqual([1]);
+    }
+  });
+
+  test('editing inside a column keeps the columns in the Word file', async ({ page }) => {
+    const p = await convert(page, 'two-columns.pdf');
+    const h = role(p, 'output').locator('.pf-col h2', { hasText: 'Section 5: Ecology' });
+    await h.click();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' (edited)');
+    const secs = await docxSections((await download(page, role(p, 'dl-docx'))).buf);
+    const two = secs.find((s) => s.cols === 2)!;
+    expect(two.text).toContain('Section 5: Ecology (edited)');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
 test.describe('JPG to PDF', () => {
   test('jpg + png + webp + EXIF-rotated photo → PDF in the chosen order', async ({ page }) => {
     await open(page, '#jpg-to-pdf');

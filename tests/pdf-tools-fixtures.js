@@ -151,6 +151,57 @@ function withExifOrientation(jpeg, orientation) {
       out['lists.pdf'] = b64(await pdf.save({ useObjectStreams: true }));
     }
 
+    // 1c. two-columns.pdf / three-columns.pdf — full-width title and intro, then sections in
+    //     columns. Text is drawn row by row ACROSS the columns (the hardest content order), so a
+    //     reader that follows content order would interleave the columns. The true reading order
+    //     is written next to each PDF as a .txt file.
+    async function columnsPdf(n, title, intro, sections) {
+      const pdf = await PDFDocument.create();
+      const reg = await pdf.embedFont(StandardFonts.Helvetica);
+      const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+      const page = pdf.addPage([595, 842]);
+      const L = 56, W = 483, GAP = 24, colW = (W - GAP * (n - 1)) / n;
+      const wrap = (text, font, size, width) => {
+        const lines = []; let cur = '';
+        for (const w of text.split(' ')) {
+          const t = cur ? cur + ' ' + w : w;
+          if (font.widthOfTextAtSize(t, size) > width && cur) { lines.push(cur); cur = w; } else cur = t;
+        }
+        if (cur) lines.push(cur);
+        return lines;
+      };
+      page.drawText(title, { x: L, y: 780, size: 20, font: bold });
+      let y = 755;
+      for (const ln of wrap(intro, reg, 11, W)) { page.drawText(ln, { x: L, y, size: 11, font: reg }); y -= 15; }
+      const top = y - 14;
+      const ops = [];
+      const perCol = Math.ceil(sections.length / n);
+      for (let k = 0; k < n; k++) {
+        let cy = top;
+        for (const s of sections.slice(k * perCol, (k + 1) * perCol)) {
+          ops.push({ x: L + k * (colW + GAP), y: cy, t: s.heading, font: bold, size: 13 }); cy -= 19;
+          for (const ln of wrap(s.body, reg, 10, colW)) { ops.push({ x: L + k * (colW + GAP), y: cy, t: ln, font: reg, size: 10 }); cy -= 13; }
+          cy -= 12;
+        }
+      }
+      ops.sort((a, b) => b.y - a.y || a.x - b.x);
+      for (const o of ops) page.drawText(o.t, { x: o.x, y: o.y, size: o.size, font: o.font });
+      const order = [title, intro, ...sections.flatMap((s) => [s.heading, s.body])].join(' ');
+      return [b64(await pdf.save({ useObjectStreams: true })), order];
+    }
+    const topics = ['Cells', 'Energy', 'Genetics', 'Evolution', 'Ecology', 'Immunity', 'Neurons', 'Plants', 'Climate'];
+    const section = (i) => ({
+      heading: `Section ${i + 1}: ${topics[i]}`,
+      body: `${topics[i]} notes part ${i + 1} begin here. ` + Array.from({ length: 7 }, (_, k) =>
+        `Point ${k + 1} about ${topics[i].toLowerCase()} explains one idea clearly for revision.`).join(' ') + ` End of ${topics[i].toLowerCase()} notes.`,
+    });
+    {
+      const [pdf2, order2] = await columnsPdf(2, 'Biology Revision Guide', 'This full-width introduction sits above the two columns and explains how to use the six revision sections that follow below it.', Array.from({ length: 6 }, (_, i) => section(i)));
+      out['two-columns.pdf'] = pdf2; out['two-columns.txt'] = btoa(order2);
+      const [pdf3, order3] = await columnsPdf(3, 'Science Fact Sheet', 'This full-width introduction sits above three narrow columns that hold nine short sections, read from the left column to the right.', Array.from({ length: 9 }, (_, i) => section(i)));
+      out['three-columns.pdf'] = pdf3; out['three-columns.txt'] = btoa(order3);
+    }
+
     // 2 + 3. PDFs to merge — every page has its own size so the order can be checked
     async function sized(sizes, label) {
       const pdf = await PDFDocument.create();
