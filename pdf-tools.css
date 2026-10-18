@@ -244,6 +244,7 @@ a { color: var(--accent); }
   border-radius: var(--radius-sm); padding: 12px 14px;
 }
 .pf-next span { font-size: 13px; color: var(--text2); }
+.pf-next .pf-unit { flex-basis: 100%; font-size: 12px; color: var(--text3); }
 
 /* ── Content sections ── */
 .pf-content { max-width: 900px; margin: 0 auto; padding: 8px 16px 40px; }

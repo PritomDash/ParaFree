@@ -460,15 +460,197 @@ test.describe('JPG to PDF', () => {
 });
 
 // ─────────────────────────────────────────────────────────────
+// 4-large-for-compress.pdf: 8 pages, each a 2400×1600 quality-95 JPEG shown 16 cm wide plus text.
+// Pages 1–4 store the JPEG the way ReportLab does ([/ASCII85Decode /DCTDecode]); pages 5–8 as plain
+// DCTDecode. Built in the browser with the page's pinned pdf-lib and cached in the temp folder
+// (about 20 MB — too big to commit).
+async function largeFixture(page: Page) {
+  const dir = path.join(os.tmpdir(), 'parafree-large-fixture-v1');
+  const file = path.join(dir, '4-large-for-compress.pdf');
+  if (fs.existsSync(file)) return file;
+  const b64 = await page.evaluate(async () => {
+    const L = await (window as any).PFLoad.pdfLib();
+    const a85 = (u8: Uint8Array) => {
+      let out = '';
+      for (let i = 0; i < u8.length; i += 4) {
+        const n = Math.min(4, u8.length - i);
+        let v = 0;
+        for (let k = 0; k < 4; k++) v = v * 256 + (k < n ? u8[i + k] : 0);
+        if (n === 4 && v === 0) { out += 'z'; continue; }
+        let s = '';
+        for (let k = 0; k < 5; k++) { s = String.fromCharCode(33 + (v % 85)) + s; v = Math.floor(v / 85); }
+        out += s.slice(0, n + 1);
+        if (i % 300 === 296) out += '\n';
+      }
+      return new TextEncoder().encode(out + '~>');
+    };
+    const pdf = await L.PDFDocument.create();
+    const font = await pdf.embedFont(L.StandardFonts.Helvetica);
+    for (let i = 0; i < 8; i++) {
+      const c = document.createElement('canvas'); c.width = 2400; c.height = 1600;
+      const g = c.getContext('2d')!;
+      const grad = g.createLinearGradient(0, 0, 2400, 1600);
+      grad.addColorStop(0, `hsl(${i * 40},60%,70%)`); grad.addColorStop(1, `hsl(${i * 40 + 120},55%,35%)`);
+      g.fillStyle = grad; g.fillRect(0, 0, 2400, 1600);
+      let seed = i + 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+      for (let k = 0; k < 400; k++) { g.fillStyle = `hsla(${rnd() * 360},70%,${30 + rnd() * 50}%,0.35)`; g.beginPath(); g.arc(rnd() * 2400, rnd() * 1600, 10 + rnd() * 200, 0, 7); g.fill(); }
+      const id = g.getImageData(0, 0, 2400, 1600);
+      for (let p = 0; p < id.data.length; p += 4) { const n = (rnd() - 0.5) * 40; id.data[p] += n; id.data[p + 1] += n; id.data[p + 2] += n; }
+      g.putImageData(id, 0, 0);
+      const jpg = new Uint8Array(await (await new Promise<Blob>((r) => c.toBlob((b) => r(b!), 'image/jpeg', 0.95))).arrayBuffer());
+      const img = await pdf.embedJpg(jpg);
+      const p = pdf.addPage([595.28, 841.89]);
+      p.drawText(`Field trip photo ${i + 1} of 8`, { x: 70, y: 780, size: 18, font });
+      p.drawImage(img, { x: 70, y: 440, width: 453.5, height: 302.4 });            // 16 cm wide
+      p.drawText('Notes: soil samples were taken at each site.', { x: 70, y: 410, size: 11, font });
+      if (i < 4) {
+        await img.embed();
+        pdf.context.assign(img.ref, L.PDFRawStream.of(pdf.context.obj({
+          Type: 'XObject', Subtype: 'Image', Width: 2400, Height: 1600, ColorSpace: 'DeviceRGB', BitsPerComponent: 8,
+          Filter: ['ASCII85Decode', 'DCTDecode'],
+        }), a85(jpg)));
+      }
+    }
+    const u8: Uint8Array = await pdf.save();
+    let s = '';
+    for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, Array.from(u8.subarray(i, i + 0x8000)));
+    return btoa(s);
+  });
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(file, Buffer.from(b64, 'base64'));
+  return file;
+}
+
+// Same rule as the page: 1 KB = 1,000 bytes, 1 MB = 1,000,000 bytes.
+const decimalSize = (n: number) => (n < 1e6 ? (n / 1e3).toFixed(n < 1e4 ? 1 : 0) + ' KB' : (n / 1e6).toFixed(n < 1e7 ? 2 : 1) + ' MB');
+
+// Image XObjects in a PDF: [width, height, filter] each (pdf-lib, in the page).
+async function pdfImages(page: Page, buf: Buffer) {
+  return page.evaluate(async (b64) => {
+    const L = await (window as any).PFLoad.pdfLib();
+    const doc = await L.PDFDocument.load(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)));
+    const out: any[] = [];
+    for (const [, obj] of doc.context.enumerateIndirectObjects()) {
+      if (!(obj instanceof L.PDFRawStream) || obj.dict.get(L.PDFName.of('Subtype')) !== L.PDFName.of('Image')) continue;
+      out.push([obj.dict.get(L.PDFName.of('Width')).asNumber(), obj.dict.get(L.PDFName.of('Height')).asNumber(), String(obj.dict.get(L.PDFName.of('Filter')))]);
+    }
+    return out;
+  }, buf.toString('base64'));
+}
+
+test.describe('Compress PDF: large photos, Strong rasterising, isolation', () => {
+  test('Light on 8 × 2400×1600 q95 photos (incl. ReportLab-style ASCII85+DCT): ≥ 60% smaller, ~150 DPI, text kept', async ({ page }) => {
+    await open(page, '#compress-pdf');
+    await ready(page, 'compress-pdf');
+    const big = await largeFixture(page);
+    const p = panel(page, 'compress-pdf');
+    await p.locator('input[type=file]').setInputFiles(big);
+    await role(p, 'go').click();
+    await expect(role(p, 'summary')).toHaveText(/^Before: \d+(\.\d+)? MB → After: \d+(\.\d+)? (MB|KB) \(\d+% smaller\)$/, { timeout: 120000 });
+    const out = await download(page, role(p, 'dl-pdf'));
+    expect(out.name).toBe('4-large-for-compress-compressed.pdf');
+    const before = fs.statSync(big).size;
+    expect(out.buf.length, `${before} → ${out.buf.length}`).toBeLessThanOrEqual(before * 0.4);
+    const pct = Math.round((1 - out.buf.length / before) * 100);
+    await expect(role(p, 'summary')).toHaveText(`Before: ${decimalSize(before)} → After: ${decimalSize(out.buf.length)} (${pct}% smaller)`);
+    // every photo, whatever its filter chain, now ~150 DPI at 16 cm (945 px wide) as JPEG
+    const imgs = await pdfImages(page, out.buf);
+    expect(imgs).toHaveLength(8);
+    for (const [w, h, f] of imgs) { expect(w).toBeGreaterThanOrEqual(940); expect(w).toBeLessThanOrEqual(950); expect(h).toBeLessThan(640); expect(f).toBe('/DCTDecode'); }
+    expect((await pdfInfo(page, out.buf)).pages).toBe(8);
+    const text = await pdfText(page, out.buf);
+    for (let i = 1; i <= 8; i++) expect(text).toContain(`Field trip photo ${i} of 8`);
+    expect(text).toContain('Notes: soil samples were taken at each site.');
+  });
+
+  test('Strong after PDF to Word on 1-assignment.pdf: 8 image-only pages from the compress input', async ({ page }) => {
+    await open(page, '#pdf-to-word');
+    await ready(page, 'pdf-to-word');
+    const big = await largeFixture(page);
+    const pw = panel(page, 'pdf-to-word');
+    await pw.locator('input[type=file]').setInputFiles(fx('1-assignment.pdf'));
+    await expect(role(pw, 'output').locator('h1').first()).toBeVisible({ timeout: 60000 });
+    await download(page, role(pw, 'dl-pdf'));
+    await page.locator('#tab-compress-pdf').click();
+    const p = panel(page, 'compress-pdf');
+    await p.locator('input[type=file]').setInputFiles(big);
+    await p.locator('input[value="strong"]').check();
+    await role(p, 'go').click();
+    await expect(role(p, 'summary')).toContainText('text is no longer selectable', { timeout: 120000 });
+    const out = await download(page, role(p, 'dl-pdf'));
+    expect(out.name).toBe('4-large-for-compress-compressed.pdf');
+    expect((await pdfInfo(page, out.buf)).pages).toBe(8);
+    expect((await pdfText(page, out.buf)).trim()).toBe('');                                        // image-only
+    expect((await pdfImages(page, out.buf)).length).toBe(8);
+  });
+
+  test('Strong on a small text PDF that would grow: original offered clearly, image-only version still available', async ({ page }) => {
+    await open(page, '#compress-pdf');
+    const p = panel(page, 'compress-pdf');
+    await p.locator('input[type=file]').setInputFiles(fx('1-assignment.pdf'));
+    await p.locator('input[value="strong"]').check();
+    await role(p, 'go').click();
+    await expect(role(p, 'summary')).toContainText('not smaller. This PDF is already well compressed. The download below is your original file, unchanged (its text stays selectable).', { timeout: 60000 });
+    await expect(role(p, 'dl-pdf')).toHaveText('⬇ Download original PDF (unchanged)');
+    const orig = await download(page, role(p, 'dl-pdf'));
+    expect(orig.name).toBe('1-assignment.pdf');
+    expect(orig.buf.equals(fs.readFileSync(fx('1-assignment.pdf')))).toBe(true);
+    await expect(role(p, 'dl-alt')).toContainText('Download the image-only version anyway');
+    const img = await download(page, role(p, 'dl-alt'));
+    expect(img.name).toBe('1-assignment-compressed.pdf');
+    expect((await pdfText(page, img.buf)).trim()).toBe('');
+  });
+
+  test('every pair of tabs: B downloads only B’s result; leaving A clears A', async ({ page }) => {
+    test.setTimeout(600000);
+    await open(page);
+    const run: Record<string, () => Promise<void>> = {
+      'pdf-to-word': async () => { const p = panel(page, 'pdf-to-word'); await p.locator('input[type=file]').setInputFiles(fx('text.pdf')); await expect(role(p, 'output').locator('h1')).toBeVisible({ timeout: 60000 }); },
+      'word-to-pdf': async () => { const p = panel(page, 'word-to-pdf'); await p.locator('input[type=file]').setInputFiles(fx('sample.docx')); await expect(role(p, 'output')).toContainText('Lab Report Heading', { timeout: 60000 }); },
+      'jpg-to-pdf': async () => { const p = panel(page, 'jpg-to-pdf'); await p.locator('input[type=file]').setInputFiles(fx('photo.jpg')); await role(p, 'go').click(); await expect(role(p, 'result')).toBeVisible({ timeout: 60000 }); },
+      'compress-pdf': async () => { const p = panel(page, 'compress-pdf'); await p.locator('input[type=file]').setInputFiles(fx('images.pdf')); await role(p, 'go').click(); await expect(role(p, 'result')).toBeVisible({ timeout: 60000 }); },
+      'merge-pdf': async () => { const p = panel(page, 'merge-pdf'); await p.locator('input[type=file]').setInputFiles([fx('two-pages.pdf'), fx('three-pages.pdf')]); await expect(role(p, 'go')).toBeEnabled({ timeout: 60000 }); await role(p, 'go').click(); await expect(role(p, 'result')).toBeVisible({ timeout: 60000 }); },
+    };
+    const check: Record<string, () => Promise<void>> = {
+      'pdf-to-word': async () => { const d = await download(page, role(panel(page, 'pdf-to-word'), 'dl-docx')); expect(d.name).toBe('text-converted.docx'); expect(await docxText(d.buf)).toContain('Study Notes on Photosynthesis'); },
+      'word-to-pdf': async () => { const d = await download(page, role(panel(page, 'word-to-pdf'), 'dl-pdf')); expect(d.name).toBe('sample-converted.pdf'); expect(await pdfText(page, d.buf)).toContain('Lab Report Heading'); },
+      'jpg-to-pdf': async () => { const d = await download(page, role(panel(page, 'jpg-to-pdf'), 'dl-pdf')); expect(d.name).toBe('images.pdf'); expect((await pdfInfo(page, d.buf)).sizes).toEqual([[842, 595]]); },
+      'compress-pdf': async () => { const d = await download(page, role(panel(page, 'compress-pdf'), 'dl-pdf')); expect(d.name).toBe('images-compressed.pdf'); expect((await pdfInfo(page, d.buf)).pages).toBe(2); expect(await pdfText(page, d.buf)).toContain('Lab photos'); },
+      'merge-pdf': async () => { const d = await download(page, role(panel(page, 'merge-pdf'), 'dl-pdf')); expect(d.name).toBe('merged.pdf'); expect((await pdfInfo(page, d.buf)).pages).toBe(5); },
+    };
+    const ids = Object.keys(run);
+    for (const a of ids) for (const b of ids) {
+      if (a === b) continue;
+      await page.locator('#tab-' + a).click();
+      await run[a]();
+      await page.locator('#tab-' + b).click();
+      await run[b]();
+      await check[b]();
+      // back on A: its result and download are gone
+      await page.locator('#tab-' + a).click();
+      await expect(role(panel(page, a), 'result'), `${a} after visiting ${b}`).toBeHidden();
+      if (a === 'pdf-to-word' || a === 'word-to-pdf') await expect(role(panel(page, a), 'output')).toBeEmpty();
+      if (a === 'jpg-to-pdf' || a === 'merge-pdf') await expect(panel(page, a).locator('.pf-item')).toHaveCount(0);
+      if (a === 'compress-pdf') { await expect(role(panel(page, a), 'go')).toBeDisabled(); await expect(role(panel(page, a), 'file-name')).toBeEmpty(); }
+      // and B was cleared when we left it
+      await expect(role(panel(page, b), 'result')).toBeHidden();
+    }
+  });
+});
+
 test.describe('Compress PDF', () => {
   test('light mode keeps text, shows before → after and % saved', async ({ page }) => {
     await open(page, '#compress-pdf');
     const p = panel(page, 'compress-pdf');
     await p.locator('input[type=file]').setInputFiles(fx('images.pdf'));
     await role(p, 'go').click();
-    await expect(role(p, 'summary')).toContainText(/MB → .*\(\d+% smaller\)/, { timeout: 60000 });
+    await expect(role(p, 'summary')).toHaveText(/^Before: \d+(\.\d+)? MB → After: \d+(\.\d+)? (MB|KB) \(\d+% smaller\)$/, { timeout: 60000 });
     const out = await download(page, role(p, 'dl-pdf'));
     expect(out.name).toBe('images-compressed.pdf');
+    // decimal units: the summary matches the real byte counts at 1 MB = 1,000,000 bytes
+    const before = fs.statSync(fx('images.pdf')).size;
+    await expect(role(p, 'summary')).toContainText(`Before: ${(before / 1e6).toFixed(2)} MB`);
+    await expect(p.locator('.pf-unit')).toContainText('1 MB = 1,000,000 bytes');
     expect(out.buf.length).toBeLessThan(fs.statSync(fx('images.pdf')).size);
     expect((await pdfInfo(page, out.buf)).pages).toBe(2);
     expect(await pdfText(page, out.buf)).toContain('Lab photos');
