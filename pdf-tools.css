@@ -234,11 +234,11 @@ a { color: var(--accent); }
 .pf-doc li { margin: 0 0 0.25em; }
 .pf-doc img { max-width: 100%; height: auto; }
 .pf-doc .pf-page-break { border: none; border-top: 2px dashed var(--border); margin: 18px 0; height: 0; }
-.pf-doc.pf-exporting .pf-page-break { border-top-color: transparent; }
+.pf-doc ul ul, .pf-doc ol ol, .pf-doc ul ol, .pf-doc ol ul { margin: 0.25em 0 0.25em 1.4em; }
+.pf-doc table { border-collapse: collapse; margin: 0 0 0.9em; max-width: 100%; }
+.pf-doc td, .pf-doc th { border: 1px solid #8f8a82; padding: 4px 10px; vertical-align: top; text-align: left; }
 .pf-docx-box { background: #e9e6df !important; padding: 12px !important; }
 .pf-docx-box section.docx { margin: 0 auto 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.12); }
-.pf-docx-box.pf-exporting { background: #fff !important; padding: 0 !important; }
-.pf-docx-box.pf-exporting section.docx { margin: 0; box-shadow: none; }
 .pf-next {
   display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; background: #f3fbf5; border: 1px solid #b7e4c7;
   border-radius: var(--radius-sm); padding: 12px 14px;
@@ -301,4 +301,11 @@ a { color: var(--accent); }
   body.pf-printing #pfPrintArea { display: block; }
   #pfPrintArea section.docx { box-shadow: none !important; margin: 0 !important; page-break-after: always; break-after: page; }
   #pfPrintArea section.docx:last-child { page-break-after: auto; break-after: auto; }
+  #pfPrintArea .pf-page-break { border: none; break-after: page; page-break-after: always; }
+}
+/* Complex scripts (Bengali, Devanagari, Arabic, CJK…): fonts that have the letters */
+#pfPrintArea.pf-complex, #pfPrintArea.pf-complex * {
+  font-family: "Noto Sans", "Noto Sans Bengali", "Noto Sans Devanagari", "Noto Sans Arabic", "Nirmala UI", "Vrinda",
+    "Mangal", "Kohinoor Bangla", "Bangla Sangam MN", "Devanagari Sangam MN", "Segoe UI", "Arial Unicode MS",
+    "Microsoft YaHei", "PingFang SC", "Hiragino Sans", "Noto Sans CJK SC", sans-serif !important;
 }

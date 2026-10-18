@@ -97,6 +97,36 @@ async function pdfText(page: Page, buf: Buffer) {
     return text;
   }, buf.toString('base64'));
 }
+// Text of a PDF as a reader would copy it: items joined as positioned, a space at each line end,
+// list markers at the start of a line dropped ("1.", "2)" — bullets are drawn as shapes).
+async function pdfCopyText(page: Page, buf: Buffer) {
+  const lines: string[] = await page.evaluate(async (b64) => {
+    const W = window as any;
+    const pdfjs = await W.PFLoad.pdfjs();
+    const doc = await pdfjs.getDocument(W.PFLoad.pdfjsOptions(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)))).promise;
+    const out: string[] = [];
+    let cur = '';
+    for (let i = 1; i <= doc.numPages; i++) {
+      for (const it of (await (await doc.getPage(i)).getTextContent()).items as any[]) {
+        cur += it.str;
+        if (it.hasEOL) { out.push(cur); cur = ''; }
+      }
+      out.push(cur); cur = '';
+    }
+    return out;
+  }, buf.toString('base64'));
+  return norm(lines.map(stripMarker).join(' '));
+}
+const stripMarker = (l: string) => l.replace(/^\s*(?:\d{1,3}[.)]?(?=\s|$)|[●•▪◦])\s*/, '');
+const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
+const xmlText = (s: string) => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
+// Text of a .docx body: the runs of each paragraph, paragraphs separated by a space.
+async function docxText(buf: Buffer) {
+  const xml = await (await JSZip.loadAsync(buf)).file('word/document.xml')!.async('string');
+  return norm((xml.match(/<w:p[ >][\s\S]*?<\/w:p>/g) || []).map((p) => (p.match(/<w:t[^>]*>[^<]*<\/w:t>/g) || []).map((t) => xmlText(t.replace(/<[^>]+>/g, ''))).join('')).join(' '));
+}
+const DAMAGE = [/%Ï/, / [,.;:!?)]/, /budg ets/, /Student :/];
+
 const gaEvents = (page: Page) => page.evaluate(() =>
   ((window as any).dataLayer || []).filter((a: any) => a && a[0] === 'event').map((a: any) => [a[1], a[2]]));
 
@@ -264,6 +294,127 @@ test.describe('Word to PDF', () => {
     await p.locator('input[type=file]').setInputFiles(fx('old-format.doc'));
     await expect(role(p, 'error')).toContainText('Please save as .docx first');
     expect((await gaEvents(page)).filter((e: any) => e[0] === 'tool_error')).toEqual([['tool_error', { tool: 'word_to_pdf', error_type: 'unsupported' }]]);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+test.describe('PDF text fidelity + document structure', () => {
+  test('Word to PDF round trip: 7-word-to-pdf.docx text copies out of the PDF exactly', async ({ page }) => {
+    await open(page, '#word-to-pdf');
+    const p = panel(page, 'word-to-pdf');
+    await p.locator('input[type=file]').setInputFiles(fx('7-word-to-pdf.docx'));
+    await expect(role(p, 'output')).toContainText('Cyber Risk Management', { timeout: 60000 });
+    const pdf = await download(page, role(p, 'dl-pdf'));
+    const source = await docxText(fs.readFileSync(fx('7-word-to-pdf.docx')));
+    const text = await pdfCopyText(page, pdf.buf);
+    for (const re of DAMAGE) expect(text, String(re)).not.toMatch(re);
+    expect(source).toContain('Student: Test Student');
+    expect(source).toContain('identify, protect, detect, respond');
+    expect(source).toContain('large budgets;');
+    expect(text).toBe(source);
+    // the bullet glyph is drawn as a shape, so it never turns into stray characters
+    expect(await pdfText(page, pdf.buf)).not.toMatch(/[●%Ï]/);
+  });
+
+  test('PDF to Word round trip: 1-assignment.pdf → box → PDF keeps the source text exactly', async ({ page }) => {
+    await open(page, '#pdf-to-word');
+    const p = panel(page, 'pdf-to-word');
+    await p.locator('input[type=file]').setInputFiles(fx('1-assignment.pdf'));
+    const box = role(p, 'output');
+    await expect(box.locator('h1').first()).toHaveText('Cyber Risk Management for Small Businesses', { timeout: 60000 });
+    const pdf = await download(page, role(p, 'dl-pdf'));
+    const out = await pdfCopyText(page, pdf.buf);
+    const source = await pdfCopyText(page, fs.readFileSync(fx('1-assignment.pdf')));
+    for (const re of DAMAGE) expect(out, String(re)).not.toMatch(re);
+    expect(out).toBe(source);
+    // and what was in the editable box is what is in the PDF
+    const boxText = norm((await box.evaluate((el) => [...el.querySelectorAll('h1,h2,h3,p,li,td')]
+      .filter((n) => !n.querySelector('ul,ol')).map((n) => n.textContent || ''))).map(stripMarker).join(' '));
+    expect(out).toBe(boxText);
+  });
+
+  test('PDF to Word: real Word lists (numbering.xml + numPr), nested by indentation', async ({ page }) => {
+    await open(page, '#pdf-to-word');
+    const p = panel(page, 'pdf-to-word');
+    await p.locator('input[type=file]').setInputFiles(fx('1-assignment.pdf'));
+    const box = role(p, 'output');
+    await expect(box.locator('ul > li')).toHaveText(['Enable multi-factor authentication on all accounts', 'Patch operating systems within 14 days', 'Keep offline backups and test restores'], { timeout: 60000 });
+    await expect(box.locator('ol > li')).toHaveText(['Audit existing assets', 'Prioritise high-risk systems', 'Train staff quarterly']);
+    const zip = await JSZip.loadAsync((await download(page, role(p, 'dl-docx'))).buf);
+    const numbering = await zip.file('word/numbering.xml')?.async('string');
+    expect(numbering, 'numbering.xml').toBeTruthy();
+    expect(numbering).toContain('w:val="decimal"');
+    expect(numbering).toContain('w:val="bullet"');
+    const xml = await zip.file('word/document.xml')!.async('string');
+    const para = (text: string) => (xml.match(/<w:p[ >][\s\S]*?<\/w:p>/g) || []).find((x) => x.includes(text))!;
+    for (const t of ['Enable multi-factor authentication', 'Patch operating systems', 'Audit existing assets', 'Train staff quarterly']) {
+      expect(para(t), t).toContain('<w:numPr>');
+      expect(para(t)).not.toMatch(/<w:t[^>]*>\s*(?:[•●▪*-]|\d+[.)]?)\s/);       // no typed markers
+    }
+
+    await role(p, 'start-over').click();
+    await p.locator('input[type=file]').setInputFiles(fx('lists.pdf'));
+    await expect(box.locator(':scope > ul > li')).toHaveCount(2, { timeout: 60000 });
+    await expect(box.locator(':scope > ul > li').first().locator('ul > li')).toHaveText(['Apple', 'Banana']);
+    await expect(box.locator(':scope > ul > li').nth(1).locator('ul > li')).toHaveText(['Carrot']);
+    await expect(box.locator(':scope > ol > li')).toHaveText(['First step', 'Second step']);
+    const xml2 = await (await JSZip.loadAsync((await download(page, role(p, 'dl-docx'))).buf)).file('word/document.xml')!.async('string');
+    const apple = (xml2.match(/<w:p[ >][\s\S]*?<\/w:p>/g) || []).find((x) => x.includes('>Apple<'))!;
+    expect(apple).toContain('<w:ilvl w:val="1"/>');
+  });
+
+  test('PDF to Word: Control/Cost/Impact becomes a real 4×3 Word table with a bold header; chart image embedded', async ({ page }) => {
+    await open(page, '#pdf-to-word');
+    const p = panel(page, 'pdf-to-word');
+    await p.locator('input[type=file]').setInputFiles(fx('1-assignment.pdf'));
+    const box = role(p, 'output');
+    await expect(box.locator('table tr')).toHaveCount(4, { timeout: 60000 });
+    await expect(box.locator('img')).toHaveCount(1);
+    const zip = await JSZip.loadAsync((await download(page, role(p, 'dl-docx'))).buf);
+    const xml = await zip.file('word/document.xml')!.async('string');
+    const tables = xml.match(/<w:tbl>[\s\S]*?<\/w:tbl>/g) || [];
+    expect(tables).toHaveLength(1);
+    const rows = (tables[0].match(/<w:tr[ >][\s\S]*?<\/w:tr>/g) || []).map((r) =>
+      (r.match(/<w:tc>[\s\S]*?<\/w:tc>/g) || []).map((c) => (c.match(/<w:t[^>]*>[^<]*<\/w:t>/g) || []).map((t) => t.replace(/<[^>]+>/g, '')).join('')));
+    expect(rows).toEqual([['Control', 'Cost', 'Impact'], ['MFA', 'Low', 'High'], ['Patching', 'Medium', 'High'], ['Training', 'Low', 'Medium']]);
+    expect(tables[0]).toContain('<w:tblBorders>');
+    expect(tables[0]).toContain('<w:tblHeader/>');
+    const header = tables[0].match(/<w:tr[ >][\s\S]*?<\/w:tr>/)![0];
+    expect((header.match(/<w:b\/>/g) || []).length).toBe(3);
+    // the bar chart from page 1 is in the Word file
+    const media = Object.keys(zip.files).filter((f) => f.startsWith('word/media/') && !zip.files[f].dir);
+    expect(media.length).toBe(1);
+    expect((await zip.file(media[0])!.async('uint8array')).length).toBeGreaterThan(2000);
+    expect(xml).toContain('<w:drawing>');
+  });
+
+  test('Bengali .docx: jsPDF is skipped and the print flow opens with the note', async ({ page }) => {
+    await page.addInitScript(() => {
+      (window as any).__prints = [];
+      window.print = () => {
+        const a = document.getElementById('pfPrintArea')!;
+        (window as any).__prints.push({ cls: a.className, text: a.textContent, printing: document.body.classList.contains('pf-printing') });
+      };
+    });
+    const net = await open(page, '#word-to-pdf');
+    const p = panel(page, 'word-to-pdf');
+    await p.locator('input[type=file]').setInputFiles(fx('bengali.docx'));
+    await expect(role(p, 'output')).toContainText('আমার সোনার বাংলা', { timeout: 60000 });
+    let downloads = 0;
+    page.on('download', () => downloads++);
+    await role(p, 'dl-pdf').click();
+    await expect(role(p, 'note')).toHaveText("Your document uses non-English script — choose 'Save as PDF' in the print window for correct letters.");
+    await expect.poll(() => page.evaluate(() => (window as any).__prints.length), { timeout: 10000 }).toBe(1);
+    const pr = (await page.evaluate(() => (window as any).__prints))[0];
+    expect(pr.cls).toContain('pf-complex');
+    expect(pr.printing).toBe(true);
+    expect(pr.text).toContain('আমার সোনার বাংলা');
+    expect(downloads).toBe(0);
+    expect(net.requests.filter((r) => /jspdf@|noto-sans@/.test(r.url)), 'jsPDF and its font are never fetched').toEqual([]);
+    // detection covers the other scripts too, and leaves Latin text (with symbols) on the jsPDF path
+    const detect = await page.evaluate(() => ['हिन्दी', 'العربية', '中文', '한국어', 'ภาษาไทย', 'Café — “quotes” • 1,200 €']
+      .map((s) => (window as any).PFPdfWriter.hasComplexScript(s)));
+    expect(detect).toEqual([true, true, true, true, true, false]);
   });
 });
 
@@ -517,5 +668,7 @@ test.describe('layout + SEO', () => {
     const sitemap = fs.readFileSync(path.join(ROOT, 'sitemap.xml'), 'utf8');
     expect(sitemap.match(/pdf-tools/g)).toHaveLength(1);
     expect(sitemap).toContain('<loc>https://parafree.app/pdf-tools.html</loc>');
+    // test files (incl. fixtures) are kept out of deployments
+    expect(fs.readFileSync(path.join(ROOT, '.vercelignore'), 'utf8').split(/\r?\n/).map((l) => l.trim())).toContain('tests/');
   });
 });

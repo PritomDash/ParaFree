@@ -135,6 +135,22 @@ function withExifOrientation(jpeg, orientation) {
       out['text.pdf'] = b64(await pdf.save({ useObjectStreams: true }));
     }
 
+    // 1b. lists.pdf — nested bullets by indentation ("-" / "*" under "•") and a "1)" numbered list
+    {
+      const pdf = await PDFDocument.create();
+      const reg = await pdf.embedFont(StandardFonts.Helvetica);
+      const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+      const p = pdf.addPage([595, 842]);
+      p.drawText('Shopping and steps', { x: 56, y: 770, size: 20, font: bold });
+      let y = 735;
+      const row = (marker, text, x) => { p.drawText(marker, { x, y, size: 11, font: reg }); p.drawText(text, { x: x + 14, y, size: 11, font: reg }); y -= 17; };
+      row('•', 'Fruit', 56); row('-', 'Apple', 80); row('-', 'Banana', 80);
+      row('•', 'Vegetables', 56); row('*', 'Carrot', 80);
+      y -= 14;
+      row('1)', 'First step', 56); row('2)', 'Second step', 56);
+      out['lists.pdf'] = b64(await pdf.save({ useObjectStreams: true }));
+    }
+
     // 2 + 3. PDFs to merge — every page has its own size so the order can be checked
     async function sized(sizes, label) {
       const pdf = await PDFDocument.create();
@@ -196,6 +212,47 @@ function withExifOrientation(jpeg, orientation) {
       out['sample.docx'] = await blobB64(await D.Packer.toBlob(doc));
     }
 
+    // 7b. 7-word-to-pdf.docx — reproduces the reported copy-text damage: "●" bullets, words and
+    //     punctuation split across separate runs ("budg" + "ets", "protect" + ", ", "Student" + ":")
+    {
+      const R = (text, o = {}) => new D.TextRun({ text, ...o });
+      const lvl = (format, text) => ({ level: 0, format, text, alignment: D.AlignmentType.LEFT, style: { paragraph: { indent: { left: 720, hanging: 360 } } } });
+      const doc = new D.Document({
+        numbering: { config: [
+          { reference: 'dots', levels: [lvl(D.LevelFormat.BULLET, '●')] },
+          { reference: 'nums', levels: [lvl(D.LevelFormat.DECIMAL, '%1.')] },
+        ] },
+        sections: [{ children: [
+          new D.Paragraph({ heading: D.HeadingLevel.HEADING_1, children: [R('Cyber Risk Management for Small Businesses')] }),
+          new D.Paragraph({ children: [R('Student', { bold: true }), R(':', { bold: true }), R(' Test Student · Unit ITSC2003 · Assignment 2')] }),
+          new D.Paragraph({ children: [
+            R('Cybersecurity frameworks help organisations identify'), R(', '), R('protect'), R(', '), R('detect'), R(','),
+            R(' respond to and recover from threats. Small businesses can adopt practical controls without large '),
+            R('budg'), R('ets'), R('; focusing on patch management, multi-factor authentication and staff awareness training.'),
+          ] }),
+          new D.Paragraph({ children: [R('This report argues that '), R('basic controls prevent most attacks', { bold: true }), R(' and that '), R('awareness training', { italics: true }), R(' is the cheapest defence.')] }),
+          new D.Paragraph({ heading: D.HeadingLevel.HEADING_2, children: [R('Key Controls')] }),
+          new D.Paragraph({ numbering: { reference: 'dots', level: 0 }, children: [R('Enable multi-factor authentication on all accounts')] }),
+          new D.Paragraph({ numbering: { reference: 'dots', level: 0 }, children: [R('Patch operating systems within 14 days')] }),
+          new D.Paragraph({ numbering: { reference: 'dots', level: 0 }, children: [R('Keep offline backups and test restores')] }),
+          new D.Paragraph({ heading: D.HeadingLevel.HEADING_2, children: [R('Implementation Steps')] }),
+          new D.Paragraph({ numbering: { reference: 'nums', level: 0 }, children: [R('Audit existing assets')] }),
+          new D.Paragraph({ numbering: { reference: 'nums', level: 0 }, children: [R('Prioritise high-risk systems')] }),
+          new D.Paragraph({ children: [R('Costs (approx.): '), R('$1,200', { bold: true }), R(' per year — "worth it?" Yes!')] }),
+        ] }],
+      });
+      out['7-word-to-pdf.docx'] = await blobB64(await D.Packer.toBlob(doc));
+    }
+
+    // 7c. Bengali Word document (complex script → print flow, not jsPDF)
+    {
+      const doc = new D.Document({ sections: [{ children: [
+        new D.Paragraph({ heading: D.HeadingLevel.HEADING_1, children: [new D.TextRun('Bangla notes')] }),
+        new D.Paragraph({ children: [new D.TextRun('আমার সোনার বাংলা, আমি তোমায় ভালোবাসি।')] }),
+      ] }] });
+      out['bengali.docx'] = await blobB64(await D.Packer.toBlob(doc));
+    }
+
     // 8. images
     out['photo.jpg'] = b64(await toBytes(photo(600, 400, 90), 'image/jpeg', 0.9));
     out['shot.png'] = b64(await toBytes(photo(300, 500, 150), 'image/png'));
@@ -204,15 +261,20 @@ function withExifOrientation(jpeg, orientation) {
     return out;
   });
 
+  // Existing fixtures are kept (regenerating changes their bytes); pass --force to rebuild all.
+  const force = process.argv.includes('--force');
+  const write = (file, buf) => { const p = path.join(OUT, file); if (force || !fs.existsSync(p)) fs.writeFileSync(p, buf); };
   for (const [name, data] of Object.entries(files)) {
     let buf = Buffer.from(data, 'base64');
     let file = name;
     if (name === 'rotated-raw.jpg') { buf = withExifOrientation(buf, 6); file = 'rotated.jpg'; }  // 400×200 stored, shown 200×400
-    fs.writeFileSync(path.join(OUT, file), buf);
+    write(file, buf);
   }
-  fs.writeFileSync(path.join(OUT, 'encrypted.pdf'), encryptedPdf());
+  write('encrypted.pdf', encryptedPdf());
   // an old binary Word file header (OLE compound file) — only used to test the .doc message
-  fs.writeFileSync(path.join(OUT, 'old-format.doc'), Buffer.concat([Buffer.from('D0CF11E0A1B11AE1', 'hex'), Buffer.alloc(1024)]));
+  write('old-format.doc', Buffer.concat([Buffer.from('D0CF11E0A1B11AE1', 'hex'), Buffer.alloc(1024)]));
+  // 1-assignment.pdf is not generated: it is the owner's test document (synthetic content —
+  // "Test Student", a 900×500 bar-chart image, a Control/Cost/Impact table), copied in as-is.
 
   await browser.close();
   for (const f of fs.readdirSync(OUT)) console.log(f.padEnd(18), fs.statSync(path.join(OUT, f)).size, 'bytes');
