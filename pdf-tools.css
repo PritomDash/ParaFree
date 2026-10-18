@@ -226,21 +226,23 @@ a { color: var(--accent); }
 .pf-output .output-text { background: #fff; max-height: 70vh; overflow: auto; outline: none; }
 .pf-output .output-text[contenteditable="true"]:focus { box-shadow: inset 0 0 0 2px var(--accent-light); }
 .pf-doc { font-family: Arial, Helvetica, sans-serif; color: #1a1814; white-space: normal; }
-.pf-doc h1 { font-size: 26px; line-height: 1.25; margin: 0.6em 0 0.4em; }
-.pf-doc h2 { font-size: 21px; line-height: 1.3; margin: 0.6em 0 0.35em; }
-.pf-doc h3 { font-size: 17px; line-height: 1.35; margin: 0.6em 0 0.3em; }
-.pf-doc p { margin: 0 0 0.75em; }
-.pf-doc ul, .pf-doc ol { margin: 0 0 0.75em 1.6em; }
-.pf-doc li { margin: 0 0 0.25em; }
+.output-text.pf-doc { line-height: 1.2; }
+/* spacing matches the Word file: single line spacing, 6 pt after paragraphs, 12/6 pt round headings */
+.pf-doc h1 { font-size: 26px; line-height: 1.2; margin: 12pt 0 6pt; }
+.pf-doc h2 { font-size: 21px; line-height: 1.2; margin: 12pt 0 6pt; }
+.pf-doc h3 { font-size: 17px; line-height: 1.2; margin: 12pt 0 6pt; }
+.pf-doc > :first-child { margin-top: 0; }
+.pf-doc p { margin: 0 0 6pt; }
+.pf-doc ul, .pf-doc ol { margin: 0 0 6pt 1.6em; }
+.pf-doc li { margin: 0 0 2pt; }
 .pf-doc img { max-width: 100%; height: auto; }
 .pf-doc .pf-page-break { border: none; border-top: 2px dashed var(--border); margin: 18px 0; height: 0; }
 .pf-doc ul ul, .pf-doc ol ol, .pf-doc ul ol, .pf-doc ol ul { margin: 0.25em 0 0.25em 1.4em; }
 /* columns from the source PDF (the Word file gets real columns too) */
-.pf-doc .pf-cols { column-gap: 24px; column-rule: 1px dashed var(--border); margin: 0 0 0.75em; }
-.pf-doc .pf-col + .pf-col { break-before: column; }
+.pf-doc .pf-cols { column-gap: 1cm; column-rule: 1px dashed var(--border); margin: 0 0 6pt; }
 .pf-doc .pf-col > :first-child { margin-top: 0; }
-.pf-doc table { border-collapse: collapse; margin: 0 0 0.9em; max-width: 100%; }
-.pf-doc td, .pf-doc th { border: 1px solid #8f8a82; padding: 4px 10px; vertical-align: top; text-align: left; }
+.pf-doc table { border-collapse: collapse; margin: 0 0 6pt; max-width: 100%; }
+.pf-doc td, .pf-doc th { border: 1px solid #8f8a82; padding: 3pt 5pt; vertical-align: top; text-align: left; }
 .pf-docx-box { background: #e9e6df !important; padding: 12px !important; }
 .pf-docx-box section.docx { margin: 0 auto 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.12); }
 .pf-next {

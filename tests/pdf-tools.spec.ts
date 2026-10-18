@@ -440,7 +440,7 @@ test.describe('PDF to Word: columns', () => {
     return p;
   }
 
-  test('two columns: title full width, real 2-column section, column break, source reading order', async ({ page }) => {
+  test('two columns: title full width, real 2-column section, source reading order', async ({ page }) => {
     const p = await convert(page, 'two-columns.pdf');
     const box = role(p, 'output');
     // preview shows the columns too
@@ -460,7 +460,7 @@ test.describe('PDF to Word: columns', () => {
     const two = secs.filter((s) => s.cols === 2);
     expect(two).toHaveLength(1);
     expect(two[0].continuous).toBe(true);
-    expect(two[0].colBreaks).toBe(1);
+    expect(two[0].colBreaks).toBe(0);                                  // Word balances the columns itself
     expect(two[0].text).toContain('Section 1: Cells');
     expect(two[0].text).toContain('End of immunity notes.');
     expect(two[0].text).not.toContain('Biology Revision Guide');
@@ -478,7 +478,7 @@ test.describe('PDF to Word: columns', () => {
     expect(await docxText(d.buf)).toBe(norm(fs.readFileSync(fx('three-columns.txt'), 'utf8')));
     const three = (await docxSections(d.buf)).filter((s) => s.cols === 3);
     expect(three).toHaveLength(1);
-    expect(three[0].colBreaks).toBe(2);
+    expect(three[0].colBreaks).toBe(0);
   });
 
   test('no false columns: 1-assignment.pdf (table, chart, lists) and the other text PDFs stay single-column', async ({ page }) => {
@@ -491,6 +491,25 @@ test.describe('PDF to Word: columns', () => {
     }
   });
 
+  test('two-columns.pdf keeps its 10 pt body: Word runs 10 pt, no column breaks, PDF re-export fits one page in order', async ({ page }) => {
+    const p = await convert(page, 'two-columns.pdf');
+    const box = role(p, 'output');
+    expect(await box.evaluate((el) => el.style.fontSize)).toBe('10pt');
+    const d = await download(page, role(p, 'dl-docx'));
+    const xml = await (await JSZip.loadAsync(d.buf)).file('word/document.xml')!.async('string');
+    const para = (t: string) => (xml.match(/<w:p[ >][\s\S]*?<\/w:p>/g) || []).find((x) => x.includes(t))!;
+    for (const t of ['Cells notes part 1 begin here.', 'Immunity notes part 6 begin here.']) expect(para(t), t).toContain('<w:sz w:val="20"/>');
+    expect(para('Section 1: Cells')).toContain('<w:sz w:val="26"/>');                   // 13 pt headings
+    expect(para('Biology Revision Guide')).toContain('<w:sz w:val="40"/>');             // 20 pt title
+    expect(para('This full-width introduction')).toContain('<w:sz w:val="22"/>');       // 11 pt intro
+    expect(xml).not.toContain('<w:br w:type="column"/>');
+    const source = norm(fs.readFileSync(fx('two-columns.txt'), 'utf8'));
+    expect(await docxText(d.buf)).toBe(source);
+    const pdf = (await download(page, role(p, 'dl-pdf'))).buf;
+    expect((await pdfInfo(page, pdf)).pages).toBe(1);                                   // no overflow at the real size
+    expect(await pdfCopyText(page, pdf)).toBe(source);
+  });
+
   test('editing inside a column keeps the columns in the Word file', async ({ page }) => {
     const p = await convert(page, 'two-columns.pdf');
     const h = role(p, 'output').locator('.pf-col h2', { hasText: 'Section 5: Ecology' });
@@ -500,6 +519,57 @@ test.describe('PDF to Word: columns', () => {
     const secs = await docxSections((await download(page, role(p, 'dl-docx'))).buf);
     const two = secs.find((s) => s.cols === 2)!;
     expect(two.text).toContain('Section 5: Ecology (edited)');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+test.describe('PDF to Word: font sizes and families', () => {
+  async function docxOf(page: Page, file: string) {
+    await open(page, '#pdf-to-word');
+    const p = panel(page, 'pdf-to-word');
+    await p.locator('input[type=file]').setInputFiles(fx(file));
+    await expect(role(p, 'result')).toBeVisible({ timeout: 60000 });
+    const zip = await JSZip.loadAsync((await download(page, role(p, 'dl-docx'))).buf);
+    const xml = await zip.file('word/document.xml')!.async('string');
+    const styles = await zip.file('word/styles.xml')!.async('string');
+    const para = (t: string) => (xml.match(/<w:p[ >][\s\S]*?<\/w:p>/g) || []).find((x) => x.includes(t))!;
+    return { p, xml, styles, para };
+  }
+  const defaults = (styles: string) => styles.slice(styles.indexOf('<w:docDefaults>'), styles.indexOf('</w:docDefaults>'));
+
+  test('1-assignment.pdf: 11 pt body (Normal), 18/14 pt headings as in the source, PDF re-export stays 2 pages', async ({ page }) => {
+    const { p, styles, para } = await docxOf(page, '1-assignment.pdf');
+    expect(defaults(styles)).toContain('<w:sz w:val="22"/>');                         // Normal = dominant body size
+    expect(para('Cybersecurity frameworks help organisations')).toContain('<w:sz w:val="22"/>');
+    expect(para('Enable multi-factor authentication')).toContain('<w:sz w:val="22"/>');
+    expect(para('Cyber Risk Management for Small Businesses')).toContain('<w:sz w:val="36"/>');
+    expect(para('1. Introduction')).toContain('<w:sz w:val="36"/>');
+    expect(para('2.1 Implementation Steps')).toContain('<w:sz w:val="28"/>');
+    expect(para('References')).toContain('<w:sz w:val="28"/>');
+    expect(para('>MFA<')).toContain('<w:sz w:val="20"/>');                              // 10 pt table text
+    expect(await role(p, 'output').evaluate((el) => el.style.fontSize)).toBe('11pt');
+    const pdf = (await download(page, role(p, 'dl-pdf'))).buf;
+    expect((await pdfInfo(page, pdf)).pages).toBe(2);
+  });
+
+  test('fonts.pdf: Times → Times New Roman, Helvetica → Arial, Calibri kept, Courier → Courier New', async ({ page }) => {
+    const { p, para } = await docxOf(page, 'fonts.pdf');
+    const font = (x: string) => (/<w:rFonts w:ascii="([^"]+)"/.exec(x) || [])[1];
+    expect(font(para('Serif Heading in Times'))).toBe('Times New Roman');
+    expect(font(para('Serif body text set in Times Roman'))).toBe('Times New Roman');
+    expect(font(para('Sans body text set in Helvetica'))).toBe('Arial');
+    expect(font(para('Sans body text set in Calibri'))).toBe('Calibri');
+    expect(font(para('monospace'))).toBe('Courier New');
+    expect(para('monospace')).toContain('<w:sz w:val="20"/>');
+    expect(para('Serif Heading in Times')).toContain('<w:sz w:val="32"/>');
+    // the preview uses the same families
+    const fam = (t: string) => role(p, 'output').locator('p, h1', { hasText: t }).first().evaluate((el) => getComputedStyle(el.querySelector('span') || el).fontFamily);
+    expect(await fam('Helvetica')).toMatch(/^"?Arial/);
+    expect(await fam('Calibri at')).toMatch(/^"?Calibri/);
+    expect(await fam('monospace')).toMatch(/^"?Courier New/);
+    // the PDF download embeds a serif, a sans and a mono face
+    const pdf = (await download(page, role(p, 'dl-pdf'))).buf.toString('latin1');
+    for (const f of ['PFNotoSerif', 'PFNoto', 'PFNotoMono']) expect(pdf).toContain(f);
   });
 });
 

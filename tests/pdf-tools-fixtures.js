@@ -202,6 +202,25 @@ function withExifOrientation(jpeg, orientation) {
       out['three-columns.pdf'] = pdf3; out['three-columns.txt'] = btoa(order3);
     }
 
+    // 1d. fonts.pdf — serif (Times), sans (Helvetica, and a font named "Calibri"), monospace (Courier)
+    {
+      const pdf = await PDFDocument.create();
+      const tb = await pdf.embedFont(StandardFonts.TimesRomanBold);
+      const tr = await pdf.embedFont(StandardFonts.TimesRoman);
+      const hv = await pdf.embedFont(StandardFonts.Helvetica);
+      const cal = await pdf.embedFont(StandardFonts.HelveticaOblique);   // renamed to Calibri below
+      const co = await pdf.embedFont(StandardFonts.Courier);
+      const p = pdf.addPage([595, 842]);
+      p.drawText('Serif Heading in Times', { x: 56, y: 770, size: 16, font: tb });
+      p.drawText('Serif body text set in Times Roman at eleven points.', { x: 56, y: 740, size: 11, font: tr });
+      p.drawText('Sans body text set in Helvetica at eleven points.', { x: 56, y: 710, size: 11, font: hv });
+      p.drawText('Sans body text set in Calibri at eleven points.', { x: 56, y: 680, size: 11, font: cal });
+      p.drawText('const code = "monospace";', { x: 56, y: 650, size: 10, font: co });
+      await pdf.flush();
+      pdf.context.lookup(cal.ref).set(PDFLib.PDFName.of('BaseFont'), PDFLib.PDFName.of('Calibri'));
+      out['fonts.pdf'] = b64(await pdf.save({ useObjectStreams: true }));
+    }
+
     // 2 + 3. PDFs to merge — every page has its own size so the order can be checked
     async function sized(sizes, label) {
       const pdf = await PDFDocument.create();
