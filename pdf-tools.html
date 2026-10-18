@@ -77,6 +77,7 @@
     <button class="pf-menu-close" onclick="toggleMenu()" aria-label="Close menu">×</button>
     <a href="/">Home</a>
     <a href="/cv-builder.html">CV Builder</a>
+    <a href="/pdf-tools.html">📄 PDF Tools</a>
     <a href="/code.html">✨ ParaFree AI</a>
     <a href="/blog.html">Blog</a>
     <a href="/about.html">About</a>
@@ -93,6 +94,7 @@
   <div id="homeNavLinks">
     <a href="/" class="nav-link">Paraphraser</a>
     <a href="/cv-builder.html" class="nav-link">CV Builder</a>
+    <a href="/pdf-tools.html" class="nav-link">PDF Tools</a>
     <a href="/code.html" class="nav-link">ParaFree AI</a>
     <a href="/blog.html" class="nav-link">Blog</a>
     <a href="/faq.html" class="nav-link">FAQ</a>
@@ -151,8 +153,8 @@
             </div>
           </div>
           <div class="pf-next">
-            <a class="btn-sm btn-dl" href="/" target="_blank" rel="noopener">Paraphrase it on ParaFree →</a>
-            <span>Upload your downloaded Word file there — formatting stays.</span>
+            <button type="button" class="btn-sm btn-dl" data-role="handoff">✦ Paraphrase this document (formatting kept)</button>
+            <span>Opens the Paraphraser with this Word file already loaded. The file stays on your device.</span>
           </div>
         </div>
         <div class="pf-row pf-row-end"><button type="button" class="btn-sm" data-role="start-over">↺ Start over</button></div>
@@ -344,6 +346,14 @@
     <a href="/paraphrase-document-online-keep-format.html">Paraphrase Documents Online</a>
   </div>
   <div class="pf-footer-group">
+    <span class="pf-footer-title">PDF Tools:</span>
+    <a href="/pdf-tools.html#pdf-to-word">PDF to Word</a>
+    <a href="/pdf-tools.html#word-to-pdf">Word to PDF</a>
+    <a href="/pdf-tools.html#jpg-to-pdf">JPG to PDF</a>
+    <a href="/pdf-tools.html#compress-pdf">Compress PDF</a>
+    <a href="/pdf-tools.html#merge-pdf">Merge PDF</a>
+  </div>
+  <div class="pf-footer-group">
     <span class="pf-footer-title">CV Resources:</span>
     <a href="/cv-builder.html">Free CV Builder</a>
     <a href="/ai-cv-builder.html">AI CV Builder</a>
@@ -365,6 +375,7 @@
 <script src="/lib/pdf-tools/jpg-to-pdf.js"></script>
 <script src="/lib/pdf-tools/compress-pdf.js"></script>
 <script src="/lib/pdf-tools/merge-pdf.js"></script>
+<script src="/lib/pdf-tools/handoff.js"></script>
 <script src="/lib/pdf-tools/app.js"></script>
 </body>
 </html>

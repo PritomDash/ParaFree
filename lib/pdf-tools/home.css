@@ -1,0 +1,146 @@
+/* ═══════════════════════════════════════════════════
+   ParaFree — PDF tools on the homepage (lib/pdf-tools/home.css)
+   Loaded only when the homepage PDF tab is first opened. Every rule is scoped under
+   .pf-home-pdf (generated from the tool-UI part of pdf-tools.css), so nothing here can
+   restyle the homepage's own tools. The print rules apply only while body.pf-printing is set.
+   ═══════════════════════════════════════════════════ */
+.pf-home-pdf [hidden] { display: none !important; }
+.pf-home-pdf { max-width: 1100px; margin: 0 auto 16px; padding: 0 16px; }
+.pf-home-pdf .pf-home-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin: 6px 0 10px; }
+.pf-home-pdf .pf-subtabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.pf-home-pdf .pf-subtab {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 14px; min-height: 42px;
+  font-family: 'Syne', sans-serif; font-weight: 600; font-size: 13px; color: var(--text2); cursor: pointer; transition: all 0.15s;
+}
+.pf-home-pdf .pf-subtab:hover { background: var(--surface2); color: var(--text); }
+.pf-home-pdf .pf-subtab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.pf-home-pdf .pf-home-full { font-size: 13px; font-weight: 700; color: var(--accent); text-decoration: none; white-space: nowrap; }
+.pf-home-pdf .pf-home-privacy { font-size: 13px; color: var(--accent); font-weight: 600; margin: 0 0 10px; }
+.pf-home-pdf .pf-home-loading { padding: 28px 16px; text-align: center; color: var(--text2); font-size: 14px; }
+.pf-home-pdf .panel-header { flex-wrap: wrap; gap: 10px; }
+.pf-home-pdf .btn-sm { min-height: 44px; padding: 10px 16px; font-size: 14px; display: inline-flex; text-decoration: none; }
+.pf-home-pdf .btn-paraphrase { display: inline-flex; justify-content: center; }
+.pf-home-pdf .pf-lib-status { font-size: 12px; color: var(--text3); }
+.pf-home-pdf .btn-dl { background: var(--accent-light); color: var(--accent); border-color: var(--accent2); font-weight: 600; }
+.pf-home-pdf .btn-dl:hover { background: #c7f0d0; border-color: var(--accent); color: var(--accent); }
+
+.pf-home-pdf .pf-panel-body { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.pf-home-pdf .pf-drop {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center;
+  border: 2px dashed #b7e4c7; border-radius: var(--radius); background: #f3fbf5; padding: 34px 18px; cursor: pointer;
+  transition: background 0.15s, border-color 0.15s; min-height: 150px;
+}
+.pf-home-pdf .pf-drop:hover, .pf-home-pdf .pf-drop:focus-within, .pf-home-pdf .pf-drop.pf-drop-over { background: var(--accent-light); border-color: var(--accent); }
+.pf-home-pdf .pf-drop input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+.pf-home-pdf .pf-drop-btn {
+  display: inline-flex; align-items: center; gap: 8px; background: var(--accent); color: #fff; border-radius: 12px;
+  padding: 13px 26px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 16px; min-height: 48px;
+}
+.pf-home-pdf .pf-drop-hint { color: var(--text2); font-size: 13px; }
+.pf-home-pdf .pf-drop-hint .pf-desktop { display: inline; }
+.pf-home-pdf .pf-note { font-size: 13px; color: var(--text2); line-height: 1.6; }
+.pf-home-pdf .pf-note strong { color: var(--text); }
+.pf-home-pdf .pf-warn { font-size: 13px; color: #8a4b12; background: #fff4e8; border: 1px solid #f6cfa6; border-radius: var(--radius-sm); padding: 8px 12px; }
+.pf-home-pdf .pf-error { color: #9b1c25; background: #fdecee; border: 1px solid #f5c2c7; border-radius: var(--radius-sm); padding: 10px 14px; font-size: 14px; }
+.pf-home-pdf .pf-progress { display: flex; flex-direction: column; gap: 6px; }
+.pf-home-pdf .pf-progress-bar { height: 10px; background: var(--surface2); border-radius: 6px; overflow: hidden; border: 1px solid var(--border); }
+.pf-home-pdf .pf-progress-bar span { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width 0.2s ease; }
+.pf-home-pdf .pf-progress-label { font-size: 13px; color: var(--text2); }
+.pf-home-pdf .pf-summary { font-size: 14px; color: var(--text); }
+.pf-home-pdf .pf-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.pf-home-pdf .pf-row-end { justify-content: flex-end; }
+.pf-home-pdf .pf-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.pf-home-pdf .pf-options label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--text2); font-weight: 500; }
+.pf-home-pdf .pf-options select {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px;
+  font-size: 14px; color: var(--text); font-family: inherit; min-height: 44px; width: 100%;
+}
+.pf-home-pdf .pf-modes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.pf-home-pdf .pf-mode {
+  display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 12px; cursor: pointer; background: var(--surface);
+}
+.pf-home-pdf .pf-mode:has(input:checked) { border-color: var(--accent); background: #f3fbf5; }
+.pf-home-pdf .pf-mode input { margin-top: 4px; accent-color: var(--accent); width: 18px; height: 18px; flex-shrink: 0; }
+.pf-home-pdf .pf-mode strong { display: block; font-size: 14px; }
+.pf-home-pdf .pf-mode span { font-size: 13px; color: var(--text2); }
+.pf-home-pdf .pf-file-name { font-size: 14px; color: var(--text); font-weight: 500; word-break: break-all; }
+
+.pf-home-pdf .pf-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.pf-home-pdf .pf-list:empty { display: none; }
+.pf-home-pdf .pf-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px; cursor: grab;
+}
+.pf-home-pdf .pf-item.pf-dragging { opacity: 0.5; }
+.pf-home-pdf .pf-item-main { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
+.pf-home-pdf .pf-item-name { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.pf-home-pdf .pf-item-meta { font-size: 12px; color: var(--text3); white-space: nowrap; margin-left: auto; }
+.pf-home-pdf .pf-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); flex-shrink: 0; background: var(--surface2); }
+.pf-home-pdf .pf-file-icon { font-size: 11px; font-weight: 800; color: #fff; background: var(--red); border-radius: 5px; padding: 6px 7px; flex-shrink: 0; letter-spacing: 0.5px; }
+.pf-home-pdf .pf-item-controls { display: flex; gap: 6px; flex-shrink: 0; }
+.pf-home-pdf .pf-icon-btn {
+  width: 40px; height: 40px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface);
+  cursor: pointer; font-size: 16px; color: var(--text2); display: inline-flex; align-items: center; justify-content: center;
+}
+.pf-home-pdf .pf-icon-btn:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-light); color: var(--accent); }
+.pf-home-pdf .pf-icon-btn:disabled { opacity: 0.35; cursor: default; }
+.pf-home-pdf .pf-icon-remove:hover:not(:disabled) { border-color: var(--red) !important; background: #fdecee !important; color: var(--red) !important; }
+
+.pf-home-pdf .pf-output .output-text { background: #fff; max-height: 70vh; overflow: auto; outline: none; }
+.pf-home-pdf .pf-output .output-text[contenteditable="true"]:focus { box-shadow: inset 0 0 0 2px var(--accent-light); }
+.pf-home-pdf .pf-doc { font-family: Arial, Helvetica, sans-serif; color: #1a1814; white-space: normal; }
+.pf-home-pdf .output-text.pf-doc { line-height: 1.2; }
+
+.pf-home-pdf .pf-doc h1 { font-size: 26px; line-height: 1.2; margin: 12pt 0 6pt; }
+.pf-home-pdf .pf-doc h2 { font-size: 21px; line-height: 1.2; margin: 12pt 0 6pt; }
+.pf-home-pdf .pf-doc h3 { font-size: 17px; line-height: 1.2; margin: 12pt 0 6pt; }
+.pf-home-pdf .pf-doc > :first-child { margin-top: 0; }
+.pf-home-pdf .pf-doc p { margin: 0 0 6pt; }
+.pf-home-pdf .pf-doc ul, .pf-home-pdf .pf-doc ol { margin: 0 0 6pt 1.6em; }
+.pf-home-pdf .pf-doc li { margin: 0 0 2pt; }
+.pf-home-pdf .pf-doc img { max-width: 100%; height: auto; }
+.pf-home-pdf .pf-doc .pf-page-break { border: none; border-top: 2px dashed var(--border); margin: 18px 0; height: 0; }
+.pf-home-pdf .pf-doc ul ul, .pf-home-pdf .pf-doc ol ol, .pf-home-pdf .pf-doc ul ol, .pf-home-pdf .pf-doc ol ul { margin: 0.25em 0 0.25em 1.4em; }
+
+.pf-home-pdf .pf-doc .pf-cols { column-gap: 1cm; column-rule: 1px dashed var(--border); margin: 0 0 6pt; }
+.pf-home-pdf .pf-doc .pf-col > :first-child { margin-top: 0; }
+.pf-home-pdf .pf-doc table { border-collapse: collapse; margin: 0 0 6pt; max-width: 100%; }
+.pf-home-pdf .pf-doc td, .pf-home-pdf .pf-doc th { border: 1px solid #8f8a82; padding: 3pt 5pt; vertical-align: top; text-align: left; }
+.pf-home-pdf .pf-docx-box { background: #e9e6df !important; padding: 12px !important; }
+.pf-home-pdf .pf-docx-box section.docx { margin: 0 auto 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.12); }
+.pf-home-pdf .pf-next {
+  display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; background: #f3fbf5; border: 1px solid #b7e4c7;
+  border-radius: var(--radius-sm); padding: 12px 14px;
+}
+.pf-home-pdf .pf-next span { font-size: 13px; color: var(--text2); }
+.pf-home-pdf .pf-next .pf-unit { flex-basis: 100%; font-size: 12px; color: var(--text3); }
+
+@media (max-width: 768px) {
+  .pf-home-pdf .pf-options { grid-template-columns: 1fr; }
+  .pf-home-pdf .pf-modes { grid-template-columns: 1fr; }
+  .pf-home-pdf .pf-drop-hint .pf-desktop { display: none; }
+}
+@media (max-width: 480px) {
+  .pf-home-pdf .pf-panel-body { padding: 14px; }
+  .pf-home-pdf .pf-item { flex-wrap: wrap; }
+  .pf-home-pdf .pf-item-controls { width: 100%; justify-content: flex-end; }
+  .pf-home-pdf .btn-paraphrase { width: 100%; padding: 14px 20px; }
+}
+
+/* ── Print / Save as PDF: only the rendered document ── */
+#pfPrintArea { display: none; }
+@media print {
+  body.pf-printing > *:not(#pfPrintArea) { display: none !important; }
+  body.pf-printing { background: #fff; }
+  body.pf-printing #pfPrintArea { display: block; }
+  #pfPrintArea section.docx { box-shadow: none !important; margin: 0 !important; page-break-after: always; break-after: page; }
+  #pfPrintArea section.docx:last-child { page-break-after: auto; break-after: auto; }
+  #pfPrintArea .pf-page-break { border: none; break-after: page; page-break-after: always; }
+}
+/* Complex scripts (Bengali, Devanagari, Arabic, CJK…): fonts that have the letters */
+#pfPrintArea.pf-complex, #pfPrintArea.pf-complex * {
+  font-family: "Noto Sans", "Noto Sans Bengali", "Noto Sans Devanagari", "Noto Sans Arabic", "Nirmala UI", "Vrinda",
+    "Mangal", "Kohinoor Bangla", "Bangla Sangam MN", "Devanagari Sangam MN", "Segoe UI", "Arial Unicode MS",
+    "Microsoft YaHei", "PingFang SC", "Hiragino Sans", "Noto Sans CJK SC", sans-serif !important;
+}
