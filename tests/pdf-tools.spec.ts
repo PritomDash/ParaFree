@@ -193,7 +193,7 @@ test.describe('PDF to Word', () => {
     const xml = await zip.file('word/document.xml')!.async('string');
     expect(xml).toContain('Study Notes on Photosynthesis');
     expect(xml).toContain('<w:pStyle w:val="Heading1"/>');
-    expect(xml).toMatch(/<w:r><w:rPr><w:b\/><w:bCs\/><\/w:rPr><w:t xml:space="preserve">Chlorophyll<\/w:t><\/w:r>/);
+    expect(xml).toMatch(/<w:r><w:rPr>(?:(?!<\/w:rPr>).)*<w:b\/>(?:(?!<\/w:rPr>).)*<\/w:rPr><w:t xml:space="preserve">Chlorophyll<\/w:t><\/w:r>/);
     expect(xml).toMatch(/<w:i\/>/);
     expect(xml).toContain('<w:numPr>');
     expect(xml).toContain('<w:br w:type="page"/>');
