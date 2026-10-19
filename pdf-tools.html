@@ -68,6 +68,7 @@
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/pdf-tools.css">
+<link rel="preload" as="script" href="/lib/pdf-tools/pdf-to-word.js?v=324c95d8bd">
 </head>
 <body>
 
@@ -124,164 +125,11 @@
   </div>
 </div>
 
-<main class="pf-tools">
-
-  <!-- PDF TO WORD -->
-  <section class="pf-tool-panel" id="panel-pdf-to-word" data-tool="pdf-to-word" role="tabpanel" aria-labelledby="tab-pdf-to-word">
-    <div class="panel">
-      <div class="panel-header"><span class="panel-label">PDF to Word</span><span class="pf-lib-status" data-role="lib-status"></span></div>
-      <div class="pf-panel-body">
-        <label class="pf-drop" data-role="drop">
-          <input type="file" accept=".pdf,application/pdf" aria-label="Choose a PDF">
-          <span class="pf-drop-btn">📄 Choose a PDF</span>
-          <span class="pf-drop-hint"><span class="pf-desktop">or drag and drop it here · </span>up to 50 pages, 50 MB</span>
-        </label>
-        <p class="pf-note">Creates an editable Word file — text, headings, bold/italic, lists and images kept. Complex layouts (multi-column, tables, forms) may not match exactly.</p>
-        <div class="pf-progress" data-role="progress" hidden><div class="pf-progress-bar"><span></span></div><p class="pf-progress-label" aria-live="polite"></p></div>
-        <div class="pf-error" data-role="error" role="alert" hidden></div>
-        <div class="pf-result" data-role="result" hidden>
-          <p class="pf-summary" data-role="summary"></p>
-          <p class="pf-warn" data-role="note" role="status" hidden></p>
-          <div class="panel pf-output">
-            <div class="panel-header"><span class="panel-label">Your document — click to edit</span><button type="button" class="fmt-btn fmt-btn-active" data-role="edit-toggle" aria-label="Toggle editing" aria-pressed="true">✏</button></div>
-            <div class="output-text pf-doc" data-role="output" contenteditable="true" spellcheck="true"></div>
-            <div class="panel-footer">
-              <div class="pf-row">
-                <button type="button" class="btn-sm btn-dl" data-role="dl-docx">⬇ Download Word (.docx)</button>
-                <button type="button" class="btn-sm" data-role="dl-pdf">⬇ Download PDF</button>
-              </div>
-            </div>
-          </div>
-          <div class="pf-next">
-            <button type="button" class="btn-sm btn-dl" data-role="handoff">✦ Paraphrase this document (formatting kept)</button>
-            <span>Opens the Paraphraser with this Word file already loaded. The file stays on your device.</span>
-          </div>
-        </div>
-        <div class="pf-row pf-row-end"><button type="button" class="btn-sm" data-role="start-over">↺ Start over</button></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- WORD TO PDF -->
-  <section class="pf-tool-panel" id="panel-word-to-pdf" data-tool="word-to-pdf" role="tabpanel" aria-labelledby="tab-word-to-pdf" hidden>
-    <div class="panel">
-      <div class="panel-header"><span class="panel-label">Word to PDF</span><span class="pf-lib-status" data-role="lib-status"></span></div>
-      <div class="pf-panel-body">
-        <label class="pf-drop" data-role="drop">
-          <input type="file" accept=".docx,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document" aria-label="Choose a Word file">
-          <span class="pf-drop-btn">📝 Choose a Word file</span>
-          <span class="pf-drop-hint"><span class="pf-desktop">or drag and drop it here · </span>.docx, up to 50 MB</span>
-        </label>
-        <p class="pf-note">Your document is shown below so you can check it (and fix typos) before downloading. Fonts and complex layouts may shift slightly.</p>
-        <div class="pf-progress" data-role="progress" hidden><div class="pf-progress-bar"><span></span></div><p class="pf-progress-label" aria-live="polite"></p></div>
-        <div class="pf-error" data-role="error" role="alert" hidden></div>
-        <div class="pf-result" data-role="result" hidden>
-          <div data-role="styles" hidden></div>
-          <p class="pf-warn" data-role="note" role="status" hidden></p>
-          <div class="panel pf-output">
-            <div class="panel-header"><span class="panel-label">Preview — click to edit</span><button type="button" class="fmt-btn fmt-btn-active" data-role="edit-toggle" aria-label="Toggle editing" aria-pressed="true">✏</button></div>
-            <div class="output-text pf-docx-box" data-role="output" contenteditable="true" spellcheck="true"></div>
-            <div class="panel-footer">
-              <div class="pf-row">
-                <button type="button" class="btn-sm btn-dl" data-role="dl-pdf">⬇ Download PDF</button>
-                <button type="button" class="btn-sm" data-role="print">🖨 Print / Save as PDF</button>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="pf-row pf-row-end"><button type="button" class="btn-sm" data-role="start-over">↺ Start over</button></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- JPG TO PDF -->
-  <section class="pf-tool-panel" id="panel-jpg-to-pdf" data-tool="jpg-to-pdf" role="tabpanel" aria-labelledby="tab-jpg-to-pdf" hidden>
-    <div class="panel">
-      <div class="panel-header"><span class="panel-label">JPG / PNG to PDF</span><span class="pf-lib-status" data-role="lib-status"></span></div>
-      <div class="pf-panel-body">
-        <label class="pf-drop" data-role="drop">
-          <input type="file" multiple accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" aria-label="Choose images">
-          <span class="pf-drop-btn">🖼 Choose images</span>
-          <span class="pf-drop-hint"><span class="pf-desktop">or drag and drop them here · </span>JPG, PNG or WebP</span>
-        </label>
-        <ul class="pf-list" data-role="list" aria-label="Images, in page order"></ul>
-        <p class="pf-note" data-role="count" aria-live="polite"></p>
-        <div class="pf-options">
-          <label>Page size
-            <select data-role="opt-size"><option value="a4">A4</option><option value="letter">Letter</option><option value="fit">Fit to image</option></select>
-          </label>
-          <label>Orientation
-            <select data-role="opt-orientation"><option value="auto">Auto</option><option value="portrait">Portrait</option><option value="landscape">Landscape</option></select>
-          </label>
-          <label>Margin
-            <select data-role="opt-margin"><option value="none">None</option><option value="small" selected>Small</option><option value="large">Large</option></select>
-          </label>
-        </div>
-        <div class="pf-progress" data-role="progress" hidden><div class="pf-progress-bar"><span></span></div><p class="pf-progress-label" aria-live="polite"></p></div>
-        <div class="pf-error" data-role="error" role="alert" hidden></div>
-        <div class="pf-row"><button type="button" class="btn-paraphrase" data-role="go" disabled>Create PDF</button></div>
-        <div class="pf-result pf-next" data-role="result" hidden>
-          <span class="pf-summary" data-role="summary"></span>
-          <button type="button" class="btn-sm btn-dl" data-role="dl-pdf">⬇ Download PDF</button>
-        </div>
-        <div class="pf-row pf-row-end"><button type="button" class="btn-sm" data-role="start-over">↺ Start over</button></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- COMPRESS PDF -->
-  <section class="pf-tool-panel" id="panel-compress-pdf" data-tool="compress-pdf" role="tabpanel" aria-labelledby="tab-compress-pdf" hidden>
-    <div class="panel">
-      <div class="panel-header"><span class="panel-label">Compress PDF</span><span class="pf-lib-status" data-role="lib-status"></span></div>
-      <div class="pf-panel-body">
-        <label class="pf-drop" data-role="drop">
-          <input type="file" accept=".pdf,application/pdf" aria-label="Choose a PDF">
-          <span class="pf-drop-btn">🗜 Choose a PDF</span>
-          <span class="pf-drop-hint"><span class="pf-desktop">or drag and drop it here · </span>up to 300 pages, 50 MB</span>
-        </label>
-        <p class="pf-file-name" data-role="file-name"></p>
-        <div class="pf-modes" role="radiogroup" aria-label="Compression level">
-          <label class="pf-mode"><input type="radio" name="pf-compress-mode" value="light" checked><span><strong>Light (text stays selectable)</strong><span>Shrinks large images, keeps everything else.</span></span></label>
-          <label class="pf-mode"><input type="radio" name="pf-compress-mode" value="strong"><span><strong>Strong (smallest size)</strong><span>Each page becomes an image. Text won't be selectable.</span></span></label>
-        </div>
-        <div class="pf-progress" data-role="progress" hidden><div class="pf-progress-bar"><span></span></div><p class="pf-progress-label" aria-live="polite"></p></div>
-        <div class="pf-error" data-role="error" role="alert" hidden></div>
-        <div class="pf-row"><button type="button" class="btn-paraphrase" data-role="go" disabled>Compress PDF</button></div>
-        <div class="pf-result pf-next" data-role="result" hidden>
-          <span class="pf-summary" data-role="summary"></span>
-          <button type="button" class="btn-sm btn-dl" data-role="dl-pdf">⬇ Download compressed PDF</button>
-          <button type="button" class="btn-sm" data-role="dl-alt" hidden></button>
-          <span class="pf-unit">Sizes use 1 MB = 1,000,000 bytes, as phones and Macs show them. Windows File Explorer counts 1 MB as 1,048,576 bytes, so it shows about 5% less.</span>
-        </div>
-        <div class="pf-row pf-row-end"><button type="button" class="btn-sm" data-role="start-over">↺ Start over</button></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- MERGE PDF -->
-  <section class="pf-tool-panel" id="panel-merge-pdf" data-tool="merge-pdf" role="tabpanel" aria-labelledby="tab-merge-pdf" hidden>
-    <div class="panel">
-      <div class="panel-header"><span class="panel-label">Merge PDF</span><span class="pf-lib-status" data-role="lib-status"></span></div>
-      <div class="pf-panel-body">
-        <label class="pf-drop" data-role="drop">
-          <input type="file" multiple accept=".pdf,application/pdf" aria-label="Choose PDFs">
-          <span class="pf-drop-btn">➕ Choose PDFs</span>
-          <span class="pf-drop-hint"><span class="pf-desktop">or drag and drop them here · </span>up to 300 pages in total</span>
-        </label>
-        <ul class="pf-list" data-role="list" aria-label="PDFs, in merge order"></ul>
-        <p class="pf-note" data-role="count" aria-live="polite"></p>
-        <div class="pf-progress" data-role="progress" hidden><div class="pf-progress-bar"><span></span></div><p class="pf-progress-label" aria-live="polite"></p></div>
-        <div class="pf-error" data-role="error" role="alert" hidden></div>
-        <div class="pf-row"><button type="button" class="btn-paraphrase" data-role="go" disabled>Merge PDFs</button></div>
-        <div class="pf-result pf-next" data-role="result" hidden>
-          <span class="pf-summary" data-role="summary"></span>
-          <button type="button" class="btn-sm btn-dl" data-role="dl-pdf">⬇ Download merged PDF</button>
-        </div>
-        <div class="pf-row pf-row-end"><button type="button" class="btn-sm" data-role="start-over">↺ Start over</button></div>
-      </div>
-    </div>
-  </section>
-</main>
+<main class="pf-tools"></main>
+<!-- the five tool panels (one copy, shared with the homepage PDF tab) -->
+<script>window.PFV = '324c95d8bd';</script>
+<script src="/lib/pdf-tools/panels.js?v=324c95d8bd"></script>
+<script>window.PFPanels.render(document.querySelector('main.pf-tools'));</script>
 
 <!-- ABOUT THE TOOLS -->
 <div class="pf-content">
@@ -366,16 +214,11 @@
   <p>© 2026 ParaFree · Free AI Writing Suite · No limits, no signup, always free</p>
 </footer>
 
-<script src="/lib/pdf-tools/pdf-events.js"></script>
-<script src="/lib/pdf-tools/loader.js"></script>
-<script src="/lib/pdf-tools/common.js"></script>
-<script src="/lib/pdf-tools/pdf-writer.js"></script>
-<script src="/lib/pdf-tools/pdf-to-word.js"></script>
-<script src="/lib/pdf-tools/word-to-pdf.js"></script>
-<script src="/lib/pdf-tools/jpg-to-pdf.js"></script>
-<script src="/lib/pdf-tools/compress-pdf.js"></script>
-<script src="/lib/pdf-tools/merge-pdf.js"></script>
-<script src="/lib/pdf-tools/handoff.js"></script>
-<script src="/lib/pdf-tools/app.js"></script>
+<!-- core only; each tool's module loads when its tab opens (app.js), the PDF writer on the
+     first "Download PDF", the hand-off after a PDF to Word result. ?v= = version of lib/pdf-tools -->
+<script src="/lib/pdf-tools/pdf-events.js?v=324c95d8bd"></script>
+<script src="/lib/pdf-tools/loader.js?v=324c95d8bd"></script>
+<script src="/lib/pdf-tools/common.js?v=324c95d8bd"></script>
+<script src="/lib/pdf-tools/app.js?v=324c95d8bd"></script>
 </body>
 </html>
