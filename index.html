@@ -1449,6 +1449,8 @@ const PHOTOS = {
 <style>/* An extra tab (PDF Tools / CV Builder) is open: the text tools' sections are hidden (they keep their state) */
 body.pf-alt-active #langBar,body.pf-alt-active #humanizerInfo,body.pf-alt-active #paraphraseModes,body.pf-alt-active #humanizeModes,body.pf-alt-active .status-bar,body.pf-alt-active .tool-container,body.pf-alt-active #donateNote,body.pf-alt-active #previewNote,body.pf-alt-active #humanScoreBadge,body.pf-alt-active #tryAgainNote,body.pf-alt-active #grammarErrorsPanel,body.pf-alt-active .paraphrase-wrap,body.pf-alt-active #aiWrap,body.pf-alt-active #aiPromoBanner,body.pf-alt-active #shareBar,body.pf-alt-active #pfaiBanner,body.pf-alt-active #scorePanel{display:none!important}
 @media (max-width:900px){nav .pf-nav-pdf{display:none !important}}
+/* CV Builder tab: the homepage's floating buttons would sit on the builder's own toolbar */
+body.pf-cv-open #pf-scroll-top,body.pf-cv-open #pf-feedback-card{display:none!important}
 .pf-home-pdf{max-width:1100px;margin:0 auto 16px;padding:0 16px}.pf-subtabs{display:flex;flex-wrap:wrap;gap:6px}.pf-subtab{background:#fff;border:1px solid #e2ddd4;border-radius:8px;padding:9px 14px;min-height:42px;font:600 13px Syne,sans-serif;color:#6b6660;cursor:pointer}.pf-subtab.active{background:#2d6a4f;border-color:#2d6a4f;color:#fff}.pf-home-loading{padding:28px 16px;text-align:center;color:#6b6660}
 /* Hero (≥769px): it was a fixed 100vh box with overflow:hidden, so on screens shorter than the content the
    CTA buttons were cut off under the stats band and "Explore Tools" sat on top of them. Grow with the content
@@ -1615,19 +1617,8 @@ body.pf-alt-active #langBar,body.pf-alt-active #humanizerInfo,body.pf-alt-active
 </div>
 <div id="pfHomePdf" class="pf-home-pdf" hidden></div>
 <div id="pfHomeCv" hidden style="max-width:1100px;margin:0 auto 16px;padding:0 16px;font-family:'DM Sans',sans-serif;">
-  <div style="background:#fff;border:1px solid #e2ddd4;border-radius:14px;padding:24px 22px;box-shadow:0 2px 16px rgba(0,0,0,.06);">
-    <h2 style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:#1a1814;margin:0 0 12px;">Free CV Builder — 54 templates, no signup, no watermark</h2>
-    <ul style="margin:0 0 18px;padding-left:20px;color:#3d3a35;font-size:15px;line-height:1.8;">
-      <li>ATS-friendly templates that applicant tracking systems can read</li>
-      <li>AI writes your bullet points and summary</li>
-      <li>Matching cover letter and job search links for your role</li>
-      <li>Download as PDF or Word (DOCX)</li>
-    </ul>
-    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;">
-      <a href="/cv-builder.html" id="pfCvStart" style="display:inline-block;padding:14px 32px;background:#2d6a4f;color:#fff;border-radius:14px;font-family:'Syne',sans-serif;font-weight:700;font-size:16px;text-decoration:none;box-shadow:0 4px 16px rgba(45,106,79,.3);">Start your CV →</a>
-      <a href="/cv-templates.html" style="color:#2d6a4f;font-weight:600;font-size:14px;">See templates</a>
-    </div>
-  </div>
+  <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 16px;margin:4px 0 10px;"><span style="font:700 15px Syne,sans-serif;color:#1a1814;">Free CV Builder — 54 templates, no signup, no watermark</span><a href="/cv-builder.html" target="_blank" rel="noopener" style="font-size:13px;font-weight:700;color:#2d6a4f;text-decoration:none;">Open full CV Builder ↗</a></div>
+  <p id="pfCvLoading" style="padding:28px 16px;text-align:center;color:#6b6660;">Loading CV Builder…</p>
 </div>
 <script>/* Extra tabs (PDF Tools, CV Builder): the text tools are only hidden while one is open (body.pf-alt-active)
    and shown again on any tool switch. PDF Tools: the shell shows at once; lib/pdf-tools home.js then loads only the
@@ -1643,13 +1634,21 @@ b.innerHTML='<div class="pf-home-head"><div class="pf-subtabs" role="tablist" ar
 '</div><a class="pf-home-full" href="/pdf-tools.html#'+t+'">Open full PDF Tools page →</a></div><p class="pf-home-privacy">🔒 Your files never leave your device.</p><div class="pf-home-panels"><p class="pf-home-loading">Loading tool…</p></div>';
 if(!b.pfWired){b.pfWired=1;b.addEventListener('click',function(e){var x=e.target.closest&&e.target.closest('.pf-subtab');if(x)window.pfOpenPdfTools(x.getAttribute('data-pftab'),1)})}return b}
 function open(id){if(!A){P=d.querySelector('.tool-tabs .tool-tab.active:not(#tab-pdf):not(#tab-cv)');if(P)P.classList.remove('active')}else if(A!==id)close(1);
-A=id;d.body.classList.add('pf-alt-active');d.getElementById('tab-'+id).classList.add('active');d.getElementById(PANEL[id]).hidden=false}
-function close(keep){if(!A)return;var id=A;A=null;d.getElementById('tab-'+id).classList.remove('active');d.getElementById(PANEL[id]).hidden=true;if(id==='pdf'&&window.PFHome)window.PFHome.close();if(keep)return;
+A=id;d.body.classList.add('pf-alt-active');d.body.classList.toggle('pf-cv-open',id==='cv');d.getElementById('tab-'+id).classList.add('active');d.getElementById(PANEL[id]).hidden=false}
+function close(keep){if(!A)return;var id=A;A=null;d.getElementById('tab-'+id).classList.remove('active');d.getElementById(PANEL[id]).hidden=true;d.body.classList.remove('pf-cv-open');if(id==='pdf'&&window.PFHome)window.PFHome.close();if(keep)return;
 d.body.classList.remove('pf-alt-active');if(P&&!d.querySelector('.tool-tabs .tool-tab.active'))P.classList.add('active');var h=location.hash.slice(1);if(T.indexOf(h)>=0||h==='cv-builder')try{history.replaceState(history.state,'',location.pathname+location.search)}catch(e){}}
 window.pfOpenPdfTools=function(t,click){t=T.indexOf(t)>=0?t:null;open('pdf');css();var b=shell(t||'pdf-to-word');
 return load().then(function(){return window.PFHome.open(t,click)}).catch(function(){b.setAttribute('data-err','1');b.innerHTML='<p style="padding:20px 16px;text-align:center;color:#9b1c25">Could not load the PDF tools — check your connection, or open <a href="/pdf-tools.html">the PDF Tools page</a>.</p>'})};
 window.pfClosePdfTools=function(){if(A==='pdf')close()};
-window.pfOpenCvTab=function(){open('cv');(window.PFPdfEvents?Promise.resolve():js(u('pdf-events'))).then(function(){window.PFPdfEvents.cvTabClick()}).catch(function(){})};
+function navH(){var n=d.getElementById('mainNav');return n?n.offsetHeight:68}function avail(){return Math.max(320,innerHeight-navH())}
+var F=null,FM='flow',RZ=0;function cvHost(){if(F&&F.contentWindow)F.contentWindow.postMessage({type:'pf-cv-host',vh:avail()},location.origin)}
+function cvFrame(){if(F)return;F=d.createElement('iframe');F.id='pfCvFrame';F.title='ParaFree CV Builder';F.src='/cv-builder.html?embed=1';F.setAttribute('allow','clipboard-write');
+F.style.cssText='display:block;width:100%;height:'+avail()+'px;border:0;border-radius:14px;background:#f7f5f0';F.addEventListener('load',function(){var l=d.getElementById('pfCvLoading');if(l)l.remove();cvHost()});d.getElementById('pfHomeCv').appendChild(F)}
+addEventListener('resize',function(){clearTimeout(RZ);RZ=setTimeout(function(){cvHost();if(F&&FM==='app')F.style.height=avail()+'px'},150)});
+addEventListener('message',function(e){if(!F||e.origin!==location.origin||e.source!==F.contentWindow||!e.data)return;var m=e.data;
+if(m.type==='pf-cv-size'){FM=m.mode==='app'?'app':'flow';F.style.height=(FM==='app'?avail():Math.max(200,Math.min(+m.height||0,60000)))+'px'}
+else if(m.type==='pf-cv-focus'){var r=F.getBoundingClientRect();if(Math.abs(r.top-navH())>2)scrollBy({top:r.top-navH(),behavior:'smooth'})}});
+window.pfOpenCvTab=function(){open('cv');cvFrame();(window.PFPdfEvents?Promise.resolve():js(u('pdf-events'))).then(function(){window.PFPdfEvents.cvTabClick()}).catch(function(){})};
 d.addEventListener('click',function(e){var t=e.target&&e.target.closest&&e.target.closest('[onclick*="switchTool("]');if(t)close()},true);
 function h(){var t=location.hash.slice(1),x=d.getElementById('tools');if(T.indexOf(t)>=0)window.pfOpenPdfTools(t);else if(t==='cv-builder')window.pfOpenCvTab();else return;if(x)x.scrollIntoView()}
 addEventListener('hashchange',h);var h0=location.hash.slice(1);if(T.indexOf(h0)>=0||h0==='cv-builder')d.addEventListener('DOMContentLoaded',h);

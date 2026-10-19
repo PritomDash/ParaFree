@@ -15,7 +15,9 @@
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
 
-  gtag('config', 'G-0QEEGS0DZQ');
+  // ?embed=1 (inside the homepage CV Builder tab): the homepage already sent the page view
+  if (/[?&]embed=1(&|$)/.test(location.search)) gtag('config', 'G-0QEEGS0DZQ', { send_page_view: false });
+  else gtag('config', 'G-0QEEGS0DZQ');
 </script>
 <meta name="author" content="ParaFree">
 <meta property="og:locale" content="en_AU">
@@ -834,6 +836,71 @@ nav div a:hover::after { width: 100%; }
 #carUse:hover { background: #f0ede8; }
 </style>
 <style>/* donate link: hide desktop nav entry where the nav gets crowded (still in mobile menu + footer) */@media (max-width:1023px){nav .donate-nav{display:none !important}}</style>
+<!-- EMBED MODE (?embed=1): the homepage "CV Builder" tab shows this page in an iframe. Only then: no site
+     header/hero/marketing/footer, viewport-based sizes use the PARENT's height (so the frame can be exactly as tall
+     as this document — no inner page scrollbar), and the height is posted to the homepage. Without ?embed=1 nothing
+     below applies. -->
+<style>
+html.pf-embed body { min-height: 0 !important; }
+html.pf-embed body > nav, html.pf-embed #mobileMenu, html.pf-embed .cv-hero, html.pf-embed body > footer, html.pf-embed #pf-scroll-top,
+html.pf-embed #job-search-section ~ div:not([id]), html.pf-embed #job-search-section ~ details, html.pf-embed #job-search-section ~ section { display: none !important; }
+html.pf-embed .cv-main { padding-top: 12px !important; padding-bottom: 16px !important; }
+@media (min-width: 901px) {
+  html.pf-embed #cvFormPanel, html.pf-embed #cvPreviewPanel, html.pf-embed .preview-panel { top: 0 !important; height: calc(var(--pf-vh, 100vh) - 24px) !important; }
+}
+@media (max-width: 900px) { html.pf-embed #cvPreviewPanel { top: 0 !important; } }
+</style>
+<script>
+(function () {
+  if (!/[?&]embed=1(&|$)/.test(location.search)) return;
+  var d = document.documentElement, O = location.origin;
+  d.classList.add('pf-embed');
+  var robots = document.createElement('meta'); robots.name = 'robots'; robots.content = 'noindex, follow';   // canonical: /cv-builder.html
+  document.head.appendChild(robots);
+  if (window.parent === window) return;
+  // <900px the builder is a full-screen app (fixed preview + toolbar): the homepage gives it one screen ("app");
+  // wider, the page flows and the homepage sizes the frame to this document ("flow")
+  var mq = window.matchMedia('(max-width: 900px)'), timer = 0, last = '';
+  function size() {
+    timer = 0;
+    var b = document.body; if (!b) return;
+    var h = Math.ceil(b.getBoundingClientRect().height + (parseFloat(getComputedStyle(b).marginTop) || 0) + (parseFloat(getComputedStyle(b).marginBottom) || 0));
+    var mode = mq.matches ? 'app' : 'flow', key = h + mode;
+    if (key === last) return;
+    last = key;
+    parent.postMessage({ type: 'pf-cv-size', height: h, mode: mode }, O);
+  }
+  function soon() { if (!timer) timer = setTimeout(size, 80); }
+  window.addEventListener('message', function (e) {
+    if (e.origin !== O || e.source !== window.parent || !e.data || e.data.type !== 'pf-cv-host') return;
+    d.style.setProperty('--pf-vh', Math.max(320, +e.data.vh || 0) + 'px');
+    soon();
+  });
+  // an overlay that needs the screen (bottom sheet, menus): ask the homepage to bring the frame into view
+  var lastFocus = 0;
+  function focusParent() { var now = Date.now(); if (now - lastFocus < 800) return; lastFocus = now; parent.postMessage({ type: 'pf-cv-focus' }, O); }
+  function overlayOpen() {
+    var vw = window.innerWidth, vh = window.innerHeight, els = document.body.children;
+    for (var i = 0; i < els.length; i++) {
+      var el = els[i], cs = getComputedStyle(el);
+      if (cs.position !== 'fixed' || cs.display === 'none' || cs.visibility === 'hidden' || el.id === 'canvaToolbar' || el.id === 'cv-toast') continue;
+      var r = el.getBoundingClientRect();
+      if (r.width * r.height > vw * vh * 0.25 && r.bottom > 0 && r.top < vh && !/translateY\(100%\)|matrix\(1, 0, 0, 1, 0, [1-9]/.test(cs.transform)) return true;
+    }
+    return false;
+  }
+  var wasOpen = false;
+  function watch() { var open = overlayOpen(); if (open && !wasOpen) focusParent(); wasOpen = open; soon(); }
+  mq.addEventListener ? mq.addEventListener('change', soon) : mq.addListener(soon);
+  window.addEventListener('load', soon);
+  document.addEventListener('DOMContentLoaded', function () {
+    if (window.ResizeObserver) new ResizeObserver(soon).observe(document.body);
+    new MutationObserver(watch).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['style', 'class', 'hidden', 'open'] });
+    document.addEventListener('pointerdown', function () { if (mq.matches) focusParent(); }, true);
+    size();
+  });
+})();
+</script>
 </head>
 <body>
 <div id="mobileMenu" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9998;" onclick="if(event.target===this)toggleMenu()">

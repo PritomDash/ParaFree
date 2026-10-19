@@ -367,34 +367,8 @@ test.describe('hero CTA buttons (overlap fix)', () => {
 
 // ─────────────────────────────────────────────────────────────
 test.describe('homepage CV Builder tab', () => {
-  test('shows the light panel (no CV builder code), GA cv_tab_click, button goes to cv-builder.html', async ({ page }) => {
-    const net = await setup(page);
-    await page.goto('/');
-    await page.waitForLoadState('load');
-    await page.fill('#inputText', 'Text that must still be here after visiting the CV tab.');
-    await page.locator('#tab-cv').click();
-    const cv = page.locator('#pfHomeCv');
-    await expect(cv).toBeVisible();
-    await expect(page.locator('#tab-cv')).toHaveClass(/active/);
-    await expect(page.locator('.tool-container')).toBeHidden();
-    await expect(cv.locator('h2')).toHaveText('Free CV Builder — 54 templates, no signup, no watermark');
-    await expect(cv.locator('li')).toHaveCount(4);
-    await expect(cv.locator('a', { hasText: 'See templates' })).toHaveAttribute('href', '/cv-templates.html');
-    await expect(page.locator('#promoBar')).toContainText('Free CV Builder');                    // promo strip kept
-    const ga = () => page.evaluate(() => ((window as any).dataLayer || []).filter((a: any) => a && a[0] === 'event').map((a: any) => [a[1], a[2]]));
-    await expect.poll(ga).toContainEqual(['cv_tab_click', {}]);
-    // no CV builder code (or the PDF tools) loads for this tab
-    expect(net.requests.filter((r) => /cv-builder|cv-templates|\/lib\/pdf-tools\/(?!pdf-events\.js)|cdn\.jsdelivr\.net/.test(r.url)).map((r) => r.url)).toEqual([]);
-    // back to the Paraphraser: exactly as before
-    await page.locator('#tab-paraphrase').click();
-    await expect(cv).toBeHidden();
-    await expect(page.locator('.tool-container')).toBeVisible();
-    expect(await page.inputValue('#inputText')).toBe('Text that must still be here after visiting the CV tab.');
-    // the button opens the full CV builder
-    await page.locator('#tab-cv').click();
-    await Promise.all([page.waitForURL(/\/cv-builder\.html$/), page.locator('#pfCvStart').click()]);
-  });
-
+  // The tab's content is now the real CV builder in an iframe: panel, link, GA, globals, sizes and
+  // 360px are covered in tests/cv-embed.spec.ts.
   test('other tabs unaffected; switching CV ↔ PDF ↔ text tools; #cv-builder deep link', async ({ page }) => {
     await setup(page);
     await page.goto('/');
@@ -425,14 +399,4 @@ test.describe('homepage CV Builder tab', () => {
     await expect(page.locator('#tab-cv')).toHaveClass(/active/);
   });
 
-  test('360px: CV tab open, no horizontal scroll', async ({ page }) => {
-    await page.setViewportSize({ width: 360, height: 780 });
-    await setup(page);
-    await page.goto('/');
-    await page.locator('#tab-cv').click();
-    await expect(page.locator('#pfHomeCv')).toBeVisible();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
-    const b = await page.locator('#pfCvStart').boundingBox();
-    expect(b!.x + b!.width).toBeLessThanOrEqual(360);
-  });
 });
