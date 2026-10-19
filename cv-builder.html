@@ -15,7 +15,9 @@
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
 
-  gtag('config', 'G-0QEEGS0DZQ');
+  // ?embed=1 (inside the homepage CV Builder tab): the homepage already sent the page view
+  if (/[?&]embed=1(&|$)/.test(location.search)) gtag('config', 'G-0QEEGS0DZQ', { send_page_view: false });
+  else gtag('config', 'G-0QEEGS0DZQ');
 </script>
 <meta name="author" content="ParaFree">
 <meta property="og:locale" content="en_AU">
@@ -228,8 +230,10 @@ nav.scrolled .nav-links a.active { color: var(--accent); }
 #cvPreviewPanel { position: sticky; top: 78px; height: calc(100vh - 98px); display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius); background: #eceae4; box-shadow: 0 2px 20px rgba(0,0,0,0.07); }
 #cvPreviewWrapper { display: block; overflow-y: auto; overflow-x: hidden; padding: 12px; text-align: center; flex: 1; -webkit-overflow-scrolling: touch; }
 #cvPreviewWrapper .preview-wrap { overflow: hidden; flex-shrink: 0; }
-#cvPreviewScale { transform-origin: top left !important; display: inline-block !important; width: 794px !important; height: 1056px !important; vertical-align: top; }
-#cv-preview { width: 794px !important; min-height: 1056px !important; height: 1056px !important; background: white !important; box-sizing: border-box !important; overflow: hidden !important; position: relative !important; display: block !important; padding: 0 !important; margin: 0 !important; }
+#cvPreviewScale { transform-origin: top left !important; display: inline-block !important; width: 794px !important; height: var(--pf-doc-h, 1123px) !important; vertical-align: top; position: relative; }
+.pf-page-gap { position: absolute; left: -4px; right: -4px; height: 24px; background: #eceae4; box-shadow: inset 0 6px 6px -6px rgba(0,0,0,.28), inset 0 -6px 6px -6px rgba(0,0,0,.28); pointer-events: none; z-index: 5; }
+.pf-page-gap::after { content: attr(data-label); position: absolute; right: 14px; top: 3px; font: 600 15px 'DM Sans', sans-serif; color: #8a857c; }
+#cv-preview { width: 794px !important; min-height: var(--pf-doc-h, 1123px) !important; height: var(--pf-doc-h, 1123px) !important; background: white !important; box-sizing: border-box !important; overflow: hidden !important; position: relative !important; display: block !important; padding: 0 !important; margin: 0 !important; }
 .form-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: 0 1px 6px rgba(0,0,0,0.04); }
 .form-section-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
 .form-section-hdr h3 { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; color: var(--text); }
@@ -807,6 +811,10 @@ nav div a:hover::after { width: 100%; }
 #sheetOverlay.open { display: block; }
 #bottomSheet { position: fixed; bottom: 64px; left: 0; right: 0; height: 72vh; background: var(--bg, #fffffe); border-radius: 16px 16px 0 0; z-index: 195; transform: translateY(100%); transition: transform 0.28s cubic-bezier(0.25,0.8,0.4,1); display: flex; flex-direction: column; overflow: hidden; }
 #bottomSheet.open { transform: translateY(0); }
+/* Closed sheet: fully off-screen (translateY(100%) alone left its top 64px showing above the bottom edge,
+   which on desktop covered the live preview and its template bar). The sheet is a phone-layout control (<=900px). */
+#bottomSheet:not(.open) { transform: translateY(calc(100% + 64px + env(safe-area-inset-bottom, 0px))); }
+@media (min-width: 901px) { #bottomSheet, #sheetOverlay { display: none !important; } }
 #sheetHandle { width: 40px; height: 4px; background: #e2ddd4; border-radius: 2px; margin: 10px auto 0; flex-shrink: 0; }
 #sheetHeader { display: flex; align-items: center; justify-content: space-between; padding: 8px 16px 10px; flex-shrink: 0; border-bottom: 1px solid var(--border, #e2ddd4); }
 #sheetTitle { font-size: 15px; font-weight: 700; color: var(--text, #1a1814); font-family: 'DM Sans', sans-serif; }
@@ -834,6 +842,71 @@ nav div a:hover::after { width: 100%; }
 #carUse:hover { background: #f0ede8; }
 </style>
 <style>/* donate link: hide desktop nav entry where the nav gets crowded (still in mobile menu + footer) */@media (max-width:1023px){nav .donate-nav{display:none !important}}</style>
+<!-- EMBED MODE (?embed=1): the homepage "CV Builder" tab shows this page in an iframe. Only then: no site
+     header/hero/marketing/footer, viewport-based sizes use the PARENT's height (so the frame can be exactly as tall
+     as this document — no inner page scrollbar), and the height is posted to the homepage. Without ?embed=1 nothing
+     below applies. -->
+<style>
+html.pf-embed body { min-height: 0 !important; }
+html.pf-embed body > nav, html.pf-embed #mobileMenu, html.pf-embed .cv-hero, html.pf-embed body > footer, html.pf-embed #pf-scroll-top,
+html.pf-embed #job-search-section ~ div:not([id]), html.pf-embed #job-search-section ~ details, html.pf-embed #job-search-section ~ section { display: none !important; }
+html.pf-embed .cv-main { padding-top: 12px !important; padding-bottom: 16px !important; }
+@media (min-width: 901px) {
+  html.pf-embed #cvFormPanel, html.pf-embed #cvPreviewPanel, html.pf-embed .preview-panel { top: 0 !important; height: calc(var(--pf-vh, 100vh) - 24px) !important; }
+}
+@media (max-width: 900px) { html.pf-embed #cvPreviewPanel { top: 0 !important; } }
+</style>
+<script>
+(function () {
+  if (!/[?&]embed=1(&|$)/.test(location.search)) return;
+  var d = document.documentElement, O = location.origin;
+  d.classList.add('pf-embed');
+  var robots = document.createElement('meta'); robots.name = 'robots'; robots.content = 'noindex, follow';   // canonical: /cv-builder.html
+  document.head.appendChild(robots);
+  if (window.parent === window) return;
+  // <900px the builder is a full-screen app (fixed preview + toolbar): the homepage gives it one screen ("app");
+  // wider, the page flows and the homepage sizes the frame to this document ("flow")
+  var mq = window.matchMedia('(max-width: 900px)'), timer = 0, last = '';
+  function size() {
+    timer = 0;
+    var b = document.body; if (!b) return;
+    var h = Math.ceil(b.getBoundingClientRect().height + (parseFloat(getComputedStyle(b).marginTop) || 0) + (parseFloat(getComputedStyle(b).marginBottom) || 0));
+    var mode = mq.matches ? 'app' : 'flow', key = h + mode;
+    if (key === last) return;
+    last = key;
+    parent.postMessage({ type: 'pf-cv-size', height: h, mode: mode }, O);
+  }
+  function soon() { if (!timer) timer = setTimeout(size, 80); }
+  window.addEventListener('message', function (e) {
+    if (e.origin !== O || e.source !== window.parent || !e.data || e.data.type !== 'pf-cv-host') return;
+    d.style.setProperty('--pf-vh', Math.max(320, +e.data.vh || 0) + 'px');
+    soon();
+  });
+  // an overlay that needs the screen (bottom sheet, menus): ask the homepage to bring the frame into view
+  var lastFocus = 0;
+  function focusParent() { var now = Date.now(); if (now - lastFocus < 800) return; lastFocus = now; parent.postMessage({ type: 'pf-cv-focus' }, O); }
+  function overlayOpen() {
+    var vw = window.innerWidth, vh = window.innerHeight, els = document.body.children;
+    for (var i = 0; i < els.length; i++) {
+      var el = els[i], cs = getComputedStyle(el);
+      if (cs.position !== 'fixed' || cs.display === 'none' || cs.visibility === 'hidden' || el.id === 'canvaToolbar' || el.id === 'cv-toast') continue;
+      var r = el.getBoundingClientRect();
+      if (r.width * r.height > vw * vh * 0.25 && r.bottom > 0 && r.top < vh && !/translateY\(100%\)|matrix\(1, 0, 0, 1, 0, [1-9]/.test(cs.transform)) return true;
+    }
+    return false;
+  }
+  var wasOpen = false;
+  function watch() { var open = overlayOpen(); if (open && !wasOpen) focusParent(); wasOpen = open; soon(); }
+  mq.addEventListener ? mq.addEventListener('change', soon) : mq.addListener(soon);
+  window.addEventListener('load', soon);
+  document.addEventListener('DOMContentLoaded', function () {
+    if (window.ResizeObserver) new ResizeObserver(soon).observe(document.body);
+    new MutationObserver(watch).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['style', 'class', 'hidden', 'open'] });
+    document.addEventListener('pointerdown', function () { if (mq.matches) focusParent(); }, true);
+    size();
+  });
+})();
+</script>
 </head>
 <body>
 <div id="mobileMenu" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9998;" onclick="if(event.target===this)toggleMenu()">
@@ -1426,6 +1499,7 @@ We are looking for a Software Engineer with:
             <button id="docCL" onclick="switchBuilderTab('coverletter');syncDocSwitcher('cl')" class="doc-sw">Letter</button>
           </div>
           <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+            <span id="cvPageCount" title="Most graduate CVs fit on 1 page; 2 pages is fine for experienced roles." style="display:none;font-size:11px;font-weight:600;color:var(--text2);background:var(--surface2,#f4f2ee);border:1px solid var(--border);border-radius:10px;padding:2px 8px;white-space:nowrap;">1 page</span>
             <span id="cvScoreDisplay" style="font-size:11px;font-weight:700;color:var(--accent);"></span>
             <button onclick="toggleEditMode()" id="previewEditBtn" style="padding:5px 12px;background:white;border:1.5px solid #e2ddd4;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;color:#6b6660;font-family:'DM Sans',sans-serif;transition:all 0.2s;display:flex;align-items:center;gap:4px;">✏️ Edit</button>
             <button onclick="openFullPreview()" title="Full screen" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:4px 6px;">⛶</button>
@@ -1748,7 +1822,7 @@ English — Native | Bengali — Fluent" style="width:100%;border:1.5px solid va
     <tr><td style="padding:6px 0;color:#6b6660;border-top:1px solid #f0ede8;">Watermark on PDF</td><td style="padding:6px 0;color:#1a1814;font-weight:600;border-top:1px solid #f0ede8;">No</td></tr>
     <tr><td style="padding:6px 0;color:#6b6660;border-top:1px solid #f0ede8;">Templates</td><td style="padding:6px 0;color:#1a1814;font-weight:600;border-top:1px solid #f0ede8;">54 (all free, forever)</td></tr>
     <tr><td style="padding:6px 0;color:#6b6660;border-top:1px solid #f0ede8;">AI writing</td><td style="padding:6px 0;color:#1a1814;font-weight:600;border-top:1px solid #f0ede8;">Yes — bullet points, summary, cover letter</td></tr>
-    <tr><td style="padding:6px 0;color:#6b6660;border-top:1px solid #f0ede8;">Download format</td><td style="padding:6px 0;color:#1a1814;font-weight:600;border-top:1px solid #f0ede8;">PDF (CV); PDF + DOCX (Cover Letter)</td></tr>
+    <tr><td style="padding:6px 0;color:#6b6660;border-top:1px solid #f0ede8;">Download format</td><td style="padding:6px 0;color:#1a1814;font-weight:600;border-top:1px solid #f0ede8;">PDF (CV); PDF or Word (Cover Letter)</td></tr>
     <tr><td style="padding:6px 0;color:#6b6660;border-top:1px solid #f0ede8;">ATS-friendly templates</td><td style="padding:6px 0;color:#1a1814;font-weight:600;border-top:1px solid #f0ede8;">Yes — Classic, Minimal, Standard Plus, Academic</td></tr>
     <tr><td style="padding:6px 0;color:#6b6660;border-top:1px solid #f0ede8;">Cover letter builder</td><td style="padding:6px 0;color:#1a1814;font-weight:600;border-top:1px solid #f0ede8;">Yes — matches CV template, colour and font</td></tr>
   </table>
@@ -2622,7 +2696,7 @@ function renderCarousel() {
   if (!preview) return;
   const wrap = preview.parentElement;
   wrap.className = 'preview-wrap tpl-' + tplId;
-  preview.innerHTML = renderer(SAMPLE_CV);
+  preview.innerHTML = pfPageHtml(renderer(SAMPLE_CV));
   // Remove any existing badge before adding
   const old = document.getElementById('carBadge');
   if (old) old.remove();
@@ -2679,7 +2753,7 @@ function updatePreview() {
   const wrap = preview.parentElement;
   const renderer = RENDER_MAP[currentTemplate] || renderClassic;
   wrap.className = 'preview-wrap tpl-' + currentTemplate;
-  preview.innerHTML = renderer(d);
+  preview.innerHTML = pfPageHtml(renderer(d));
   const premiumTpls = new Set(['exec-pro','modern-blue','minimal-serif','bold-tech','elegant-gold','modern-minimal','vibrant-purple','creative-split','timeline-cv','skill-bubbles','gradient-header','two-tone','newspaper','corner-accent','border-frame','modern-photo','color-sidebar','top-strip','photo-left','midnight','blush','monogram','swiss','slate-premium','terra','metro','ivory','circuit','aurora','ledger','prism','haven','vertex','standard-plus']);
   if (!premiumTpls.has(currentTemplate)) {
     const extraHtml = renderExtraSections();
@@ -2713,7 +2787,7 @@ function scalePreview() {
   const preview = document.getElementById('cv-preview');
   if (!wrapper || !scaleEl || !preview) return;
   const A4_W = 794;
-  const A4_H = 1056;
+  const A4_H = pfPaginate() * PF_PAGE_H;
   const wrapW = wrapper.clientWidth || wrapper.offsetWidth;
   const availW = wrapW - 24;
   if (availW <= 0) return;
@@ -2724,6 +2798,7 @@ function scalePreview() {
   scaleEl.style.height = A4_H + 'px';
   scaleEl.style.display = 'block';
   scaleEl.style.position = 'relative';
+  scaleEl.style.marginBottom = -Math.floor(A4_H * (1 - scale)) + 'px';   // the transform doesn't shrink the layout box
   preview.style.width = A4_W + 'px';
   preview.style.height = A4_H + 'px';
   preview.style.minHeight = A4_H + 'px';
@@ -2745,6 +2820,157 @@ function scalePreview() {
 window.addEventListener('resize', () => {
   clearTimeout(window._scaleTimer);
   window._scaleTimer = setTimeout(scalePreview, 100);
+});
+// ── Multi-page CV ──
+// Every template is laid out on one continuous A4-wide sheet. pfPaginate() keeps text off the page
+// boundaries: a line or entry that would be cut is pushed to the top of the next page (long paragraphs
+// continue line by line), a section heading or a job title/company/date block moves with what follows it,
+// and bullets may continue onto the next page. The sheet is then sized to whole A4 pages, so sidebars and
+// background colours stretch over every page while the header band stays on page 1.
+const PF_PAGE_H = 1123, PF_PAGE_MT = 40, PF_PAGE_MB = 40;          // A4 at 794px wide; top/bottom margin on each page
+let pfPageCount = 1;
+function pfPageHtml(html) { return String(html).replace(/1056px/g, 'var(--pf-doc-h,1123px)'); }
+function pfPaginateReset(preview) {
+  preview.querySelectorAll('[data-pf-mt]').forEach(el => { el.style.marginTop = el.getAttribute('data-pf-mt'); el.removeAttribute('data-pf-mt'); });
+  preview.querySelectorAll('.pf-pgbr').forEach(el => { const p = el.parentNode; el.remove(); if (p) p.normalize(); });
+}
+function pfIsBlock(el) {
+  const cs = getComputedStyle(el);
+  return cs.display !== 'none' && cs.display !== 'contents' && !cs.display.startsWith('inline') && cs.position !== 'absolute' && cs.position !== 'fixed';
+}
+// The blocks that must not be cut: elements with only inline content, and short rows (title | dates).
+function pfAtoms(root, unit, top0) {
+  const out = [];
+  const walk = (el) => {
+    for (const c of el.children) {
+      if (c.id === 'carBadge' || !pfIsBlock(c)) continue;
+      const r = c.getBoundingClientRect();
+      if (!r.height) continue;
+      const cs = getComputedStyle(c), d = cs.display, h = r.height / unit;
+      const blockKids = [...c.children].some(pfIsBlock);
+      const row = (d.includes('flex') && !cs.flexDirection.startsWith('column')) || d.includes('grid') || d.includes('table');
+      const wraps = d.includes('flex') && cs.flexWrap !== 'nowrap';
+      if (!blockKids || (row && (h < 160 || wraps) && h < PF_PAGE_H - PF_PAGE_MT - PF_PAGE_MB)) {
+        const text = c.textContent.trim();
+        if (!text && !c.querySelector('img,svg,canvas')) continue;
+        let box = r;                    // text-only cell stretched by its row (e.g. dates beside a job): use where the text is
+        if (!blockKids && text && !c.querySelector('img,svg,canvas')) { const rg = document.createRange(); rg.selectNodeContents(c); const t = rg.getBoundingClientRect(); if (t.height) box = t; }
+        out.push({ el: c, top: (box.top - top0) / unit, bottom: (box.bottom - top0) / unit, left: r.left, right: r.right, text, lines: !blockKids });
+      } else walk(c);
+    }
+  };
+  walk(root);
+  return out.sort((a, b) => a.top - b.top);
+}
+function pfPush(el, delta, unit) {
+  if (!el.hasAttribute('data-pf-mt')) el.setAttribute('data-pf-mt', el.style.marginTop || '');
+  const before = el.getBoundingClientRect().top;
+  el.style.marginTop = ((parseFloat(getComputedStyle(el).marginTop) || 0) + delta) + 'px';
+  for (let t = 0; t < 3; t++) {                                    // collapsing margins can swallow part of it
+    const need = delta - (el.getBoundingClientRect().top - before) / unit;
+    if (need < 0.5) break;
+    el.style.marginTop = (parseFloat(el.style.marginTop) + need) + 'px';
+  }
+}
+// Long paragraph across a boundary: break before the first line that would be cut.
+function pfSplitLines(el, unit, top0, k) {
+  const limit = k * PF_PAGE_H - PF_PAGE_MB, elTop = el.getBoundingClientRect().top;
+  const range = document.createRange(), walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  let node;
+  while ((node = walker.nextNode())) {
+    const txt = node.nodeValue;
+    for (let i = 0; i < txt.length; i++) {
+      if (/\s/.test(txt[i])) continue;
+      range.setStart(node, i); range.setEnd(node, i + 1);
+      const rr = range.getClientRects()[0];
+      if (!rr || (rr.bottom - top0) / unit <= limit) continue;
+      if (rr.top - elTop < 2 * unit) return false;                    // the first line: move the whole block
+      let j = i; while (j > 0 && !/\s/.test(txt[j - 1])) j--;
+      const rest = j > 0 ? node.splitText(j) : node;
+      const br = document.createElement('span');
+      br.className = 'pf-pgbr'; br.contentEditable = 'false'; br.style.cssText = 'display:block;height:0;';
+      rest.parentNode.insertBefore(br, rest);
+      range.setStart(rest, 0); range.setEnd(rest, Math.min(1, rest.length));
+      const lineTop = (range.getBoundingClientRect().top - top0) / unit;
+      br.style.height = Math.max(0, k * PF_PAGE_H + PF_PAGE_MT - lineTop) + 'px';
+      return true;
+    }
+  }
+  return false;
+}
+function pfPaginate() {
+  const preview = document.getElementById('cv-preview'), scaleEl = document.getElementById('cvPreviewScale');
+  if (!preview || !scaleEl || !preview.offsetWidth) return pfPageCount;          // hidden: keep the last layout
+  pfPaginateReset(preview);
+  if (preview.querySelector('.cv-empty') || !preview.firstElementChild) {
+    scaleEl.style.setProperty('--pf-doc-h', PF_PAGE_H + 'px');
+    return pfSetPages(1);
+  }
+  scaleEl.style.setProperty('--pf-doc-h', 'auto');                               // measure the natural flow
+  const unit = preview.getBoundingClientRect().width / preview.offsetWidth || 1;
+  const tries = new Map(), contentH = PF_PAGE_H - PF_PAGE_MT - PF_PAGE_MB;
+  let atoms = [];
+  for (let guard = 0; guard < 300; guard++) {
+    const top0 = preview.getBoundingClientRect().top;
+    atoms = pfAtoms(preview, unit, top0);
+    let changed = false;
+    for (let i = 0; i < atoms.length && !changed; i++) {
+      const a = atoms[i];
+      const k = Math.floor((a.bottom + PF_PAGE_MB) / PF_PAGE_H);
+      if (k < 1 || a.top >= k * PF_PAGE_H + PF_PAGE_MT - 0.5) continue;           // clear of every boundary
+      const n = tries.get(a.el) || 0;
+      if (n > 4) continue;
+      tries.set(a.el, n + 1);
+      if (a.lines && a.bottom - a.top > contentH * 0.3 && !editModeOn && pfSplitLines(a.el, unit, top0, k)) { changed = true; break; }
+      if (a.bottom - a.top > contentH) continue;                                  // taller than a page: nothing to gain
+      // keep a heading / title-company-date block with the first line that follows it
+      let lead = a;
+      for (let c = 0; c < 4; c++) {
+        let prev = null;
+        for (const b of atoms) {
+          if (b === lead || b.bottom > lead.top + 1 || b.left >= lead.right || b.right <= lead.left) continue;
+          if (!prev || b.bottom > prev.bottom) prev = b;
+        }
+        if (!prev || prev.el.tagName === 'LI' || prev.text.length > 120 || lead.top - prev.bottom > 40) break;
+        if (a.bottom - prev.top > PF_PAGE_H * 0.45 || prev.top <= (k - 1) * PF_PAGE_H + PF_PAGE_MT + 1) break;
+        lead = prev;
+      }
+      pfPush(lead.el, k * PF_PAGE_H + PF_PAGE_MT - lead.top, unit);
+      changed = true;
+    }
+    if (!changed) break;
+  }
+  const bottom = atoms.reduce((m, a) => Math.max(m, a.bottom), 0);
+  const pages = Math.max(1, Math.ceil((bottom - 0.5) / PF_PAGE_H));
+  scaleEl.style.setProperty('--pf-doc-h', pages * PF_PAGE_H + 'px');
+  return pfSetPages(pages);
+}
+function pfSetPages(n) {
+  pfPageCount = n;
+  const scaleEl = document.getElementById('cvPreviewScale');
+  if (scaleEl) {
+    scaleEl.querySelectorAll('.pf-page-gap').forEach(g => g.remove());
+    for (let k = 1; k < n; k++) {                                                 // gaps between pages (preview only, never in the PDF)
+      const g = document.createElement('div');
+      g.className = 'pf-page-gap'; g.setAttribute('aria-hidden', 'true');
+      g.setAttribute('data-label', 'Page ' + (k + 1));
+      g.style.top = (k * PF_PAGE_H - 12) + 'px';
+      scaleEl.appendChild(g);
+    }
+  }
+  const ind = document.getElementById('cvPageCount');
+  if (ind) {
+    ind.textContent = n === 1 ? '1 page' : n + ' pages';
+    ind.style.display = (carouselMode || document.querySelector('#cv-preview .cv-empty')) ? 'none' : '';
+  }
+  return n;
+}
+// re-paginate when web fonts finish loading and while the preview is edited by hand
+if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', () => requestAnimationFrame(scalePreview));
+document.addEventListener('input', (e) => {
+  if (!editModeOn || !e.target || !e.target.closest || !e.target.closest('#cv-preview')) return;
+  clearTimeout(window._pfPageTimer);
+  window._pfPageTimer = setTimeout(scalePreview, 400);
 });
 
 // ── Dynamic form sections ──
@@ -2980,13 +3206,14 @@ async function downloadPDF() {
   const originalOrigin = scaleEl ? scaleEl.style.transformOrigin : '';
   try {
     if (scaleEl) { scaleEl.style.transform = 'scale(1)'; scaleEl.style.transformOrigin = 'top left'; }
+    const pages = pfPaginate(), docH = pages * PF_PAGE_H;
     preview.style.width = '794px';
-    preview.style.height = '1056px';
+    preview.style.height = docH + 'px';
     preview.style.overflow = 'visible';
     await new Promise(r => setTimeout(r, 100));
     const canvas = await html2canvas(preview, {
       scale: 2, useCORS: true, allowTaint: true,
-      backgroundColor: '#ffffff', width: 794, height: 1056,
+      backgroundColor: '#ffffff', width: 794, height: docH,
       scrollX: 0, scrollY: 0, logging: false,
       removeContainer: true, foreignObjectRendering: false
     });
@@ -2994,8 +3221,16 @@ async function downloadPDF() {
     preview.style.overflow = 'hidden';
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
-    const imgData = canvas.toDataURL('image/jpeg', 0.92);
-    pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297, '', 'FAST');
+    const pagePx = Math.round(canvas.height / pages);
+    for (let p = 0; p < pages; p++) {
+      const pc = document.createElement('canvas');
+      pc.width = canvas.width; pc.height = pagePx;
+      const g = pc.getContext('2d');
+      g.fillStyle = '#ffffff'; g.fillRect(0, 0, pc.width, pc.height);
+      g.drawImage(canvas, 0, p * pagePx, canvas.width, pagePx, 0, 0, canvas.width, pagePx);
+      if (p) pdf.addPage('a4', 'portrait');
+      pdf.addImage(pc.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, 297, '', 'FAST');
+    }
     const name = (getFormData().name || 'CV').replace(/\s+/g, '-');
 
     if (!isMobile) {
@@ -3044,10 +3279,6 @@ async function downloadPDF() {
   }
 }
 
-// ── (CV Word download removed — use PDF) ──
-async function downloadDOCX() {
-  showToast('💡 Use ⬇ PDF to download your CV');
-}
 // ── Improve CV tab ──
 function handleImproveDrop(e) {
   e.preventDefault();
