@@ -809,6 +809,10 @@ nav div a:hover::after { width: 100%; }
 #sheetOverlay.open { display: block; }
 #bottomSheet { position: fixed; bottom: 64px; left: 0; right: 0; height: 72vh; background: var(--bg, #fffffe); border-radius: 16px 16px 0 0; z-index: 195; transform: translateY(100%); transition: transform 0.28s cubic-bezier(0.25,0.8,0.4,1); display: flex; flex-direction: column; overflow: hidden; }
 #bottomSheet.open { transform: translateY(0); }
+/* Closed sheet: fully off-screen (translateY(100%) alone left its top 64px showing above the bottom edge,
+   which on desktop covered the live preview and its template bar). The sheet is a phone-layout control (<=900px). */
+#bottomSheet:not(.open) { transform: translateY(calc(100% + 64px + env(safe-area-inset-bottom, 0px))); }
+@media (min-width: 901px) { #bottomSheet, #sheetOverlay { display: none !important; } }
 #sheetHandle { width: 40px; height: 4px; background: #e2ddd4; border-radius: 2px; margin: 10px auto 0; flex-shrink: 0; }
 #sheetHeader { display: flex; align-items: center; justify-content: space-between; padding: 8px 16px 10px; flex-shrink: 0; border-bottom: 1px solid var(--border, #e2ddd4); }
 #sheetTitle { font-size: 15px; font-weight: 700; color: var(--text, #1a1814); font-family: 'DM Sans', sans-serif; }
@@ -971,8 +975,10 @@ html.pf-embed .cv-main { padding-top: 12px !important; padding-bottom: 16px !imp
           <span style="font-size:14px;font-weight:700;color:var(--text);font-family:'Syne',sans-serif;">Your Details</span>
           <div style="display:flex;gap:8px;">
             <button onclick="downloadPDF()" style="padding:7px 16px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif;box-shadow:0 2px 8px rgba(45,106,79,0.25);transition:all .15s;" onmouseover="this.style.background='#235a40'" onmouseout="this.style.background='var(--accent)'">⬇ PDF</button>
+            <button id="cvDocxBtn" onclick="downloadDOCX()" title="Word version uses a clean ATS-friendly layout." style="padding:7px 12px;background:white;color:var(--accent);border:1.5px solid var(--accent);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif;transition:all .15s;">⬇ Word (.docx)</button>
           </div>
         </div>
+        <div class="cv-docx-note" style="padding:4px 18px 5px;background:white;border-bottom:1px solid var(--border);font-size:11px;color:var(--text3);text-align:right;flex-shrink:0;">Word version uses a clean ATS-friendly layout.</div>
 
         <!-- Scrollable form area -->
         <div id="cvFormScrollable">
@@ -1554,6 +1560,7 @@ We are looking for a Software Engineer with:
         <!-- Download footer -->
         <div id="dlGrid" style="display:flex;gap:8px;padding:10px 14px;background:white;border-top:1px solid var(--border);flex-shrink:0;border-radius:0 0 12px 12px;">
           <button onclick="downloadPDF()" style="flex:1;padding:9px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background .15s;" onmouseover="this.style.background='#235a40'" onmouseout="this.style.background='var(--accent)'">⬇ PDF</button>
+          <button onclick="downloadDOCX()" title="Word version uses a clean ATS-friendly layout." style="flex:1;padding:9px;background:white;color:var(--accent);border:1.5px solid var(--accent);border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;">⬇ Word (.docx)</button>
           <button onclick="copyCV()" title="Copy CV text" style="padding:9px 14px;background:white;color:var(--text2);border:1px solid var(--border);border-radius:8px;font-size:14px;cursor:pointer;transition:all .15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">⎘</button>
         </div>
 
@@ -1815,7 +1822,7 @@ English — Native | Bengali — Fluent" style="width:100%;border:1.5px solid va
     <tr><td style="padding:6px 0;color:#6b6660;border-top:1px solid #f0ede8;">Watermark on PDF</td><td style="padding:6px 0;color:#1a1814;font-weight:600;border-top:1px solid #f0ede8;">No</td></tr>
     <tr><td style="padding:6px 0;color:#6b6660;border-top:1px solid #f0ede8;">Templates</td><td style="padding:6px 0;color:#1a1814;font-weight:600;border-top:1px solid #f0ede8;">54 (all free, forever)</td></tr>
     <tr><td style="padding:6px 0;color:#6b6660;border-top:1px solid #f0ede8;">AI writing</td><td style="padding:6px 0;color:#1a1814;font-weight:600;border-top:1px solid #f0ede8;">Yes — bullet points, summary, cover letter</td></tr>
-    <tr><td style="padding:6px 0;color:#6b6660;border-top:1px solid #f0ede8;">Download format</td><td style="padding:6px 0;color:#1a1814;font-weight:600;border-top:1px solid #f0ede8;">PDF (CV); PDF + DOCX (Cover Letter)</td></tr>
+    <tr><td style="padding:6px 0;color:#6b6660;border-top:1px solid #f0ede8;">Download format</td><td style="padding:6px 0;color:#1a1814;font-weight:600;border-top:1px solid #f0ede8;">PDF or Word (CV — the Word file uses a clean ATS-friendly layout); PDF or Word (Cover Letter)</td></tr>
     <tr><td style="padding:6px 0;color:#6b6660;border-top:1px solid #f0ede8;">ATS-friendly templates</td><td style="padding:6px 0;color:#1a1814;font-weight:600;border-top:1px solid #f0ede8;">Yes — Classic, Minimal, Standard Plus, Academic</td></tr>
     <tr><td style="padding:6px 0;color:#6b6660;border-top:1px solid #f0ede8;">Cover letter builder</td><td style="padding:6px 0;color:#1a1814;font-weight:600;border-top:1px solid #f0ede8;">Yes — matches CV template, colour and font</td></tr>
   </table>
@@ -1963,7 +1970,7 @@ English — Native | Bengali — Fluent" style="width:100%;border:1.5px solid va
     <h2 style="font-family:'Syne',sans-serif;font-size:clamp(20px,3vw,26px);font-weight:800;color:#1a3a2a;margin:0 0 12px;line-height:1.3;">Best Free CV Builder — No Signup, No Watermark</h2>
     <p style="margin:0 0 12px;">ParaFree's CV builder is free from the first click to the final download. You don't create an account, there is no trial that runs out, and your CV downloads without a watermark or a "made with" line.</p>
     <p style="margin:0 0 12px;">All 54 templates are free. If you apply through online job portals, the single-column designs such as Classic, Minimal, Standard Plus and Academic are ATS-friendly: their text sits in a simple order that applicant tracking systems can read. The AI writes bullet points from your job title and duties, drafts a professional summary from what you have entered, and writes a cover letter for the company and role you are applying to.</p>
-    <p style="margin:0 0 12px;">Your CV downloads as a PDF, ready to attach or upload. Cover letters can be downloaded as a PDF or as a Word file if you want to keep editing.</p>
+    <p style="margin:0 0 12px;">Your CV downloads as a PDF, ready to attach or upload, or as a Word file (a clean ATS-friendly layout) if you want to keep editing. Cover letters can be downloaded as a PDF or as a Word file too.</p>
     <p style="margin:0;">Once you add a job title and location, the live job search shows current listings from Jooble right inside the builder, with links to apply. You can tailor your CV to a role and open the listing without switching sites.</p>
   </div>
 </section>
@@ -3111,9 +3118,116 @@ async function downloadPDF() {
   }
 }
 
-// ── (CV Word download removed — use PDF) ──
+// ── CV as Word (.docx) ──
+// A clean, ATS-friendly single-column Word file built from the form: real text only (no text boxes,
+// no images of text), real Word bullet lists, dates on a right-aligned tab stop, section headings in
+// the template's accent colour, the chosen font mapped to a standard Office font. Same approach as the
+// cover letter's Word file (WordprocessingML zipped with JSZip, already loaded on this page).
+function _docxEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function _docxFont() {
+  const OFFICE = ['Calibri', 'Arial', 'Georgia', 'Times New Roman', 'Garamond', 'Cambria', 'Verdana', 'Tahoma', 'Trebuchet MS', 'Century Gothic', 'Courier New', 'Book Antiqua', 'Palatino Linotype'];
+  let css = window._cvFont || '';
+  if (!css) {
+    const el = document.querySelector('#cv-preview div[style*="font-family"]') || document.getElementById('cv-preview');
+    css = el ? getComputedStyle(el).fontFamily : '';
+  }
+  const first = String(css).split(',').map((f) => f.replace(/["']/g, '').trim()).filter(Boolean);
+  for (const f of first) { const hit = OFFICE.find((o) => o.toLowerCase() === f.toLowerCase()); if (hit) return hit; }
+  const all = String(css).toLowerCase();
+  if (/mono|courier|consolas/.test(all)) return 'Courier New';
+  if (/palatino/.test(all)) return 'Palatino Linotype';
+  if (/garamond/.test(all)) return 'Garamond';
+  if (/times/.test(all)) return 'Times New Roman';
+  if (/(^|[^-])serif|georgia|playfair|merriweather|lora|baskerville|didot/.test(all.replace(/sans-serif/g, ''))) return 'Georgia';
+  if (/helvetica|arial/.test(all)) return 'Arial';
+  return 'Calibri';
+}
+function _docxAccent() {
+  const toHex = (c) => { const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(c || ''); return m ? [m[1], m[2], m[3]].map((n) => (+n).toString(16).padStart(2, '0')).join('') : null; };
+  let hex = window._cvAccentColor ? String(window._cvAccentColor).replace('#', '').slice(0, 6) : null;
+  if (!hex) {
+    const prev = document.getElementById('cv-preview');
+    const heading = prev && [...prev.querySelectorAll('div,h1,h2,h3,h4,span,p')].find((e) => !e.children.length && /^(professional summary|summary|profile|work experience|experience|education|skills)$/i.test(e.textContent.trim()));
+    hex = heading ? toHex(getComputedStyle(heading).color) : null;
+  }
+  if (!hex || !/^[0-9a-f]{6}$/i.test(hex)) return '1A1814';
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) > 0.7 ? '1A1814' : hex.toUpperCase();      // too light to read on white
+}
+function buildCVDocxXml(d, font, accent) {
+  const W = 11906, M = 1080, TAB = W - 2 * M;                                     // A4, 0.75" margins
+  const rPr = (o = {}) => `<w:rPr><w:rFonts w:ascii="${font}" w:hAnsi="${font}" w:cs="${font}"/>${o.b ? '<w:b/>' : ''}${o.i ? '<w:i/>' : ''}${o.caps ? '<w:caps/>' : ''}<w:color w:val="${o.color || '1A1814'}"/><w:sz w:val="${o.sz || 21}"/></w:rPr>`;
+  const run = (t, o) => (t ? `<w:r>${rPr(o)}<w:t xml:space="preserve">${_docxEsc(t)}</w:t></w:r>` : '');
+  const tab = (o) => `<w:r>${rPr(o)}<w:tab/></w:r>`;
+  const p = (runs, ppr = '') => `<w:p><w:pPr>${ppr}</w:pPr>${runs}</w:p>`;
+  const space = (b, a) => `<w:spacing w:before="${b}" w:after="${a}"/>`;
+  const heading = (t) => p(run(t, { b: true, caps: true, color: accent, sz: 22 }),
+    `<w:keepNext/><w:pBdr><w:bottom w:val="single" w:sz="8" w:space="2" w:color="${accent}"/></w:pBdr>${space(220, 100)}`);
+  const bullet = (t) => p(run(t, {}), `<w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr>${space(0, 40)}<w:ind w:left="360" w:hanging="260"/>`);
+  const datedLine = (left, leftRest, dates) => p(run(left, { b: true }) + run(leftRest, { color: '444444' }) + (dates ? tab() + run(dates, { color: '555555', sz: 20 }) : ''),
+    `<w:keepNext/><w:tabs><w:tab w:val="right" w:pos="${TAB}"/></w:tabs>${space(120, 30)}`);
+  const lines = (txt) => String(txt || '').split(/\n|;|,(?![^(]*\))/).map((x) => x.replace(/^[•\-*]\s*/, '').trim()).filter(Boolean);
+
+  let body = '';
+  body += p(run(d.name || 'Your Name', { b: true, sz: 40 }), space(0, 40));
+  if (d.title) body += p(run(d.title, { color: accent, sz: 24 }), space(0, 60));
+  const contact = [d.email, d.phone, d.location, d.linkedin].filter(Boolean).join('  |  ');
+  if (contact) body += p(run(contact, { color: '555555', sz: 19 }), space(0, 80));
+  if (d.summary) body += heading('Professional Summary') + p(run(d.summary, {}), `<w:jc w:val="both"/>${space(0, 60)}`);
+  const exps = (d.experience || []).filter((e) => e.company || e.role);
+  if (exps.length) {
+    body += heading('Work Experience');
+    for (const e of exps) {
+      const dates = [e.start, e.end].filter(Boolean).join(' – ');
+      body += datedLine(e.role || e.company, e.role && e.company ? ', ' + e.company : '', dates);
+      for (const b of String(e.bullets || '').split('\n').map((x) => x.replace(/^[•\-*]\s*/, '').trim()).filter(Boolean)) body += bullet(b);
+    }
+  }
+  const edus = (d.education || []).filter((e) => e.school || e.degree);
+  if (edus.length) {
+    body += heading('Education');
+    for (const e of edus) body += datedLine(e.degree || e.school, e.degree && e.school ? ', ' + e.school : '', [e.start, e.end].filter(Boolean).join(' – '));
+  }
+  const skills = lines(d.skills);
+  if (skills.length) body += heading('Skills') + p(run(skills.join(', '), {}), space(0, 60));
+  const certs = lines(d.certs);
+  if (certs.length) { body += heading('Certifications'); for (const c of certs) body += bullet(c); }
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:body>${body}<w:sectPr><w:pgSz w:w="${W}" w:h="16838"/><w:pgMar w:top="${M}" w:right="${M}" w:bottom="${M}" w:left="${M}" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr></w:body></w:document>`;
+}
+async function buildCVDocxBlob(d) {
+  const font = _docxFont(), accent = _docxAccent();
+  const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  const zip = new JSZip();
+  zip.file('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/><Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>');
+  zip.file('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/></Relationships>');
+  zip.file('docProps/core.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>${_docxEsc((d.name || 'CV') + ' — CV')}</dc:title><dc:creator>${_docxEsc(d.name || '')}</dc:creator></cp:coreProperties>`);
+  zip.file('word/_rels/document.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/></Relationships>');
+  zip.file('word/styles.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="${W}"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="${font}" w:hAnsi="${font}" w:cs="${font}"/><w:sz w:val="21"/><w:lang w:val="en-AU"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="60" w:line="264" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style><w:style w:type="paragraph" w:styleId="ListParagraph"><w:name w:val="List Paragraph"/><w:basedOn w:val="Normal"/><w:qFormat/><w:pPr><w:ind w:left="720"/></w:pPr></w:style></w:styles>`);
+  zip.file('word/numbering.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:numbering xmlns:w="${W}"><w:abstractNum w:abstractNumId="0"><w:multiLevelType w:val="singleLevel"/><w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="•"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="360" w:hanging="260"/></w:pPr><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:color w:val="${accent}"/></w:rPr></w:lvl></w:abstractNum><w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num></w:numbering>`);
+  zip.file('word/document.xml', buildCVDocxXml(d, font, accent));
+  return zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+}
 async function downloadDOCX() {
-  showToast('💡 Use ⬇ PDF to download your CV');
+  if (!window.JSZip) { showToast('❌ Word export is not available — please use ⬇ PDF'); return; }
+  const d = getFormData();
+  if (!d.name && !d.title && !d.summary && !d.experience.some((e) => e.company || e.role)) { showToast('Fill in your details first'); return; }
+  showToast('⏳ Creating Word document…');
+  try {
+    const blob = await buildCVDocxBlob(d);
+    const fileName = (d.name || 'My').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-') + '-CV.docx';
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = fileName;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    showToast('✓ Word downloaded!');
+    if (window.PFEvents) PFEvents.cvDownload(currentTemplate, 'docx');
+  } catch (e) {
+    console.error('CV DOCX failed', e);
+    showToast('❌ Could not create the Word file — please use ⬇ PDF');
+  }
 }
 // ── Improve CV tab ──
 function handleImproveDrop(e) {
@@ -6167,7 +6281,9 @@ function openSheet(name) {
     content.innerHTML = isCL
       ? '<button onclick="downloadCLasPDF();closeSheet();" style="width:100%;padding:16px;background:var(--accent);color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download Letter PDF</button>' +
         '<button onclick="closeSheet();setTimeout(downloadCLasDOCX,350);" style="width:100%;padding:16px;background:white;color:var(--accent);border:2px solid var(--accent);border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download Letter Word</button>'
-      : '<button onclick="downloadPDF();closeSheet();" style="width:100%;padding:16px;background:var(--accent);color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download PDF</button>';
+      : '<button onclick="downloadPDF();closeSheet();" style="width:100%;padding:16px;background:var(--accent);color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download PDF</button>' +
+        '<button onclick="closeSheet();setTimeout(downloadDOCX,350);" style="width:100%;padding:16px;background:white;color:var(--accent);border:2px solid var(--accent);border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download Word (.docx)</button>' +
+        '<p style="margin:10px 2px 0;font-size:12px;color:var(--text3);text-align:center;">Word version uses a clean ATS-friendly layout.</p>';
   } else {
     config.selectors.forEach(sel => {
       const el = document.querySelector(sel);

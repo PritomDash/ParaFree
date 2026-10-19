@@ -263,3 +263,176 @@ test.describe('cv-builder.html without ?embed=1 is unchanged', () => {
     await expect(page.locator('body > nav')).toBeVisible();
   });
 });
+
+// ─────────────────────────────────────────────────────────────
+const SIZES: [number, number][] = [[1528, 651], [1280, 720], [1024, 768], [390, 844], [360, 740]];
+// visible pixels of the bottom sheet inside the viewport of its own document
+const sheetVisiblePx = (f: Page | Frame) => f.evaluate(() => {
+  const el = document.getElementById('bottomSheet')!, cs = getComputedStyle(el);
+  if (cs.display === 'none' || cs.visibility === 'hidden') return 0;
+  const r = el.getBoundingClientRect();
+  return r.width > 0 ? Math.max(0, Math.min(innerHeight, r.bottom) - Math.max(0, r.top)) : 0;
+});
+const useThisHit = (f: Page | Frame) => f.evaluate(() => {
+  const e = document.getElementById('carUse')!, b = e.getBoundingClientRect();
+  const hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+  return { ok: !!hit && (hit === e || e.contains(hit)), hit: hit ? (hit.id || hit.tagName) : null, x: b.left + b.width / 2, y: b.top + b.height / 2 };
+});
+
+test.describe('template bar + bottom sheet', () => {
+  for (const [w, h] of SIZES) {
+    test(`full page ${w}×${h}: "Use This" is clickable; the closed sheet shows no pixels`, async ({ page }) => {
+      await page.setViewportSize({ width: w, height: h });
+      await setup(page);
+      await page.goto('/cv-builder.html');
+      await expect(page.locator('#carouselControls')).toBeVisible({ timeout: 30000 });
+      await page.locator('#carUse').scrollIntoViewIfNeeded();
+      expect(await sheetVisiblePx(page)).toBe(0);
+      const r = await useThisHit(page);
+      expect(r.ok, `elementFromPoint → ${r.hit}`).toBe(true);
+      if (w >= 901) await expect(page.locator('#bottomSheet')).toBeHidden();
+    });
+
+    test(`embed ${w}×${h}: "Use This" is clickable through the homepage; the closed sheet shows no pixels`, async ({ page }) => {
+      await page.setViewportSize({ width: w, height: h });
+      await setup(page);
+      await page.goto('/');
+      const frame = await openCvTab(page);
+      await expect(frame.locator('#carouselControls')).toBeVisible({ timeout: 30000 });
+      // bring the button on screen the way a user would (app mode: the frame fills the screen under the nav)
+      const app = await frame.evaluate(() => matchMedia('(max-width: 900px)').matches);
+      await page.evaluate(async (isApp) => {
+        const f = document.getElementById('pfCvFrame') as HTMLIFrameElement;
+        const b = f.contentDocument!.getElementById('carUse')!.getBoundingClientRect();
+        const fr = f.getBoundingClientRect();
+        const target = isApp ? fr.top + scrollY - 68 : fr.top + scrollY + b.top + b.height / 2 - innerHeight / 2;
+        scrollTo({ top: Math.max(0, target), behavior: 'instant' as ScrollBehavior });      // the homepage scrolls smoothly by default
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      }, app);
+      const inner = await useThisHit(frame);
+      expect(inner.ok, `inside the frame elementFromPoint → ${inner.hit}`).toBe(true);
+      const outer = await page.evaluate(([x, y]) => {
+        const f = document.getElementById('pfCvFrame')!, fr = f.getBoundingClientRect();
+        const px = fr.left + x, py = fr.top + y;
+        const hit = document.elementFromPoint(px, py);
+        return { onScreen: py > 68 && py < innerHeight, hitFrame: hit === f };
+      }, [inner.x, inner.y]);
+      expect(outer, 'on screen and not covered by anything on the homepage').toEqual({ onScreen: true, hitFrame: true });
+      expect(await sheetVisiblePx(frame)).toBe(0);
+    });
+  }
+
+  test('390px: the bottom sheet opens and closes (Edit, Design, Save)', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await setup(page);
+    await page.goto('/cv-builder.html');
+    await expect(page.locator('#canvaToolbar')).toBeVisible({ timeout: 30000 });
+    for (const id of ['ctb-edit', 'ctb-design', 'ctb-download']) {
+      await page.locator('#' + id).click();
+      await expect(page.locator('#bottomSheet')).toHaveClass(/open/);
+      await expect.poll(() => sheetVisiblePx(page)).toBeGreaterThan(300);
+      if (id === 'ctb-download') {
+        await expect(page.locator('#sheetContent')).toContainText('Download PDF');
+        await expect(page.locator('#sheetContent')).toContainText('Download Word (.docx)');
+        await expect(page.locator('#sheetContent')).toContainText('Word version uses a clean ATS-friendly layout.');
+      }
+      await page.evaluate(() => (window as any).closeSheet());
+      await expect.poll(() => sheetVisiblePx(page)).toBe(0);
+      expect((await useThisHit(page)).ok, 'template bar usable again').toBe(true);
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+async function fillCv(f: Page | Frame, template: string) {
+  await f.evaluate((tpl) => {
+    const w = window as any;
+    w.setTemplate(tpl);
+    if (!document.querySelector('.exp-entry')) w.addExp();
+    if (!document.querySelector('.edu-entry')) w.addEdu();
+    const set = (sel: string, v: string, root: ParentNode = document) => {
+      const el = root.querySelector(sel) as HTMLInputElement;
+      el.value = v;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    set('#f-name', 'Jordan Rivers'); set('#f-jobtitle', 'Data Analyst'); set('#f-email', 'jordan@example.com'); set('#f-phone', '+61 400 000 000');
+    set('#f-location', 'Brisbane'); set('#f-summary', 'Analyst who turns messy data into clear decisions.');
+    const exp = document.querySelector('.exp-entry')!;
+    set('.exp-role', 'Senior Data Analyst', exp); set('.exp-company', 'Acme Analytics', exp); set('.exp-start', '2021', exp); set('.exp-end', 'Present', exp);
+    set('.exp-bullets', 'Built a churn dashboard used by 40 managers\nCut report time by 60%', exp);
+    const edu = document.querySelector('.edu-entry')!;
+    set('.edu-degree', 'BSc Statistics', edu); set('.edu-school', 'University of Queensland', edu); set('.edu-start', '2016', edu); set('.edu-end', '2019', edu);
+    set('#f-skills', 'SQL, Python, Power BI'); set('#f-certs', 'Google Data Analytics Certificate');
+  }, template);
+}
+// every XML part of a .docx parses (in the browser's strict XML parser)
+async function docxValid(page: Page, buf: Buffer) {
+  const zip = await JSZip.loadAsync(buf);
+  const parts: Record<string, string> = {};
+  for (const name of Object.keys(zip.files)) if (!zip.files[name].dir && /\.(xml|rels)$/.test(name)) parts[name] = await zip.file(name)!.async('string');
+  const bad = await page.evaluate((ps) => Object.entries(ps)
+    .filter(([, x]) => new DOMParser().parseFromString(x, 'application/xml').getElementsByTagName('parsererror').length)
+    .map(([n]) => n), parts);
+  return { bad, parts };
+}
+
+test.describe('CV Word download', () => {
+  for (const [tpl, accent] of [['classic', null], ['modern-blue', '#1565c0'], ['minimal-serif', null]] as [string, string | null][]) {
+    test(`${tpl}: real Word file — name, job title, dates on a tab stop, bullet list, valid XML`, async ({ page }) => {
+      await setup(page);
+      await page.goto('/cv-builder.html');
+      await page.waitForFunction(() => typeof (window as any).downloadDOCX === 'function');
+      await fillCv(page, tpl);
+      if (accent) await page.evaluate((c) => (window as any).setAccentColor(c), accent);
+      await expect(page.locator('#cvDocxBtn')).toHaveText('⬇ Word (.docx)');
+      await expect(page.locator('.cv-docx-note')).toHaveText('Word version uses a clean ATS-friendly layout.');
+      const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 60000 }), page.locator('#cvDocxBtn').click()]);
+      expect(dl.suggestedFilename()).toBe('Jordan-Rivers-CV.docx');
+      const { bad, parts } = await docxValid(page, fs.readFileSync((await dl.path())!));
+      expect(bad, 'XML parts that fail to parse').toEqual([]);
+      for (const need of ['[Content_Types].xml', '_rels/.rels', 'word/document.xml', 'word/styles.xml', 'word/numbering.xml', 'word/_rels/document.xml.rels']) expect(parts[need], need).toBeTruthy();
+      const xml = parts['word/document.xml'];
+      for (const t of ['Jordan Rivers', 'Data Analyst', 'Senior Data Analyst', 'Acme Analytics', '2021 – Present', 'BSc Statistics', 'SQL, Python, Power BI', 'Google Data Analytics Certificate']) expect(xml, t).toContain(t);
+      const paras = xml.match(/<w:p>[\s\S]*?<\/w:p>/g) || [];
+      const bullet = paras.find((x) => x.includes('Built a churn dashboard'))!;
+      expect(bullet).toContain('<w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr>');
+      expect(parts['word/numbering.xml']).toContain('<w:numFmt w:val="bullet"/>');
+      const job = paras.find((x) => x.includes('Senior Data Analyst'))!;
+      expect(job).toMatch(/<w:tab w:val="right" w:pos="\d+"\/>/);                    // dates right-aligned on a tab stop
+      expect(job).toContain('<w:tab/>');
+      expect(xml).not.toMatch(/<w:txbxContent|<w:drawing|<v:shape/);                // ATS: real text only
+      if (accent) expect(xml).toContain('w:color w:val="1565C0"');                   // headings in the chosen colour
+      const ga = await page.evaluate(() => ((window as any).dataLayer || []).map((a: any) => Array.from(a))
+        .filter((a: any[]) => a[0] === 'event' && a[1] === 'cv_download').map((a: any[]) => a[2]));
+      expect(ga).toEqual([{ template: tpl, format: 'docx' }]);
+    });
+  }
+
+  test('fonts map to standard Office fonts', async ({ page }) => {
+    await setup(page);
+    await page.goto('/cv-builder.html');
+    await page.waitForFunction(() => typeof (window as any).buildCVDocxBlob === 'function');
+    await fillCv(page, 'classic');
+    const fonts: Record<string, string> = {};
+    for (const [label, css] of [['Arial', 'Arial,sans-serif'], ['Inter', "'Inter',-apple-system,sans-serif"], ['Georgia', 'Georgia,serif'], ['Verdana', 'Verdana,sans-serif']]) {
+      fonts[label] = await page.evaluate(async (c) => {
+        (window as any).setCVFont(c);
+        const blob = await (window as any).buildCVDocxBlob((window as any).getFormData());
+        const zip = await (window as any).JSZip.loadAsync(blob);
+        return /w:rFonts w:ascii="([^"]+)"/.exec(await zip.file('word/styles.xml').async('string'))![1];
+      }, css);
+    }
+    expect(fonts).toEqual({ Arial: 'Arial', Inter: 'Calibri', Georgia: 'Georgia', Verdana: 'Verdana' });
+  });
+
+  test('inside the homepage embed: Word download works', async ({ page }) => {
+    await setup(page);
+    await page.goto('/');
+    const frame = await openCvTab(page);
+    await fillCv(frame, 'exec-pro');
+    const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 60000 }), frame.evaluate(() => (window as any).downloadDOCX())]);
+    const { bad, parts } = await docxValid(page, fs.readFileSync((await dl.path())!));
+    expect(bad).toEqual([]);
+    expect(parts['word/document.xml']).toContain('Jordan Rivers');
+  });
+});

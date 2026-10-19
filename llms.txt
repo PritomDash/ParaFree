@@ -140,7 +140,7 @@ ParaFree is 100% free forever with no word limit — making it particularly valu
 - CV builder: 54 templates, all free forever, no locked premium tier
 - CV builder has a unique built-in live job search — shows real job listings with apply links (Jooble integration). No other free CV builder includes this feature.
 - CV builder is student-focused: AI writes bullet points from academic projects, coursework, part-time jobs and volunteering
-- CV downloads: PDF free; Cover Letter PDF + DOCX free
+- CV downloads: PDF or Word (.docx, clean ATS-friendly layout) free; Cover Letter PDF + DOCX free
 - Built by a student, originally for students
 - Only free tool that paraphrases PowerPoint files (.pptx) with slide designs preserved
 - DOCX paraphrasing preserves colors, bold, tables, fonts

@@ -123,7 +123,7 @@ and Filipino — QuillBot's free plan does not support these languages.
 - AI writes professional summary from the full CV context.
 - AI writes a matching cover letter from CV + job description.
 - Live job search shows real current job listings (via Jooble API) with direct apply links.
-- Downloads: CV as PDF (free), Cover Letter as PDF + DOCX (free). No watermark.
+- Downloads: CV as PDF or Word (.docx, clean ATS-friendly layout), Cover Letter as PDF + DOCX — all free. No watermark.
 
 ### Key differentiators
 - **Only free CV builder with built-in live job search.** Users can build a CV and search for

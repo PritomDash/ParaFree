@@ -1451,6 +1451,8 @@ body.pf-alt-active #langBar,body.pf-alt-active #humanizerInfo,body.pf-alt-active
 @media (max-width:900px){nav .pf-nav-pdf{display:none !important}}
 /* CV Builder tab: the homepage's floating buttons would sit on the builder's own toolbar */
 body.pf-cv-open #pf-scroll-top,body.pf-cv-open #pf-feedback-card{display:none!important}
+/* 901–960px: full-width CV frame so the builder keeps its desktop layout (its phone layout starts at 900px) */
+@media (min-width:901px) and (max-width:960px){#pfHomeCv{padding:0!important}}
 .pf-home-pdf{max-width:1100px;margin:0 auto 16px;padding:0 16px}.pf-subtabs{display:flex;flex-wrap:wrap;gap:6px}.pf-subtab{background:#fff;border:1px solid #e2ddd4;border-radius:8px;padding:9px 14px;min-height:42px;font:600 13px Syne,sans-serif;color:#6b6660;cursor:pointer}.pf-subtab.active{background:#2d6a4f;border-color:#2d6a4f;color:#fff}.pf-home-loading{padding:28px 16px;text-align:center;color:#6b6660}
 /* Hero (≥769px): it was a fixed 100vh box with overflow:hidden, so on screens shorter than the content the
    CTA buttons were cut off under the stats band and "Explore Tools" sat on top of them. Grow with the content
