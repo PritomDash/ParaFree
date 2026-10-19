@@ -1449,6 +1449,7 @@ const PHOTOS = {
 <style>/* An extra tab (PDF Tools / CV Builder) is open: the text tools' sections are hidden (they keep their state) */
 body.pf-alt-active #langBar,body.pf-alt-active #humanizerInfo,body.pf-alt-active #paraphraseModes,body.pf-alt-active #humanizeModes,body.pf-alt-active .status-bar,body.pf-alt-active .tool-container,body.pf-alt-active #donateNote,body.pf-alt-active #previewNote,body.pf-alt-active #humanScoreBadge,body.pf-alt-active #tryAgainNote,body.pf-alt-active #grammarErrorsPanel,body.pf-alt-active .paraphrase-wrap,body.pf-alt-active #aiWrap,body.pf-alt-active #aiPromoBanner,body.pf-alt-active #shareBar,body.pf-alt-active #pfaiBanner,body.pf-alt-active #scorePanel{display:none!important}
 @media (max-width:900px){nav .pf-nav-pdf{display:none !important}}
+.pf-home-pdf{max-width:1100px;margin:0 auto 16px;padding:0 16px}.pf-subtabs{display:flex;flex-wrap:wrap;gap:6px}.pf-subtab{background:#fff;border:1px solid #e2ddd4;border-radius:8px;padding:9px 14px;min-height:42px;font:600 13px Syne,sans-serif;color:#6b6660;cursor:pointer}.pf-subtab.active{background:#2d6a4f;border-color:#2d6a4f;color:#fff}.pf-home-loading{padding:28px 16px;text-align:center;color:#6b6660}
 /* Hero (≥769px): it was a fixed 100vh box with overflow:hidden, so on screens shorter than the content the
    CTA buttons were cut off under the stats band and "Explore Tools" sat on top of them. Grow with the content
    instead (still at least one screen tall) and keep the scroll hint below the buttons. */
@@ -1608,7 +1609,7 @@ body.pf-alt-active #langBar,body.pf-alt-active #humanizerInfo,body.pf-alt-active
   </div>
 </div>
 
-<!-- PDF TOOLS: pointer under the promo strip; the PDF tab's panel (filled on first open by /lib/pdf-tools/home.js) -->
+<!-- PDF TOOLS: pointer under the promo strip; the PDF tab's panel (filled on first open by lib/pdf-tools home.js) -->
 <div id="pfPdfPromo" style="max-width:1100px; margin:6px auto 0; padding:0 16px; font-family:'DM Sans',sans-serif;">
   <a href="#pdf-to-word" style="display:inline-block; font-size:13px; font-weight:600; color:#2d6a4f; text-decoration:none;">📄 New: free PDF tools — PDF to Word, compress, merge →</a>
 </div>
@@ -1629,23 +1630,34 @@ body.pf-alt-active #langBar,body.pf-alt-active #humanizerInfo,body.pf-alt-active
   </div>
 </div>
 <script>/* Extra tabs (PDF Tools, CV Builder): the text tools are only hidden while one is open (body.pf-alt-active)
-   and shown again on any tool switch. PDF Tools loads /lib/pdf-tools/home.js on first use; CV Builder is a static panel. */
-(function(){var T=['pdf-to-word','word-to-pdf','jpg-to-pdf','compress-pdf','merge-pdf'],L=null,P=null,A=null,d=document,PANEL={pdf:'pfHomePdf',cv:'pfHomeCv'};
-function js(u){return new Promise(function(r,j){var s=d.createElement('script');s.src=u;s.onload=r;s.onerror=j;d.head.appendChild(s)})}
-function load(){if(!L)L=js('/lib/pdf-tools/home.js').catch(function(e){L=null;throw e});return L}
+   and shown again on any tool switch. PDF Tools: the shell shows at once; lib/pdf-tools home.js then loads only the
+   active tool (files versioned with ?v=, long-cached) and is prefetched when the page is idle. CV Builder is static. */
+(function(){var V=window.PFV='324c95d8bd',T=['pdf-to-word','word-to-pdf','jpg-to-pdf','compress-pdf','merge-pdf'],N=['📄 PDF to Word','📝 Word to PDF','🖼 JPG to PDF','🗜 Compress PDF','➕ Merge PDF'],
+L=null,P=null,A=null,d=document,PANEL={pdf:'pfHomePdf',cv:'pfHomeCv'};
+function u(n,x){return '/lib/pdf-tools/'+n+(x||'.js')+'?v='+V}
+function js(src){return new Promise(function(r,j){var s=d.createElement('script');s.src=src;s.onload=r;s.onerror=j;d.head.appendChild(s)})}
+function load(){if(!L)L=js(u('home')).catch(function(e){L=null;throw e});return L}
+function css(){if(d.getElementById('pfHomeCss'))return;var l=d.createElement('link');l.id='pfHomeCss';l.rel='stylesheet';l.href=u('home','.css');d.head.appendChild(l)}
+function shell(t){var b=d.getElementById('pfHomePdf');if(b.firstChild&&!b.hasAttribute('data-err'))return b;b.removeAttribute('data-err');
+b.innerHTML='<div class="pf-home-head"><div class="pf-subtabs" role="tablist" aria-label="PDF tools">'+T.map(function(id,i){return '<button type="button" class="pf-subtab'+(id===t?' active':'')+'" role="tab" data-pftab="'+id+'" aria-selected="'+(id===t)+'">'+N[i]+'</button>'}).join('')+
+'</div><a class="pf-home-full" href="/pdf-tools.html#'+t+'">Open full PDF Tools page →</a></div><p class="pf-home-privacy">🔒 Your files never leave your device.</p><div class="pf-home-panels"><p class="pf-home-loading">Loading tool…</p></div>';
+if(!b.pfWired){b.pfWired=1;b.addEventListener('click',function(e){var x=e.target.closest&&e.target.closest('.pf-subtab');if(x)window.pfOpenPdfTools(x.getAttribute('data-pftab'),1)})}return b}
 function open(id){if(!A){P=d.querySelector('.tool-tabs .tool-tab.active:not(#tab-pdf):not(#tab-cv)');if(P)P.classList.remove('active')}else if(A!==id)close(1);
 A=id;d.body.classList.add('pf-alt-active');d.getElementById('tab-'+id).classList.add('active');d.getElementById(PANEL[id]).hidden=false}
 function close(keep){if(!A)return;var id=A;A=null;d.getElementById('tab-'+id).classList.remove('active');d.getElementById(PANEL[id]).hidden=true;if(id==='pdf'&&window.PFHome)window.PFHome.close();if(keep)return;
 d.body.classList.remove('pf-alt-active');if(P&&!d.querySelector('.tool-tabs .tool-tab.active'))P.classList.add('active');var h=location.hash.slice(1);if(T.indexOf(h)>=0||h==='cv-builder')try{history.replaceState(history.state,'',location.pathname+location.search)}catch(e){}}
-window.pfOpenPdfTools=function(t){open('pdf');var b=d.getElementById('pfHomePdf');if(!b.firstChild)b.innerHTML='<p style="padding:28px 16px;text-align:center;color:#6b6660">Loading PDF tools…</p>';
-return load().then(function(){return window.PFHome.open(t)}).catch(function(){b.innerHTML='<p style="padding:20px 16px;text-align:center;color:#9b1c25">Could not load the PDF tools — check your connection, or open <a href="/pdf-tools.html">the PDF Tools page</a>.</p>'})};
+window.pfOpenPdfTools=function(t,click){t=T.indexOf(t)>=0?t:null;open('pdf');css();var b=shell(t||'pdf-to-word');
+return load().then(function(){return window.PFHome.open(t,click)}).catch(function(){b.setAttribute('data-err','1');b.innerHTML='<p style="padding:20px 16px;text-align:center;color:#9b1c25">Could not load the PDF tools — check your connection, or open <a href="/pdf-tools.html">the PDF Tools page</a>.</p>'})};
 window.pfClosePdfTools=function(){if(A==='pdf')close()};
-window.pfOpenCvTab=function(){open('cv');(window.PFPdfEvents?Promise.resolve():js('/lib/pdf-tools/pdf-events.js')).then(function(){window.PFPdfEvents.cvTabClick()}).catch(function(){})};
+window.pfOpenCvTab=function(){open('cv');(window.PFPdfEvents?Promise.resolve():js(u('pdf-events'))).then(function(){window.PFPdfEvents.cvTabClick()}).catch(function(){})};
 d.addEventListener('click',function(e){var t=e.target&&e.target.closest&&e.target.closest('[onclick*="switchTool("]');if(t)close()},true);
 function h(){var t=location.hash.slice(1),x=d.getElementById('tools');if(T.indexOf(t)>=0)window.pfOpenPdfTools(t);else if(t==='cv-builder')window.pfOpenCvTab();else return;if(x)x.scrollIntoView()}
 addEventListener('hashchange',h);var h0=location.hash.slice(1);if(T.indexOf(h0)>=0||h0==='cv-builder')d.addEventListener('DOMContentLoaded',h);
-if(/[?&]handoff=pdf(&|$)/.test(location.search))addEventListener('load',function(){var s=d.createElement('script');s.src='/lib/pdf-tools/handoff.js';s.onload=function(){window.PFHandoff.receive()};
-s.onerror=function(){var n=d.createElement('p');n.textContent='Download the Word file and upload it here';n.style.cssText='max-width:1100px;margin:6px auto 0;padding:0 16px;font-size:13px;color:#8a4b12';var a=d.getElementById('promoBar');a.parentNode.insertBefore(n,a.nextSibling)};d.head.appendChild(s)})})();
+if(/[?&]handoff=pdf(&|$)/.test(location.search))addEventListener('load',function(){var s=d.createElement('script');s.src=u('handoff');s.onload=function(){window.PFHandoff.receive()};
+s.onerror=function(){var n=d.createElement('p');n.textContent='Download the Word file and upload it here';n.style.cssText='max-width:1100px;margin:6px auto 0;padding:0 16px;font-size:13px;color:#8a4b12';var a=d.getElementById('promoBar');a.parentNode.insertBefore(n,a.nextSibling)};d.head.appendChild(s)});
+/* idle prefetch (3 s after load, low priority, skipped with Save-Data or on 2G) so the first click is near-instant */
+addEventListener('load',function(){setTimeout(function(){var c=navigator.connection;if(c&&(c.saveData||/2g/.test(c.effectiveType||'')))return;
+(window.requestIdleCallback||function(f){setTimeout(f,1)})(function(){[u('home'),u('home','.css'),u('panels'),u('pdf-events'),u('loader'),u('common'),u('pdf-to-word')].forEach(function(x){var l=d.createElement('link');l.rel='prefetch';l.href=x;d.head.appendChild(l)})},{timeout:5000})},3000)})})();
 </script>
 
 <!-- LANGUAGE SELECTOR -->

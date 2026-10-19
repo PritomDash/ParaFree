@@ -9,6 +9,11 @@
   },
   "routes": [
     {
+      "src": "/lib/pdf-tools/(.*)",
+      "headers": { "Cache-Control": "public, max-age=31536000, immutable" },
+      "continue": true
+    },
+    {
       "src": "/([a-z0-9][a-z0-9-]*)$",
       "headers": { "Location": "/$1.html" },
       "status": 301
