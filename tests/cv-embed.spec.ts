@@ -333,8 +333,7 @@ test.describe('template bar + bottom sheet', () => {
       await expect.poll(() => sheetVisiblePx(page)).toBeGreaterThan(300);
       if (id === 'ctb-download') {
         await expect(page.locator('#sheetContent')).toContainText('Download PDF');
-        await expect(page.locator('#sheetContent')).toContainText('Download Word (.docx)');
-        await expect(page.locator('#sheetContent')).toContainText('Word version uses a clean ATS-friendly layout.');
+        await expect(page.locator('#sheetContent')).not.toContainText('Word');          // CV: PDF only
       }
       await page.evaluate(() => (window as any).closeSheet());
       await expect.poll(() => sheetVisiblePx(page)).toBe(0);
@@ -365,74 +364,210 @@ async function fillCv(f: Page | Frame, template: string) {
     set('#f-skills', 'SQL, Python, Power BI'); set('#f-certs', 'Google Data Analytics Certificate');
   }, template);
 }
-// every XML part of a .docx parses (in the browser's strict XML parser)
-async function docxValid(page: Page, buf: Buffer) {
-  const zip = await JSZip.loadAsync(buf);
-  const parts: Record<string, string> = {};
-  for (const name of Object.keys(zip.files)) if (!zip.files[name].dir && /\.(xml|rels)$/.test(name)) parts[name] = await zip.file(name)!.async('string');
-  const bad = await page.evaluate((ps) => Object.entries(ps)
-    .filter(([, x]) => new DOMParser().parseFromString(x, 'application/xml').getElementsByTagName('parsererror').length)
-    .map(([n]) => n), parts);
-  return { bad, parts };
+
+test.describe('CV downloads: PDF only (cover letter keeps Word)', () => {
+  test('no CV Word button, note or builder anywhere; the cover letter Word download is still there', async ({ page }) => {
+    await setup(page);
+    await page.goto('/cv-builder.html');
+    await page.waitForFunction(() => typeof (window as any).downloadPDF === 'function');
+    expect(await page.evaluate(() => ({
+      docx: typeof (window as any).downloadDOCX, builder: typeof (window as any).buildCVDocxBlob,
+      btn: document.querySelectorAll('#cvDocxBtn, .cv-docx-note').length,
+      footer: document.getElementById('dlGrid')!.textContent!.includes('Word'),
+      hint: document.body.innerHTML.includes('Use ⬇ PDF to download your CV'),
+      cl: typeof (window as any).downloadCLasDOCX,
+    }))).toEqual({ docx: 'undefined', builder: 'undefined', btn: 0, footer: false, hint: false, cl: 'function' });
+    await expect(page.locator('text=Word version uses a clean ATS-friendly layout.')).toHaveCount(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+const PAGE_H = 1123;                                   // A4 at the sheet's 794px width
+async function fillBigCv(f: Page | Frame, template: string, jobs = 6, bullets = 6) {
+  await fillCv(f, template);
+  await f.evaluate(([jobs, bullets]) => {
+    const w = window as any;
+    while (document.querySelectorAll('.exp-entry').length < jobs) w.addExp();
+    const set = (el: HTMLInputElement | HTMLTextAreaElement, v: string) => { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); };
+    set(document.getElementById('f-summary') as HTMLTextAreaElement, 'Analyst with eight years of experience turning messy operational data into clear, trusted decisions for finance, sales and operations teams. ' +
+      'Known for building dashboards people actually use, automating slow manual reporting, and explaining numbers to non-technical managers in plain language. ' +
+      'Comfortable owning a problem end to end, from the first stakeholder interview to a production pipeline that keeps running without me.');
+    document.querySelectorAll('.exp-entry').forEach((e, i) => {
+      set(e.querySelector('.exp-role')!, `Role ${i + 1} Analyst`);
+      set(e.querySelector('.exp-company')!, `Company ${i + 1} Pty Ltd`);
+      set(e.querySelector('.exp-start')!, `${2020 - i * 2}`);
+      set(e.querySelector('.exp-end')!, i ? `${2022 - i * 2}` : 'Present');
+      set(e.querySelector('.exp-bullets')!, Array.from({ length: bullets }, (_, b) =>
+        `Job ${i + 1} bullet ${b + 1}: delivered a measurable improvement to reporting accuracy and speed for the regional team`).join('\n'));
+    });
+  }, [jobs, bullets]);
+  await f.waitForTimeout(400);
+  await f.evaluate(() => new Promise((r) => requestAnimationFrame(() => { (window as any).scalePreview(); requestAnimationFrame(r); })));
+}
+// every text line of the preview, in sheet coordinates (unscaled px)
+const previewLines = (f: Page | Frame) => f.evaluate(() => {
+  const pv = document.getElementById('cv-preview')!, box = pv.getBoundingClientRect(), unit = box.width / pv.offsetWidth;
+  const out: { t: number; b: number; text: string }[] = [];
+  const w = document.createTreeWalker(pv, NodeFilter.SHOW_TEXT), r = document.createRange();
+  let n: Node | null;
+  while ((n = w.nextNode())) {
+    if (!n.nodeValue!.trim()) continue;
+    const el = n.parentElement!;
+    if (getComputedStyle(el).visibility === 'hidden') continue;
+    r.selectNodeContents(n);
+    for (const q of r.getClientRects()) if (q.height) out.push({ t: (q.top - box.top) / unit, b: (q.bottom - box.top) / unit, text: n.nodeValue!.trim().slice(0, 50) });
+  }
+  return { lines: out, pages: Math.round(pv.offsetHeight / 1123), sheetH: pv.offsetHeight };
+});
+const pageOf = (y: number) => Math.floor(y / PAGE_H);
+// pages + each page's JPEG (jsPDF stores one DCT image per page)
+function pdfPages(buf: Buffer) {
+  const s = buf.toString('latin1');
+  const pages = (s.match(/\/Type\s*\/Page(?![s\w])/g) || []).length;
+  const jpgs: string[] = [];
+  const re = /<<([^]*?)>>\s*stream\r?\n/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(s))) {
+    if (!/DCTDecode/.test(m[1])) continue;
+    const len = +(/\/Length (\d+)/.exec(m[1]) || [])[1];
+    jpgs.push(buf.subarray(m.index + m[0].length, m.index + m[0].length + len).toString('base64'));
+  }
+  return { pages, jpgs };
+}
+const samplePx = (page: Page, b64: string, fx: number, fy: number) => page.evaluate(async ([b64, fx, fy]) => {
+  const bytes = Uint8Array.from(atob(b64 as string), (c) => c.charCodeAt(0));
+  const bmp = await createImageBitmap(new Blob([bytes], { type: 'image/jpeg' }));
+  const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height;
+  const g = c.getContext('2d')!; g.drawImage(bmp, 0, 0);
+  const d = g.getImageData(Math.round(bmp.width * (fx as number)), Math.round(bmp.height * (fy as number)), 1, 1).data;
+  return { rgb: [d[0], d[1], d[2]], w: bmp.width, h: bmp.height };
+}, [b64, fx, fy] as [string, number, number]);
+async function downloadCvPdf(page: Page, f: Page | Frame) {
+  const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 90000 }), f.evaluate(() => (window as any).downloadPDF())]);
+  expect(dl.suggestedFilename()).toBe('Jordan-Rivers-CV.pdf');
+  return pdfPages(fs.readFileSync((await dl.path())!));
 }
 
-test.describe('CV Word download', () => {
-  for (const [tpl, accent] of [['classic', null], ['modern-blue', '#1565c0'], ['minimal-serif', null]] as [string, string | null][]) {
-    test(`${tpl}: real Word file — name, job title, dates on a tab stop, bullet list, valid XML`, async ({ page }) => {
-      await setup(page);
+test.describe('multi-page CV', () => {
+  for (const tpl of ['classic', 'exec-pro', 'minimal', 'modern-blue']) {
+    test(`${tpl}: a long CV flows onto 2+ pages — preview, page count and PDF; no line cut at a page boundary`, async ({ page }) => {
+      await page.setViewportSize({ width: 1280, height: 800 });
+      const net = await setup(page);
       await page.goto('/cv-builder.html');
-      await page.waitForFunction(() => typeof (window as any).downloadDOCX === 'function');
-      await fillCv(page, tpl);
-      if (accent) await page.evaluate((c) => (window as any).setAccentColor(c), accent);
-      await expect(page.locator('#cvDocxBtn')).toHaveText('⬇ Word (.docx)');
-      await expect(page.locator('.cv-docx-note')).toHaveText('Word version uses a clean ATS-friendly layout.');
-      const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 60000 }), page.locator('#cvDocxBtn').click()]);
-      expect(dl.suggestedFilename()).toBe('Jordan-Rivers-CV.docx');
-      const { bad, parts } = await docxValid(page, fs.readFileSync((await dl.path())!));
-      expect(bad, 'XML parts that fail to parse').toEqual([]);
-      for (const need of ['[Content_Types].xml', '_rels/.rels', 'word/document.xml', 'word/styles.xml', 'word/numbering.xml', 'word/_rels/document.xml.rels']) expect(parts[need], need).toBeTruthy();
-      const xml = parts['word/document.xml'];
-      for (const t of ['Jordan Rivers', 'Data Analyst', 'Senior Data Analyst', 'Acme Analytics', '2021 – Present', 'BSc Statistics', 'SQL, Python, Power BI', 'Google Data Analytics Certificate']) expect(xml, t).toContain(t);
-      const paras = xml.match(/<w:p>[\s\S]*?<\/w:p>/g) || [];
-      const bullet = paras.find((x) => x.includes('Built a churn dashboard'))!;
-      expect(bullet).toContain('<w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr>');
-      expect(parts['word/numbering.xml']).toContain('<w:numFmt w:val="bullet"/>');
-      const job = paras.find((x) => x.includes('Senior Data Analyst'))!;
-      expect(job).toMatch(/<w:tab w:val="right" w:pos="\d+"\/>/);                    // dates right-aligned on a tab stop
-      expect(job).toContain('<w:tab/>');
-      expect(xml).not.toMatch(/<w:txbxContent|<w:drawing|<v:shape/);                // ATS: real text only
-      if (accent) expect(xml).toContain('w:color w:val="1565C0"');                   // headings in the chosen colour
-      const ga = await page.evaluate(() => ((window as any).dataLayer || []).map((a: any) => Array.from(a))
-        .filter((a: any[]) => a[0] === 'event' && a[1] === 'cv_download').map((a: any[]) => a[2]));
-      expect(ga).toEqual([{ template: tpl, format: 'docx' }]);
+      await page.waitForFunction(() => typeof (window as any).pfPaginate === 'function');
+      await fillBigCv(page, tpl);
+      const { lines, pages, sheetH } = await previewLines(page);
+      expect(pages, 'pages').toBeGreaterThanOrEqual(2);
+      expect(sheetH).toBe(pages * PAGE_H);                                          // whole A4 pages, nothing cut off at the end
+      await expect(page.locator('#cvPageCount')).toHaveText(`${pages} pages`);
+      await expect(page.locator('#cvPageCount')).toHaveAttribute('title', 'Most graduate CVs fit on 1 page; 2 pages is fine for experienced roles.');
+      await expect(page.locator('#cvPreviewScale .pf-page-gap')).toHaveCount(pages - 1);
+      // no text line in (or across) the 40px margins either side of a page boundary, none past the last page
+      const cut = lines.filter((l) => l.b > pages * PAGE_H || Array.from({ length: pages - 1 }, (_, i) => (i + 1) * PAGE_H).some((y) => l.t < y + 30 && l.b > y - 30));
+      expect(cut, 'lines at a page boundary').toEqual([]);
+      for (const want of ['Job 6 bullet 6', 'Role 6 Analyst', 'BSc Statistics']) expect(lines.some((l) => l.text.includes(want)), want).toBe(true);
+      // keep-together: each job title is on the same page as its company, its dates and its first bullet
+      const at = (t: string) => lines.find((l) => l.text.includes(t))!;
+      for (let i = 1; i <= 6; i++) {
+        const role = at(`Role ${i} Analyst`);
+        expect(pageOf(at(`Company ${i} Pty`).t), `company ${i}`).toBe(pageOf(role.t));
+        expect(pageOf(at(`Job ${i} bullet 1:`).t), `first bullet ${i}`).toBe(pageOf(role.t));
+      }
+      // a section heading stays with its first entry
+      const heading = lines.find((l) => /^(work\s+)?experience$|^professional experience$|^employment/i.test(l.text));
+      if (heading) expect(pageOf(heading.t)).toBe(pageOf(at('Role 1 Analyst').t));
+      // PDF: one real A4 page per sheet page
+      const pdf = await downloadCvPdf(page, page);
+      expect(pdf.pages).toBe(pages);
+      expect(pdf.jpgs.length).toBe(pages);
+      const px = await samplePx(page, pdf.jpgs[1], 0.5, 0.5);
+      expect(Math.abs(px.h / px.w - 297 / 210)).toBeLessThan(0.01);               // A4 proportions, not stretched
+      expect(fs.statSync).toBeTruthy();
+      expect(net.errors).toEqual([]);
     });
   }
 
-  test('fonts map to standard Office fonts', async ({ page }) => {
+  test('exec-pro: the sidebar colour continues on page 2; the header is on page 1 only', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
     await setup(page);
     await page.goto('/cv-builder.html');
-    await page.waitForFunction(() => typeof (window as any).buildCVDocxBlob === 'function');
-    await fillCv(page, 'classic');
-    const fonts: Record<string, string> = {};
-    for (const [label, css] of [['Arial', 'Arial,sans-serif'], ['Inter', "'Inter',-apple-system,sans-serif"], ['Georgia', 'Georgia,serif'], ['Verdana', 'Verdana,sans-serif']]) {
-      fonts[label] = await page.evaluate(async (c) => {
-        (window as any).setCVFont(c);
-        const blob = await (window as any).buildCVDocxBlob((window as any).getFormData());
-        const zip = await (window as any).JSZip.loadAsync(blob);
-        return /w:rFonts w:ascii="([^"]+)"/.exec(await zip.file('word/styles.xml').async('string'))![1];
-      }, css);
-    }
-    expect(fonts).toEqual({ Arial: 'Arial', Inter: 'Calibri', Georgia: 'Georgia', Verdana: 'Verdana' });
+    await page.waitForFunction(() => typeof (window as any).pfPaginate === 'function');
+    await fillBigCv(page, 'exec-pro');
+    await page.evaluate(() => (window as any).setAccentColor('#1565c0'));
+    await page.waitForTimeout(300);
+    const pdf = await downloadCvPdf(page, page);
+    expect(pdf.pages).toBeGreaterThanOrEqual(2);
+    const near = (a: number[], b: number[]) => a.every((v, i) => Math.abs(v - b[i]) < 30);
+    const side1 = await samplePx(page, pdf.jpgs[0], 0.08, 0.7), side2 = await samplePx(page, pdf.jpgs[1], 0.08, 0.5);
+    expect(near(side1.rgb, [0x15, 0x65, 0xc0]), `page 1 sidebar ${side1.rgb}`).toBe(true);
+    expect(near(side2.rgb, [0x15, 0x65, 0xc0]), `page 2 sidebar ${side2.rgb}`).toBe(true);
+    const main2 = await samplePx(page, pdf.jpgs[1], 0.9, 0.98);
+    expect(near(main2.rgb, [255, 255, 255]), `page 2 main column ${main2.rgb}`).toBe(true);
+    const { lines } = await previewLines(page);
+    expect(pageOf(lines.find((l) => l.text === 'Jordan Rivers')!.t)).toBe(0);
+    expect(lines.filter((l) => l.text === 'Jordan Rivers').length).toBe(1);
   });
 
-  test('inside the homepage embed: Word download works', async ({ page }) => {
+  test('a short CV is exactly 1 page in each of the 4 templates (preview and PDF)', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await setup(page);
+    await page.goto('/cv-builder.html');
+    await page.waitForFunction(() => typeof (window as any).pfPaginate === 'function');
+    for (const tpl of ['classic', 'exec-pro', 'minimal', 'modern-blue']) {
+      await fillCv(page, tpl);
+      await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => { (window as any).scalePreview(); requestAnimationFrame(r); })));
+      const { pages, sheetH } = await previewLines(page);
+      expect(pages, tpl).toBe(1);
+      expect(sheetH, tpl).toBe(PAGE_H);
+      await expect(page.locator('#cvPageCount')).toHaveText('1 page');
+      await expect(page.locator('#cvPreviewScale .pf-page-gap')).toHaveCount(0);
+      const pdf = await downloadCvPdf(page, page);
+      expect(pdf.pages, tpl).toBe(1);
+    }
+  });
+
+  test('the font size is the user\'s: a long CV is not shrunk to fit', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await setup(page);
+    await page.goto('/cv-builder.html');
+    await page.waitForFunction(() => typeof (window as any).pfPaginate === 'function');
+    const size = () => page.evaluate(() => {
+      const li = [...document.querySelectorAll('#cv-preview li')].find((e) => e.textContent!.includes('bullet 1'))!;
+      return getComputedStyle(li).fontSize;
+    });
+    await fillBigCv(page, 'classic', 1, 2);
+    const short = await size();
+    await fillBigCv(page, 'classic', 6, 6);
+    expect(await size()).toBe(short);
+  });
+
+  test('390px: the long CV shows its pages in the phone preview', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await setup(page);
+    await page.goto('/cv-builder.html');
+    await page.waitForFunction(() => typeof (window as any).pfPaginate === 'function');
+    await fillBigCv(page, 'modern-blue');
+    const { pages } = await previewLines(page);
+    expect(pages).toBeGreaterThanOrEqual(2);
+    // the preview scrolls to the end of the last page, and no further
+    const r = await page.evaluate(() => {
+      const w = document.getElementById('cvPreviewWrapper')!, s = document.getElementById('cvPreviewScale')!;
+      return { visualH: s.getBoundingClientRect().height, scrollH: w.scrollHeight };
+    });
+    expect(Math.abs(r.scrollH - r.visualH - 24)).toBeLessThan(4);
+  });
+
+  test('inside the homepage embed: a long CV downloads as a 2+ page PDF; the frame height still follows the page', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
     await setup(page);
     await page.goto('/');
     const frame = await openCvTab(page);
-    await fillCv(frame, 'exec-pro');
-    const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 60000 }), frame.evaluate(() => (window as any).downloadDOCX())]);
-    const { bad, parts } = await docxValid(page, fs.readFileSync((await dl.path())!));
-    expect(bad).toEqual([]);
-    expect(parts['word/document.xml']).toContain('Jordan Rivers');
+    await fillBigCv(frame, 'exec-pro');
+    const { pages } = await previewLines(frame);
+    expect(pages).toBeGreaterThanOrEqual(2);
+    await expect(frame.locator('#cvPageCount')).toHaveText(`${pages} pages`);
+    const pdf = await downloadCvPdf(page, frame);
+    expect(pdf.pages).toBe(pages);
+    await expect.poll(async () => { const s = await sizes(page, frame); return Math.abs(s.frameH - s.scrollH); }, { timeout: 10000 }).toBeLessThan(3);
   });
 });
