@@ -175,6 +175,16 @@ const words = (n, w = 'word') => Array.from({ length: n }, (_, i) => w + i).join
       eq(events(ctx), [['event', 'cover_letter_download', { format: 'pdf' }], ['event', 'cover_letter_download', { format: 'docx' }],
                        ['event', 'cover_letter_download', { format: 'pdf' }]]), JSON.stringify(events(ctx)));
 
+    ctx._gtag.length = 0;
+    E.cvDownloadBlocked('sample_showing'); E.cvDownloadBlocked('overflow'); E.cvDownloadBlocked('empty'); E.cvDownloadBlocked('other');
+    E.cvStarted('name'); E.cvStarted('experience');
+    E.cvDownloadBlocked('Alice Smith'); E.cvStarted('Jane Smith'); E.send('cv_started', { field: 'name', value: 'Jane' });
+    assert('cv_download_blocked sends a fixed reason; cv_started a fixed field name (never the text)',
+      eq(events(ctx), [['event', 'cv_download_blocked', { reason: 'sample_showing' }], ['event', 'cv_download_blocked', { reason: 'overflow' }],
+                       ['event', 'cv_download_blocked', { reason: 'empty' }], ['event', 'cv_download_blocked', { reason: 'other' }],
+                       ['event', 'cv_started', { field: 'name' }], ['event', 'cv_started', { field: 'experience' }],
+                       ['event', 'cv_started', { field: 'name' }]]), JSON.stringify(events(ctx)));
+
     const noGa = makeSandbox('ok', { noGtag: true });
     let threw = null; try { noGa.PFEvents.toolUsed('paraphrase', 'text', 10); } catch (e) { threw = e; }
     assert('no gtag (GA blocked) → no error', threw === null, threw);
