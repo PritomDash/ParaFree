@@ -888,15 +888,15 @@ test.describe('page count: chosen by the user', () => {
     await expect(bar(page).locator('button', { hasText: '+ Add page 2' })).toBeVisible();
   });
 
-  test('"+ Add page 2" gives exactly 2 pages; the PDF always has the chosen number of pages', async ({ page }) => {
+  test('"+ Add page 2" gives exactly 2 pages; the PDF has the chosen pages, never a blank one', async ({ page }) => {
     await openBuilder(page);
     await fillBigCv(page, 'exec-pro', 3, 5, false);
     await bar(page).locator('button', { hasText: '+ Add page 2' }).click();
     expect((await st(page)).chosen).toBe(2);
     await expect(page.locator('#cvPagesCtl button.on')).toHaveText('2');
     expect(pdfPages(await cvPdfBuffer(page, page)).pages).toBe(2);
-    await page.locator('#cvPagesCtl button[data-p="3"]').click();                     // more pages than the content needs
-    expect(pdfPages(await cvPdfBuffer(page, page)).pages).toBe(3);
+    await page.locator('#cvPagesCtl button[data-p="3"]').click();                     // more pages than the content needs: no blank page 3
+    expect(pdfPages(await cvPdfBuffer(page, page)).pages).toBe(2);
     await page.locator('#cvPagesCtl button[data-p="1"]').click();                     // fewer: no silent cut
     expect(await noDownload(page, page)).toBe(true);
   });
@@ -906,7 +906,7 @@ test.describe('page count: chosen by the user', () => {
     await fillCv(page, 'classic');
     await page.evaluate(() => (window as any).pfSetChosenPages(2));
     await expect(bar(page)).toContainText('Page 2 is mostly empty — Fit to 1 page?');
-    expect(pdfPages(await cvPdfBuffer(page, page)).pages).toBe(2);                   // not forced
+    expect(pdfPages(await cvPdfBuffer(page, page)).pages).toBe(1);                   // page 2 is empty: not exported
     await bar(page).locator('button', { hasText: 'Fit to 1 page' }).click();
     expect((await st(page)).chosen).toBe(1);
     await expect(bar(page)).toBeHidden();
@@ -1008,5 +1008,80 @@ test.describe('text alignment', () => {
       if (r.length) bad.push(`${tpl}: ${r.join(', ')}`);
     }
     expect(bad).toEqual([]);
+  });
+});
+
+test.describe('no blank pages; extra sections in the content column', () => {
+  for (const tpl of ['classic', 'exec-pro', 'minimal', 'modern-blue']) {
+    test(`${tpl}: a short CV with Pages = 3 downloads as 1 page — never a blank page`, async ({ page }) => {
+      await openBuilder(page);
+      await fillCv(page, tpl);
+      await page.locator('#cvPagesCtl button[data-p="3"]').click();
+      expect((await st(page)).chosen).toBe(3);
+      const buf = await cvPdfBuffer(page, page);
+      const { pages, jpgs } = pdfPages(buf);
+      expect(pages).toBe(1);
+      const pdf = await readPdf(page, buf);
+      for (const pg of pdf.pages) expect(pg.items.join(' ').trim().length, 'every page has text').toBeGreaterThan(0);
+      // and no page image is plain white
+      for (const j of jpgs) {
+        const px = await page.evaluate(async (b64) => {
+          const bmp = await createImageBitmap(new Blob([Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))], { type: 'image/jpeg' }));
+          const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height;
+          const g = c.getContext('2d')!; g.drawImage(bmp, 0, 0);
+          const d = g.getImageData(0, 0, c.width, c.height).data; let dark = 0;
+          for (let i = 0; i < d.length; i += 16) if (d[i] + d[i + 1] + d[i + 2] < 600) dark++;
+          return dark;
+        }, j);
+        expect(px).toBeGreaterThan(100);
+      }
+    });
+  }
+
+  test('a 2-page CV with Pages = 3 downloads as 2 pages, each with its own content', async ({ page }) => {
+    await openBuilder(page);
+    await fillBigCv(page, 'modern-blue');
+    expect((await st(page)).natural).toBe(2);
+    await page.evaluate(() => (window as any).pfSetChosenPages(3));
+    const pdf = await readPdf(page, await cvPdfBuffer(page, page));
+    expect(pdf.pages.length).toBe(2);
+    for (const pg of pdf.pages) expect(pg.items.length).toBeGreaterThan(5);
+  });
+
+  const EXTRA_TPLS = ['classic', 'modern', 'minimal', 'executive', 'creative', 'compact', 'timeline', 'tech', 'navy', 'burgundy', 'teal', 'slate',
+    'terracotta', 'bold', 'academic', 'elegant', 'purple', 'warm', 'professional', 'gradient'];
+  test('older templates: References sits in the same padded column as Work Experience (Classic, Modern and all the others)', async ({ page }) => {
+    await openBuilder(page);
+    const off: string[] = [];
+    for (const tpl of EXTRA_TPLS) {
+      await fillCv(page, tpl);
+      const r = await page.evaluate(() => {
+        const pv = document.getElementById('cv-preview')!, u = pv.getBoundingClientRect().width / 794, x0 = pv.getBoundingClientRect().left;
+        const leaf = (re: RegExp) => [...pv.querySelectorAll('*')].find((e) => [...e.childNodes].some((n) => n.nodeType === 3 && re.test(n.nodeValue!.trim())))!;
+        const left = (e: Element) => Math.round((e.getBoundingClientRect().left - x0) / u);
+        const exp = leaf(/^(work |professional )?experience$/i), ref = leaf(/^references$/i), body = leaf(/^Available upon request/), role = leaf(/^Senior Data Analyst$/);
+        return { exp: left(exp), ref: left(ref), body: left(body), role: left(role), expRight: Math.round((exp.getBoundingClientRect().right - x0) / u), refRight: Math.round((ref.getBoundingClientRect().right - x0) / u) };
+      });
+      // the heading lines up with Work Experience; the text starts at the column edge (never flush at 0)
+      if (r.ref !== r.exp || r.refRight !== r.expRight || r.body < Math.min(r.exp, r.role) - 1 || r.body < 8) off.push(`${tpl} ${JSON.stringify(r)}`);
+    }
+    expect(off).toEqual([]);
+  });
+
+  test('Classic and Modern: References heading left edge equals Work Experience — in the PDF too', async ({ page }) => {
+    await openBuilder(page);
+    for (const tpl of ['classic', 'modern']) {
+      await fillCv(page, tpl);
+      const [exp, ref] = await page.evaluate(() => {
+        const pv = document.getElementById('cv-preview')!, u = pv.getBoundingClientRect().width / 794, x0 = pv.getBoundingClientRect().left;
+        const leaf = (re: RegExp) => [...pv.querySelectorAll('*')].find((e) => [...e.childNodes].some((n) => n.nodeType === 3 && re.test(n.nodeValue!.trim())))!;
+        return [leaf(/^(work )?experience$/i), leaf(/^references$/i)].map((e) => Math.round((e.getBoundingClientRect().left - x0) / u));
+      });
+      expect(ref, tpl).toBe(exp);
+      expect(ref, tpl).toBeGreaterThan(8);
+      // the PDF draws what the preview shows: the invisible text for "Available upon request" starts inside the column
+      const x = await page.evaluate(() => (window as any).pfTextRuns(document.getElementById('cv-preview')).find((r: any) => r.text.startsWith('Available upon request')).x);
+      expect(x, tpl).toBeGreaterThan(8);
+    }
   });
 });

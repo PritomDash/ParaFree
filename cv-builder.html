@@ -2788,7 +2788,7 @@ function updatePreview() {
   if (!premiumTpls.has(currentTemplate)) {
     const extraHtml = renderExtraSections();
     if (extraHtml) {
-      const mainCol = preview.querySelector('.cv-main-col');
+      const mainCol = preview.querySelector('.cv-main-col') || pfContentColumn(preview);
       (mainCol || preview).insertAdjacentHTML('beforeend', extraHtml);
     }
   }
@@ -3056,6 +3056,16 @@ function pfFixAlign(preview, d) {
   }
 }
 
+// The padded column that holds a template's own sections (for templates without .cv-main-col, extra sections
+// such as References or Languages were appended to the bare sheet and sat flush against its left edge).
+function pfContentColumn(preview) {
+  const re = /^(work |professional )?(experience|summary|profile|education|skills)$/i;
+  const h = [...preview.querySelectorAll('*')].find(e => [...e.childNodes].some(n => n.nodeType === 3 && re.test(n.nodeValue.trim().replace(/^[^\p{L}]+|[^\p{L}]+$/gu, ''))));
+  for (let a = h && h.parentElement; a && a !== preview; a = a.parentElement) {
+    if (parseFloat(getComputedStyle(a).paddingLeft) > 8) return a;
+  }
+  return null;
+}
 function pfFindHeading(atoms, key) {
   const re = PF_SECTION_HEADINGS[key];
   for (const a of atoms) {
@@ -3125,10 +3135,13 @@ function pfPaginate() {
   // lines that don't fit on the chosen pages; how full the last chosen page is
   let overLines = 0;
   if (natural > chosen) {
+    // every text line below the page limit (lines side by side, e.g. a title and its dates, count once)
     const top0 = preview.getBoundingClientRect().top, rows = [], range = document.createRange();
-    for (const a of atoms) {
-      if (!a.lines || a.bottom <= chosen * PF_PAGE_H) continue;
-      range.selectNodeContents(a.el);
+    const walker = document.createTreeWalker(preview, NodeFilter.SHOW_TEXT);
+    let node;
+    while ((node = walker.nextNode())) {
+      if (!node.nodeValue.trim() || (node.parentElement && node.parentElement.closest('#carBadge'))) continue;
+      range.selectNodeContents(node);
       for (const r of range.getClientRects()) {
         const y = (r.top - top0) / unit;
         if (r.height && y >= chosen * PF_PAGE_H - 2 && !rows.some(v => Math.abs(v - y) < 6)) rows.push(y);
@@ -3674,7 +3687,9 @@ async function downloadPDF() {
     window._pfPdfCapture = true;
     if (scaleEl) { scaleEl.style.transform = 'scale(1)'; scaleEl.style.transformOrigin = 'top left'; }
     pfPaginate();
-    const pages = pfPages.chosen, docH = pages * PF_PAGE_H;
+    // only pages with content: a page count above what the CV needs never exports blank pages
+    const pages = Math.min(pfPages.chosen, pfPages.natural), docH = pages * PF_PAGE_H;
+    if (pages < pfPages.chosen) showToast(`Page${pfPages.chosen - pages > 1 ? 's' : ''} ${pages + 1}${pfPages.chosen - pages > 1 ? '–' + pfPages.chosen : ''} had no content — your PDF has ${pages} page${pages > 1 ? 's' : ''}`);
     preview.style.width = '794px';
     preview.style.height = docH + 'px';
     preview.style.overflow = 'visible';
