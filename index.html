@@ -37,8 +37,26 @@
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
 
-  gtag('config', 'G-0QEEGS0DZQ');
+  // ?embed=paraphraser (the tool inside a landing page): the landing page already sent the page view
+  if (/[?&]embed=paraphraser(&|$)/.test(location.search)) gtag('config', 'G-0QEEGS0DZQ', { send_page_view: false });
+  else gtag('config', 'G-0QEEGS0DZQ');
 </script>
+<!-- EMBED MODE (?embed=paraphraser): landing pages show the tool card in a lazy iframe (lib/embed-host.js).
+     Only then: ad requests are paused and lib/embed-paraphraser.js shows only the tool card. Without the
+     parameter nothing in this block runs. -->
+<script>
+if (/[?&]embed=paraphraser(&|$)/.test(location.search)) {
+  window.PF_EMBED = 'paraphraser';
+  (window.adsbygoogle = window.adsbygoogle || []).pauseAdRequests = 1;
+  document.documentElement.classList.add('pf-pe');
+  (function (d) {
+    var st = d.createElement('style'); st.textContent = 'html.pf-pe:not(.pf-e-ready) body{visibility:hidden}'; d.head.appendChild(st);
+    var s = d.createElement('script'); s.src = '/lib/embed-paraphraser.js';
+    s.onerror = function () { d.documentElement.classList.add('pf-e-ready'); }; d.head.appendChild(s);
+  })(document);
+}
+</script>
+<!-- /EMBED MODE -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -1657,7 +1675,7 @@ addEventListener('hashchange',h);var h0=location.hash.slice(1);if(T.indexOf(h0)>
 if(/[?&]handoff=pdf(&|$)/.test(location.search))addEventListener('load',function(){var s=d.createElement('script');s.src=u('handoff');s.onload=function(){window.PFHandoff.receive()};
 s.onerror=function(){var n=d.createElement('p');n.textContent='Download the Word file and upload it here';n.style.cssText='max-width:1100px;margin:6px auto 0;padding:0 16px;font-size:13px;color:#8a4b12';var a=d.getElementById('promoBar');a.parentNode.insertBefore(n,a.nextSibling)};d.head.appendChild(s)});
 /* idle prefetch (3 s after load, low priority, skipped with Save-Data or on 2G) so the first click is near-instant */
-addEventListener('load',function(){setTimeout(function(){var c=navigator.connection;if(c&&(c.saveData||/2g/.test(c.effectiveType||'')))return;
+addEventListener('load',function(){setTimeout(function(){var c=navigator.connection;if(window.PF_EMBED||c&&(c.saveData||/2g/.test(c.effectiveType||'')))return;
 (window.requestIdleCallback||function(f){setTimeout(f,1)})(function(){[u('home'),u('home','.css'),u('panels'),u('pdf-events'),u('loader'),u('common'),u('pdf-to-word')].forEach(function(x){var l=d.createElement('link');l.rel='prefetch';l.href=x;d.head.appendChild(l)})},{timeout:5000})},3000)})})();
 </script>
 
@@ -7774,7 +7792,7 @@ if (window.innerWidth <= 768) {
     });
     return true;
   };
-  try {
+  if (!window.PF_EMBED) try {
     fetch('/api/process?type=ratingSummary', { method: 'GET' })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (d) { if (d && d.ok) window.pfApplyRating(Number(d.average), Number(d.count)); })

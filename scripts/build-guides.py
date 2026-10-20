@@ -1,6 +1,7 @@
 """Builds the three guide posts from the existing blog post shell (blog-paraphrase-pdf-right-way.html):
 same head, nav, styles and footer; new title, description, canonical, JSON-LD and article.
     python scripts/build-guides.py
+then put back their "Try it free here" boxes:  python scripts/add-embeds.py
 """
 import html, json, os, re
 
