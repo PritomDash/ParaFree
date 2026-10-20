@@ -1705,7 +1705,8 @@ addEventListener('load',function(){setTimeout(function(){var c=navigator.connect
 </div>
 <script>
 // RTL display handler + ?lang= pre-select from landing pages
-(function() {
+// (runs once the page is parsed: #outputText comes after this script)
+document.addEventListener('DOMContentLoaded', function() {
   var RTL_LANGS = { arabic: true, urdu: true, persian: true };
   var sel = document.getElementById('langSelect');
   var out = document.getElementById('outputText');
@@ -1732,7 +1733,7 @@ addEventListener('load',function(){setTimeout(function(){var c=navigator.connect
       }
     }
   }
-})();
+});
 </script>
 
 <!-- HUMANIZER INFO BANNER -->

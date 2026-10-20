@@ -27,6 +27,10 @@ export function indexWithoutEmbed(s = read('index.html')) {
   s = cut(s, INDEX_GA_NOW, "  gtag('config', 'G-0QEEGS0DZQ');", 'index GA');
   s = cut(s, 'if(window.PF_EMBED||c&&(c.saveData', 'if(c&&(c.saveData', 'index prefetch');
   s = cut(s, '  if (!window.PF_EMBED) try {\n', '  try {\n', 'index rating');
+  // the ?lang= fix: the handler runs at DOMContentLoaded (it used to run before #outputText existed)
+  s = cut(s, "// (runs once the page is parsed: #outputText comes after this script)\ndocument.addEventListener('DOMContentLoaded', function() {\n  var RTL_LANGS",
+    "(function() {\n  var RTL_LANGS", 'index lang start');
+  s = cut(s, "        applyDir();\n        break;\n      }\n    }\n  }\n});\n</script>", "        applyDir();\n        break;\n      }\n    }\n  }\n})();\n</script>", 'index lang end');
   return s;
 }
 

@@ -285,8 +285,25 @@ test.describe('without ?embed nothing changed', () => {
     expect(now.reqs.filter((r) => r.includes('embed'))).toEqual([]);
     expect(now.reqs).toContain('/api/process?type=ratingSummary');
     expect(now.ga).toEqual(['["config","G-0QEEGS0DZQ"]']);
-    // ?lang= without ?embed behaves exactly as before too
-    expect((await snapshot('/?lang=bengali')).lang).toBe((await snapshot('/__base/index.html?lang=bengali')).lang);
+    // the one intended change: ?lang= now selects the language (it used to be ignored)
+    expect((await snapshot('/__base/index.html?lang=bengali')).lang).toBe('english');
+    expect((await snapshot('/?lang=bengali')).lang).toBe('bengali');
+  });
+
+  test('/?lang= selects the language: Bengali, Hindi, Urdu and Arabic (RTL output for Urdu and Arabic)', async ({ page }) => {
+    const net = await setup(page);
+    for (const [lang, dir] of [['bengali', 'ltr'], ['hindi', 'ltr'], ['urdu', 'rtl'], ['arabic', 'rtl']]) {
+      await page.goto('/?lang=' + lang);
+      await page.waitForLoadState('domcontentloaded');
+      await expect(page.locator('#langSelect')).toHaveValue(lang);
+      await expect(page.locator('#outputText')).toHaveAttribute('dir', dir);
+      await expect(page.locator('#mainHero')).toBeVisible();                     // the normal homepage, not embed mode
+    }
+    await page.goto('/?lang=klingon');
+    await expect(page.locator('#langSelect')).toHaveValue('english');
+    await page.goto('/');
+    await expect(page.locator('#langSelect')).toHaveValue('english');
+    expect(net.errors).toEqual([]);
   });
 });
 
@@ -375,4 +392,33 @@ test.describe('performance: no tool code before the embed is near view', () => {
     fs.mkdirSync(path.join(ROOT, 'tests', 'results'), { recursive: true });
     fs.writeFileSync(path.join(ROOT, 'tests', 'results', 'landing-embeds-bytes.txt'), rows.join('\n') + '\n');
   });
+});
+
+// ─────────────────────────────────────────────────────────────
+// cv_download must be sent after every successful CV PDF download: full page, homepage tab, CV landing page.
+test.describe('cv_download after a successful PDF download', () => {
+  for (const [where, url, embedPage] of [['full page', '/cv-builder.html', null], ['homepage tab', '/', '/'], ['CV landing page', '/free-cv-builder-australia.html', '/free-cv-builder-australia.html']] as const) {
+    test(where, async ({ page }) => {
+      const net = await setup(page);
+      await page.goto(url);
+      await page.waitForLoadState('load');
+      let f: Page | Frame = page;
+      if (url === '/') {
+        await page.locator('#tab-cv').click();
+        await expect(page.locator('#pfCvLoading')).toHaveCount(0, { timeout: 60000 });
+        f = page.frame({ url: /cv-builder\.html\?embed=1/ })!;
+      } else if (url !== '/cv-builder.html') f = await embedFrame(page, /cv-builder\.html\?embed=1/);
+      await f.waitForFunction(() => typeof (window as any).downloadPDF === 'function' && document.readyState === 'complete');
+      await f.fill('#f-name', 'Alice Download');
+      expect((await dataLayer(f)).filter((a) => a[1] === 'cv_download')).toEqual([]);
+      const dl = page.waitForEvent('download', { timeout: 90000 });
+      await f.locator('button[onclick="downloadPDF()"]').first().click();
+      const pdf = await dl;
+      expect(fs.readFileSync((await pdf.path())!).subarray(0, 5).toString()).toBe('%PDF-');
+      await expect.poll(async () => (await dataLayer(f)).filter((a) => a[1] === 'cv_download')).toEqual([['event', 'cv_download', { template: 'classic', format: 'pdf' }]]);
+      const set = (await dataLayer(f)).filter((a) => a[0] === 'set');
+      expect(set).toEqual(embedPage ? [['set', { embed_page: embedPage }]] : []);
+      expect(net.errors).toEqual([]);
+    });
+  }
 });
