@@ -191,7 +191,7 @@ test.describe('GA4 events', () => {
     await page.evaluate(() => (window as any).downloadPDF());
     await dl;
     await expect.poll(async () => (await events(page)).filter((e: any) => e[0] === 'cv_download'))
-      .toEqual([['cv_download', { template: 'modern-blue', format: 'pdf' }]]);
+      .toEqual([['cv_download', { template: 'modern-blue', format: 'pdf', sample: 'false' }]]);
     await expectNoPersonalData(page);
   });
 

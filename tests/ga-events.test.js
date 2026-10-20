@@ -164,7 +164,7 @@ const words = (n, w = 'word') => Array.from({ length: n }, (_, i) => w + i).join
     ctx._gtag.length = 0;
     E.cvDownload('modern-blue', 'pdf'); E.jobSearch(1); E.jobSearch(0);
     assert('cv_download sends a slug template id; job_search sends only has_results (boolean)',
-      eq(events(ctx), [['event', 'cv_download', { template: 'modern-blue', format: 'pdf' }],
+      eq(events(ctx), [['event', 'cv_download', { template: 'modern-blue', format: 'pdf', sample: 'false' }],
                        ['event', 'job_search', { has_results: true }], ['event', 'job_search', { has_results: false }]]), JSON.stringify(events(ctx)));
 
     ctx._gtag.length = 0;
@@ -184,6 +184,15 @@ const words = (n, w = 'word') => Array.from({ length: n }, (_, i) => w + i).join
                        ['event', 'cv_download_blocked', { reason: 'empty' }], ['event', 'cv_download_blocked', { reason: 'other' }],
                        ['event', 'cv_started', { field: 'name' }], ['event', 'cv_started', { field: 'experience' }],
                        ['event', 'cv_started', { field: 'name' }]]), JSON.stringify(events(ctx)));
+
+    ctx._gtag.length = 0;
+    E.cvDownload('aurora', 'pdf', true); E.cvDownload('classic', 'pdf', false); E.cvDownload('classic', 'pdf');
+    E.cvDownload('classic', 'pdf', 'yes'); E.send('cv_download', { template: 'classic', format: 'pdf', sample: 'maybe' });
+    assert('cv_download: sample "true" only for the sample CV; "false" for the user\'s own (and anything else); odd values dropped',
+      eq(events(ctx), [['event', 'cv_download', { template: 'aurora', format: 'pdf', sample: 'true' }],
+                       ['event', 'cv_download', { template: 'classic', format: 'pdf', sample: 'false' }],
+                       ['event', 'cv_download', { template: 'classic', format: 'pdf', sample: 'false' }],
+                       ['event', 'cv_download', { template: 'classic', format: 'pdf', sample: 'false' }]]), JSON.stringify(events(ctx)));
 
     const noGa = makeSandbox('ok', { noGtag: true });
     let threw = null; try { noGa.PFEvents.toolUsed('paraphrase', 'text', 10); } catch (e) { threw = e; }

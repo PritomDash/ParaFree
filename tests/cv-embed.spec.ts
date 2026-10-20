@@ -174,7 +174,7 @@ test.describe('homepage CV Builder tab (embedded builder)', () => {
     // CV events fire as on the full page, with the allow-listed params only (no extra "surface")
     const ev = (await dataLayer(frame)).filter((a) => a[0] === 'event');
     const cv = ev.filter((a) => a[1] === 'cv_download').map((a) => a[2]);
-    expect(cv).toEqual([{ template: 'classic', format: 'pdf' }]);
+    expect(cv).toEqual([{ template: 'classic', format: 'pdf', sample: 'false' }]);
     expect(ev.filter((a) => a[1] === 'cover_letter_download').map((a) => a[2])).toEqual([{ format: 'pdf' }, { format: 'docx' }]);
     expect(net.errors).toEqual([]);
   });

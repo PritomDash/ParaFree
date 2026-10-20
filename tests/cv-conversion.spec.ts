@@ -100,7 +100,7 @@ test.describe('desktop', () => {
     expect(await cvEvents(page)).toEqual([
       ['cv_download_blocked', { reason: 'sample_showing' }],
       ['cv_started', { field: 'name' }],
-      ['cv_download', { template: 'classic', format: 'pdf' }],
+      ['cv_download', { template: 'classic', format: 'pdf', sample: 'false' }],
     ]);
     await expect(prompt(page)).toHaveCount(0);
     expect(net.errors).toEqual([]);
@@ -122,7 +122,7 @@ test.describe('desktop', () => {
     await expect(page.locator('#carouselControls')).toBeVisible();
     const ev = await cvEvents(page);
     expect(ev[0]).toEqual(['cv_download_blocked', { reason: 'sample_showing' }]);
-    expect(ev[1][0]).toBe('cv_download');
+    expect(ev[1]).toEqual(['cv_download', { template: await page.evaluate('Object.keys(RENDER_MAP)[carouselIndex]'), format: 'pdf', sample: 'true' }]);
     expect(ev.length).toBe(2);
     expect(net.errors).toEqual([]);
   });
@@ -166,7 +166,7 @@ test.describe('desktop', () => {
     expect(await isPdf(d)).toBe(true);
     await expect(prompt(page)).toHaveCount(0);
     const ev = await cvEvents(page);
-    expect(ev).toEqual([['cv_started', { field: 'name' }], ['cv_download_blocked', { reason: 'overflow' }], ['cv_download', { template: 'classic', format: 'pdf' }]]);
+    expect(ev).toEqual([['cv_started', { field: 'name' }], ['cv_download_blocked', { reason: 'overflow' }], ['cv_download', { template: 'classic', format: 'pdf', sample: 'false' }]]);
   });
 
   test('overflow: "+ Add page 2" in the prompt, then download', async ({ page }) => {
@@ -242,7 +242,7 @@ test.describe('mobile (Save sheet)', () => {
     expect(d.suggestedFilename()).toBe('Mia-Mobile-CV.pdf');
     expect(await isPdf(d)).toBe(true);
     await expect(page.locator('#cvDlPrompt')).toHaveCount(0);
-    expect(await cvEvents(page)).toEqual([['cv_started', { field: 'name' }], ['cv_download', { template: 'classic', format: 'pdf' }]]);
+    expect(await cvEvents(page)).toEqual([['cv_started', { field: 'name' }], ['cv_download', { template: 'classic', format: 'pdf', sample: 'false' }]]);
   });
 
   test('sample download from the sheet; overflow prompt in the sheet with Fit / Add page', async ({ page }) => {
@@ -270,6 +270,7 @@ test.describe('mobile (Save sheet)', () => {
     expect(await isPdf(d2)).toBe(true);
     const ev = (await cvEvents(page)).map((e) => e[0] + (e[1].reason ? ':' + e[1].reason : ''));
     expect(ev).toEqual(['cv_download_blocked:sample_showing', 'cv_download', 'cv_started', 'cv_download_blocked:overflow', 'cv_download']);
+    expect((await cvEvents(page)).filter((e) => e[0] === 'cv_download').map((e) => e[1].sample)).toEqual(['true', 'false']);
   });
 });
 
