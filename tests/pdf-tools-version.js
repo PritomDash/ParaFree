@@ -4,7 +4,7 @@
 // index.html and pdf-tools.html carries it as ?v=<hash>, and window.PFV holds it for the files
 // that load others. Change anything in lib/pdf-tools → run this → new URLs, so no stale cache.
 //   node tests/pdf-tools-version.js           # print the current hash and whether pages are up to date
-//   node tests/pdf-tools-version.js --write   # update index.html and pdf-tools.html
+//   node tests/pdf-tools-version.js --write   # update index.html, pdf-tools.html and the five tool pages
 // tests/pdf-tools-version.test.js fails while any reference is out of date.
 
 const fs = require('fs');
@@ -13,7 +13,7 @@ const crypto = require('crypto');
 
 const ROOT = path.join(__dirname, '..');
 const DIR = path.join(ROOT, 'lib', 'pdf-tools');
-const PAGES = ['index.html', 'pdf-tools.html'];
+const PAGES = ['index.html', 'pdf-tools.html', 'pdf-to-word.html', 'word-to-pdf.html', 'jpg-to-pdf.html', 'compress-pdf.html', 'merge-pdf.html'];
 
 function version() {
   const h = crypto.createHash('sha256');
