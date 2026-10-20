@@ -228,11 +228,37 @@ nav.scrolled .nav-links a.active { color: var(--accent); }
 #cvFormScrollable::-webkit-scrollbar-track { background: transparent; }
 #cvFormScrollable::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 #cvPreviewPanel { position: sticky; top: 78px; height: calc(100vh - 98px); display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius); background: #eceae4; box-shadow: 0 2px 20px rgba(0,0,0,0.07); }
-#cvPreviewWrapper { display: block; overflow-y: auto; overflow-x: hidden; padding: 12px; text-align: center; flex: 1; -webkit-overflow-scrolling: touch; }
+#cvPreviewWrapper { display: block; min-height: 0; position: relative; overflow-y: auto; overflow-x: hidden; padding: 12px; text-align: center; flex: 1; -webkit-overflow-scrolling: touch; }
 #cvPreviewWrapper .preview-wrap { overflow: hidden; flex-shrink: 0; }
+#clMobilePreviewWrapper { display: none; }   /* phone cover-letter view only (shown in the phone layout's letter mode) */
 #cvPreviewScale { transform-origin: top left !important; display: inline-block !important; width: 794px !important; height: var(--pf-doc-h, 1123px) !important; vertical-align: top; position: relative; }
-.pf-page-gap { position: absolute; left: -4px; right: -4px; height: 24px; background: #eceae4; box-shadow: inset 0 6px 6px -6px rgba(0,0,0,.28), inset 0 -6px 6px -6px rgba(0,0,0,.28); pointer-events: none; z-index: 5; }
-.pf-page-gap::after { content: attr(data-label); position: absolute; right: 14px; top: 3px; font: 600 15px 'DM Sans', sans-serif; color: #8a857c; }
+.pf-page-gap { position: absolute; left: -4px; right: -4px; height: 24px; z-index: 8; background: #eceae4; box-shadow: inset 0 6px 6px -6px rgba(0,0,0,.28), inset 0 -6px 6px -6px rgba(0,0,0,.28); pointer-events: none; z-index: 5; }
+.pf-page { position: absolute; left: 0; right: 0; pointer-events: none; }
+.pf-page-label { position: absolute; right: 18px; z-index: 6; pointer-events: none; font: 600 15px 'DM Sans', sans-serif; color: #6b6660; background: rgba(255,255,255,.85); border: 1px solid #e2ddd4; border-radius: 10px; padding: 2px 10px; }
+.pf-over { position: absolute; left: 0; right: 0; z-index: 4; pointer-events: none; background: repeating-linear-gradient(135deg, rgba(255,255,255,.62) 0 14px, rgba(254,226,226,.62) 14px 28px); }
+.pf-cut { position: absolute; left: -4px; right: -4px; height: 4px; z-index: 7; pointer-events: none; background: #dc2626; }
+.pf-cut::after { content: attr(data-label); position: absolute; left: 14px; top: 6px; font: 700 15px 'DM Sans', sans-serif; color: #fff; background: #dc2626; border-radius: 4px; padding: 2px 8px; }
+#cvPreviewPanel > div:first-child { flex-wrap: wrap; row-gap: 6px; }   /* room for Pages: 1·2·3 on narrow screens */
+#cvPagesCtl { display: inline-flex; align-items: center; gap: 2px; font-size: 11px; font-weight: 600; color: var(--text2); white-space: nowrap; }
+#cvPagesCtl button { min-width: 22px; height: 22px; padding: 0 5px; border: 1px solid var(--border); background: white; border-radius: 5px; font: 700 11px 'DM Sans', sans-serif; color: var(--text2); cursor: pointer; }
+#cvPagesCtl button.on { background: var(--accent); border-color: var(--accent); color: white; }
+#cvPageDots { display: inline-flex; gap: 4px; align-items: center; }
+.pf-dot { width: 9px; height: 12px; padding: 0; border: 1px solid #b9b3a8; border-radius: 2px; background: white; cursor: pointer; }
+.pf-dot.on { background: var(--accent); border-color: var(--accent); }
+.pf-dot.over { border-color: #dc2626; }
+#cvPageBar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 7px 12px; font-size: 12px; flex-shrink: 0; border-bottom: 1px solid var(--border); background: #fffbeb; color: #78350f; }
+#cvPageBar.warn { background: #fef2f2; color: #991b1b; }
+#cvPageBar.ok { background: #f0fdf4; color: #166534; }
+#cvPageBar.flash { outline: 3px solid #dc2626; outline-offset: -3px; }
+#cvPageBar button { padding: 4px 10px; border-radius: 6px; border: 1px solid currentColor; background: white; color: inherit; font: 700 12px 'DM Sans', sans-serif; cursor: pointer; }
+#cvPageBar button.x { border: none; background: none; font-size: 16px; padding: 0 4px; margin-left: auto; }
+#cvPageBar .pf-bar-note { flex-basis: 100%; font-size: 11px; }
+.pf-brk { position: relative; display: inline-flex; }
+.pf-brk-btn { border: none; background: none; cursor: pointer; color: var(--text3); font-size: 16px; line-height: 1; padding: 2px 6px; border-radius: 4px; }
+.pf-brk-btn:hover { background: var(--surface2, #f4f2ee); }
+.pf-brk-menu { display: none; position: absolute; right: 0; top: 24px; z-index: 30; background: white; border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.12); padding: 8px 12px; white-space: nowrap; font-size: 12px; color: var(--text); }
+.pf-brk.open .pf-brk-menu { display: block; }
+.pf-brk-menu label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
 #cv-preview { width: 794px !important; min-height: var(--pf-doc-h, 1123px) !important; height: var(--pf-doc-h, 1123px) !important; background: white !important; box-sizing: border-box !important; overflow: hidden !important; position: relative !important; display: block !important; padding: 0 !important; margin: 0 !important; }
 .form-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: 0 1px 6px rgba(0,0,0,0.04); }
 .form-section-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
@@ -979,6 +1005,7 @@ html.pf-embed .cv-main { padding-top: 12px !important; padding-bottom: 16px !imp
             <button onclick="downloadPDF()" style="padding:7px 16px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif;box-shadow:0 2px 8px rgba(45,106,79,0.25);transition:all .15s;" onmouseover="this.style.background='#235a40'" onmouseout="this.style.background='var(--accent)'">⬇ PDF</button>
           </div>
         </div>
+        <div class="cv-ats-note" style="padding:4px 18px 5px;background:white;border-bottom:1px solid var(--border);font-size:11px;color:var(--text3);text-align:right;flex-shrink:0;">Text in your PDF is selectable and readable by applicant tracking systems.</div>
 
         <!-- Scrollable form area -->
         <div id="cvFormScrollable">
@@ -1499,7 +1526,8 @@ We are looking for a Software Engineer with:
             <button id="docCL" onclick="switchBuilderTab('coverletter');syncDocSwitcher('cl')" class="doc-sw">Letter</button>
           </div>
           <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
-            <span id="cvPageCount" title="Most graduate CVs fit on 1 page; 2 pages is fine for experienced roles." style="display:none;font-size:11px;font-weight:600;color:var(--text2);background:var(--surface2,#f4f2ee);border:1px solid var(--border);border-radius:10px;padding:2px 8px;white-space:nowrap;">1 page</span>
+            <span id="cvPagesCtl" style="display:none;" title="How many pages your CV has">Pages:<button type="button" data-p="1" onclick="pfSetChosenPages(1)">1</button>·<button type="button" data-p="2" onclick="pfSetChosenPages(2)">2</button>·<button type="button" data-p="3" onclick="pfSetChosenPages(3)">3</button></span>
+            <span id="cvPageDots" style="display:none;"></span>
             <span id="cvScoreDisplay" style="font-size:11px;font-weight:700;color:var(--accent);"></span>
             <button onclick="toggleEditMode()" id="previewEditBtn" style="padding:5px 12px;background:white;border:1.5px solid #e2ddd4;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;color:#6b6660;font-family:'DM Sans',sans-serif;transition:all 0.2s;display:flex;align-items:center;gap:4px;">✏️ Edit</button>
             <button onclick="openFullPreview()" title="Full screen" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:4px 6px;">⛶</button>
@@ -1527,6 +1555,7 @@ We are looking for a Software Engineer with:
           <button onclick="resetToFormData()" style="padding:4px 10px;border:1px solid var(--border);border-radius:5px;background:white;cursor:pointer;font-size:11px;color:var(--text2);">⟳ Reset</button>
         </div>
 
+        <div id="cvPageBar" role="status" aria-live="polite" style="display:none;"></div>
         <!-- CV Preview wrapper -->
         <div id="cvPreviewWrapper">
           <div id="cvPreviewScale" class="preview-wrap tpl-classic">
@@ -2697,6 +2726,7 @@ function renderCarousel() {
   const wrap = preview.parentElement;
   wrap.className = 'preview-wrap tpl-' + tplId;
   preview.innerHTML = pfPageHtml(renderer(SAMPLE_CV));
+  pfFixAlign(preview, SAMPLE_CV);
   // Remove any existing badge before adding
   const old = document.getElementById('carBadge');
   if (old) old.remove();
@@ -2758,7 +2788,7 @@ function updatePreview() {
   if (!premiumTpls.has(currentTemplate)) {
     const extraHtml = renderExtraSections();
     if (extraHtml) {
-      const mainCol = preview.querySelector('.cv-main-col');
+      const mainCol = preview.querySelector('.cv-main-col') || pfContentColumn(preview);
       (mainCol || preview).insertAdjacentHTML('beforeend', extraHtml);
     }
   }
@@ -2769,6 +2799,7 @@ function updatePreview() {
       (mainCol || preview).insertAdjacentHTML('beforeend', decoHtml);
     }
   }
+  pfFixAlign(preview, d);
   updateDecoratorList();
   updateJobSearch();
   requestAnimationFrame(() => scalePreview());
@@ -2782,6 +2813,8 @@ const updateCV = updatePreview;
 
 // ── Auto-scale preview to fit its container ──
 function scalePreview() {
+  // during a PDF capture the sheet must stay at scale(1): a late call (timer, font load) would make it capture the zoomed-out layout
+  if (window._pfPdfCapture) { window._pfScaleLater = true; return; }
   const wrapper = document.getElementById('cvPreviewWrapper');
   const scaleEl = document.getElementById('cvPreviewScale');
   const preview = document.getElementById('cv-preview');
@@ -2809,12 +2842,8 @@ function scalePreview() {
   preview.style.boxSizing = 'border-box';
   preview.style.display = 'block';
   const isMobile = window.innerWidth <= 900;
-  if (!isMobile) {
-    const scaledH = Math.ceil(A4_H * scale);
-    wrapper.style.minHeight = (scaledH + 24) + 'px';
-  } else {
-    wrapper.style.minHeight = '';
-  }
+  wrapper.style.minHeight = '';                                    // scrolls inside the panel: every page can be reached
+  pfMarkDot();
   console.log('scalePreview:', 'availW='+availW, 'scale='+scale.toFixed(3), 'mobile='+isMobile);
 }
 window.addEventListener('resize', () => {
@@ -2828,7 +2857,6 @@ window.addEventListener('resize', () => {
 // and bullets may continue onto the next page. The sheet is then sized to whole A4 pages, so sidebars and
 // background colours stretch over every page while the header band stays on page 1.
 const PF_PAGE_H = 1123, PF_PAGE_MT = 40, PF_PAGE_MB = 40;          // A4 at 794px wide; top/bottom margin on each page
-let pfPageCount = 1;
 function pfPageHtml(html) { return String(html).replace(/1056px/g, 'var(--pf-doc-h,1123px)'); }
 function pfPaginateReset(preview) {
   preview.querySelectorAll('[data-pf-mt]').forEach(el => { el.style.marginTop = el.getAttribute('data-pf-mt'); el.removeAttribute('data-pf-mt'); });
@@ -2898,22 +2926,184 @@ function pfSplitLines(el, unit, top0, k) {
   }
   return false;
 }
+// ── Page count, fit, manual breaks ──
+// The user picks how many pages the CV has (1–3, default 1); pages are never added automatically. If the
+// content needs more, the preview marks what doesn't fit and offers "Fit to N pages" (small steps: section
+// spacing → line height → page margins → font size, never below 9.5pt body) or "Add page". The PDF has
+// exactly the chosen pages. A section can be set to start on a new page.
+const PF_FIT_MIN_BODY_PX = 9.5 / 0.75;                                              // 9.5pt
+const PF_FIT_STEPS = (() => {
+  const steps = [{ s: 1, l: 1, m: 1, f: 1 }];
+  const add = (o) => steps.push(Object.assign({}, steps[steps.length - 1], o));
+  [0.85, 0.7, 0.55].forEach(s => add({ s }));                                       // section spacing
+  [0.95, 0.9, 0.85].forEach(l => add({ l }));                                       // line height
+  [0.85, 0.7].forEach(m => add({ m }));                                             // page margins (≥ 12mm)
+  [0.97, 0.94, 0.91, 0.88, 0.85, 0.82, 0.79, 0.76].forEach(f => add({ f }));        // font size (≥ 9.5pt body)
+  return steps;
+})();
+const PF_SECTION_HEADINGS = {
+  summary: /^(professional |personal |career |research )?(summary|profile|about( me)?|statement|objective)$/i,
+  experience: /^(work |professional |relevant )?(experience|employment( history)?|work history|career( history| timeline)?)$/i,
+  education: /^(education|academic background|qualifications)$/i,
+  skills: /^(key |core |technical )?(skills|expertise|stack|competencies)$/i,
+  certifications: /^(certifications?|certs|licen[cs]es( (and|&) certifications)?)$/i,
+  languages: /^languages?$/i,
+  projects: /^(key |personal )?projects$/i,
+  awards: /^(awards|achievements|honou?rs)( (and|&) (awards|achievements))?$/i,
+  volunteer: /^(volunteer(ing)?( experience| work)?)$/i,
+  references: /^references$/i,
+};
+function _pfLoad(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
+function _pfSave(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+const pfPages = {
+  chosen: Math.min(3, Math.max(1, parseInt(_pfLoad('pf_cv_pages', 1), 10) || 1)),
+  fit: Math.min(PF_FIT_STEPS.length - 1, Math.max(0, parseInt(_pfLoad('pf_cv_fit', 0), 10) || 0)),
+  breaks: (_pfLoad('pf_cv_breaks', []) || []).filter(k => PF_SECTION_HEADINGS[k]),
+  natural: 1, total: 1, overLines: 0, lastFill: 1, bodyPx: 0, msg: null, undoFit: null, tipDismissed: false,
+};
+let pfPageCount = 1;
+function pfPageState() {
+  return { chosen: pfPages.chosen, natural: pfPages.natural, total: pfPages.total, overLines: pfPages.overLines,
+    lastFill: pfPages.lastFill, fitLevel: pfPages.fit, bodyPt: Math.round(pfPages.bodyPx * 0.75 * 10) / 10, breaks: pfPages.breaks.slice() };
+}
+
+// Fit: reset, then scale spacing / line height / margins / font from the template's own values.
+function pfFitReset(preview) {
+  preview.querySelectorAll('[data-pf-fit]').forEach(el => {
+    const v = el.getAttribute('data-pf-fit');
+    if (v) el.setAttribute('style', v); else el.removeAttribute('style');
+    el.removeAttribute('data-pf-fit');
+  });
+}
+function pfBodyPx(preview) {
+  const tally = new Map();
+  preview.querySelectorAll('li, p, div, span, td').forEach(el => {
+    let n = 0;
+    for (const c of el.childNodes) if (c.nodeType === 3) n += c.nodeValue.trim().length;
+    if (!n) return;
+    const fs = Math.round(parseFloat(getComputedStyle(el).fontSize) * 10) / 10;
+    tally.set(fs, (tally.get(fs) || 0) + n);
+  });
+  let best = 0, bestN = -1;
+  tally.forEach((n, fs) => { if (n > bestN) { best = fs; bestN = n; } });
+  return best || 12;
+}
+function pfApplyFit(preview, level) {
+  pfFitReset(preview);
+  const body = pfBodyPx(preview);
+  const st = PF_FIT_STEPS[Math.min(level, PF_FIT_STEPS.length - 1)] || PF_FIT_STEPS[0];
+  const f = body > PF_FIT_MIN_BODY_PX ? Math.max(st.f, PF_FIT_MIN_BODY_PX / body) : 1;
+  pfPages.bodyPx = body * f;
+  if (!level) return;
+  const sheetW = preview.offsetWidth || 794;
+  const root = preview.firstElementChild && preview.firstElementChild.offsetWidth >= sheetW * 0.9 ? preview.firstElementChild : preview;
+  const els = [...preview.querySelectorAll('*')];
+  const plan = els.map(el => {
+    const cs = getComputedStyle(el), fs = parseFloat(cs.fontSize) || 12, lh = parseFloat(cs.lineHeight);
+    const p = { el, fs, lh: isNaN(lh) ? null : lh, mt: parseFloat(cs.marginTop) || 0, mb: parseFloat(cs.marginBottom) || 0, gap: parseFloat(cs.rowGap) || 0 };
+    const depth = el === root ? 0 : el.parentElement === root ? 1 : el.parentElement && el.parentElement.parentElement === root ? 2 : 9;
+    if (depth <= 2 && el.offsetWidth >= sheetW * 0.3) p.pad = ['Top', 'Right', 'Bottom', 'Left'].map(s => parseFloat(cs['padding' + s]) || 0);
+    return p;
+  });
+  for (const p of plan) {
+    const el = p.el, s = el.style;
+    el.setAttribute('data-pf-fit', el.getAttribute('style') || '');
+    if (f !== 1) s.fontSize = (p.fs * f) + 'px';
+    if (p.lh && (st.l !== 1 || f !== 1)) s.lineHeight = Math.max(p.fs * f * 1.15, p.lh * f * st.l) + 'px';
+    if (st.s !== 1 && el !== root) {
+      if (p.mt > 0) s.marginTop = (p.mt * st.s) + 'px';
+      if (p.mb > 0) s.marginBottom = (p.mb * st.s) + 'px';
+      if (p.gap > 0) s.rowGap = (p.gap * st.s) + 'px';
+    }
+    if (st.m !== 1 && p.pad) {
+      ['Top', 'Right', 'Bottom', 'Left'].forEach((side, i) => { if (p.pad[i] > 45) s['padding' + side] = Math.max(45, p.pad[i] * st.m) + 'px'; });
+    }
+  }
+}
+
+// Text alignment: the preview wrapper centres the sheet, and templates that set no alignment inherited that
+// centring for everything — bullets, companies, dates, body text. Body text that was centred only by that
+// inheritance is set to left; the header (name, title, contact line), section headings, sidebars and anything a
+// template centres on purpose keep their look.
+function pfFixAlign(preview, d) {
+  if (!preview.firstElementChild || preview.querySelector('.cv-empty')) return;
+  const disp = (e) => getComputedStyle(e).display;
+  const blockOf = (e) => { while (e && e !== preview && disp(e) === 'inline') e = e.parentElement; return e && e !== preview ? e : null; };
+  // the block's own text: text nodes and plain inline children (not nested blocks or inline-blocks)
+  const ownText = (b) => { let o = ''; const walk = (n) => { for (const c of n.childNodes) { if (c.nodeType === 3) o += c.nodeValue; else if (c.nodeType === 1 && disp(c) === 'inline') walk(c); } }; walk(b); return o.replace(/\s+/g, ' ').trim(); };
+  const blocks = new Set([...preview.querySelectorAll('*')].filter(e => [...e.childNodes].some(n => n.nodeType === 3 && n.nodeValue.trim())).map(blockOf).filter(Boolean));
+  const centred = [...blocks].filter(b => getComputedStyle(b).textAlign === 'center');
+  preview.style.textAlign = 'left';                                                 // which of them only inherit it?
+  const inherited = centred.filter(b => getComputedStyle(b).textAlign !== 'center');
+  preview.style.textAlign = '';
+  const sheetW = preview.offsetWidth || 794, sheetH = preview.offsetHeight || 1123;
+  const norm = (x) => (x || '').toLowerCase().replace(/[^\p{L}\p{N}@.+]+/gu, ' ').trim();
+  const exact = [d.name, d.title, d.location].map(norm).filter(x => x.length > 1).concat(norm(d.name).split(' ').filter(x => x.length > 1));
+  const within = [d.email, d.phone, d.linkedin].map(x => (x || '').trim().toLowerCase()).filter(x => x.length > 3);
+  const headingRe = Object.values(PF_SECTION_HEADINGS).concat([/^(contact( me| details| info)?|personal (details|information)|interests|hobbies|availability|key achievements|links|curriculum vitae|resume|résumé|cv|overview|executive summary|core competencies|skills (and|&) \w+)$/i]);
+  for (const b of inherited) {
+    const t = ownText(b);
+    if (!t) continue;
+    const tl = t.toLowerCase(), word = t.replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '');
+    if (!b.closest('li')) {
+      let side = false;
+      for (let a = b; a && a !== preview; a = a.parentElement) if (a.offsetWidth < sheetW * 0.45 && a.offsetHeight > sheetH * 0.4) { side = true; break; }
+      const header = exact.includes(norm(t)) || within.some(c => tl.includes(c)) || t.replace(/[\s|·/•\-–]/g, '').length <= 3 || /^(\/\/|>|\/\*|#)/.test(t);
+      const heading = word.length <= 40 && headingRe.some(re => re.test(word));
+      if (side || header || heading) continue;                                      // keep the designed centring
+    }
+    b.style.textAlign = 'left';
+  }
+}
+
+// The padded column that holds a template's own sections (for templates without .cv-main-col, extra sections
+// such as References or Languages were appended to the bare sheet and sat flush against its left edge).
+function pfContentColumn(preview) {
+  const re = /^(work |professional )?(experience|summary|profile|education|skills)$/i;
+  const h = [...preview.querySelectorAll('*')].find(e => [...e.childNodes].some(n => n.nodeType === 3 && re.test(n.nodeValue.trim().replace(/^[^\p{L}]+|[^\p{L}]+$/gu, ''))));
+  for (let a = h && h.parentElement; a && a !== preview; a = a.parentElement) {
+    if (parseFloat(getComputedStyle(a).paddingLeft) > 8) return a;
+  }
+  return null;
+}
+function pfFindHeading(atoms, key) {
+  const re = PF_SECTION_HEADINGS[key];
+  for (const a of atoms) {
+    const w = a.text.replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '');
+    if (w.length <= 40 && re.test(w)) return a;
+  }
+  return null;
+}
 function pfPaginate() {
   const preview = document.getElementById('cv-preview'), scaleEl = document.getElementById('cvPreviewScale');
-  if (!preview || !scaleEl || !preview.offsetWidth) return pfPageCount;          // hidden: keep the last layout
+  if (!preview || !scaleEl || !preview.offsetWidth) return pfPages.total;           // hidden: keep the last layout
   pfPaginateReset(preview);
-  if (preview.querySelector('.cv-empty') || !preview.firstElementChild) {
+  const empty = preview.querySelector('.cv-empty') || !preview.firstElementChild;
+  const chosen = carouselMode || empty ? 1 : pfPages.chosen;
+  if (empty) {
+    pfFitReset(preview);
     scaleEl.style.setProperty('--pf-doc-h', PF_PAGE_H + 'px');
-    return pfSetPages(1);
+    return pfSetPages(1, 1, 1, preview);
   }
-  scaleEl.style.setProperty('--pf-doc-h', 'auto');                               // measure the natural flow
+  scaleEl.style.setProperty('--pf-doc-h', 'auto');                                // measure the natural flow
+  pfApplyFit(preview, carouselMode ? 0 : pfPages.fit);
   const unit = preview.getBoundingClientRect().width / preview.offsetWidth || 1;
-  const tries = new Map(), contentH = PF_PAGE_H - PF_PAGE_MT - PF_PAGE_MB;
+  const tries = new Map(), contentH = PF_PAGE_H - PF_PAGE_MT - PF_PAGE_MB, forced = new Set();
   let atoms = [];
   for (let guard = 0; guard < 300; guard++) {
     const top0 = preview.getBoundingClientRect().top;
     atoms = pfAtoms(preview, unit, top0);
     let changed = false;
+    // "Start on new page" sections
+    if (!carouselMode) for (const key of pfPages.breaks) {
+      const h = pfFindHeading(atoms, key);
+      if (!h || forced.has(h.el)) continue;
+      forced.add(h.el);
+      const pageTop = Math.floor(h.top / PF_PAGE_H) * PF_PAGE_H;
+      if (h.top <= pageTop + PF_PAGE_MT + 2 && pageTop > 0) continue;              // already starts a page
+      pfPush(h.el, pageTop + PF_PAGE_H + PF_PAGE_MT - h.top, unit);
+      changed = true; break;
+    }
     for (let i = 0; i < atoms.length && !changed; i++) {
       const a = atoms[i];
       const k = Math.floor((a.bottom + PF_PAGE_MB) / PF_PAGE_H);
@@ -2941,30 +3131,165 @@ function pfPaginate() {
     if (!changed) break;
   }
   const bottom = atoms.reduce((m, a) => Math.max(m, a.bottom), 0);
-  const pages = Math.max(1, Math.ceil((bottom - 0.5) / PF_PAGE_H));
-  scaleEl.style.setProperty('--pf-doc-h', pages * PF_PAGE_H + 'px');
-  return pfSetPages(pages);
+  const natural = Math.max(1, Math.ceil((bottom - 0.5) / PF_PAGE_H));
+  // lines that don't fit on the chosen pages; how full the last chosen page is
+  let overLines = 0;
+  if (natural > chosen) {
+    // every text line below the page limit (lines side by side, e.g. a title and its dates, count once)
+    const top0 = preview.getBoundingClientRect().top, rows = [], range = document.createRange();
+    const walker = document.createTreeWalker(preview, NodeFilter.SHOW_TEXT);
+    let node;
+    while ((node = walker.nextNode())) {
+      if (!node.nodeValue.trim() || (node.parentElement && node.parentElement.closest('#carBadge'))) continue;
+      range.selectNodeContents(node);
+      for (const r of range.getClientRects()) {
+        const y = (r.top - top0) / unit;
+        if (r.height && y >= chosen * PF_PAGE_H - 2 && !rows.some(v => Math.abs(v - y) < 6)) rows.push(y);
+      }
+    }
+    overLines = Math.max(1, rows.length);
+  }
+  pfPages.overLines = overLines;
+  pfPages.lastFill = natural < chosen ? 0 : Math.min(1, (bottom - (chosen - 1) * PF_PAGE_H) / (PF_PAGE_H - PF_PAGE_MB));
+  const total = Math.max(natural, chosen);
+  scaleEl.style.setProperty('--pf-doc-h', total * PF_PAGE_H + 'px');
+  return pfSetPages(total, chosen, natural, preview);
 }
-function pfSetPages(n) {
-  pfPageCount = n;
+// Preview-only marks (never in the PDF): gaps between pages, "Page 1 of 2" labels, the page-limit line.
+function pfSetPages(total, chosen, natural, preview) {
+  pfPages.total = total; pfPages.natural = natural; pfPageCount = total;
   const scaleEl = document.getElementById('cvPreviewScale');
   if (scaleEl) {
-    scaleEl.querySelectorAll('.pf-page-gap').forEach(g => g.remove());
-    for (let k = 1; k < n; k++) {                                                 // gaps between pages (preview only, never in the PDF)
-      const g = document.createElement('div');
-      g.className = 'pf-page-gap'; g.setAttribute('aria-hidden', 'true');
-      g.setAttribute('data-label', 'Page ' + (k + 1));
-      g.style.top = (k * PF_PAGE_H - 12) + 'px';
-      scaleEl.appendChild(g);
+    scaleEl.querySelectorAll('.pf-page-gap, .pf-page, .pf-page-label, .pf-cut, .pf-over').forEach(g => g.remove());
+    const add = (cls, css, attrs) => { const e = document.createElement('div'); e.className = cls; e.setAttribute('aria-hidden', 'true'); e.style.cssText = css; for (const k in attrs || {}) e.setAttribute(k, attrs[k]); scaleEl.appendChild(e); return e; };
+    for (let k = 0; k < total; k++) {
+      add('pf-page', `top:${k * PF_PAGE_H}px;height:${PF_PAGE_H}px;`, { 'data-page': k + 1 });
+      if (k) add('pf-page-gap', `top:${k * PF_PAGE_H - 12}px;`);
+      if (total > 1 || chosen > 1) add('pf-page-label', `top:${(k + 1) * PF_PAGE_H - 34}px;`).textContent = k < chosen ? `Page ${k + 1} of ${chosen}` : 'Doesn’t fit';
+    }
+    if (natural > chosen) {
+      add('pf-over', `top:${chosen * PF_PAGE_H}px;height:${(total - chosen) * PF_PAGE_H}px;`);
+      add('pf-cut', `top:${chosen * PF_PAGE_H - 2}px;`, { 'data-label': `Page limit (${chosen} page${chosen > 1 ? 's' : ''}) — the part below doesn’t fit` });
     }
   }
-  const ind = document.getElementById('cvPageCount');
-  if (ind) {
-    ind.textContent = n === 1 ? '1 page' : n + ' pages';
-    ind.style.display = (carouselMode || document.querySelector('#cv-preview .cv-empty')) ? 'none' : '';
-  }
-  return n;
+  pfRenderPageUI();
+  return total;
 }
+function pfRenderPageUI() {
+  const ctl = document.getElementById('cvPagesCtl'), bar = document.getElementById('cvPageBar'), dots = document.getElementById('cvPageDots');
+  const hide = carouselMode || !!document.querySelector('#cv-preview .cv-empty');
+  if (ctl) {
+    ctl.style.display = hide ? 'none' : '';
+    ctl.querySelectorAll('button[data-p]').forEach(b => b.classList.toggle('on', +b.dataset.p === pfPages.chosen));
+  }
+  if (dots) {
+    dots.innerHTML = '';
+    dots.style.display = hide || pfPages.total < 2 ? 'none' : '';
+    for (let k = 1; k <= pfPages.total; k++) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'pf-dot' + (k > pfPages.chosen ? ' over' : '');
+      b.title = k <= pfPages.chosen ? `Page ${k} of ${pfPages.chosen}` : 'Doesn’t fit'; b.setAttribute('aria-label', 'Go to page ' + k);
+      b.dataset.page = k; b.onclick = () => pfScrollToPage(k);
+      dots.appendChild(b);
+    }
+    pfMarkDot();
+  }
+  if (!bar) return;
+  const C = pfPages.chosen, N = pfPages.natural, s = (n) => n === 1 ? '' : 's';
+  let html = '', cls = '';
+  if (hide) html = '';
+  else if (N > C) {
+    cls = 'warn';
+    html = `<span>Your CV is <b>${pfPages.overLines} line${s(pfPages.overLines)}</b> over ${C} page${s(C)}</span>` +
+      `<button type="button" onclick="pfFitToPages(${C})">✨ Fit to ${C} page${s(C)}</button>` +
+      (C < 3 ? `<button type="button" onclick="pfSetChosenPages(${C + 1})">+ Add page ${C + 1}</button>` : '');
+    if (pfPages.msg === 'fitfail') html += `<span class="pf-bar-note">Can’t fit on ${C} page${s(C)} without going below 9.5pt — add a page instead.</span>`;
+  } else if (pfPages.msg === 'fitted' && pfPages.fit > 0) {
+    cls = 'ok';
+    html = `<span>Fitted (font ${pfPageState().bodyPt}pt)</span><button type="button" onclick="pfUndoFit()">Undo</button>`;
+  } else if (C > 1 && pfPages.lastFill < 0.25 && !pfPages.tipDismissed) {
+    cls = 'tip';
+    html = `<span>Page ${C} is mostly empty — Fit to ${C - 1} page${s(C - 1)}?</span><button type="button" onclick="pfFitToPages(${C - 1})">Fit to ${C - 1} page${s(C - 1)}</button>` +
+      `<button type="button" class="x" aria-label="Dismiss" onclick="pfPages.tipDismissed=true;pfRenderPageUI()">×</button>`;
+  }
+  bar.className = cls; bar.innerHTML = html; bar.style.display = html ? '' : 'none';
+}
+function pfScrollToPage(k) {
+  const w = document.getElementById('cvPreviewWrapper'), p = document.querySelector(`#cvPreviewScale .pf-page[data-page="${k}"]`);
+  if (!w || !p) return;
+  w.scrollTo({ top: w.scrollTop + p.getBoundingClientRect().top - w.getBoundingClientRect().top - 8, behavior: 'smooth' });
+}
+function pfMarkDot() {
+  const w = document.getElementById('cvPreviewWrapper'), dots = document.getElementById('cvPageDots');
+  if (!w || !dots) return;
+  const mid = w.getBoundingClientRect().top + w.clientHeight / 3;
+  let cur = 1;
+  document.querySelectorAll('#cvPreviewScale .pf-page').forEach(p => { if (p.getBoundingClientRect().top <= mid) cur = +p.dataset.page; });
+  dots.querySelectorAll('.pf-dot').forEach(d => d.classList.toggle('on', +d.dataset.page === cur));
+}
+function pfSetChosenPages(n) {
+  pfPages.chosen = Math.min(3, Math.max(1, n | 0));
+  pfPages.msg = null; pfPages.tipDismissed = false;
+  _pfSave('pf_cv_pages', pfPages.chosen);
+  scalePreview();
+}
+function pfFitToPages(target) {
+  const start = pfPages.fit;
+  pfPages.chosen = Math.min(3, Math.max(1, target | 0));
+  _pfSave('pf_cv_pages', pfPages.chosen);
+  scalePreview();
+  if (pfPages.natural <= pfPages.chosen) { pfPages.msg = null; pfRenderPageUI(); return true; }
+  for (let lvl = start + 1; lvl < PF_FIT_STEPS.length; lvl++) {                    // smallest step that fits
+    pfPages.fit = lvl;
+    scalePreview();
+    if (pfPages.natural <= pfPages.chosen) break;
+  }
+  if (pfPages.natural > pfPages.chosen) {
+    pfPages.fit = start; pfPages.msg = 'fitfail';
+    scalePreview();
+    return false;
+  }
+  pfPages.undoFit = start; pfPages.msg = 'fitted';
+  _pfSave('pf_cv_fit', pfPages.fit);
+  pfRenderPageUI();
+  return true;
+}
+function pfUndoFit() {
+  pfPages.fit = pfPages.undoFit || 0; pfPages.undoFit = null; pfPages.msg = null;
+  _pfSave('pf_cv_fit', pfPages.fit);
+  scalePreview();
+}
+function pfToggleBreak(key, on) {
+  pfPages.breaks = pfPages.breaks.filter(k => k !== key);
+  if (on) pfPages.breaks.push(key);
+  _pfSave('pf_cv_breaks', pfPages.breaks);
+  document.querySelectorAll(`.pf-brk input[data-sec="${key}"]`).forEach(i => { i.checked = !!on; });
+  scalePreview();
+}
+// "⋮" menu on each form section header: Start on new page
+function pfInitBreakMenus() {
+  Object.keys(PF_SECTION_HEADINGS).forEach(key => {
+    const hdr = document.querySelector(`.cv-section-header[onclick="toggleSection('${key}')"]`);
+    if (!hdr || hdr.querySelector('.pf-brk')) return;
+    const right = hdr.lastElementChild;
+    const wrap = document.createElement('span');
+    wrap.className = 'pf-brk';
+    wrap.innerHTML = `<button type="button" class="pf-brk-btn" aria-label="Section options" title="Section options">⋮</button>` +
+      `<span class="pf-brk-menu" role="menu"><label><input type="checkbox" data-sec="${key}"> Start on new page</label></span>`;
+    wrap.addEventListener('click', e => e.stopPropagation());
+    wrap.querySelector('.pf-brk-btn').addEventListener('click', () => wrap.classList.toggle('open'));
+    const cb = wrap.querySelector('input');
+    cb.checked = pfPages.breaks.includes(key);
+    cb.addEventListener('change', () => pfToggleBreak(key, cb.checked));
+    right.insertBefore(wrap, right.firstChild);
+  });
+  document.addEventListener('click', () => document.querySelectorAll('.pf-brk.open').forEach(w => w.classList.remove('open')));
+}
+document.addEventListener('DOMContentLoaded', () => {
+  pfInitBreakMenus();
+  const w = document.getElementById('cvPreviewWrapper');
+  if (w) w.addEventListener('scroll', () => requestAnimationFrame(pfMarkDot), { passive: true });
+});
 // re-paginate when web fonts finish loading and while the preview is edited by hand
 if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', () => requestAnimationFrame(scalePreview));
 document.addEventListener('input', (e) => {
@@ -3175,6 +3500,152 @@ function loadScript(src) {
 }
 
 // ── Download PDF ──
+// ── PDF text layer ──
+// The PDF pages are images of the preview (so they look exactly like it). On top of each image goes an
+// invisible text layer: every text line of that page, measured from the preview, at its position and size,
+// in the template's own reading order (header, contact, then each section; a sidebar stays one block).
+// That makes the text selectable and readable by applicant tracking systems. Email, phone, LinkedIn and
+// web addresses become clickable links. Non-Latin text uses a Noto font (loaded only when needed); if it
+// can't load, that text is left out of the layer and the rest still works.
+const PF_PDF_FONTS = {
+  noto: 'https://cdn.jsdelivr.net/npm/@expo-google-fonts/noto-sans@0.4.2/400Regular/NotoSans_400Regular.ttf',
+  bn:   'https://cdn.jsdelivr.net/npm/@expo-google-fonts/noto-sans-bengali@0.4.4/400Regular/NotoSansBengali_400Regular.ttf',
+  deva: 'https://cdn.jsdelivr.net/npm/@expo-google-fonts/noto-sans-devanagari@0.4.1/400Regular/NotoSansDevanagari_400Regular.ttf',
+  ar:   'https://cdn.jsdelivr.net/npm/@expo-google-fonts/noto-sans-arabic@0.4.3/400Regular/NotoSansArabic_400Regular.ttf',
+};
+const _pfFontData = {};
+const PF_WINANSI_EXTRA = '€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ';
+// which font can carry this character in the PDF: 'helv' (standard font), a Noto font, or null (left out)
+function pfCharFont(ch, prev) {
+  const c = ch.codePointAt(0);
+  if ((c >= 0x20 && c <= 0x7e) || (c >= 0xa0 && c <= 0xff) || PF_WINANSI_EXTRA.includes(ch)) return 'helv';
+  if ((c >= 0x300 && c <= 0x36f) || c === 0x200c || c === 0x200d) return prev || null;   // combining marks, joiners
+  if (c >= 0x980 && c <= 0x9ff) return 'bn';
+  if ((c >= 0x900 && c <= 0x97f) || (c >= 0xa8e0 && c <= 0xa8ff)) return 'deva';
+  if ((c >= 0x600 && c <= 0x6ff) || (c >= 0x750 && c <= 0x77f) || (c >= 0xfb50 && c <= 0xfdff) || (c >= 0xfe70 && c <= 0xfeff)) return 'ar';
+  if ((c >= 0x100 && c <= 0x52f) || (c >= 0x1e00 && c <= 0x1fff) || (c >= 0x2000 && c <= 0x20cf)) return 'noto';
+  return null;                                                                      // icons, emoji, CJK…
+}
+function pfTransform(ch, tt) { return tt === 'uppercase' ? ch.toUpperCase() : tt === 'lowercase' ? ch.toLowerCase() : ch; }
+// Every visible text line of the sheet, split into runs of one font, in DOM (reading) order. Sheet px.
+function pfTextRuns(preview) {
+  const box = preview.getBoundingClientRect(), unit = box.width / preview.offsetWidth || 1;
+  const runs = [], range = document.createRange();
+  const walker = document.createTreeWalker(preview, NodeFilter.SHOW_TEXT);
+  let node;
+  while ((node = walker.nextNode())) {
+    const el = node.parentElement, txt = node.nodeValue;
+    if (!el || !txt.trim() || el.closest('#carBadge')) continue;
+    const cs = getComputedStyle(el);
+    if (cs.visibility === 'hidden' || +cs.opacity === 0 || cs.color === 'rgba(0, 0, 0, 0)') continue;
+    const fs = parseFloat(cs.fontSize) || 12, bold = (parseInt(cs.fontWeight, 10) || 400) >= 600, tt = cs.textTransform;
+    const rtl = cs.direction === 'rtl';
+    let cur = null, font = null, pendingSpace = false;
+    const flush = () => { if (cur && cur.text.trim()) { cur.text = cur.text.replace(/\s+$/, ''); runs.push(cur); } cur = null; };
+    for (let i = 0; i < txt.length; i++) {
+      let ch = txt[i];
+      const cp = txt.codePointAt(i);
+      if (cp > 0xffff) { i++; ch = String.fromCodePoint(cp); }
+      if (/\s/.test(ch)) { pendingSpace = true; continue; }
+      font = pfCharFont(ch, font);
+      range.setStart(node, i); range.setEnd(node, i + ch.length);
+      const r = range.getClientRects()[0];
+      if (!r || !font) { if (!font) pendingSpace = true; continue; }
+      const x = (r.left - box.left) / unit, y = (r.top - box.top) / unit, w = r.width / unit, h = r.height / unit;
+      // shaped scripts draw vowel signs / conjuncts before or over the previous letter: keep them in the run
+      const shaped = rtl || font === 'bn' || font === 'deva' || font === 'ar';
+      const sameLine = cur && Math.abs(y - cur.y) < fs * 0.5 && cur.font === font &&
+        (shaped ? x > cur.x - fs * 1.5 - w && x - (cur.x + cur.w) < fs * 1.5 : x >= cur.x + cur.w - 1 && x - (cur.x + cur.w) < fs * 1.5);
+      if (!sameLine) {
+        flush();
+        cur = { text: '', x, y, w, h, fs, bold, font, el };
+      } else if (pendingSpace) cur.text += ' ';
+      pendingSpace = false;
+      cur.text += pfTransform(ch, tt);
+      const right = Math.max(cur.x + cur.w, x + w);
+      cur.x = Math.min(cur.x, x); cur.w = right - cur.x;
+      cur.h = Math.max(cur.h, h);
+    }
+    flush();
+  }
+  return runs;
+}
+// Contact details as links: the form's email, phone and LinkedIn wherever they appear, plus any web address.
+function pfLinkTargets(preview, d) {
+  const box = preview.getBoundingClientRect(), unit = box.width / preview.offsetWidth || 1;
+  const out = [], range = document.createRange();
+  const want = [];
+  if (d.email) want.push([d.email, 'mailto:' + d.email]);
+  if (d.phone && d.phone.replace(/\D/g, '').length >= 6) want.push([d.phone, 'tel:' + d.phone.replace(/[^\d+]/g, '')]);
+  if (d.linkedin) want.push([d.linkedin, /^https?:\/\//i.test(d.linkedin) ? d.linkedin : 'https://' + d.linkedin.replace(/^\/+/, '')]);
+  const walker = document.createTreeWalker(preview, NodeFilter.SHOW_TEXT);
+  let node;
+  while ((node = walker.nextNode())) {
+    const txt = node.nodeValue;
+    const hits = [];
+    for (const [s, url] of want) { let k = txt.indexOf(s); while (k >= 0) { hits.push([k, k + s.length, url]); k = txt.indexOf(s, k + s.length); } }
+    const re = /\b(?:https?:\/\/|www\.)[^\s<>"']+/gi;
+    let m;
+    while ((m = re.exec(txt))) {
+      if (hits.some(([a, b]) => m.index < b && m.index + m[0].length > a)) continue;
+      const u = m[0].replace(/[.,;)]+$/, '');
+      hits.push([m.index, m.index + u.length, /^https?:/i.test(u) ? u : 'https://' + u]);
+    }
+    for (const [a, b, url] of hits) {
+      range.setStart(node, a); range.setEnd(node, b);
+      for (const r of range.getClientRects()) {
+        if (r.width && r.height) out.push({ url, x: (r.left - box.left) / unit, y: (r.top - box.top) / unit, w: r.width / unit, h: r.height / unit });
+      }
+    }
+  }
+  return out;
+}
+function _pfB64(buf) {
+  const bytes = new Uint8Array(buf); let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+async function pfLoadPdfFonts(pdf, runs) {
+  const ok = { helv: true };
+  for (const key of new Set(runs.map(r => r.font))) {
+    if (key === 'helv' || !PF_PDF_FONTS[key]) continue;
+    try {
+      if (!_pfFontData[key]) {
+        const res = await fetch(PF_PDF_FONTS[key]);
+        if (!res.ok) throw new Error('font ' + res.status);
+        _pfFontData[key] = _pfB64(await res.arrayBuffer());
+      }
+      pdf.addFileToVFS('pf-' + key + '.ttf', _pfFontData[key]);
+      pdf.addFont('pf-' + key + '.ttf', 'pf-' + key, 'normal', 'Identity-H');
+      ok[key] = true;
+    } catch (e) { console.warn('PDF text layer: no font for', key, e); }
+  }
+  return ok;
+}
+// Invisible text + links for page p (0-based) of the sheet; the PDF page is 210×297mm, the sheet page PF_PAGE_H px.
+function pfAddTextLayer(pdf, runs, links, p, fontsOk) {
+  const k = 210 / 794, PT = 72 / 25.4, top = p * PF_PAGE_H;
+  for (const r of runs) {
+    if (r.y < top - 1 || r.y >= top + PF_PAGE_H - 1 || !fontsOk[r.font]) continue;
+    if (r.font === 'helv') pdf.setFont('helvetica', r.bold ? 'bold' : 'normal');
+    else pdf.setFont('pf-' + r.font, 'normal');
+    const sizeMm = r.fs * k;
+    pdf.setFontSize(sizeMm * PT);
+    // stretch the run to its measured width (letter-spacing, other fonts) — scaling, not spacing, so no gaps open between letters
+    const natural = pdf.getTextWidth(r.text), target = r.w * k;
+    const scale = natural > 0 ? Math.min(4, Math.max(0.25, target / natural)) : 1;
+    const baseline = (r.y - top + r.h - Math.max(0, (r.h - r.fs * 1.15) / 2) - r.fs * 0.22) * k;
+    pdf.text(r.text, r.x * k, baseline, { renderingMode: 'invisible', horizontalScale: scale });
+  }
+  for (const l of links) {
+    if (l.y < top - 1 || l.y >= top + PF_PAGE_H - 1) continue;
+    pdf.link(l.x * k, (l.y - top) * k, l.w * k, l.h * k, { url: l.url });
+  }
+}
+function pfEndCapture() {
+  window._pfPdfCapture = false;
+  if (window._pfScaleLater) { window._pfScaleLater = false; requestAnimationFrame(scalePreview); }
+}
 async function downloadPDF() {
   const preview = document.getElementById('cv-preview');
   const scaleEl = document.getElementById('cvPreviewScale');
@@ -3182,6 +3653,14 @@ async function downloadPDF() {
     showToast('Please fill in your CV details first.'); return;
   }
   if (carouselMode) { showToast('Fill in your details first — then download!'); return; }
+  scalePreview();
+  if (pfPages.natural > pfPages.chosen) {
+    const C = pfPages.chosen;
+    showToast(`Your CV doesn’t fit on ${C} page${C > 1 ? 's' : ''} — fit it or add a page first`);
+    const bar = document.getElementById('cvPageBar');
+    if (bar) { bar.classList.add('flash'); setTimeout(() => bar.classList.remove('flash'), 1200); }
+    return;
+  }
 
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -3205,12 +3684,18 @@ async function downloadPDF() {
   const originalTransform = scaleEl ? scaleEl.style.transform : '';
   const originalOrigin = scaleEl ? scaleEl.style.transformOrigin : '';
   try {
+    window._pfPdfCapture = true;
     if (scaleEl) { scaleEl.style.transform = 'scale(1)'; scaleEl.style.transformOrigin = 'top left'; }
-    const pages = pfPaginate(), docH = pages * PF_PAGE_H;
+    pfPaginate();
+    // only pages with content: a page count above what the CV needs never exports blank pages
+    const pages = Math.min(pfPages.chosen, pfPages.natural), docH = pages * PF_PAGE_H;
+    if (pages < pfPages.chosen) showToast(`Page${pfPages.chosen - pages > 1 ? 's' : ''} ${pages + 1}${pfPages.chosen - pages > 1 ? '–' + pfPages.chosen : ''} had no content — your PDF has ${pages} page${pages > 1 ? 's' : ''}`);
     preview.style.width = '794px';
     preview.style.height = docH + 'px';
     preview.style.overflow = 'visible';
     await new Promise(r => setTimeout(r, 100));
+    const formData = getFormData();
+    const textRuns = pfTextRuns(preview), linkTargets = pfLinkTargets(preview, formData);
     const canvas = await html2canvas(preview, {
       scale: 2, useCORS: true, allowTaint: true,
       backgroundColor: '#ffffff', width: 794, height: docH,
@@ -3219,8 +3704,11 @@ async function downloadPDF() {
     });
     if (scaleEl) { scaleEl.style.transform = originalTransform; scaleEl.style.transformOrigin = originalOrigin; }
     preview.style.overflow = 'hidden';
+    pfEndCapture();
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+    if (formData.name) pdf.setProperties({ title: formData.name + ' — CV', author: formData.name });
+    const fontsOk = await pfLoadPdfFonts(pdf, textRuns);
     const pagePx = Math.round(canvas.height / pages);
     for (let p = 0; p < pages; p++) {
       const pc = document.createElement('canvas');
@@ -3230,6 +3718,7 @@ async function downloadPDF() {
       g.drawImage(canvas, 0, p * pagePx, canvas.width, pagePx, 0, 0, canvas.width, pagePx);
       if (p) pdf.addPage('a4', 'portrait');
       pdf.addImage(pc.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, 297, '', 'FAST');
+      pfAddTextLayer(pdf, textRuns, linkTargets, p, fontsOk);
     }
     const name = (getFormData().name || 'CV').replace(/\s+/g, '-');
 
@@ -3266,6 +3755,7 @@ async function downloadPDF() {
     if (mobileWin) mobileWin.close();
     if (scaleEl) { scaleEl.style.transform = originalTransform; scaleEl.style.transformOrigin = originalOrigin; }
     preview.style.overflow = 'hidden';
+    pfEndCapture();
     console.error('PDF error:', err);
     const win = window.open('', '_blank');
     if (win) {
@@ -6331,7 +6821,8 @@ function openSheet(name) {
     content.innerHTML = isCL
       ? '<button onclick="downloadCLasPDF();closeSheet();" style="width:100%;padding:16px;background:var(--accent);color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download Letter PDF</button>' +
         '<button onclick="closeSheet();setTimeout(downloadCLasDOCX,350);" style="width:100%;padding:16px;background:white;color:var(--accent);border:2px solid var(--accent);border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download Letter Word</button>'
-      : '<button onclick="downloadPDF();closeSheet();" style="width:100%;padding:16px;background:var(--accent);color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download PDF</button>';
+      : '<button onclick="downloadPDF();closeSheet();" style="width:100%;padding:16px;background:var(--accent);color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download PDF</button>' +
+        '<p class="cv-ats-note" style="margin:10px 2px 0;font-size:12px;color:var(--text3);text-align:center;">Text in your PDF is selectable and readable by applicant tracking systems.</p>';
   } else {
     config.selectors.forEach(sel => {
       const el = document.querySelector(sel);

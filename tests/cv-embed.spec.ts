@@ -34,6 +34,10 @@ function originalCvBuilder() {
   return (s.slice(0, a) + s.slice(b)).replace(ga, "  gtag('config', 'G-0QEEGS0DZQ');");
 }
 
+// cv-builder.html as it is on main (before the PDF text layer) — to compare the PDF page images
+function mainCvBuilder() {
+  return require('child_process').execSync('git show main:cv-builder.html', { cwd: ROOT, maxBuffer: 64 << 20 }).toString('utf8');
+}
 async function cdnRoute(route: Route) {
   const url = route.request().url();
   fs.mkdirSync(CDN_CACHE, { recursive: true });
@@ -67,6 +71,7 @@ async function setup(page: Page) {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body.type === 'jobSearch' ? { jobs: JOBS, source: 'live' } : { success: false }) });
     }
     if (url.pathname === '/cv-builder-original.html') return route.fulfill({ status: 200, contentType: 'text/html', body: originalCvBuilder() });
+    if (url.pathname === '/cv-builder-main.html') return route.fulfill({ status: 200, contentType: 'text/html', body: mainCvBuilder() });
     const file = path.join(ROOT, decodeURIComponent(url.pathname === '/' ? '/index.html' : url.pathname));
     if (!file.startsWith(ROOT) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) return route.fulfill({ status: 404, body: '' });
     return route.fulfill({ path: file, contentType: MIME[path.extname(file)] || 'application/octet-stream' });
@@ -383,7 +388,8 @@ test.describe('CV downloads: PDF only (cover letter keeps Word)', () => {
 
 // ─────────────────────────────────────────────────────────────
 const PAGE_H = 1123;                                   // A4 at the sheet's 794px width
-async function fillBigCv(f: Page | Frame, template: string, jobs = 6, bullets = 6) {
+// a long CV; by default the page count is then set to what it needs (pages are never added automatically)
+async function fillBigCv(f: Page | Frame, template: string, jobs = 6, bullets = 6, choosePages = true) {
   await fillCv(f, template);
   await f.evaluate(([jobs, bullets]) => {
     const w = window as any;
@@ -403,6 +409,7 @@ async function fillBigCv(f: Page | Frame, template: string, jobs = 6, bullets = 
   }, [jobs, bullets]);
   await f.waitForTimeout(400);
   await f.evaluate(() => new Promise((r) => requestAnimationFrame(() => { (window as any).scalePreview(); requestAnimationFrame(r); })));
+  if (choosePages) await f.evaluate(() => { const w = window as any; w.pfSetChosenPages(w.pfPageState().natural); });
 }
 // every text line of the preview, in sheet coordinates (unscaled px)
 const previewLines = (f: Page | Frame) => f.evaluate(() => {
@@ -459,8 +466,7 @@ test.describe('multi-page CV', () => {
       const { lines, pages, sheetH } = await previewLines(page);
       expect(pages, 'pages').toBeGreaterThanOrEqual(2);
       expect(sheetH).toBe(pages * PAGE_H);                                          // whole A4 pages, nothing cut off at the end
-      await expect(page.locator('#cvPageCount')).toHaveText(`${pages} pages`);
-      await expect(page.locator('#cvPageCount')).toHaveAttribute('title', 'Most graduate CVs fit on 1 page; 2 pages is fine for experienced roles.');
+      await expect(page.locator('#cvPagesCtl button.on')).toHaveText(String(pages));
       await expect(page.locator('#cvPreviewScale .pf-page-gap')).toHaveCount(pages - 1);
       // no text line in (or across) the 40px margins either side of a page boundary, none past the last page
       const cut = lines.filter((l) => l.b > pages * PAGE_H || Array.from({ length: pages - 1 }, (_, i) => (i + 1) * PAGE_H).some((y) => l.t < y + 30 && l.b > y - 30));
@@ -519,7 +525,7 @@ test.describe('multi-page CV', () => {
       const { pages, sheetH } = await previewLines(page);
       expect(pages, tpl).toBe(1);
       expect(sheetH, tpl).toBe(PAGE_H);
-      await expect(page.locator('#cvPageCount')).toHaveText('1 page');
+      await expect(page.locator('#cvPagesCtl button.on')).toHaveText('1');
       await expect(page.locator('#cvPreviewScale .pf-page-gap')).toHaveCount(0);
       const pdf = await downloadCvPdf(page, page);
       expect(pdf.pages, tpl).toBe(1);
@@ -565,9 +571,517 @@ test.describe('multi-page CV', () => {
     await fillBigCv(frame, 'exec-pro');
     const { pages } = await previewLines(frame);
     expect(pages).toBeGreaterThanOrEqual(2);
-    await expect(frame.locator('#cvPageCount')).toHaveText(`${pages} pages`);
+    await expect(frame.locator('#cvPagesCtl button.on')).toHaveText(String(pages));
     const pdf = await downloadCvPdf(page, frame);
     expect(pdf.pages).toBe(pages);
     await expect.poll(async () => { const s = await sizes(page, frame); return Math.abs(s.frameH - s.scrollH); }, { timeout: 10000 }).toBeLessThan(3);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// PDF text layer (selectable / ATS-readable text over the page images), read back with pdf.js
+const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+async function readPdf(page: Page, buf: Buffer) {
+  const reader = await page.context().newPage();                     // a blank tab: the homepage has its own pdf.js
+  await reader.goto('about:blank');
+  await reader.addScriptTag({ url: PDFJS + 'pdf.min.js' });
+  const out = await reader.evaluate(async ([b64, base]) => {
+    const lib = (window as any).pdfjsLib;
+    lib.GlobalWorkerOptions.workerSrc = base + 'pdf.worker.min.js';
+    const doc = await lib.getDocument({ data: Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)) }).promise;
+    const meta = await doc.getMetadata();
+    const pages: { items: string[]; links: string[] }[] = [];
+    for (let i = 1; i <= doc.numPages; i++) {
+      const pg = await doc.getPage(i);
+      const tc = await pg.getTextContent();
+      const ann = await pg.getAnnotations();
+      pages.push({ items: tc.items.map((t: any) => t.str).filter((x: string) => x.trim()), links: ann.filter((a: any) => a.subtype === 'Link').map((a: any) => a.url || a.unsafeUrl) });
+    }
+    return { pages, title: meta.info.Title, author: meta.info.Author };
+  }, [buf.toString('base64'), PDFJS] as [string, string]);
+  await reader.close();
+  return out;
+}
+async function cvPdfBuffer(page: Page, f: Page | Frame) {
+  const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 90000 }), f.evaluate(() => (window as any).downloadPDF())]);
+  return fs.readFileSync((await dl.path())!);
+}
+const TL_TEMPLATES = ['classic', 'exec-pro', 'minimal', 'modern-blue'];
+
+test.describe('PDF text layer', () => {
+  for (const tpl of TL_TEMPLATES) {
+    test(`${tpl}: one page — text is extractable in reading order, with links and metadata`, async ({ page }) => {
+      await page.setViewportSize({ width: 1280, height: 800 });
+      const net = await setup(page);
+      await page.goto('/cv-builder.html');
+      await page.waitForFunction(() => typeof (window as any).pfTextRuns === 'function');
+      await fillCv(page, tpl);
+      await page.fill('#f-linkedin', 'linkedin.com/in/jordanrivers');
+      await page.waitForTimeout(300);
+      const buf = await cvPdfBuffer(page, page);
+      const pdf = await readPdf(page, buf);
+      expect(pdf.pages.length).toBe(1);
+      expect(pdf.title).toBe('Jordan Rivers — CV');
+      expect(pdf.author).toBe('Jordan Rivers');
+      const items = pdf.pages[0].items;
+      const idx = (s: string) => {
+        const i = items.findIndex((x) => x.toLowerCase().includes(s.toLowerCase()));
+        expect(i, `"${s}" in the PDF text: ${JSON.stringify(items)}`).toBeGreaterThanOrEqual(0);
+        return i;
+      };
+      expect(items.join(' ')).not.toMatch(/(?:[A-Z] ){4,}/);                                // letter-spaced headings read as words
+      for (const s of ['Jordan Rivers', 'jordan@example.com', 'Senior Data Analyst', 'Acme Analytics', '2021', 'Present', 'Built a churn dashboard used by 40 managers',
+        'Cut report time by 60%', 'BSc Statistics', 'SQL', 'Python', 'Power BI']) idx(s);
+      expect(items.join(' ')).not.toMatch(/�/);
+      // the main column reads in order: summary → role → its bullets in order → education
+      expect(idx('Analyst who turns messy data')).toBeLessThan(idx('Senior Data Analyst'));
+      expect(idx('Senior Data Analyst')).toBeLessThan(idx('Built a churn dashboard'));
+      expect(idx('Built a churn dashboard')).toBeLessThan(idx('Cut report time'));
+      expect(idx('Cut report time')).toBeLessThan(idx('BSc Statistics'));
+      if (tpl !== 'exec-pro') expect(idx('Jordan Rivers')).toBeLessThan(idx('Senior Data Analyst'));
+      expect(pdf.pages[0].links).toEqual(expect.arrayContaining(['mailto:jordan@example.com', 'tel:+61400000000', 'https://linkedin.com/in/jordanrivers']));
+      expect(buf.length).toBeLessThan(1024 * 1024);
+      expect(net.errors).toEqual([]);
+    });
+  }
+
+  test('exec-pro (sidebar): the sidebar is one block, not interleaved with the main column', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await setup(page);
+    await page.goto('/cv-builder.html');
+    await page.waitForFunction(() => typeof (window as any).pfTextRuns === 'function');
+    await fillCv(page, 'exec-pro');
+    await page.waitForTimeout(300);
+    const items = (await readPdf(page, await cvPdfBuffer(page, page))).pages[0].items;
+    const at = (s: string) => items.findIndex((x) => x.includes(s));
+    const side = ['jordan@example.com', '+61 400 000 000', 'SQL', 'Python', 'Google Data Analytics'].map(at);
+    const main = ['Jordan Rivers', 'Analyst who turns', 'Senior Data Analyst', 'Built a churn', 'Cut report time', 'BSc Statistics'].map(at);
+    for (const i of [...side, ...main]) expect(i, JSON.stringify(items)).toBeGreaterThanOrEqual(0);
+    expect(Math.max(...side) < Math.min(...main) || Math.max(...main) < Math.min(...side), `sidebar ${side} / main ${main}`).toBe(true);
+  });
+
+  for (const tpl of TL_TEMPLATES) {
+    test(`${tpl}: multi-page — each page's text layer has only that page's text`, async ({ page }) => {
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await setup(page);
+      await page.goto('/cv-builder.html');
+      await page.waitForFunction(() => typeof (window as any).pfTextRuns === 'function');
+      await fillBigCv(page, tpl);
+      const { lines, pages } = await previewLines(page);
+      expect(pages).toBeGreaterThanOrEqual(2);
+      const buf = await cvPdfBuffer(page, page);
+      const pdf = await readPdf(page, buf);
+      expect(pdf.pages.length).toBe(pages);
+      expect(buf.length / pages).toBeLessThan(1024 * 1024);
+      const label = /Job \d+ bullet \d+/g;
+      for (let p = 0; p < pages; p++) {
+        const inDom = new Set(lines.filter((l) => pageOf(l.t) === p).flatMap((l) => l.text.match(label) || []));
+        const inPdf = new Set(pdf.pages[p].items.join(' ').match(label) || []);
+        expect([...inPdf].sort(), `page ${p + 1}`).toEqual([...inDom].sort());
+        expect(inPdf.size, `page ${p + 1} has text`).toBeGreaterThan(0);
+      }
+      const seq = pdf.pages.flatMap((pg) => pg.items.join(' ').match(label) || []);
+      const want = Array.from({ length: 6 }, (_, i) => Array.from({ length: 6 }, (_, b) => `Job ${i + 1} bullet ${b + 1}`)).flat();
+      expect(seq, 'bullets in order across the pages').toEqual(want);
+      expect(pdf.pages[1].items.join(' ')).not.toContain('Jordan Rivers');
+    });
+  }
+
+  // decoded-pixel difference between two page JPEGs
+  const jpgDiff = (page: Page, x: string, y: string) => page.evaluate(async ([x, y]) => {
+    const load = async (s: string) => {
+      const bmp = await createImageBitmap(new Blob([Uint8Array.from(atob(s), (c) => c.charCodeAt(0))], { type: 'image/jpeg' }));
+      const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height;
+      const g = c.getContext('2d')!; g.drawImage(bmp, 0, 0);
+      return g.getImageData(0, 0, c.width, c.height).data;
+    };
+    const [p, q] = [await load(x), await load(y)];
+    if (p.length !== q.length) return { mean: 999, bigShare: 1 };
+    let sum = 0, big = 0;
+    for (let k = 0; k < p.length; k += 4) {
+      const d = Math.abs(p[k] - q[k]) + Math.abs(p[k + 1] - q[k + 1]) + Math.abs(p[k + 2] - q[k + 2]);
+      sum += d; if (d > 96) big++;
+    }
+    return { mean: sum / (p.length / 4), bigShare: big / (p.length / 4) };
+  }, [x, y] as [string, string]);
+  const pageJpgs = async (page: Page, url: string, during?: string) => {
+    await page.goto(url);
+    await page.waitForFunction(() => typeof (window as any).pfPaginate === 'function');
+    await fillBigCv(page, 'exec-pro');
+    await page.waitForTimeout(800);
+    const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 90000 }), page.evaluate((js) => {
+      if (js) (window as any).__spam = setInterval(new Function(js) as any, 5);
+      return Promise.resolve((window as any).downloadPDF()).finally(() => clearInterval((window as any).__spam));
+    }, during || '')]);
+    return pdfPages(fs.readFileSync((await dl.path())!)).jpgs;
+  };
+  const same = async (page: Page, a: string[], b: string[]) => {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) { const d = await jpgDiff(page, a[i], b[i]); if (d.mean >= 1 || d.bigShare >= 0.001) return false; }
+    return true;
+  };
+
+  test('the page images are the preview itself: the invisible text layer adds nothing visible', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await setup(page);
+    const pdf = await pageJpgs(page, '/cv-builder.html');
+    expect(pdf.length).toBeGreaterThanOrEqual(2);
+    // capture the preview the same way, with no PDF involved, and compare page by page
+    const direct: string[] = await page.evaluate(async (H) => {
+      const w = window as any, pv = document.getElementById('cv-preview')!, sc = document.getElementById('cvPreviewScale')!;
+      w._pfPdfCapture = true; const t = sc.style.transform; sc.style.transform = 'scale(1)'; pv.style.overflow = 'visible';
+      const pages = w.pfPageState().chosen;
+      const c = await w.html2canvas(pv, { scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', width: 794, height: pages * H, scrollX: 0, scrollY: 0, logging: false, removeContainer: true, foreignObjectRendering: false });
+      sc.style.transform = t; pv.style.overflow = 'hidden'; w._pfPdfCapture = false;
+      const out: string[] = [], ph = Math.round(c.height / pages);
+      for (let p = 0; p < pages; p++) {
+        const pc = document.createElement('canvas'); pc.width = c.width; pc.height = ph;
+        const g = pc.getContext('2d')!; g.fillStyle = '#fff'; g.fillRect(0, 0, pc.width, ph); g.drawImage(c, 0, p * ph, c.width, ph, 0, 0, c.width, ph);
+        out.push(pc.toDataURL('image/jpeg', 0.92).split(',')[1]);
+      }
+      return out;
+    }, PAGE_H);
+    expect(await same(page, pdf, direct)).toBe(true);
+  });
+
+  test('the page images stay at full size even when the preview re-scales during the capture', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await setup(page);
+    const ref = await pageJpgs(page, '/cv-builder.html');
+    const hit = await pageJpgs(page, '/cv-builder.html', 'scalePreview()');           // a late re-scale (timer / font load) every 5ms
+    expect(await same(page, ref, hit)).toBe(true);
+    expect(await page.evaluate(() => getComputedStyle(document.getElementById('cvPreviewScale')!).transform)).not.toBe('matrix(1, 0, 0, 1, 0, 0)');   // preview zoom restored
+  });
+
+  test('non-Latin text (Bengali, Hindi, Arabic) is in the text layer; without the font it is left out gracefully', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await setup(page);
+    await page.goto('/cv-builder.html');
+    await page.waitForFunction(() => typeof (window as any).pfTextRuns === 'function');
+    await fillCv(page, 'classic');
+    await page.fill('#f-name', 'প্রিতম দাশ');
+    await page.evaluate(() => { const el = document.getElementById('f-summary') as HTMLTextAreaElement; el.value = 'नमस्ते दुनिया — مرحبا بالعالم — Analyst who turns messy data into clear decisions.'; el.dispatchEvent(new Event('input', { bubbles: true })); });
+    await page.waitForTimeout(300);
+    const pdf = await readPdf(page, await cvPdfBuffer(page, page));
+    const all = pdf.pages[0].items.join(' ');
+    expect(all).toContain('প্রিতম');
+    expect(all).toContain('नमस्ते');
+    expect(all.normalize('NFKC').replace(/\s/g, '')).toContain('مرحبا');     // jsPDF shapes Arabic (presentation forms; NFKC gives the letters back)
+    expect(all).toContain('Senior Data Analyst');
+    expect(pdf.title).toBe('প্রিতম দাশ — CV');
+    // the fonts can't load: still a PDF, the Latin text is still there, no error
+    await page.context().route(/expo-google-fonts/, (r) => r.abort());
+    await page.goto('/cv-builder.html');
+    await page.waitForFunction(() => typeof (window as any).pfTextRuns === 'function');
+    await fillCv(page, 'classic');
+    await page.fill('#f-name', 'প্রিতম দাশ');
+    await page.waitForTimeout(300);
+    const pdf2 = await readPdf(page, await cvPdfBuffer(page, page));
+    const all2 = pdf2.pages[0].items.join(' ');
+    expect(all2).toContain('Senior Data Analyst');
+    expect(all2).not.toContain('প্রিতম');
+  });
+
+  test('the one new line by the PDF button', async ({ page }) => {
+    await setup(page);
+    await page.goto('/cv-builder.html');
+    await expect(page.locator('.cv-ats-note')).toHaveCount(1);
+    await expect(page.locator('.cv-ats-note')).toHaveText('Text in your PDF is selectable and readable by applicant tracking systems.');
+  });
+
+  test('inside the homepage embed: the PDF has its text layer', async ({ page }) => {
+    await setup(page);
+    await page.goto('/');
+    const frame = await openCvTab(page);
+    await fillCv(frame, 'modern-blue');
+    await frame.waitForTimeout(300);
+    const pdf = await readPdf(page, await cvPdfBuffer(page, frame));
+    expect(pdf.pages[0].items.join(' ')).toContain('Built a churn dashboard used by 40 managers');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// Page count chosen by the user; overflow bar, fit, add page; preview shows every page; manual breaks; alignment
+const st = (f: Page | Frame) => f.evaluate(() => (window as any).pfPageState());
+const bar = (f: Page | Frame) => f.locator('#cvPageBar');
+async function openBuilder(page: Page, w = 1280, h = 800) {
+  await page.setViewportSize({ width: w, height: h });
+  const net = await setup(page);
+  await page.goto('/cv-builder.html');
+  await page.waitForFunction(() => typeof (window as any).pfFitToPages === 'function');
+  return net;
+}
+async function noDownload(page: Page, f: Page | Frame) {
+  let got = false;
+  const on = () => { got = true; };
+  page.on('download', on);
+  await f.evaluate(() => (window as any).downloadPDF());
+  await page.waitForTimeout(1500);
+  page.off('download', on);
+  return !got;
+}
+// is page k of the sheet on screen inside the scrolling preview?
+const pageOnScreen = (f: Page | Frame, k: number) => f.evaluate((k) => {
+  const w = document.getElementById('cvPreviewWrapper')!.getBoundingClientRect();
+  const p = document.querySelector(`#cvPreviewScale .pf-page[data-page="${k}"]`)!.getBoundingClientRect();
+  const top = Math.max(w.top, p.top, 0), bottom = Math.min(w.bottom, p.bottom, innerHeight);
+  return bottom - top > Math.min(150, w.height / 3);
+}, k);
+
+test.describe('page count: chosen by the user', () => {
+  test('default is 1 page; a long CV is never given pages automatically; PDF waits for a choice', async ({ page }) => {
+    await openBuilder(page);
+    await fillBigCv(page, 'classic', 6, 6, false);
+    const s = await st(page);
+    expect(s.chosen).toBe(1);
+    expect(s.natural).toBeGreaterThanOrEqual(2);
+    await expect(page.locator('#cvPagesCtl button.on')).toHaveText('1');
+    await expect(bar(page)).toBeVisible();
+    await expect(bar(page)).toContainText('over 1 page');
+    await expect(page.locator('#cvPreviewScale .pf-cut')).toHaveCount(1);              // red page-limit line
+    await expect(page.locator('#cvPreviewScale .pf-over')).toHaveCount(1);             // faded part that doesn't fit
+    expect(await noDownload(page, page), 'no PDF while the CV overflows the chosen pages').toBe(true);
+    expect((await st(page)).chosen).toBe(1);
+  });
+
+  test('overflow bar counts the lines over the page', async ({ page }) => {
+    await openBuilder(page);
+    await fillBigCv(page, 'classic', 3, 5, false);
+    const { lines } = await previewLines(page);
+    const rows: number[] = [];
+    for (const l of lines) if (l.t >= PAGE_H - 2 && !rows.some((y) => Math.abs(y - l.t) < 6)) rows.push(l.t);
+    expect(rows.length).toBeGreaterThan(0);
+    const n = rows.length;
+    await expect(bar(page)).toContainText(`Your CV is ${n} line${n === 1 ? '' : 's'} over 1 page`);
+    await expect(bar(page).locator('button', { hasText: '✨ Fit to 1 page' })).toBeVisible();
+    await expect(bar(page).locator('button', { hasText: '+ Add page 2' })).toBeVisible();
+  });
+
+  test('"Fit to 1 page" makes a slightly-over CV fit, never below 9.5pt; Undo puts it back', async ({ page }) => {
+    await openBuilder(page);
+    await fillBigCv(page, 'classic', 3, 5, false);
+    const before = await page.evaluate(() => parseFloat(getComputedStyle(document.querySelector('#cv-preview li')!).fontSize));
+    await bar(page).locator('button', { hasText: 'Fit to 1 page' }).click();
+    const s = await st(page);
+    expect(s.natural).toBe(1);
+    expect(s.fitLevel).toBeGreaterThan(0);
+    expect(s.bodyPt).toBeGreaterThanOrEqual(9.5);
+    await expect(bar(page)).toContainText(`Fitted (font ${s.bodyPt}pt)`);
+    const after = await page.evaluate(() => [...document.querySelectorAll('#cv-preview li')].map((li) => parseFloat(getComputedStyle(li).fontSize)));
+    expect(Math.min(...after)).toBeGreaterThanOrEqual(Math.min(before, 9.5 / 0.75) - 0.01);
+    const buf = await cvPdfBuffer(page, page);
+    expect(pdfPages(buf).pages).toBe(1);
+    await bar(page).locator('button', { hasText: 'Undo' }).click();
+    expect((await st(page)).fitLevel).toBe(0);
+    await expect(bar(page)).toContainText('over 1 page');
+  });
+
+  test('a CV far over 1 page: Fit says it can\'t without going below 9.5pt, and nothing shrinks', async ({ page }) => {
+    await openBuilder(page);
+    await fillBigCv(page, 'classic', 6, 6, false);
+    const ok = await page.evaluate(() => (window as any).pfFitToPages(1));
+    expect(ok).toBe(false);
+    const s = await st(page);
+    expect(s.fitLevel).toBe(0);
+    expect(s.natural).toBeGreaterThan(1);
+    await expect(bar(page)).toContainText('Can’t fit on 1 page without going below 9.5pt — add a page instead.');
+    await expect(bar(page).locator('button', { hasText: '+ Add page 2' })).toBeVisible();
+  });
+
+  test('"+ Add page 2" gives exactly 2 pages; the PDF has the chosen pages, never a blank one', async ({ page }) => {
+    await openBuilder(page);
+    await fillBigCv(page, 'exec-pro', 3, 5, false);
+    await bar(page).locator('button', { hasText: '+ Add page 2' }).click();
+    expect((await st(page)).chosen).toBe(2);
+    await expect(page.locator('#cvPagesCtl button.on')).toHaveText('2');
+    expect(pdfPages(await cvPdfBuffer(page, page)).pages).toBe(2);
+    await page.locator('#cvPagesCtl button[data-p="3"]').click();                     // more pages than the content needs: no blank page 3
+    expect(pdfPages(await cvPdfBuffer(page, page)).pages).toBe(2);
+    await page.locator('#cvPagesCtl button[data-p="1"]').click();                     // fewer: no silent cut
+    expect(await noDownload(page, page)).toBe(true);
+  });
+
+  test('2 pages chosen but page 2 is mostly empty: a gentle tip to fit to 1 page', async ({ page }) => {
+    await openBuilder(page);
+    await fillCv(page, 'classic');
+    await page.evaluate(() => (window as any).pfSetChosenPages(2));
+    await expect(bar(page)).toContainText('Page 2 is mostly empty — Fit to 1 page?');
+    expect(pdfPages(await cvPdfBuffer(page, page)).pages).toBe(1);                   // page 2 is empty: not exported
+    await bar(page).locator('button', { hasText: 'Fit to 1 page' }).click();
+    expect((await st(page)).chosen).toBe(1);
+    await expect(bar(page)).toBeHidden();
+  });
+
+  test('the page choice is remembered', async ({ page }) => {
+    await openBuilder(page);
+    await page.evaluate(() => (window as any).pfSetChosenPages(2));
+    await page.reload();
+    await page.waitForFunction(() => typeof (window as any).pfFitToPages === 'function');
+    expect((await st(page)).chosen).toBe(2);
+  });
+
+  for (const [label, w, h] of [['desktop', 1280, 800], ['phone', 390, 844]] as [string, number, number][]) {
+    test(`${label}: the preview scrolls to page 2 and shows it, with page labels and dots`, async ({ page }) => {
+      await openBuilder(page, w, h);
+      await fillBigCv(page, 'modern-blue');
+      await page.evaluate(() => { const p = document.getElementById('cvPreviewPanel')!; if (getComputedStyle(p).position !== 'fixed') scrollTo({ top: p.getBoundingClientRect().top + scrollY - 78, behavior: 'instant' as ScrollBehavior }); });
+      expect((await st(page)).chosen).toBe(2);
+      expect(await pageOnScreen(page, 2)).toBe(false);
+      await expect(page.locator('#cvPreviewScale .pf-page-label').first()).toHaveText('Page 1 of 2');
+      await page.locator('#cvPageDots .pf-dot[data-page="2"]').click();
+      await expect.poll(() => pageOnScreen(page, 2)).toBe(true);
+      await expect(page.locator('#cvPageDots .pf-dot.on')).toHaveAttribute('data-page', '2');
+      await page.evaluate(() => document.getElementById('cvPreviewWrapper')!.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior }));
+      await expect.poll(() => pageOnScreen(page, 1)).toBe(true);
+    });
+  }
+
+  test('embed: the preview scrolls to page 2 inside the homepage tab; the frame height still follows the page', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await setup(page);
+    await page.goto('/');
+    const frame = await openCvTab(page);
+    await fillBigCv(frame, 'exec-pro');
+    await frame.evaluate(() => (window as any).pfScrollToPage(2));
+    await expect.poll(() => pageOnScreen(frame, 2)).toBe(true);
+    await expect.poll(async () => { const s = await sizes(page, frame); return Math.abs(s.frameH - s.scrollH); }, { timeout: 10000 }).toBeLessThan(3);
+  });
+
+  test('"Start on new page" (section menu) moves Education to page 2, in the preview and the PDF', async ({ page }) => {
+    await openBuilder(page);
+    await fillCv(page, 'classic');
+    await page.evaluate(() => (window as any).pfSetChosenPages(2));
+    const eduPage = async () => { const { lines } = await previewLines(page); return pageOf(lines.find((l) => l.text === 'BSc Statistics')!.t); };
+    expect(await eduPage()).toBe(0);
+    await page.locator('#sec-education .pf-brk-btn').click();
+    await page.locator('#sec-education .pf-brk-menu input').check();
+    expect(await eduPage()).toBe(1);
+    expect((await st(page)).breaks).toEqual(['education']);
+    const pdf = await readPdf(page, await cvPdfBuffer(page, page));
+    expect(pdf.pages.length).toBe(2);
+    expect(pdf.pages[1].items.join(' ')).toContain('BSc Statistics');
+    expect(pdf.pages[0].items.join(' ')).not.toContain('BSc Statistics');
+    expect(pdf.pages[0].items.join(' ')).toContain('Senior Data Analyst');
+  });
+});
+
+test.describe('text alignment', () => {
+  test('Classic: bullets, bullet text and company/date lines are left-aligned', async ({ page }) => {
+    await openBuilder(page);
+    await fillCv(page, 'classic');
+    const a = await page.evaluate(() => {
+      const pv = document.getElementById('cv-preview')!;
+      const find = (t: string) => [...pv.querySelectorAll('*')].find((e) => e.children.length === 0 && e.textContent!.trim() === t)!;
+      return {
+        li: [...pv.querySelectorAll('li')].map((li) => getComputedStyle(li).textAlign),
+        company: getComputedStyle(find('Acme Analytics')).textAlign,
+        role: getComputedStyle(find('Senior Data Analyst')).textAlign,
+        edu: getComputedStyle(find('BSc Statistics')).textAlign,
+      };
+    });
+    expect(new Set(a.li)).toEqual(new Set(['left']));
+    expect([a.company, a.role, a.edu]).toEqual(['left', 'left', 'left']);
+  });
+
+  test('all 54 templates: no bullet or job line is centred', async ({ page }) => {
+    test.setTimeout(300000);
+    await openBuilder(page);
+    const tpls = await page.evaluate('Object.keys(RENDER_MAP)') as string[];
+    expect(tpls.length).toBe(54);
+    const bad: string[] = [];
+    for (const tpl of tpls) {
+      await fillCv(page, tpl);
+      const r = await page.evaluate(() => {
+        const pv = document.getElementById('cv-preview')!;
+        const out: string[] = [];
+        for (const e of pv.querySelectorAll('li')) if (getComputedStyle(e).textAlign === 'center') out.push('li');
+        for (const e of pv.querySelectorAll('*')) {
+          const t = [...e.childNodes].filter((n) => n.nodeType === 3).map((n) => n.nodeValue!.trim()).join('');
+          if (/^(Built a churn|Cut report time|Acme Analytics|Senior Data Analyst)/.test(t) && getComputedStyle(e).textAlign === 'center' && !(e as HTMLElement).closest('li')) {
+            let side = false;
+            for (let x: HTMLElement | null = e as HTMLElement; x && x !== pv; x = x.parentElement) if (x.offsetWidth < 794 * 0.45 && x.offsetHeight > 1123 * 0.4) side = true;
+            if (!side) out.push(t.slice(0, 20));
+          }
+        }
+        return out;
+      });
+      if (r.length) bad.push(`${tpl}: ${r.join(', ')}`);
+    }
+    expect(bad).toEqual([]);
+  });
+});
+
+test.describe('no blank pages; extra sections in the content column', () => {
+  for (const tpl of ['classic', 'exec-pro', 'minimal', 'modern-blue']) {
+    test(`${tpl}: a short CV with Pages = 3 downloads as 1 page — never a blank page`, async ({ page }) => {
+      await openBuilder(page);
+      await fillCv(page, tpl);
+      await page.locator('#cvPagesCtl button[data-p="3"]').click();
+      expect((await st(page)).chosen).toBe(3);
+      const buf = await cvPdfBuffer(page, page);
+      const { pages, jpgs } = pdfPages(buf);
+      expect(pages).toBe(1);
+      const pdf = await readPdf(page, buf);
+      for (const pg of pdf.pages) expect(pg.items.join(' ').trim().length, 'every page has text').toBeGreaterThan(0);
+      // and no page image is plain white
+      for (const j of jpgs) {
+        const px = await page.evaluate(async (b64) => {
+          const bmp = await createImageBitmap(new Blob([Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))], { type: 'image/jpeg' }));
+          const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height;
+          const g = c.getContext('2d')!; g.drawImage(bmp, 0, 0);
+          const d = g.getImageData(0, 0, c.width, c.height).data; let dark = 0;
+          for (let i = 0; i < d.length; i += 16) if (d[i] + d[i + 1] + d[i + 2] < 600) dark++;
+          return dark;
+        }, j);
+        expect(px).toBeGreaterThan(100);
+      }
+    });
+  }
+
+  test('a 2-page CV with Pages = 3 downloads as 2 pages, each with its own content', async ({ page }) => {
+    await openBuilder(page);
+    await fillBigCv(page, 'modern-blue');
+    expect((await st(page)).natural).toBe(2);
+    await page.evaluate(() => (window as any).pfSetChosenPages(3));
+    const pdf = await readPdf(page, await cvPdfBuffer(page, page));
+    expect(pdf.pages.length).toBe(2);
+    for (const pg of pdf.pages) expect(pg.items.length).toBeGreaterThan(5);
+  });
+
+  const EXTRA_TPLS = ['classic', 'modern', 'minimal', 'executive', 'creative', 'compact', 'timeline', 'tech', 'navy', 'burgundy', 'teal', 'slate',
+    'terracotta', 'bold', 'academic', 'elegant', 'purple', 'warm', 'professional', 'gradient'];
+  test('older templates: References sits in the same padded column as Work Experience (Classic, Modern and all the others)', async ({ page }) => {
+    await openBuilder(page);
+    const off: string[] = [];
+    for (const tpl of EXTRA_TPLS) {
+      await fillCv(page, tpl);
+      const r = await page.evaluate(() => {
+        const pv = document.getElementById('cv-preview')!, u = pv.getBoundingClientRect().width / 794, x0 = pv.getBoundingClientRect().left;
+        const leaf = (re: RegExp) => [...pv.querySelectorAll('*')].find((e) => [...e.childNodes].some((n) => n.nodeType === 3 && re.test(n.nodeValue!.trim())))!;
+        const left = (e: Element) => Math.round((e.getBoundingClientRect().left - x0) / u);
+        const exp = leaf(/^(work |professional )?experience$/i), ref = leaf(/^references$/i), body = leaf(/^Available upon request/), role = leaf(/^Senior Data Analyst$/);
+        return { exp: left(exp), ref: left(ref), body: left(body), role: left(role), expRight: Math.round((exp.getBoundingClientRect().right - x0) / u), refRight: Math.round((ref.getBoundingClientRect().right - x0) / u) };
+      });
+      // the heading lines up with Work Experience; the text starts at the column edge (never flush at 0)
+      if (r.ref !== r.exp || r.refRight !== r.expRight || r.body < Math.min(r.exp, r.role) - 1 || r.body < 8) off.push(`${tpl} ${JSON.stringify(r)}`);
+    }
+    expect(off).toEqual([]);
+  });
+
+  test('Classic and Modern: References heading left edge equals Work Experience — in the PDF too', async ({ page }) => {
+    await openBuilder(page);
+    for (const tpl of ['classic', 'modern']) {
+      await fillCv(page, tpl);
+      const [exp, ref] = await page.evaluate(() => {
+        const pv = document.getElementById('cv-preview')!, u = pv.getBoundingClientRect().width / 794, x0 = pv.getBoundingClientRect().left;
+        const leaf = (re: RegExp) => [...pv.querySelectorAll('*')].find((e) => [...e.childNodes].some((n) => n.nodeType === 3 && re.test(n.nodeValue!.trim())))!;
+        return [leaf(/^(work )?experience$/i), leaf(/^references$/i)].map((e) => Math.round((e.getBoundingClientRect().left - x0) / u));
+      });
+      expect(ref, tpl).toBe(exp);
+      expect(ref, tpl).toBeGreaterThan(8);
+      // the PDF draws what the preview shows: the invisible text for "Available upon request" starts inside the column
+      const x = await page.evaluate(() => (window as any).pfTextRuns(document.getElementById('cv-preview')).find((r: any) => r.text.startsWith('Available upon request')).x);
+      expect(x, tpl).toBeGreaterThan(8);
+    }
   });
 });
