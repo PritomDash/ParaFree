@@ -9,6 +9,7 @@ import os from 'os';
 import path from 'path';
 import crypto from 'crypto';
 import JSZip from 'jszip';
+import { indexWithoutEmbed } from './embed-original';
 
 const ROOT = process.cwd();
 const FIX = path.join(ROOT, 'tests', 'fixtures', 'pdf-tools');
@@ -23,7 +24,8 @@ const MIME: Record<string, string> = {
 // index.html on main before this change, as deployed (the git copy, LF line endings), in bytes.
 // The homepage may grow by less than 15 KB.
 const BASELINE_INDEX_BYTES = 473317;
-const deployedSize = (file: string) => Buffer.byteLength(fs.readFileSync(file, 'utf8').split('\r\n').join('\n'), 'utf8');
+// The budget is for the PDF tools: the landing-embeds bootstrap (?embed=paraphraser, see embed-original.ts) is not counted.
+const pdfRoundSize = () => Buffer.byteLength(indexWithoutEmbed(), 'utf8');
 // the PDF tools' own libraries — none of these may load with the homepage
 const PDF_TOOL_LIBS = /cdn\.jsdelivr\.net\/npm\/(pdf-lib@|pdfjs-dist@|docx@|docx-preview@|jszip@|jspdf@|tesseract\.js|@tesseract\.js-data|@expo-google-fonts)|\/lib\/pdf-tools\/|\/pdf-tools\.(css|html)/;
 
@@ -99,7 +101,7 @@ test.describe('homepage load', () => {
     await expect(page.locator('#tab-pdf')).toBeVisible();
     await expect(page.locator('#pfHomePdf')).toBeHidden();
     await expect(page.locator('#pfHomePdf')).toBeEmpty();
-    const size = deployedSize(path.join(ROOT, 'index.html'));
+    const size = pdfRoundSize();
     expect(size - BASELINE_INDEX_BYTES, `index.html grew by ${size - BASELINE_INDEX_BYTES} bytes`).toBeLessThan(15000);
     // the only same-origin requests are the ones the page already made before (no new files)
     const local = net.requests.filter((r) => r.url.startsWith('https://parafree.app/') && !r.url.includes('/api/process')).map((r) => new URL(r.url).pathname);

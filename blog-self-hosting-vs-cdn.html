@@ -104,6 +104,10 @@ footer p{margin:0;font-size:13px;color:#999;}
     <h1>Self-Hosting vs CDN: A Lesson I Learned the Hard Way</h1>
     <p class="article-meta">By Pritom Dash &middot; Published July 25, 2026</p>
 <p>This one is about a small technical decision that taught me a big lesson about reliability. It involves something called a CDN, and a moment where relying on one nearly caused a problem for the people using my tool. I'm Pritom Dash, a student in Australia building software, and this is the kind of thing you only learn by getting caught out.</p>
+
+<!-- TRY THE TOOL HERE: a clear button to the tool (no embed on this post) -->
+<div class="pf-try pf-try-btn" style="margin:22px 0;padding:14px 16px;border:1px solid #b7e4c7;background:#f0fdf4;border-radius:12px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;font-family:'DM Sans',sans-serif;"><span style="font-size:15px;font-weight:600;color:#1a1814;">Try it free here — the paraphraser, no word limit, no signup</span><a href="/" style="display:inline-block;background:#2d6a4f;color:#fff;border-radius:20px;padding:8px 18px;font-size:14px;font-weight:700;text-decoration:none;">Open the paraphraser →</a></div>
+<!-- /TRY THE TOOL HERE -->
 <h2>What a CDN is, briefly</h2>
 <p>When a website needs a piece of software — a library that does some specific job, like generating a Word document — it usually loads that library from a CDN, which stands for content delivery network. A CDN is a service that hosts common libraries and serves them to any website that asks. It's convenient. You add one line pointing to the CDN, and the library loads. You don't have to store it yourself. Almost everyone does it this way, because it's easy and it usually just works.</p>
 <p>ParaFree needed a library to build the Word documents it hands back to you after paraphrasing. So, like everyone, I loaded that library from a CDN. Two CDNs, actually, with one as a backup for the other. Convenient, standard, done.</p>

@@ -104,6 +104,10 @@ footer p{margin:0;font-size:13px;color:#999;}
     <h1>The 10-Second Problem: Building Fast Document Processing on Free Hosting</h1>
     <p class="article-meta">By Pritom Dash &middot; Published July 20, 2026</p>
 <p>There's a constraint I built ParaFree around that most people using it will never know exists: every operation the tool performs has to finish in under ten seconds. Not because I chose that number, but because the free hosting ParaFree runs on enforces it. Any single operation that takes longer than ten seconds gets killed, mid-task, with no mercy.</p>
+
+<!-- TRY THE TOOL HERE: a clear button to the tool (no embed on this post) -->
+<div class="pf-try pf-try-btn" style="margin:22px 0;padding:14px 16px;border:1px solid #b7e4c7;background:#f0fdf4;border-radius:12px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;font-family:'DM Sans',sans-serif;"><span style="font-size:15px;font-weight:600;color:#1a1814;">Try it free here — the paraphraser, no word limit, no signup</span><a href="/" style="display:inline-block;background:#2d6a4f;color:#fff;border-radius:20px;padding:8px 18px;font-size:14px;font-weight:700;text-decoration:none;">Open the paraphraser →</a></div>
+<!-- /TRY THE TOOL HERE -->
 <p>I want to write about this because it's a perfect example of how a constraint you can't remove forces you to build something better than you would have otherwise. I'm Pritom Dash, a student in Australia building tools on a student's budget, and this ten-second wall shaped one of the most important parts of ParaFree.</p>
 <h2>Where the limit comes from</h2>
 <p>Free hosting plans are generous in a lot of ways, but they draw hard lines to keep costs down. One of those lines is a maximum execution time. On the plan I use, no single server operation can run longer than ten seconds. Hit ten seconds and one millisecond, and the operation is terminated. The user gets nothing, or worse, a half-finished result.</p>
