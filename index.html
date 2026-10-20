@@ -70,7 +70,7 @@
     "Multiple AI Engines Auto-Switching Fallback",
     "ATS-Ready Resume Download No Watermark",
     "Job Search Links - LinkedIn Indeed SEEK Google Jobs"
-  ],
+  , "PDF to Word https://parafree.app/pdf-to-word.html", "Word to PDF https://parafree.app/word-to-pdf.html", "JPG to PDF https://parafree.app/jpg-to-pdf.html", "Compress PDF to a target size https://parafree.app/compress-pdf.html", "Merge PDF https://parafree.app/merge-pdf.html", "PDF tools run in the browser, files not uploaded", "ATS-readable CV PDF, 1-3 pages"],
   "aggregateRating": {
     "@type": "AggregateRating",
     "ratingValue": "4.7",
@@ -108,7 +108,7 @@
     "No signup required",
     "No watermark on downloads",
     "Free forever — no premium tier"
-  ],
+  , "In-browser PDF tools (PDF to Word, Word to PDF, JPG to PDF, compress, merge)"],
   "url": "https://parafree.app",
   "aggregateRating": {
     "@type": "AggregateRating",
@@ -1625,7 +1625,7 @@ body.pf-cv-open #pf-scroll-top,body.pf-cv-open #pf-feedback-card{display:none!im
 <script>/* Extra tabs (PDF Tools, CV Builder): the text tools are only hidden while one is open (body.pf-alt-active)
    and shown again on any tool switch. PDF Tools: the shell shows at once; lib/pdf-tools home.js then loads only the
    active tool (files versioned with ?v=, long-cached) and is prefetched when the page is idle. CV Builder is static. */
-(function(){var V=window.PFV='324c95d8bd',T=['pdf-to-word','word-to-pdf','jpg-to-pdf','compress-pdf','merge-pdf'],N=['📄 PDF to Word','📝 Word to PDF','🖼 JPG to PDF','🗜 Compress PDF','➕ Merge PDF'],
+(function(){var V=window.PFV='506b933ad3',T=['pdf-to-word','word-to-pdf','jpg-to-pdf','compress-pdf','merge-pdf'],N=['📄 PDF to Word','📝 Word to PDF','🖼 JPG to PDF','🗜 Compress PDF','➕ Merge PDF'],
 L=null,P=null,A=null,d=document,PANEL={pdf:'pfHomePdf',cv:'pfHomeCv'};
 function u(n,x){return '/lib/pdf-tools/'+n+(x||'.js')+'?v='+V}
 function js(src){return new Promise(function(r,j){var s=d.createElement('script');s.src=src;s.onload=r;s.onerror=j;d.head.appendChild(s)})}
@@ -2558,6 +2558,13 @@ addEventListener('load',function(){setTimeout(function(){var c=navigator.connect
 
   <!-- Blog Grid -->
   <div class="blog-grid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:20px; margin-bottom:32px;">
+    <!-- Guides on their own pages -->
+    <div class="pf-gl"><style>.pf-gl{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px}.pf-gl h3{font:700 17px Syne,sans-serif;margin-bottom:8px}.pf-gl a{display:block;padding:9px 0;border-top:1px solid var(--border);color:var(--accent);font-weight:600;font-size:14px;text-decoration:none}</style>
+      <h3>📚 New guides</h3>
+      <a href="/blog-ats-friendly-cv-guide.html">How to Make an ATS-Friendly CV That Recruiters’ Systems Can Read →</a>
+      <a href="/blog-pdf-to-word-without-losing-formatting.html">How to Convert PDF to Word Without Losing Formatting →</a>
+      <a href="/blog-compress-pdf-upload-limits.html">How to Compress a PDF for University and Job Portal Upload Limits →</a>
+    </div>
 
     <!-- Blog Card 1 -->
     <div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; cursor:pointer;" onclick="showBlog('b1')">
@@ -2929,7 +2936,7 @@ addEventListener('load',function(){setTimeout(function(){var c=navigator.connect
     <span style="color:#555;font-size:13px;">·</span>
     <a href="/paraphrase-document-online-keep-format.html" style="color:#52b788;text-decoration:none;font-size:13px;font-weight:600;">Paraphrase Documents Online</a>
   </div>
-  <div class="pf-fl"><span class="t">PDF Tools:</span><a href="/pdf-tools.html#pdf-to-word">PDF to Word</a><span>·</span><a href="/pdf-tools.html#word-to-pdf">Word to PDF</a><span>·</span><a href="/pdf-tools.html#jpg-to-pdf">JPG to PDF</a><span>·</span><a href="/pdf-tools.html#compress-pdf">Compress PDF</a><span>·</span><a href="/pdf-tools.html#merge-pdf">Merge PDF</a></div>
+  <div class="pf-fl"><span class="t">PDF Tools:</span><a href="/pdf-to-word.html">PDF to Word</a><span>·</span><a href="/word-to-pdf.html">Word to PDF</a><span>·</span><a href="/jpg-to-pdf.html">JPG to PDF</a><span>·</span><a href="/compress-pdf.html">Compress PDF</a><span>·</span><a href="/merge-pdf.html">Merge PDF</a></div>
   <div style="display:flex;justify-content:center;gap:4px 16px;flex-wrap:wrap;margin-bottom:16px;padding:10px 0;border-top:1px solid rgba(255,255,255,0.06);">
     <span style="color:#888;font-size:13px;width:100%;margin-bottom:6px;">CV Resources:</span>
     <a href="/best-free-cv-builder.html" style="color:#52b788;text-decoration:none;font-size:13px;font-weight:600;">Best Free CV Builder 2026</a>
@@ -7218,7 +7225,7 @@ setTimeout(() => {
 
 <button id="pf-scroll-top" aria-label="Scroll to top">↑</button>
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"Organization","@id":"https://parafree.app/#organization","name":"ParaFree","alternateName":["perafree","pafreea","para free","parafree app","parafree.app"],"url":"https://parafree.app","logo":{"@type":"ImageObject","url":"https://parafree.app/logo.svg","contentUrl":"https://parafree.app/logo.svg"},"description":"Free AI writing suite — paraphraser, humanizer, CV builder, grammar checker, summarizer and AI detector. No signup, no word limits, always free.","foundingDate":"2026","founder":{"@type":"Person","name":"Pritom Dash","url":"https://parafree.app/about.html"},"contactPoint":{"@type":"ContactPoint","email":"parafree.tool@gmail.com","contactType":"customer support"},"sameAs":["https://threads.net/@parafree","https://www.facebook.com/profile.php?id=61591705310162","https://www.instagram.com/parafree.ai","https://x.com/parafree"],"areaServed":["AU","US","GB","BD","IN","SG","CA","NZ"],"serviceType":["Paraphrasing Tool","AI Humanizer","CV Builder","Grammar Checker","AI Detector","Text Summarizer"]}
+{"@context":"https://schema.org","@type":"Organization","@id":"https://parafree.app/#organization","name":"ParaFree","alternateName":["perafree","pafreea","para free","parafree app","parafree.app"],"url":"https://parafree.app","logo":{"@type":"ImageObject","url":"https://parafree.app/logo.svg","contentUrl":"https://parafree.app/logo.svg"},"description":"Free AI writing suite — paraphraser, humanizer, CV builder, grammar checker, summarizer and AI detector. No signup, no word limits, always free.","foundingDate":"2026","founder":{"@type":"Person","name":"Pritom Dash","url":"https://parafree.app/about.html"},"contactPoint":{"@type":"ContactPoint","email":"parafree.tool@gmail.com","contactType":"customer support"},"sameAs":["https://threads.net/@parafree","https://www.facebook.com/profile.php?id=61591705310162","https://www.instagram.com/parafree.ai","https://x.com/parafree"],"areaServed":["AU","US","GB","BD","IN","SG","CA","NZ"],"serviceType":["Paraphrasing Tool","AI Humanizer","CV Builder","Grammar Checker","AI Detector","Text Summarizer", "PDF to Word Converter", "Word to PDF Converter", "JPG to PDF Converter", "PDF Compressor", "PDF Merger"]}
 </script>
 <script>
 function toggleMenu(){var m=document.getElementById('mobileMenu');if(!m)return;m.style.display=m.style.display==='flex'?'none':'flex';}

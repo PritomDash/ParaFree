@@ -55,7 +55,11 @@
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px;
   font-size: 14px; color: var(--text); font-family: inherit; min-height: 44px; width: 100%;
 }
-.pf-home-pdf .pf-modes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.pf-home-pdf .pf-modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.pf-home-pdf .pf-target { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 10px; font-size: 14px; }
+.pf-home-pdf .pf-target select, .pf-home-pdf .pf-target input { font: inherit; padding: 8px 10px; border: 1px solid var(--border, #e2ddd4); border-radius: 8px; background: #fff; min-height: 40px; }
+.pf-home-pdf .pf-target input { width: 110px; }
+.pf-home-pdf .pf-target-note { flex-basis: 100%; font-size: 12px; color: var(--text2, #6b6660); }
 .pf-home-pdf .pf-mode {
   display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--border); border-radius: var(--radius-sm);
   padding: 12px; cursor: pointer; background: var(--surface);
@@ -144,3 +148,6 @@
     "Mangal", "Kohinoor Bangla", "Bangla Sangam MN", "Devanagari Sangam MN", "Segoe UI", "Arial Unicode MS",
     "Microsoft YaHei", "PingFang SC", "Hiragino Sans", "Noto Sans CJK SC", sans-serif !important;
 }
+/* The homepage's mobile rule `section, .section { padding: 24px 16px !important }` also hit the tool panels (<section>),
+   so at ≤768px the tool card sat 16px further in than the sub-tabs above it. */
+@media (max-width: 768px) { .pf-home-pdf .pf-tool-panel { padding: 0 !important; } }

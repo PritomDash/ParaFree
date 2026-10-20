@@ -993,7 +993,7 @@ test.describe('layout + SEO', () => {
       [d.querySelector('.faq-q')!.textContent!.trim(), d.querySelector('.faq-a')!.textContent!.replace(/\s+/g, ' ').trim()]));
     expect(faq).toEqual(visible);
     expect(faq.length).toBeGreaterThanOrEqual(5);
-    expect(await page.locator('.pf-section h2').count()).toBe(5);
+    expect(await page.locator('.pf-section h2').count()).toBe(6);                  // five tools + "Each tool has its own page"
 
     const copy = await page.evaluate(() => ['.pf-hero', 'main', '.pf-content'].map((s) => document.querySelector(s)!.textContent).join(' '));
     for (const re of [/\bbest\b/i, /#1/, /\bonly\b/i, /100% formatting/i, /\bexact (copy|formatting|layout|match)\b/i, /quillbot|ilovepdf|smallpdf|adobe|sejda/i]) {
@@ -1007,5 +1007,102 @@ test.describe('layout + SEO', () => {
     expect(sitemap).toContain('<loc>https://parafree.app/pdf-tools.html</loc>');
     // test files (incl. fixtures) are kept out of deployments
     expect(fs.readFileSync(path.join(ROOT, '.vercelignore'), 'utf8').split(/\r?\n/).map((l) => l.trim())).toContain('tests/');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// Compress PDF → Target size: Light first, then Strong (binary search down to ~72 DPI / q0.4); honest when unreachable
+async function compressToTarget(page: Page, file: string, target: string, customKb?: string) {
+  const p = panel(page, 'compress-pdf');
+  await p.locator('input[type=file]').setInputFiles(file);
+  await p.locator('input[name="pf-compress-mode"][value="target"]').check();
+  await expect(role(p, 'target-row')).toBeVisible();
+  await role(p, 'target').selectOption(target);
+  if (customKb) { await expect(role(p, 'target-custom')).toBeVisible(); await role(p, 'target-custom').fill(customKb); }
+  await role(p, 'go').click();
+  await expect(role(p, 'result')).toBeVisible({ timeout: 300000 });
+  return p;
+}
+
+test.describe('Compress PDF: target size', () => {
+  test.setTimeout(600000);
+
+  test('large photo PDF → under 1 MB and under 500 KB; the summary says how, and the file really is under', async ({ page }) => {
+    const net = await open(page, '#compress-pdf');
+    await ready(page, 'compress-pdf');
+    const big = await largeFixture(page);
+    const before = fs.statSync(big).size;
+    expect(before).toBeGreaterThan(5e6);
+    for (const [value, label, limit] of [['1000000', '1 MB', 1e6], ['500000', '500 KB', 5e5]] as [string, string, number][]) {
+      const p = await compressToTarget(page, big, value);
+      const out = await download(page, role(p, 'dl-pdf'));
+      expect(out.name).toBe('4-large-for-compress-compressed.pdf');
+      expect(out.buf.length, `${label}: ${out.buf.length} bytes`).toBeLessThanOrEqual(limit);
+      await expect(role(p, 'summary')).toContainText(`Before: ${decimalSize(before)} → After: ${decimalSize(out.buf.length)} — under ${label}.`);
+      await expect(role(p, 'summary')).toContainText(/Text stays selectable\.|Pages became images at \d+ DPI, so the text is no longer selectable\./);
+      expect((await pdfInfo(page, out.buf)).pages).toBe(8);
+      await role(p, 'start-over').click();
+    }
+    expect(net.apiCalls).toEqual([]);
+    expect(net.errors).toEqual([]);
+  });
+
+  test('an impossible target: honest message and the smallest version offered', async ({ page }) => {
+    await open(page, '#compress-pdf');
+    await ready(page, 'compress-pdf');
+    const big = await largeFixture(page);
+    const p = await compressToTarget(page, big, 'custom', '20');
+    await expect(role(p, 'summary')).toContainText('Couldn’t get this PDF under 20 KB.');
+    await expect(role(p, 'summary')).toContainText('The smallest we could make is');
+    await expect(role(p, 'summary')).toContainText('Try removing pages you don’t need, or split the file');
+    const out = await download(page, role(p, 'dl-pdf'));
+    expect(out.buf.length).toBeGreaterThan(20000);
+    expect(out.buf.length).toBeLessThan(fs.statSync(big).size / 10);
+    await expect(role(p, 'dl-pdf')).toHaveText(`⬇ Download the smallest version (${decimalSize(out.buf.length)})`);
+    await expect(role(p, 'summary')).toContainText(`The smallest we could make is ${decimalSize(out.buf.length)}`);
+  });
+
+  test('Light is enough → text stays selectable; already under → the original, unchanged', async ({ page }) => {
+    await open(page, '#compress-pdf');
+    await ready(page, 'compress-pdf');
+    const big = await largeFixture(page);
+    let p = await compressToTarget(page, big, '2000000');
+    await expect(role(p, 'summary')).toContainText('— under 2 MB. Text stays selectable.');
+    const out = await download(page, role(p, 'dl-pdf'));
+    expect(out.buf.length).toBeLessThanOrEqual(2e6);
+    expect(await pdfText(page, out.buf)).toContain('Field trip photo 3 of 8');
+    await role(p, 'start-over').click();
+    p = await compressToTarget(page, fx('text.pdf'), '1000000');
+    await expect(role(p, 'summary')).toContainText('Already under 1 MB');
+    const orig = await download(page, role(p, 'dl-pdf'));
+    expect(orig.name).toBe('text.pdf');
+    expect(orig.buf.equals(fs.readFileSync(fx('text.pdf')))).toBe(true);
+  });
+
+  test('a custom target below 10 KB is refused with a clear message; switching mode hides the target row', async ({ page }) => {
+    await open(page, '#compress-pdf');
+    await ready(page, 'compress-pdf');
+    const p = panel(page, 'compress-pdf');
+    await expect(role(p, 'target-row')).toBeHidden();
+    await p.locator('input[type=file]').setInputFiles(fx('images.pdf'));
+    await p.locator('input[name="pf-compress-mode"][value="target"]').check();
+    await role(p, 'target').selectOption('custom');
+    await role(p, 'target-custom').fill('5');
+    await role(p, 'go').click();
+    await expect(role(p, 'error')).toContainText('Enter a target size of at least 10 KB.');
+    await p.locator('input[name="pf-compress-mode"][value="light"]').check();
+    await expect(role(p, 'target-row')).toBeHidden();
+  });
+
+  test('homepage PDF tab: Target size works there too', async ({ page }) => {
+    const net = await setup(page);
+    await page.goto('/#compress-pdf');
+    await ready(page, 'compress-pdf');
+    const big = await largeFixture(page);
+    const p = await compressToTarget(page, big, '1000000');
+    const out = await download(page, role(p, 'dl-pdf'));
+    expect(out.buf.length).toBeLessThanOrEqual(1e6);
+    await expect(role(p, 'summary')).toContainText('— under 1 MB.');
+    expect(net.apiCalls.filter((u) => u !== '/api/process')).toEqual([]);         // the homepage's own rating call is mocked (500)
   });
 });

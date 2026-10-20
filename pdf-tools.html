@@ -68,7 +68,7 @@
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/pdf-tools.css">
-<link rel="preload" as="script" href="/lib/pdf-tools/pdf-to-word.js?v=324c95d8bd">
+<link rel="preload" as="script" href="/lib/pdf-tools/pdf-to-word.js?v=506b933ad3">
 </head>
 <body>
 
@@ -127,12 +127,23 @@
 
 <main class="pf-tools"></main>
 <!-- the five tool panels (one copy, shared with the homepage PDF tab) -->
-<script>window.PFV = '324c95d8bd';</script>
-<script src="/lib/pdf-tools/panels.js?v=324c95d8bd"></script>
+<script>window.PFV = '506b933ad3';</script>
+<script src="/lib/pdf-tools/panels.js?v=506b933ad3"></script>
 <script>window.PFPanels.render(document.querySelector('main.pf-tools'));</script>
 
 <!-- ABOUT THE TOOLS -->
 <div class="pf-content">
+  <section class="pf-section">
+    <h2>Each tool has its own page</h2>
+    <p>Same free tools, with a full guide, limits and tips for each one:</p>
+    <div class="pf-hub-links">
+      <a href="/pdf-to-word.html">📄 PDF to Word<span>Editable Word, keeps fonts and columns, OCR for scans</span></a>
+      <a href="/word-to-pdf.html">📝 Word to PDF<span>DOCX to PDF for assignment uploads</span></a>
+      <a href="/jpg-to-pdf.html">🖼 JPG to PDF<span>Photos of notes into one PDF</span></a>
+      <a href="/compress-pdf.html">🗜 Compress PDF<span>To 100 KB, 200 KB, 500 KB, 1 MB or your own size</span></a>
+      <a href="/merge-pdf.html">➕ Merge PDF<span>Cover sheet, assignment and appendix in one file</span></a>
+    </div>
+  </section>
   <section class="pf-section">
     <h2>PDF to Word converter</h2>
     <p>Turn a PDF back into an editable Word document — handy when you need to update an old assignment, reuse a handout or quote from a reading. Text, headings, bold and italic, lists and images come across, and scanned pages are read with OCR. You can edit the result here before downloading the .docx.</p>
@@ -195,11 +206,11 @@
   </div>
   <div class="pf-footer-group">
     <span class="pf-footer-title">PDF Tools:</span>
-    <a href="/pdf-tools.html#pdf-to-word">PDF to Word</a>
-    <a href="/pdf-tools.html#word-to-pdf">Word to PDF</a>
-    <a href="/pdf-tools.html#jpg-to-pdf">JPG to PDF</a>
-    <a href="/pdf-tools.html#compress-pdf">Compress PDF</a>
-    <a href="/pdf-tools.html#merge-pdf">Merge PDF</a>
+    <a href="/pdf-to-word.html">PDF to Word</a>
+    <a href="/word-to-pdf.html">Word to PDF</a>
+    <a href="/jpg-to-pdf.html">JPG to PDF</a>
+    <a href="/compress-pdf.html">Compress PDF</a>
+    <a href="/merge-pdf.html">Merge PDF</a>
   </div>
   <div class="pf-footer-group">
     <span class="pf-footer-title">CV Resources:</span>
@@ -216,9 +227,9 @@
 
 <!-- core only; each tool's module loads when its tab opens (app.js), the PDF writer on the
      first "Download PDF", the hand-off after a PDF to Word result. ?v= = version of lib/pdf-tools -->
-<script src="/lib/pdf-tools/pdf-events.js?v=324c95d8bd"></script>
-<script src="/lib/pdf-tools/loader.js?v=324c95d8bd"></script>
-<script src="/lib/pdf-tools/common.js?v=324c95d8bd"></script>
-<script src="/lib/pdf-tools/app.js?v=324c95d8bd"></script>
+<script src="/lib/pdf-tools/pdf-events.js?v=506b933ad3"></script>
+<script src="/lib/pdf-tools/loader.js?v=506b933ad3"></script>
+<script src="/lib/pdf-tools/common.js?v=506b933ad3"></script>
+<script src="/lib/pdf-tools/app.js?v=506b933ad3"></script>
 </body>
 </html>

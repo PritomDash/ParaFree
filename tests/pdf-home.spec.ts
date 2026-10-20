@@ -127,7 +127,9 @@ test.describe('homepage load', () => {
     // discoverability links
     await expect(page.locator('#homeNavLinks a[href="/pdf-tools.html"]')).toHaveText('PDF Tools');
     await expect(page.locator('#mobileMenu a[href="/pdf-tools.html"]')).toHaveCount(1);
-    expect(await page.locator('footer a[href^="/pdf-tools.html#"]').evaluateAll((a) => a.map((x) => x.textContent))).toEqual(['PDF to Word', 'Word to PDF', 'JPG to PDF', 'Compress PDF', 'Merge PDF']);
+    // footer "PDF Tools:" links go to each tool's own page (pdf-seo round)
+    expect(await page.locator('footer .pf-fl a').evaluateAll((a) => a.map((x) => [x.textContent, x.getAttribute('href')]))).toEqual([
+      ['PDF to Word', '/pdf-to-word.html'], ['Word to PDF', '/word-to-pdf.html'], ['JPG to PDF', '/jpg-to-pdf.html'], ['Compress PDF', '/compress-pdf.html'], ['Merge PDF', '/merge-pdf.html']]);
     await expect(page.locator('a.pf-pdf-card')).toContainText('Convert, compress & merge PDFs — free, in your browser');
     await expect(page.locator('td', { hasText: 'PDF↔Word, JPG→PDF, compress, merge (in-browser, files stay on your device)' })).toHaveCount(1);
     await expect(page.locator('#pfPdfPromo')).toContainText('📄 New: free PDF tools — PDF to Word, compress, merge →');

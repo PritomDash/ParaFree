@@ -1,0 +1,428 @@
+"""Builds the five PDF tool landing pages (pdf-to-word.html, word-to-pdf.html, jpg-to-pdf.html,
+compress-pdf.html, merge-pdf.html) from one shell, so nav, footer, scripts and JSON-LD stay identical.
+Each page embeds the real tool (lib/pdf-tools, same modules as pdf-tools.html) opened on its own tab.
+    python scripts/build-pdf-pages.py
+then: node tests/pdf-tools-version.js --write   (stamps ?v= on the lib/pdf-tools URLs)
+"""
+import html, json, os
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SITE = 'https://parafree.app'
+ENTITY = ('ParaFree is a free AI writing suite with a document paraphraser that keeps formatting, a CV builder with '
+          'ATS-readable PDFs, and in-browser PDF tools (PDF to Word, Word to PDF, JPG to PDF, compress and merge).')
+SPEED = 'No upload, no waiting — your file is processed on your device.'
+TOOLS = [  # slug (= page and tab id), short name, emoji
+    ('pdf-to-word', 'PDF to Word', '📄'), ('word-to-pdf', 'Word to PDF', '📝'), ('jpg-to-pdf', 'JPG to PDF', '🖼'),
+    ('compress-pdf', 'Compress PDF', '🗜'), ('merge-pdf', 'Merge PDF', '➕'),
+]
+LIMIT_COMMON = '50 MB per file, 200 MB per task'
+
+PAGES = {
+'pdf-to-word': dict(
+  title='Free PDF to Word Converter — Editable, Keeps Fonts & Columns | No Signup',
+  desc='Convert PDF to an editable Word file free: text, headings, fonts, lists, tables and two-column layouts carry across, scanned pages are read with OCR. No signup, no watermark, runs in your browser.',
+  h1='Free PDF to Word Converter',
+  lead='Turn a PDF into an editable Word document (.docx) — text, headings, bold and italic, fonts, lists, tables, images and two-column layouts carry across, and scanned pages are read with OCR. Free, no signup, no watermark.',
+  limits=LIMIT_COMMON + '; up to 50 pages per conversion',
+  steps=['Choose your PDF (or drag it into the box).', 'Wait while each page is read — scanned pages go through OCR, which takes a little longer.',
+         'Check the result in the editor and fix anything you like.', 'Download the Word file (.docx).'],
+  sections=[
+    ('PDF to Word without losing formatting', [
+      'Most of the time you want the Word file to look like the PDF, not just contain the same words. The converter reads each page and rebuilds it as real Word content: headings stay headings, bold and italic stay bold and italic, bullet and numbered lists become Word lists, and tables become Word tables you can edit cell by cell.',
+      'Font families and sizes are carried across where the PDF names them, so a heading in a large serif font stays large and serif. If the PDF uses a font your computer does not have, Word shows a similar font instead — the text and its size are still right.',
+      'Pages with complex layouts, such as forms, text boxes placed on top of images or heavily designed posters, may not match the original exactly. That is true of every PDF converter, because a PDF stores where each letter is drawn, not how the document was built. Look over the result before you submit it.']),
+    ('Scanned PDF to Word (OCR)', [
+      'A scanned PDF, or a PDF made from phone photos, has no real text inside — each page is a picture. When the converter finds a page like that, it reads it with OCR (optical character recognition) right in your browser and turns it into text you can edit.',
+      'OCR is most accurate on clear, straight, printed English text. Handwriting, very small print, coloured backgrounds and other languages are read less accurately or not at all, so read the result carefully. A sharper scan gives a much better result than a blurry one.']),
+    ('PDF to editable Word for assignments', [
+      'Students often get a PDF they need to change: an assignment template, an old report you want to update, a handout you want to annotate, or your own work that survived just as a PDF. Converting it to Word lets you edit it in Word, Google Docs or LibreOffice like any other document.',
+      'If you want to reword the text as well, use the <strong>Paraphrase the Word file</strong> button that appears after the conversion. It sends the new Word file straight to ParaFree’s document paraphraser, which keeps the formatting while it rewrites the text — always check the rewritten text and cite your sources.']),
+    ('Two-column research papers', [
+      'Journal articles and conference papers are usually set in two columns. A simple converter reads straight across the page and mixes the two columns into nonsense. This converter detects columns and keeps them in reading order, so the left column comes first and the right column second, each as normal paragraphs.',
+      'Equations, footnotes and figure captions are kept as text where the PDF stores them as text. Complicated equations may need tidying by hand.']),
+    ('PDF to Word on your phone', [
+      'The converter works in the browser on Android phones and iPhones, so you can turn a PDF from your email or downloads into a Word file without installing an app. Choose the file, wait for the pages to be read and download the .docx — open it in Word, Google Docs or WPS Office on the phone.',
+      'Long or scanned PDFs take longer on a phone than on a laptop, because the work is done on the device itself. ' + SPEED]),
+    ('What it can and can’t do', [
+      'It handles the PDFs students meet most: typed assignments, reports, journal articles, lecture handouts and scans of printed pages. It keeps the order of the text, headings, lists, tables, images and the look of the fonts, and it gives you an editor to fix anything before you download.',
+      'It does not rebuild page furniture such as text boxes floating over images, form fields, comments or tracked changes, and its OCR reads English. Password-protected PDFs need the password removed first. Each conversion handles up to 50 pages — split a longer PDF and convert it in parts.']),
+    ('Why your PDF stays on your device', [
+      'Many online converters upload your file to a server, convert it there and send it back. That means waiting for the upload and trusting someone else with your work. Here the conversion runs in your browser tab: ' + SPEED,
+      'The tool’s code comes from ParaFree and a public CDN the first time you use it; after that it is cached by your browser. Nothing you convert is stored, and closing the tab clears it.']),
+  ],
+  faq=[
+    ('Is this PDF to Word converter free?', 'Yes. It is free with no signup, no watermark and no daily limit. Each conversion can be up to 50 pages and 50 MB.'),
+    ('Will the Word file keep my fonts and columns?', 'Font families and sizes are kept where the PDF names them, and two-column pages are kept in reading order. Very complex layouts such as forms or designed posters may not match exactly, so check the file before you use it.'),
+    ('Can it convert a scanned PDF?', 'Yes. Pages without a text layer are read with OCR in your browser. OCR is most accurate on clear, printed English text; handwriting and other languages are read less accurately.'),
+    ('Is my PDF uploaded anywhere?', 'No. ' + SPEED + ' The page downloads the free open-source code it needs the first time you use it; your file is not part of that.'),
+    ('Can I reword the converted document?', 'Yes. After converting, use “Paraphrase the Word file” to open it in ParaFree’s document paraphraser, which keeps the formatting while it rewrites the text.'),
+    ('Why are some lines in a different order?', 'A PDF stores where each word is drawn, not the reading order. The converter rebuilds the order from the layout, including two-column pages; unusual layouts such as text boxes or sidebars can still come out in a different order, so read through the result.'),
+  ]),
+'word-to-pdf': dict(
+  title='Free Word to PDF Converter — DOCX to PDF for Assignment Submission',
+  desc='Convert a Word document (.docx) to PDF free for Moodle, Canvas or Turnitin uploads. Fonts, images and tables kept, text stays selectable. No signup, no watermark, runs in your browser.',
+  h1='Free Word to PDF Converter',
+  lead='Turn a Word document (.docx) into a PDF for assignment submission — fonts, headings, images and tables kept, with real selectable text. Free, no signup, no watermark.',
+  limits=LIMIT_COMMON + '; .docx files',
+  steps=['Choose your Word file (.docx).', 'Check the preview — you can fix a last typo right there.',
+         'Click “Download PDF”, or use “Print / Save as PDF” if you prefer your browser’s own PDF.', 'Upload the PDF to your course portal.'],
+  sections=[
+    ('DOCX to PDF for Moodle, Canvas and Turnitin uploads', [
+      'Many course portals ask for a PDF so your work looks the same on every computer. Moodle, Canvas, Blackboard and Turnitin all accept PDFs, and a PDF with real, selectable text is the safest kind: the marker can search it, and similarity checkers can read it.',
+      'This converter makes exactly that — a PDF whose text you can select and copy, not a picture of your pages. Upload your .docx, check the preview and download the PDF. Before you submit, open the PDF once and check the page count and the first and last pages.']),
+    ('Keeps fonts, images and tables', [
+      'Headings, bold and italic, font sizes, bullet and numbered lists, tables and images are carried into the PDF. Pages are A4 or Letter, as set in the document.',
+      'Fonts are embedded so the PDF looks the same everywhere: each piece of text uses the closest of three built-in font families — a sans-serif, a serif or a monospace font — at the size you set. If the exact font matters, use “Print / Save as PDF”: your browser then draws the document with the fonts installed on your device.']),
+    ('Bengali, Hindi and Arabic documents', [
+      'Scripts such as Bengali, Hindi (Devanagari) and Arabic need special letter shaping that the built-in PDF writer does not do. For these documents the tool uses the print method: it opens your document in a print view and you choose “Save as PDF” as the printer. The browser shapes the text correctly, and the PDF keeps real, selectable text.',
+      'The same applies to Chinese, Japanese and Korean. Check the saved PDF once — especially line breaks in mixed-language documents.']),
+    ('Word to PDF on your phone', [
+      'On an Android phone or iPhone, choose the .docx from your files, downloads or email attachment, check the preview and download the PDF. On iPhone, look for the PDF in the Files app under Downloads.',
+      SPEED + ' That also means it works on slow connections once the page has loaded.']),
+    ('Check your PDF before you submit', [
+      'Open the PDF once before you upload it. Check that the page count is what you expect, that tables and images did not move to the next page in an awkward place, and that footnotes and page numbers are there. The preview in the tool shows each page so you can catch problems first.',
+      'Track changes and comments are not included in the PDF — accept or remove them in Word first so the PDF shows the final text. Fields such as a table of contents show the text they last displayed in Word, so update them in Word before converting.']),
+    ('What it can and can’t do', [
+      'It converts .docx files with headings, styles, lists, tables, images, page breaks and headers or footers, and gives a PDF with real text. It does not convert old .doc files, macros, embedded videos or form controls.',
+      'Very long documents with many images take longer, because the PDF is made on your device. ' + SPEED]),
+    ('Why submit a PDF instead of a Word file?', [
+      'A Word file can look different on the marker’s computer: a missing font, a different version of Word or another page size can move headings, push a table onto the next page or change the page count. A PDF fixes the layout, so what you checked is what they see.',
+      'A PDF also cannot be changed by accident after you submit it, opens on any device without Word, and is usually smaller than the .docx with its images. Keep the .docx too — it is the file you edit if you need to make changes later.']),
+  ],
+  faq=[
+    ('Is the Word to PDF converter free?', 'Yes. It is free, with no signup and no watermark. Files can be up to 50 MB.'),
+    ('Will Turnitin or Moodle accept the PDF?', 'The PDF has real, selectable text, which is what course portals and similarity checkers expect. Always check your course’s own upload rules, such as file size limits.'),
+    ('Does it keep my fonts?', 'Sizes, bold, italic and layout are kept, and each font is matched to the closest built-in sans-serif, serif or monospace font. Use “Print / Save as PDF” to keep the exact fonts installed on your device.'),
+    ('Can it convert Bengali, Hindi or Arabic documents?', 'Yes, through the print method: the document opens in a print view and you save it as a PDF from your browser, which shapes these scripts correctly.'),
+    ('Can I convert .doc files?', 'No — .docx files. Open an old .doc in Word, LibreOffice or Google Docs and save it as .docx first.'),
+    ('Why does my PDF have a different number of pages?', 'Fonts are matched to built-in fonts, which can be slightly wider or narrower than yours, so a line or a picture can move to the next page. Check the preview, or use “Print / Save as PDF” to use your own fonts.'),
+  ]),
+'jpg-to-pdf': dict(
+  title='Free JPG to PDF — Combine Photos of Notes into One PDF',
+  desc='Turn phone photos of handwritten notes, worksheets and screenshots into one PDF free. JPG, PNG and WebP, A4 or Letter pages, photos turned upright automatically. No signup, no watermark.',
+  h1='Free JPG to PDF Converter',
+  lead='Combine photos of your notes, worksheets and screenshots into one PDF, in the order you choose — JPG, PNG and WebP, on A4 or Letter pages. Free, no signup, no watermark.',
+  limits=LIMIT_COMMON + '; JPG, PNG and WebP images',
+  steps=['Choose your photos — several at once is fine.', 'Drag them (or use the arrows) into the right order.',
+         'Pick A4 or Letter and the page orientation.', 'Click “Create PDF” and download it.'],
+  sections=[
+    ('Handwritten notes photos to PDF', [
+      'Photographed your handwritten notes, a whiteboard or a printed worksheet? Many teachers and portals want one PDF, not ten separate photos. Choose the photos, put them in order and create a single PDF with one photo per page.',
+      'For the clearest result, photograph each page flat, in good light, filling most of the frame. The tool does not straighten tilted pages or remove shadows, so a careful photo makes a better PDF.']),
+    ('Multiple images to one PDF', [
+      'You can choose many images in one go. Each image becomes its own page, scaled to fit the page with no, a small or a large margin. Drag the images into order, or use the up and down arrows, and remove any you picked by mistake with ✕ before you create the PDF.',
+      'Very large photos are scaled down to 3,000 pixels on the long side, which is still sharp when printed, and keeps the PDF a sensible size. If the PDF is still too big for an upload limit, run it through Compress PDF with a target size.']),
+    ('PNG and screenshots', [
+      'Screenshots of online quizzes, receipts or slides are usually PNG files. They work just like photos: PNG images stay lossless, so text in a screenshot stays crisp. WebP images, common from websites, are converted to PNG inside the PDF.',
+      'iPhone HEIC photos are not supported yet. Most iPhones save JPG when you share or export a photo, or you can set Camera → Formats → Most Compatible.']),
+    ('A4 from phone photos — and auto-rotate', [
+      'Phone photos come in many shapes. Choose A4 or Letter — or “Fit to image” for pages exactly the size of each photo — and portrait, landscape or auto orientation. Each photo is fitted onto the page without being stretched or cropped.',
+      'Phones store which way up a photo was taken in a hidden tag. The tool reads it and turns every photo the right way up, so portrait shots of your notes are not sideways in the PDF. ' + SPEED]),
+    ('Tips for clear photos of notes', [
+      'Photograph pages one at a time, straight from above, in daylight or under an even light. Fill the frame with the page and tap to focus on the writing. Dark or blurry photos stay dark or blurry in the PDF — the tool does not enhance them.',
+      'Name or order your photos before you start, then check the order in the list. For a long set of notes, make the PDF in sections and merge them afterwards with Merge PDF.']),
+    ('What it can and can’t do', [
+      'It makes a clean PDF from your images, one image per page, upright, at the page size and margin you choose. It does not crop, straighten, remove shadows or turn the handwriting into typed text.',
+      'If you need the text, convert the finished PDF with PDF to Word, which reads printed English with OCR (handwriting is read poorly). ' + SPEED]),
+    ('Documents for applications', [
+      'Scholarship, job and visa forms often ask for copies of certificates, transcripts or ID pages as one PDF. Photograph each page flat, put them in the order the form asks for and create the PDF. Use “Fit to image” if you want the pages exactly the size of your photos, or A4 if the form expects printable pages.',
+      'Forms usually have a size limit as well. If the PDF is too big, open Compress PDF and choose a target size such as 500 KB or 1 MB. Check that every page is still easy to read before you upload it.']),
+    ('Group work and shared notes', [
+      'When everyone in a study group photographs their own pages, collect the photos, put them in order once and make a single PDF to share. One file is easier to send, print and search than a folder of photos.',
+      'If some parts are already PDFs, make a PDF from the photos first, then join everything with Merge PDF in the order you want.']),
+  ],
+  faq=[
+    ('Is JPG to PDF free?', 'Yes. It is free, with no signup and no watermark, for as many images as fit in 200 MB per PDF.'),
+    ('Which image types can I use?', 'JPG, PNG and WebP. iPhone HEIC photos are not supported yet — share or export them as JPG first.'),
+    ('Will my photos be the right way up?', 'Yes. The tool reads the orientation your phone saved and turns each photo upright automatically.'),
+    ('Can I choose the page size?', 'Yes — A4, Letter or “Fit to image”, with portrait, landscape or automatic orientation and a choice of margins. Each photo is fitted to the page without stretching.'),
+    ('Are my photos uploaded?', 'No. ' + SPEED),
+    ('Can I turn the PDF into editable text?', 'Not directly — each page is an image. Run the PDF through PDF to Word, which reads clear printed English with OCR; handwriting is read much less accurately.'),
+  ]),
+'compress-pdf': dict(
+  title='Compress PDF to 100KB, 200KB, 500KB or 1MB — Free, No Signup',
+  desc='Compress a PDF to a target size — 100 KB, 200 KB, 500 KB, 1 MB, 2 MB or your own — for university, job and form upload limits. Free, no signup, no watermark, and your file stays on your device.',
+  h1='Compress PDF to a Target Size',
+  lead='Shrink a PDF to fit an upload limit — pick 100 KB, 200 KB, 500 KB, 1 MB, 2 MB or type your own size. Free, no signup, no watermark, and you always see the size before and after.',
+  limits=LIMIT_COMMON + '; up to 300 pages',
+  steps=['Choose your PDF.', 'Pick a mode: Light, Strong, or Target size with the limit you need.',
+         'Click “Compress PDF” and read the result: the new size, and whether the text is still selectable.', 'Download the compressed PDF.'],
+  sections=[
+    ('Upload limits on university and job portals', [
+      'Assignment portals, job application sites and scholarship forms often cap uploads at 1 MB, 2 MB or 5 MB, and a PDF full of photos or scans is easily bigger. Choose “Target size”, pick the limit and the tool does the rest.',
+      'It tries Light compression first, because that keeps your text selectable. If that is not small enough, it switches to Strong and searches for the highest quality that still fits under your target. Sizes use 1 MB = 1,000,000 bytes, as most upload pages count them.']),
+    ('Government and application form size limits', [
+      'Online application forms often ask for scanned documents — certificates, ID pages, letters — under a small limit such as 100 KB, 200 KB or 500 KB. Pick the matching target. A one-page scan usually fits under 200 KB; many pages may not fit under a very small limit at a readable quality.',
+      'If a target cannot be reached, the tool says so plainly and offers the smallest version it could make, with its size. Then you can remove pages you don’t need, upload pages separately, or scan at a lower resolution.']),
+    ('Compress scanned PDFs', [
+      'Scanned PDFs are big because every page is a photo. Light mode resizes those photos to about 150 DPI at the size they are shown — sharp on screen and in print — and saves them as efficient JPEG. That alone often makes a scanned PDF several times smaller.',
+      'Strong mode turns every page into one image at a lower resolution. That gives the smallest file, but the text can no longer be selected or searched.']),
+    ('Keep text selectable (Light)', [
+      'Light mode changes images and nothing else. Text, links and vector graphics are left exactly as they were, so the text stays selectable and searchable — important for applicant tracking systems, similarity checkers and screen readers. If Light cannot make the file smaller, the tool tells you and offers your original instead.',
+      'Target size uses Light whenever Light is enough, and the result always tells you which method was used.']),
+    ('Compress a PDF on your phone', [
+      'It works in the browser on Android and iPhone. Choose the PDF from your files or downloads, pick a target and download the smaller file — no app needed.',
+      SPEED + ' Large scanned PDFs take longer on a phone than on a laptop because the phone does the work.']),
+    ('Light, Strong and Target size — which to choose', [
+      '<strong>Light</strong> keeps everything except oversized images, so the PDF looks the same and its text stays selectable. Use it first. <strong>Strong</strong> turns each page into one image: smallest file, but no selectable or searchable text. <strong>Target size</strong> chooses for you — Light if that is small enough, otherwise Strong at the highest quality that fits.',
+      'For a CV or anything read by an applicant tracking system, keep the text selectable: use Light, or a target that Light can reach. For scans and photo-heavy coursework, Strong or a target size is usually fine.']),
+    ('What it can and can’t do', [
+      'It shrinks images and, if needed, rebuilds pages as images. It does not remove pages, fonts or attachments for you, and a PDF that is mostly text is often already as small as it can be — the tool tells you when that happens.',
+      'Very small targets for long documents may not be reachable at a readable quality; the tool stops at about 72 DPI rather than make pages unreadable, and tells you the smallest size it reached. ' + SPEED]),
+  ],
+  faq=[
+    ('Can I compress a PDF to exactly 100 KB or 200 KB?', 'You can set a target and the tool makes the file as good as possible while staying under it. It cannot always reach very small targets for long or detailed PDFs; then it tells you and offers the smallest version it made.'),
+    ('Will my text stay selectable?', 'Yes with Light mode, and with Target size whenever Light is enough. Strong mode turns pages into images, so the text is no longer selectable; the result always tells you which was used.'),
+    ('Is compressing a PDF free?', 'Yes. It is free with no signup and no watermark. Files can be up to 50 MB and 300 pages.'),
+    ('Is my PDF uploaded to a server?', 'No. ' + SPEED),
+    ('Why did my PDF not get smaller?', 'If a PDF is mostly text, or its images are already small, there is little to remove. The tool then says it is already well compressed and offers your original file.'),
+    ('How does Target size decide?', 'It tries Light first. If that is still above your target, it rebuilds the pages as images and searches for the highest resolution and quality that stays under the target, down to about 72 DPI. If even that is too big, you get the smallest version and a clear message.'),
+  ]),
+'merge-pdf': dict(
+  title='Merge PDF Files Free — Combine Assignment, Cover Sheet & Appendix',
+  desc='Merge PDF files into one free: put your cover sheet, assignment and appendix together, or join lecture slides into one study pack. Reorder by drag and drop. No signup, no watermark.',
+  h1='Merge PDF Files Free',
+  lead='Combine PDFs into one file — a cover sheet, your assignment and an appendix, or a term of lecture slides — in the order you choose. Free, no signup, no watermark.',
+  limits=LIMIT_COMMON + '; up to 300 pages in the merged PDF',
+  steps=['Choose two or more PDFs.', 'Drag them (or use the arrows) into the right order.',
+         'Click “Merge PDFs”.', 'Download the merged PDF and check the page order.'],
+  sections=[
+    ('Combine PDFs for assignment submission', [
+      'Many courses want one file: a signed cover sheet or declaration first, then your assignment, then appendices or a reference list exported separately. Choose the PDFs, put them in that order and merge them into a single PDF ready to upload.',
+      'Pages are copied exactly as they are, so text stays selectable. Page sizes are kept too, so an A4 assignment and a Letter cover sheet each keep their own size.']),
+    ('Merge lecture slides into one study pack', [
+      'Downloaded a PDF of slides for every week? Merge them into one file in week order, and you can search the whole term at once and print it as a single document.',
+      'If the merged file is too big to email or upload, compress it afterwards with a target size.']),
+    ('Reorder the files', [
+      'After choosing your files you see them in a list. Drag a file to move it, or use the up and down arrows, which also work well on a phone. Remove a file with its × button. The merged PDF follows the order of the list exactly.',
+      'Password-protected PDFs cannot be merged until the password is removed — the tool tells you which file it is.']),
+    ('Merge PDFs on your phone', [
+      'It works in the browser on Android and iPhone: choose the PDFs from your files, arrange them with the arrows and merge. ' + SPEED,
+      'Very large merges (hundreds of pages) take longer on a phone, and the merged PDF is limited to 300 pages.']),
+    ('Tips before you merge', [
+      'Name your files so you can tell them apart in the list, for example “1 cover”, “2 essay”, “3 appendix”. Check that each file is the final version — merging does not change the pages, so a typo in one file stays in the merged PDF.',
+      'If your course asks for a specific order, such as declaration first and references last, set it in the list before you merge, then scroll through the merged PDF once to confirm it.']),
+    ('What it can and can’t do', [
+      'It joins whole PDFs in the order you choose and keeps each page exactly as it was, including its size and selectable text. It does not pick out single pages, rotate pages or remove pages — merge first, then use another tool if you need those.',
+      'Password-protected PDFs must be unlocked first, and the merged file is limited to 300 pages and 200 MB in total. ' + SPEED]),
+    ('Mixing scans and typed documents', [
+      'You can merge any PDFs together: a typed essay exported from Word, a scanned signed declaration and a PDF of photos made with JPG to PDF. Each page keeps its own content and size — a scanned page stays an image and a typed page keeps selectable text.',
+      'If the merged file ends up too large for the upload limit, the scanned pages are usually the reason. Compress the merged PDF with a target size, or compress the scan alone with Light before merging so the typed pages are not touched.']),
+    ('Group projects', [
+      'In a group assignment, each person often writes a part in their own file. Ask everyone to export their part as a PDF, put the parts in order with the title page first, and merge them into the one file you submit.',
+      'Check the merged PDF for consistent page sizes and that nobody’s pages are missing before the deadline. Page numbers printed inside each part stay as they were, because merging does not change the pages.']),
+  ],
+  faq=[
+    ('Is merging PDFs free?', 'Yes. It is free with no signup and no watermark.'),
+    ('Can I change the order of the files?', 'Yes. Drag files into order or use the arrows; the merged PDF follows the list exactly.'),
+    ('Will the merged PDF keep selectable text?', 'Yes. Pages are copied as they are, so text stays selectable and page sizes are kept.'),
+    ('How many files can I merge?', 'As many as fit in 200 MB, with up to 300 pages in the merged PDF.'),
+    ('Are my files uploaded?', 'No. ' + SPEED),
+    ('Can I merge some of the pages of a PDF?', 'Not yet — whole files are merged. Save the pages you need as a separate PDF first, then merge.'),
+  ]),
+}
+
+def esc(s): return html.escape(s, quote=True)
+
+def related(slug):
+    items = [f'<a href="/{t}.html">{e} {n}</a>' for t, n, e in TOOLS if t != slug]
+    items += ['<a href="/">✍️ Document paraphraser (keeps formatting)</a>', '<a href="/cv-builder.html">📄 Free CV builder (ATS-readable PDF)</a>',
+              '<a href="/pdf-tools.html">All PDF tools</a>']
+    return '\n      '.join(items)
+
+def page(slug):
+    d = PAGES[slug]
+    name = dict((t, n) for t, n, _ in TOOLS)[slug]
+    url = f'{SITE}/{slug}.html'
+    faq_ld = {'@context': 'https://schema.org', '@type': 'FAQPage', 'mainEntity': [
+        {'@type': 'Question', 'name': q, 'acceptedAnswer': {'@type': 'Answer', 'text': a}} for q, a in d['faq']]}
+    app_ld = {'@context': 'https://schema.org', '@type': 'WebApplication', 'name': f'ParaFree {name}', 'url': url,
+              'description': d['desc'], 'applicationCategory': 'UtilitiesApplication', 'operatingSystem': 'Any (runs in a web browser)',
+              'browserRequirements': 'Requires JavaScript', 'isAccessibleForFree': True,
+              'offers': {'@type': 'Offer', 'price': '0', 'priceCurrency': 'USD'},
+              'publisher': {'@type': 'Organization', 'name': 'ParaFree', 'url': SITE + '/'}}
+    crumb_ld = {'@context': 'https://schema.org', '@type': 'BreadcrumbList', 'itemListElement': [
+        {'@type': 'ListItem', 'position': 1, 'name': 'Home', 'item': SITE + '/'},
+        {'@type': 'ListItem', 'position': 2, 'name': 'PDF Tools', 'item': SITE + '/pdf-tools.html'},
+        {'@type': 'ListItem', 'position': 3, 'name': name, 'item': url}]}
+    ld = '\n'.join(f'<script type="application/ld+json">\n{json.dumps(x, ensure_ascii=False, indent=2)}\n</script>' for x in (app_ld, faq_ld, crumb_ld))
+    sections = '\n'.join(
+        f'  <section class="pf-section">\n    <h2>{esc(h)}</h2>\n' + ''.join(f'    <p>{p}</p>\n' for p in ps) + '  </section>' for h, ps in d['sections'])
+    steps = ''.join(f'<li>{esc(s)}</li>' for s in d['steps'])
+    faq = '\n'.join(f'    <div class="faq-item"><p class="faq-q">{esc(q)}</p><p class="faq-a">{esc(a)}</p></div>' for q, a in d['faq'])
+    facts = [('Price', 'Free'), ('Signup', 'None needed'), ('Watermark', 'None'), ('File limits', d['limits']),
+             ('Where files are processed', 'On your device, in the browser — never uploaded'), ('Works on phone', 'Yes — Android and iPhone browsers')]
+    facts_html = ''.join(f'<tr><th scope="row">{esc(k)}</th><td>{esc(v)}</td></tr>' for k, v in facts)
+    footer_pdf = '\n'.join(f'    <a href="/{t}.html">{n}</a>' for t, n, _ in TOOLS)
+    return f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{esc(d['title'])}</title>
+<meta name="description" content="{esc(d['desc'])}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{url}">
+<meta property="og:title" content="{esc(d['title'])}">
+<meta property="og:description" content="{esc(d['desc'])}">
+<meta property="og:url" content="{url}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="ParaFree">
+<meta property="og:image" content="{SITE}/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{esc(d['title'])}">
+<meta name="twitter:description" content="{esc(d['desc'])}">
+<meta name="twitter:image" content="{SITE}/og-image.png">
+<meta name="twitter:site" content="@parafree">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-0QEEGS0DZQ"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){{dataLayer.push(arguments);}}
+  gtag('js', new Date());
+
+  gtag('config', 'G-0QEEGS0DZQ');
+</script>
+{ld}
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#2d6a4f">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/pdf-tools.css">
+<link rel="preload" as="script" href="/lib/pdf-tools/{slug}.js?v=0">
+</head>
+<body data-pf-tool="{slug}">
+
+<!-- NAV (same links as the homepage) -->
+<div id="mobileMenu" onclick="if(event.target===this)toggleMenu()">
+  <div class="pf-menu-inner">
+    <button class="pf-menu-close" onclick="toggleMenu()" aria-label="Close menu">×</button>
+    <a href="/">Home</a>
+    <a href="/cv-builder.html">CV Builder</a>
+    <a href="/pdf-tools.html">📄 PDF Tools</a>
+    <a href="/code.html">✨ ParaFree AI</a>
+    <a href="/blog.html">Blog</a>
+    <a href="/about.html">About</a>
+    <a href="/faq.html">FAQ</a>
+    <a href="/contact.html">Contact</a>
+    <a href="/privacy.html">Privacy</a>
+    <a href="https://ko-fi.com/parafree" target="_blank" rel="noopener" onclick="if(typeof gtag==='function')gtag('event','donate_click',{{placement:'header'}})">☕ Support ParaFree</a>
+  </div>
+</div>
+<nav id="mainNav">
+  <a href="/" style="display:flex;align-items:center;text-decoration:none;">
+    <img src="/logo-dark.svg" alt="ParaFree" height="34" style="height:34px;width:auto;" id="navLogo">
+  </a>
+  <div id="homeNavLinks">
+    <a href="/" class="nav-link">Paraphraser</a>
+    <a href="/cv-builder.html" class="nav-link">CV Builder</a>
+    <a href="/pdf-tools.html" class="nav-link">PDF Tools</a>
+    <a href="/code.html" class="nav-link">ParaFree AI</a>
+    <a href="/blog.html" class="nav-link">Blog</a>
+    <a href="/faq.html" class="nav-link">FAQ</a>
+    <a href="/" id="navCta">Try Free →</a>
+  </div>
+  <button id="menuToggle" aria-label="Open menu" onclick="toggleMenu()"><span></span><span></span><span></span></button>
+</nav>
+
+<!-- HERO -->
+<header class="pf-hero">
+  <div class="pf-hero-inner">
+    <nav class="pf-crumbs" aria-label="Breadcrumb"><a href="/">Home</a> <span aria-hidden="true">›</span> <a href="/pdf-tools.html">PDF Tools</a> <span aria-hidden="true">›</span> <span aria-current="page">{esc(name)}</span></nav>
+    <div class="pf-hero-badge">Free · No Signup · No Watermark</div>
+    <h1>{esc(d['h1'])}</h1>
+    <p>{esc(d['lead'])}</p>
+    <div class="pf-privacy"><span aria-hidden="true">🔒</span> {esc(SPEED)}</div>
+  </div>
+</header>
+
+<!-- THE TOOL (the same module as pdf-tools.html, opened on this tool) -->
+<main class="pf-tools"></main>
+<script>window.PFV = '0';</script>
+<script src="/lib/pdf-tools/panels.js?v=0"></script>
+<script>window.PFPanels.render(document.querySelector('main.pf-tools'));</script>
+
+<div class="pf-content">
+  <section class="pf-section pf-howto">
+    <h2>How to use it</h2>
+    <ol class="pf-steps">{steps}</ol>
+  </section>
+  <section class="pf-section">
+    <h2>Quick facts</h2>
+    <table class="pf-facts">{facts_html}</table>
+  </section>
+{sections}
+  <section class="faq" id="faq">
+    <h2>Frequently asked questions</h2>
+{faq}
+  </section>
+  <section class="pf-section pf-related">
+    <h2>More free tools</h2>
+    <p class="pf-related-links">
+      {related(slug)}
+    </p>
+    <p class="pf-entity">{esc(ENTITY)}</p>
+  </section>
+</div>
+
+<!-- FOOTER (same links as the homepage) -->
+<footer class="pf-footer">
+  <div class="pf-footer-links">
+    <a href="/">Home</a>
+    <a href="/about.html">About</a>
+    <a href="/blog.html">Blog</a>
+    <a href="/cv-builder.html">CV Builder</a>
+    <a href="/code.html">ParaFree AI</a>
+    <a href="/cv-blog.html">CV Blog</a>
+    <a href="/faq.html">FAQ</a>
+    <a href="/contact.html">Contact</a>
+    <a href="/privacy.html">Privacy</a>
+    <a href="/terms.html">Terms</a>
+    <a href="https://ko-fi.com/parafree" target="_blank" rel="noopener" onclick="if(typeof gtag==='function')gtag('event','donate_click',{{placement:'footer'}})">☕ Support ParaFree</a>
+  </div>
+  <div class="pf-footer-group">
+    <span class="pf-footer-title">Paraphrase Tools:</span>
+    <a href="/paraphrase-powerpoint.html">Paraphrase PowerPoint</a>
+    <a href="/paraphrase-word-document.html">Paraphrase Word</a>
+    <a href="/paraphrase-pdf.html">Paraphrase PDF</a>
+    <a href="/paraphrase-word-document-keep-formatting.html">Word Without Losing Formatting</a>
+    <a href="/paraphrase-document-online-keep-format.html">Paraphrase Documents Online</a>
+  </div>
+  <div class="pf-footer-group">
+    <span class="pf-footer-title">PDF Tools:</span>
+{footer_pdf}
+  </div>
+  <div class="pf-footer-group">
+    <span class="pf-footer-title">CV Resources:</span>
+    <a href="/cv-builder.html">Free CV Builder</a>
+    <a href="/ai-cv-builder.html">AI CV Builder</a>
+    <a href="/cv-builder-no-signup.html">No Signup CV</a>
+    <a href="/ats-resume-builder.html">ATS Templates</a>
+    <a href="/student-cv-builder.html">Student CV</a>
+    <a href="/cv-maker-free-download.html">Free CV Download</a>
+  </div>
+  <div class="pf-footer-brand"><img src="/favicon.svg" alt="ParaFree" height="20" style="height:20px;width:auto;"><span>ParaFree</span></div>
+  <p>© 2026 ParaFree · Free AI Writing Suite · No limits, no signup, always free</p>
+</footer>
+
+<!-- core only; this tool's module loads right away (app.js opens the tool named on <body>) -->
+<script src="/lib/pdf-tools/pdf-events.js?v=0"></script>
+<script src="/lib/pdf-tools/loader.js?v=0"></script>
+<script src="/lib/pdf-tools/common.js?v=0"></script>
+<script src="/lib/pdf-tools/app.js?v=0"></script>
+</body>
+</html>
+'''
+
+if __name__ == '__main__':
+    for slug in PAGES:
+        out = page(slug).replace('\r\n', '\n').replace('\n', '\r\n')
+        open(os.path.join(ROOT, slug + '.html'), 'wb').write(out.encode('utf-8'))
+        words = len(__import__('re').sub(r'<[^>]+>', ' ', out.split('<main class="pf-tools">')[1].split('<footer')[0]).split())
+        print(slug + '.html', words, 'words')
