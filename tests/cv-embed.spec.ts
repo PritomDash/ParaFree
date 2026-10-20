@@ -34,6 +34,10 @@ function originalCvBuilder() {
   return (s.slice(0, a) + s.slice(b)).replace(ga, "  gtag('config', 'G-0QEEGS0DZQ');");
 }
 
+// cv-builder.html as it is on main (before the PDF text layer) — to compare the PDF page images
+function mainCvBuilder() {
+  return require('child_process').execSync('git show main:cv-builder.html', { cwd: ROOT, maxBuffer: 64 << 20 }).toString('utf8');
+}
 async function cdnRoute(route: Route) {
   const url = route.request().url();
   fs.mkdirSync(CDN_CACHE, { recursive: true });
@@ -67,6 +71,7 @@ async function setup(page: Page) {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body.type === 'jobSearch' ? { jobs: JOBS, source: 'live' } : { success: false }) });
     }
     if (url.pathname === '/cv-builder-original.html') return route.fulfill({ status: 200, contentType: 'text/html', body: originalCvBuilder() });
+    if (url.pathname === '/cv-builder-main.html') return route.fulfill({ status: 200, contentType: 'text/html', body: mainCvBuilder() });
     const file = path.join(ROOT, decodeURIComponent(url.pathname === '/' ? '/index.html' : url.pathname));
     if (!file.startsWith(ROOT) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) return route.fulfill({ status: 404, body: '' });
     return route.fulfill({ path: file, contentType: MIME[path.extname(file)] || 'application/octet-stream' });
@@ -569,5 +574,215 @@ test.describe('multi-page CV', () => {
     const pdf = await downloadCvPdf(page, frame);
     expect(pdf.pages).toBe(pages);
     await expect.poll(async () => { const s = await sizes(page, frame); return Math.abs(s.frameH - s.scrollH); }, { timeout: 10000 }).toBeLessThan(3);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// PDF text layer (selectable / ATS-readable text over the page images), read back with pdf.js
+const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+async function readPdf(page: Page, buf: Buffer) {
+  const reader = await page.context().newPage();                     // a blank tab: the homepage has its own pdf.js
+  await reader.goto('about:blank');
+  await reader.addScriptTag({ url: PDFJS + 'pdf.min.js' });
+  const out = await reader.evaluate(async ([b64, base]) => {
+    const lib = (window as any).pdfjsLib;
+    lib.GlobalWorkerOptions.workerSrc = base + 'pdf.worker.min.js';
+    const doc = await lib.getDocument({ data: Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)) }).promise;
+    const meta = await doc.getMetadata();
+    const pages: { items: string[]; links: string[] }[] = [];
+    for (let i = 1; i <= doc.numPages; i++) {
+      const pg = await doc.getPage(i);
+      const tc = await pg.getTextContent();
+      const ann = await pg.getAnnotations();
+      pages.push({ items: tc.items.map((t: any) => t.str).filter((x: string) => x.trim()), links: ann.filter((a: any) => a.subtype === 'Link').map((a: any) => a.url || a.unsafeUrl) });
+    }
+    return { pages, title: meta.info.Title, author: meta.info.Author };
+  }, [buf.toString('base64'), PDFJS] as [string, string]);
+  await reader.close();
+  return out;
+}
+async function cvPdfBuffer(page: Page, f: Page | Frame) {
+  const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 90000 }), f.evaluate(() => (window as any).downloadPDF())]);
+  return fs.readFileSync((await dl.path())!);
+}
+const TL_TEMPLATES = ['classic', 'exec-pro', 'minimal', 'modern-blue'];
+
+test.describe('PDF text layer', () => {
+  for (const tpl of TL_TEMPLATES) {
+    test(`${tpl}: one page — text is extractable in reading order, with links and metadata`, async ({ page }) => {
+      await page.setViewportSize({ width: 1280, height: 800 });
+      const net = await setup(page);
+      await page.goto('/cv-builder.html');
+      await page.waitForFunction(() => typeof (window as any).pfTextRuns === 'function');
+      await fillCv(page, tpl);
+      await page.fill('#f-linkedin', 'linkedin.com/in/jordanrivers');
+      await page.waitForTimeout(300);
+      const buf = await cvPdfBuffer(page, page);
+      const pdf = await readPdf(page, buf);
+      expect(pdf.pages.length).toBe(1);
+      expect(pdf.title).toBe('Jordan Rivers — CV');
+      expect(pdf.author).toBe('Jordan Rivers');
+      const items = pdf.pages[0].items;
+      const idx = (s: string) => {
+        const i = items.findIndex((x) => x.toLowerCase().includes(s.toLowerCase()));
+        expect(i, `"${s}" in the PDF text: ${JSON.stringify(items)}`).toBeGreaterThanOrEqual(0);
+        return i;
+      };
+      expect(items.join(' ')).not.toMatch(/(?:[A-Z] ){4,}/);                                // letter-spaced headings read as words
+      for (const s of ['Jordan Rivers', 'jordan@example.com', 'Senior Data Analyst', 'Acme Analytics', '2021', 'Present', 'Built a churn dashboard used by 40 managers',
+        'Cut report time by 60%', 'BSc Statistics', 'SQL', 'Python', 'Power BI']) idx(s);
+      expect(items.join(' ')).not.toMatch(/�/);
+      // the main column reads in order: summary → role → its bullets in order → education
+      expect(idx('Analyst who turns messy data')).toBeLessThan(idx('Senior Data Analyst'));
+      expect(idx('Senior Data Analyst')).toBeLessThan(idx('Built a churn dashboard'));
+      expect(idx('Built a churn dashboard')).toBeLessThan(idx('Cut report time'));
+      expect(idx('Cut report time')).toBeLessThan(idx('BSc Statistics'));
+      if (tpl !== 'exec-pro') expect(idx('Jordan Rivers')).toBeLessThan(idx('Senior Data Analyst'));
+      expect(pdf.pages[0].links).toEqual(expect.arrayContaining(['mailto:jordan@example.com', 'tel:+61400000000', 'https://linkedin.com/in/jordanrivers']));
+      expect(buf.length).toBeLessThan(1024 * 1024);
+      expect(net.errors).toEqual([]);
+    });
+  }
+
+  test('exec-pro (sidebar): the sidebar is one block, not interleaved with the main column', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await setup(page);
+    await page.goto('/cv-builder.html');
+    await page.waitForFunction(() => typeof (window as any).pfTextRuns === 'function');
+    await fillCv(page, 'exec-pro');
+    await page.waitForTimeout(300);
+    const items = (await readPdf(page, await cvPdfBuffer(page, page))).pages[0].items;
+    const at = (s: string) => items.findIndex((x) => x.includes(s));
+    const side = ['jordan@example.com', '+61 400 000 000', 'SQL', 'Python', 'Google Data Analytics'].map(at);
+    const main = ['Jordan Rivers', 'Analyst who turns', 'Senior Data Analyst', 'Built a churn', 'Cut report time', 'BSc Statistics'].map(at);
+    for (const i of [...side, ...main]) expect(i, JSON.stringify(items)).toBeGreaterThanOrEqual(0);
+    expect(Math.max(...side) < Math.min(...main) || Math.max(...main) < Math.min(...side), `sidebar ${side} / main ${main}`).toBe(true);
+  });
+
+  for (const tpl of TL_TEMPLATES) {
+    test(`${tpl}: multi-page — each page's text layer has only that page's text`, async ({ page }) => {
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await setup(page);
+      await page.goto('/cv-builder.html');
+      await page.waitForFunction(() => typeof (window as any).pfTextRuns === 'function');
+      await fillBigCv(page, tpl);
+      const { lines, pages } = await previewLines(page);
+      expect(pages).toBeGreaterThanOrEqual(2);
+      const buf = await cvPdfBuffer(page, page);
+      const pdf = await readPdf(page, buf);
+      expect(pdf.pages.length).toBe(pages);
+      expect(buf.length / pages).toBeLessThan(1024 * 1024);
+      const label = /Job \d+ bullet \d+/g;
+      for (let p = 0; p < pages; p++) {
+        const inDom = new Set(lines.filter((l) => pageOf(l.t) === p).flatMap((l) => l.text.match(label) || []));
+        const inPdf = new Set(pdf.pages[p].items.join(' ').match(label) || []);
+        expect([...inPdf].sort(), `page ${p + 1}`).toEqual([...inDom].sort());
+        expect(inPdf.size, `page ${p + 1} has text`).toBeGreaterThan(0);
+      }
+      const seq = pdf.pages.flatMap((pg) => pg.items.join(' ').match(label) || []);
+      const want = Array.from({ length: 6 }, (_, i) => Array.from({ length: 6 }, (_, b) => `Job ${i + 1} bullet ${b + 1}`)).flat();
+      expect(seq, 'bullets in order across the pages').toEqual(want);
+      expect(pdf.pages[1].items.join(' ')).not.toContain('Jordan Rivers');
+    });
+  }
+
+  // decoded-pixel difference between two page JPEGs
+  const jpgDiff = (page: Page, x: string, y: string) => page.evaluate(async ([x, y]) => {
+    const load = async (s: string) => {
+      const bmp = await createImageBitmap(new Blob([Uint8Array.from(atob(s), (c) => c.charCodeAt(0))], { type: 'image/jpeg' }));
+      const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height;
+      const g = c.getContext('2d')!; g.drawImage(bmp, 0, 0);
+      return g.getImageData(0, 0, c.width, c.height).data;
+    };
+    const [p, q] = [await load(x), await load(y)];
+    if (p.length !== q.length) return { mean: 999, bigShare: 1 };
+    let sum = 0, big = 0;
+    for (let k = 0; k < p.length; k += 4) {
+      const d = Math.abs(p[k] - q[k]) + Math.abs(p[k + 1] - q[k + 1]) + Math.abs(p[k + 2] - q[k + 2]);
+      sum += d; if (d > 96) big++;
+    }
+    return { mean: sum / (p.length / 4), bigShare: big / (p.length / 4) };
+  }, [x, y] as [string, string]);
+  const pageJpgs = async (page: Page, url: string, during?: string) => {
+    await page.goto(url);
+    await page.waitForFunction(() => typeof (window as any).pfPaginate === 'function');
+    await fillBigCv(page, 'exec-pro');
+    await page.waitForTimeout(800);
+    const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 90000 }), page.evaluate((js) => {
+      if (js) (window as any).__spam = setInterval(new Function(js) as any, 5);
+      return Promise.resolve((window as any).downloadPDF()).finally(() => clearInterval((window as any).__spam));
+    }, during || '')]);
+    return pdfPages(fs.readFileSync((await dl.path())!)).jpgs;
+  };
+  const same = async (page: Page, a: string[], b: string[]) => {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) { const d = await jpgDiff(page, a[i], b[i]); if (d.mean >= 1 || d.bigShare >= 0.001) return false; }
+    return true;
+  };
+
+  test('the page images are unchanged: same pixels as main\'s PDF', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await setup(page);
+    const now = await pageJpgs(page, '/cv-builder.html');
+    expect(now.length).toBeGreaterThanOrEqual(2);
+    // main's capture is racy (see the next test), so compare with main's first capture that wasn't hit by it
+    let match = false;
+    for (let t = 0; t < 6 && !match; t++) match = await same(page, now, await pageJpgs(page, '/cv-builder-main.html'));
+    expect(match, 'a main PDF with the same page images').toBe(true);
+  });
+
+  test('the page images stay at full size even when the preview re-scales during the capture', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await setup(page);
+    const ref = await pageJpgs(page, '/cv-builder.html');
+    const hit = await pageJpgs(page, '/cv-builder.html', 'scalePreview()');           // a late re-scale (timer / font load) every 5ms
+    expect(await same(page, ref, hit)).toBe(true);
+    expect(await page.evaluate(() => getComputedStyle(document.getElementById('cvPreviewScale')!).transform)).not.toBe('matrix(1, 0, 0, 1, 0, 0)');   // preview zoom restored
+  });
+
+  test('non-Latin text (Bengali, Hindi, Arabic) is in the text layer; without the font it is left out gracefully', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await setup(page);
+    await page.goto('/cv-builder.html');
+    await page.waitForFunction(() => typeof (window as any).pfTextRuns === 'function');
+    await fillCv(page, 'classic');
+    await page.fill('#f-name', 'প্রিতম দাশ');
+    await page.evaluate(() => { const el = document.getElementById('f-summary') as HTMLTextAreaElement; el.value = 'नमस्ते दुनिया — مرحبا بالعالم — Analyst who turns messy data into clear decisions.'; el.dispatchEvent(new Event('input', { bubbles: true })); });
+    await page.waitForTimeout(300);
+    const pdf = await readPdf(page, await cvPdfBuffer(page, page));
+    const all = pdf.pages[0].items.join(' ');
+    expect(all).toContain('প্রিতম');
+    expect(all).toContain('नमस्ते');
+    expect(all.normalize('NFKC').replace(/\s/g, '')).toContain('مرحبا');     // jsPDF shapes Arabic (presentation forms; NFKC gives the letters back)
+    expect(all).toContain('Senior Data Analyst');
+    expect(pdf.title).toBe('প্রিতম দাশ — CV');
+    // the fonts can't load: still a PDF, the Latin text is still there, no error
+    await page.context().route(/expo-google-fonts/, (r) => r.abort());
+    await page.goto('/cv-builder.html');
+    await page.waitForFunction(() => typeof (window as any).pfTextRuns === 'function');
+    await fillCv(page, 'classic');
+    await page.fill('#f-name', 'প্রিতম দাশ');
+    await page.waitForTimeout(300);
+    const pdf2 = await readPdf(page, await cvPdfBuffer(page, page));
+    const all2 = pdf2.pages[0].items.join(' ');
+    expect(all2).toContain('Senior Data Analyst');
+    expect(all2).not.toContain('প্রিতম');
+  });
+
+  test('the one new line by the PDF button', async ({ page }) => {
+    await setup(page);
+    await page.goto('/cv-builder.html');
+    await expect(page.locator('.cv-ats-note')).toHaveCount(1);
+    await expect(page.locator('.cv-ats-note')).toHaveText('Text in your PDF is selectable and readable by applicant tracking systems.');
+  });
+
+  test('inside the homepage embed: the PDF has its text layer', async ({ page }) => {
+    await setup(page);
+    await page.goto('/');
+    const frame = await openCvTab(page);
+    await fillCv(frame, 'modern-blue');
+    await frame.waitForTimeout(300);
+    const pdf = await readPdf(page, await cvPdfBuffer(page, frame));
+    expect(pdf.pages[0].items.join(' ')).toContain('Built a churn dashboard used by 40 managers');
   });
 });

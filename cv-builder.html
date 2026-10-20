@@ -979,6 +979,7 @@ html.pf-embed .cv-main { padding-top: 12px !important; padding-bottom: 16px !imp
             <button onclick="downloadPDF()" style="padding:7px 16px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif;box-shadow:0 2px 8px rgba(45,106,79,0.25);transition:all .15s;" onmouseover="this.style.background='#235a40'" onmouseout="this.style.background='var(--accent)'">⬇ PDF</button>
           </div>
         </div>
+        <div class="cv-ats-note" style="padding:4px 18px 5px;background:white;border-bottom:1px solid var(--border);font-size:11px;color:var(--text3);text-align:right;flex-shrink:0;">Text in your PDF is selectable and readable by applicant tracking systems.</div>
 
         <!-- Scrollable form area -->
         <div id="cvFormScrollable">
@@ -2782,6 +2783,8 @@ const updateCV = updatePreview;
 
 // ── Auto-scale preview to fit its container ──
 function scalePreview() {
+  // during a PDF capture the sheet must stay at scale(1): a late call (timer, font load) would make it capture the zoomed-out layout
+  if (window._pfPdfCapture) { window._pfScaleLater = true; return; }
   const wrapper = document.getElementById('cvPreviewWrapper');
   const scaleEl = document.getElementById('cvPreviewScale');
   const preview = document.getElementById('cv-preview');
@@ -3175,6 +3178,152 @@ function loadScript(src) {
 }
 
 // ── Download PDF ──
+// ── PDF text layer ──
+// The PDF pages are images of the preview (so they look exactly like it). On top of each image goes an
+// invisible text layer: every text line of that page, measured from the preview, at its position and size,
+// in the template's own reading order (header, contact, then each section; a sidebar stays one block).
+// That makes the text selectable and readable by applicant tracking systems. Email, phone, LinkedIn and
+// web addresses become clickable links. Non-Latin text uses a Noto font (loaded only when needed); if it
+// can't load, that text is left out of the layer and the rest still works.
+const PF_PDF_FONTS = {
+  noto: 'https://cdn.jsdelivr.net/npm/@expo-google-fonts/noto-sans@0.4.2/400Regular/NotoSans_400Regular.ttf',
+  bn:   'https://cdn.jsdelivr.net/npm/@expo-google-fonts/noto-sans-bengali@0.4.4/400Regular/NotoSansBengali_400Regular.ttf',
+  deva: 'https://cdn.jsdelivr.net/npm/@expo-google-fonts/noto-sans-devanagari@0.4.1/400Regular/NotoSansDevanagari_400Regular.ttf',
+  ar:   'https://cdn.jsdelivr.net/npm/@expo-google-fonts/noto-sans-arabic@0.4.3/400Regular/NotoSansArabic_400Regular.ttf',
+};
+const _pfFontData = {};
+const PF_WINANSI_EXTRA = '€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ';
+// which font can carry this character in the PDF: 'helv' (standard font), a Noto font, or null (left out)
+function pfCharFont(ch, prev) {
+  const c = ch.codePointAt(0);
+  if ((c >= 0x20 && c <= 0x7e) || (c >= 0xa0 && c <= 0xff) || PF_WINANSI_EXTRA.includes(ch)) return 'helv';
+  if ((c >= 0x300 && c <= 0x36f) || c === 0x200c || c === 0x200d) return prev || null;   // combining marks, joiners
+  if (c >= 0x980 && c <= 0x9ff) return 'bn';
+  if ((c >= 0x900 && c <= 0x97f) || (c >= 0xa8e0 && c <= 0xa8ff)) return 'deva';
+  if ((c >= 0x600 && c <= 0x6ff) || (c >= 0x750 && c <= 0x77f) || (c >= 0xfb50 && c <= 0xfdff) || (c >= 0xfe70 && c <= 0xfeff)) return 'ar';
+  if ((c >= 0x100 && c <= 0x52f) || (c >= 0x1e00 && c <= 0x1fff) || (c >= 0x2000 && c <= 0x20cf)) return 'noto';
+  return null;                                                                      // icons, emoji, CJK…
+}
+function pfTransform(ch, tt) { return tt === 'uppercase' ? ch.toUpperCase() : tt === 'lowercase' ? ch.toLowerCase() : ch; }
+// Every visible text line of the sheet, split into runs of one font, in DOM (reading) order. Sheet px.
+function pfTextRuns(preview) {
+  const box = preview.getBoundingClientRect(), unit = box.width / preview.offsetWidth || 1;
+  const runs = [], range = document.createRange();
+  const walker = document.createTreeWalker(preview, NodeFilter.SHOW_TEXT);
+  let node;
+  while ((node = walker.nextNode())) {
+    const el = node.parentElement, txt = node.nodeValue;
+    if (!el || !txt.trim() || el.closest('#carBadge')) continue;
+    const cs = getComputedStyle(el);
+    if (cs.visibility === 'hidden' || +cs.opacity === 0 || cs.color === 'rgba(0, 0, 0, 0)') continue;
+    const fs = parseFloat(cs.fontSize) || 12, bold = (parseInt(cs.fontWeight, 10) || 400) >= 600, tt = cs.textTransform;
+    const rtl = cs.direction === 'rtl';
+    let cur = null, font = null, pendingSpace = false;
+    const flush = () => { if (cur && cur.text.trim()) { cur.text = cur.text.replace(/\s+$/, ''); runs.push(cur); } cur = null; };
+    for (let i = 0; i < txt.length; i++) {
+      let ch = txt[i];
+      const cp = txt.codePointAt(i);
+      if (cp > 0xffff) { i++; ch = String.fromCodePoint(cp); }
+      if (/\s/.test(ch)) { pendingSpace = true; continue; }
+      font = pfCharFont(ch, font);
+      range.setStart(node, i); range.setEnd(node, i + ch.length);
+      const r = range.getClientRects()[0];
+      if (!r || !font) { if (!font) pendingSpace = true; continue; }
+      const x = (r.left - box.left) / unit, y = (r.top - box.top) / unit, w = r.width / unit, h = r.height / unit;
+      // shaped scripts draw vowel signs / conjuncts before or over the previous letter: keep them in the run
+      const shaped = rtl || font === 'bn' || font === 'deva' || font === 'ar';
+      const sameLine = cur && Math.abs(y - cur.y) < fs * 0.5 && cur.font === font &&
+        (shaped ? x > cur.x - fs * 1.5 - w && x - (cur.x + cur.w) < fs * 1.5 : x >= cur.x + cur.w - 1 && x - (cur.x + cur.w) < fs * 1.5);
+      if (!sameLine) {
+        flush();
+        cur = { text: '', x, y, w, h, fs, bold, font, el };
+      } else if (pendingSpace) cur.text += ' ';
+      pendingSpace = false;
+      cur.text += pfTransform(ch, tt);
+      const right = Math.max(cur.x + cur.w, x + w);
+      cur.x = Math.min(cur.x, x); cur.w = right - cur.x;
+      cur.h = Math.max(cur.h, h);
+    }
+    flush();
+  }
+  return runs;
+}
+// Contact details as links: the form's email, phone and LinkedIn wherever they appear, plus any web address.
+function pfLinkTargets(preview, d) {
+  const box = preview.getBoundingClientRect(), unit = box.width / preview.offsetWidth || 1;
+  const out = [], range = document.createRange();
+  const want = [];
+  if (d.email) want.push([d.email, 'mailto:' + d.email]);
+  if (d.phone && d.phone.replace(/\D/g, '').length >= 6) want.push([d.phone, 'tel:' + d.phone.replace(/[^\d+]/g, '')]);
+  if (d.linkedin) want.push([d.linkedin, /^https?:\/\//i.test(d.linkedin) ? d.linkedin : 'https://' + d.linkedin.replace(/^\/+/, '')]);
+  const walker = document.createTreeWalker(preview, NodeFilter.SHOW_TEXT);
+  let node;
+  while ((node = walker.nextNode())) {
+    const txt = node.nodeValue;
+    const hits = [];
+    for (const [s, url] of want) { let k = txt.indexOf(s); while (k >= 0) { hits.push([k, k + s.length, url]); k = txt.indexOf(s, k + s.length); } }
+    const re = /\b(?:https?:\/\/|www\.)[^\s<>"']+/gi;
+    let m;
+    while ((m = re.exec(txt))) {
+      if (hits.some(([a, b]) => m.index < b && m.index + m[0].length > a)) continue;
+      const u = m[0].replace(/[.,;)]+$/, '');
+      hits.push([m.index, m.index + u.length, /^https?:/i.test(u) ? u : 'https://' + u]);
+    }
+    for (const [a, b, url] of hits) {
+      range.setStart(node, a); range.setEnd(node, b);
+      for (const r of range.getClientRects()) {
+        if (r.width && r.height) out.push({ url, x: (r.left - box.left) / unit, y: (r.top - box.top) / unit, w: r.width / unit, h: r.height / unit });
+      }
+    }
+  }
+  return out;
+}
+function _pfB64(buf) {
+  const bytes = new Uint8Array(buf); let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+async function pfLoadPdfFonts(pdf, runs) {
+  const ok = { helv: true };
+  for (const key of new Set(runs.map(r => r.font))) {
+    if (key === 'helv' || !PF_PDF_FONTS[key]) continue;
+    try {
+      if (!_pfFontData[key]) {
+        const res = await fetch(PF_PDF_FONTS[key]);
+        if (!res.ok) throw new Error('font ' + res.status);
+        _pfFontData[key] = _pfB64(await res.arrayBuffer());
+      }
+      pdf.addFileToVFS('pf-' + key + '.ttf', _pfFontData[key]);
+      pdf.addFont('pf-' + key + '.ttf', 'pf-' + key, 'normal', 'Identity-H');
+      ok[key] = true;
+    } catch (e) { console.warn('PDF text layer: no font for', key, e); }
+  }
+  return ok;
+}
+// Invisible text + links for page p (0-based) of the sheet; the PDF page is 210×297mm, the sheet page PF_PAGE_H px.
+function pfAddTextLayer(pdf, runs, links, p, fontsOk) {
+  const k = 210 / 794, PT = 72 / 25.4, top = p * PF_PAGE_H;
+  for (const r of runs) {
+    if (r.y < top - 1 || r.y >= top + PF_PAGE_H - 1 || !fontsOk[r.font]) continue;
+    if (r.font === 'helv') pdf.setFont('helvetica', r.bold ? 'bold' : 'normal');
+    else pdf.setFont('pf-' + r.font, 'normal');
+    const sizeMm = r.fs * k;
+    pdf.setFontSize(sizeMm * PT);
+    // stretch the run to its measured width (letter-spacing, other fonts) — scaling, not spacing, so no gaps open between letters
+    const natural = pdf.getTextWidth(r.text), target = r.w * k;
+    const scale = natural > 0 ? Math.min(4, Math.max(0.25, target / natural)) : 1;
+    const baseline = (r.y - top + r.h - Math.max(0, (r.h - r.fs * 1.15) / 2) - r.fs * 0.22) * k;
+    pdf.text(r.text, r.x * k, baseline, { renderingMode: 'invisible', horizontalScale: scale });
+  }
+  for (const l of links) {
+    if (l.y < top - 1 || l.y >= top + PF_PAGE_H - 1) continue;
+    pdf.link(l.x * k, (l.y - top) * k, l.w * k, l.h * k, { url: l.url });
+  }
+}
+function pfEndCapture() {
+  window._pfPdfCapture = false;
+  if (window._pfScaleLater) { window._pfScaleLater = false; requestAnimationFrame(scalePreview); }
+}
 async function downloadPDF() {
   const preview = document.getElementById('cv-preview');
   const scaleEl = document.getElementById('cvPreviewScale');
@@ -3205,12 +3354,15 @@ async function downloadPDF() {
   const originalTransform = scaleEl ? scaleEl.style.transform : '';
   const originalOrigin = scaleEl ? scaleEl.style.transformOrigin : '';
   try {
+    window._pfPdfCapture = true;
     if (scaleEl) { scaleEl.style.transform = 'scale(1)'; scaleEl.style.transformOrigin = 'top left'; }
     const pages = pfPaginate(), docH = pages * PF_PAGE_H;
     preview.style.width = '794px';
     preview.style.height = docH + 'px';
     preview.style.overflow = 'visible';
     await new Promise(r => setTimeout(r, 100));
+    const formData = getFormData();
+    const textRuns = pfTextRuns(preview), linkTargets = pfLinkTargets(preview, formData);
     const canvas = await html2canvas(preview, {
       scale: 2, useCORS: true, allowTaint: true,
       backgroundColor: '#ffffff', width: 794, height: docH,
@@ -3219,8 +3371,11 @@ async function downloadPDF() {
     });
     if (scaleEl) { scaleEl.style.transform = originalTransform; scaleEl.style.transformOrigin = originalOrigin; }
     preview.style.overflow = 'hidden';
+    pfEndCapture();
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+    if (formData.name) pdf.setProperties({ title: formData.name + ' — CV', author: formData.name });
+    const fontsOk = await pfLoadPdfFonts(pdf, textRuns);
     const pagePx = Math.round(canvas.height / pages);
     for (let p = 0; p < pages; p++) {
       const pc = document.createElement('canvas');
@@ -3230,6 +3385,7 @@ async function downloadPDF() {
       g.drawImage(canvas, 0, p * pagePx, canvas.width, pagePx, 0, 0, canvas.width, pagePx);
       if (p) pdf.addPage('a4', 'portrait');
       pdf.addImage(pc.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, 297, '', 'FAST');
+      pfAddTextLayer(pdf, textRuns, linkTargets, p, fontsOk);
     }
     const name = (getFormData().name || 'CV').replace(/\s+/g, '-');
 
@@ -3266,6 +3422,7 @@ async function downloadPDF() {
     if (mobileWin) mobileWin.close();
     if (scaleEl) { scaleEl.style.transform = originalTransform; scaleEl.style.transformOrigin = originalOrigin; }
     preview.style.overflow = 'hidden';
+    pfEndCapture();
     console.error('PDF error:', err);
     const win = window.open('', '_blank');
     if (win) {
@@ -6331,7 +6488,8 @@ function openSheet(name) {
     content.innerHTML = isCL
       ? '<button onclick="downloadCLasPDF();closeSheet();" style="width:100%;padding:16px;background:var(--accent);color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download Letter PDF</button>' +
         '<button onclick="closeSheet();setTimeout(downloadCLasDOCX,350);" style="width:100%;padding:16px;background:white;color:var(--accent);border:2px solid var(--accent);border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download Letter Word</button>'
-      : '<button onclick="downloadPDF();closeSheet();" style="width:100%;padding:16px;background:var(--accent);color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download PDF</button>';
+      : '<button onclick="downloadPDF();closeSheet();" style="width:100%;padding:16px;background:var(--accent);color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download PDF</button>' +
+        '<p class="cv-ats-note" style="margin:10px 2px 0;font-size:12px;color:var(--text3);text-align:center;">Text in your PDF is selectable and readable by applicant tracking systems.</p>';
   } else {
     config.selectors.forEach(sel => {
       const el = document.querySelector(sel);
