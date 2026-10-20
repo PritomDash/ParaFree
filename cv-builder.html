@@ -1004,7 +1004,7 @@ html.pf-embed .cv-main { padding-top: 12px !important; padding-bottom: 16px !imp
         <div style="padding:13px 18px;background:white;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;border-radius:var(--radius) var(--radius) 0 0;">
           <span style="font-size:14px;font-weight:700;color:var(--text);font-family:'Syne',sans-serif;">Your Details</span>
           <div style="display:flex;gap:8px;">
-            <button onclick="downloadPDF()" style="padding:7px 16px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif;box-shadow:0 2px 8px rgba(45,106,79,0.25);transition:all .15s;" onmouseover="this.style.background='#235a40'" onmouseout="this.style.background='var(--accent)'">⬇ PDF</button>
+            <button id="cvPdfTop" data-pf-pdf="⬇ PDF" onclick="downloadPDF(this)" style="padding:7px 16px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif;box-shadow:0 2px 8px rgba(45,106,79,0.25);transition:all .15s;" onmouseover="this.style.background='#235a40'" onmouseout="this.style.background='var(--accent)'">⬇ PDF</button>
           </div>
         </div>
         <div class="cv-ats-note" style="padding:4px 18px 5px;background:white;border-bottom:1px solid var(--border);font-size:11px;color:var(--text3);text-align:right;flex-shrink:0;">Text in your PDF is selectable and readable by applicant tracking systems.</div>
@@ -1591,7 +1591,7 @@ We are looking for a Software Engineer with:
 
         <!-- Download footer -->
         <div id="dlGrid" style="display:flex;gap:8px;padding:10px 14px;background:white;border-top:1px solid var(--border);flex-shrink:0;border-radius:0 0 12px 12px;">
-          <button onclick="downloadPDF()" style="flex:1;padding:9px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background .15s;" onmouseover="this.style.background='#235a40'" onmouseout="this.style.background='var(--accent)'">⬇ PDF</button>
+          <button id="cvPdfFoot" data-pf-pdf="⬇ PDF" onclick="downloadPDF(this)" style="flex:1;padding:9px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background .15s;" onmouseover="this.style.background='#235a40'" onmouseout="this.style.background='var(--accent)'">⬇ PDF</button>
           <button onclick="copyCV()" title="Copy CV text" style="padding:9px 14px;background:white;color:var(--text2);border:1px solid var(--border);border-radius:8px;font-size:14px;cursor:pointer;transition:all .15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">⎘</button>
         </div>
 
@@ -2782,6 +2782,7 @@ function useCarouselTemplate() {
 }
 
 function updatePreview() {
+  pfPdfLabels();
   if (editModeOn) return; // Don't overwrite manual edits
   if (isFormEmpty() && carouselMode) { renderCarousel(); return; }
   hideCarouselControls();
@@ -3662,21 +3663,145 @@ function pfEndCapture() {
   window._pfPdfCapture = false;
   if (window._pfScaleLater) { window._pfScaleLater = false; requestAnimationFrame(scalePreview); }
 }
-async function downloadPDF() {
+// ── PDF download gate ──────────────────────────────────────────────────────
+// A PDF click that can't download says why right where the user clicked, with the action that fixes it,
+// and sends cv_download_blocked {reason}. The sample (template carousel) can still be downloaded on purpose.
+// Reasons: sample_showing (no details yet, the sample is showing), empty, overflow (more pages than chosen),
+// other (the PDF libraries didn't load, or the PDF failed with no fallback).
+function pfSampleShowing() { return carouselMode && isFormEmpty(); }
+function pfPdfBlockReason() {
+  if (pfSampleShowing()) return 'sample_showing';
+  // details typed in the phone sheet (outside #cvFormScrollable) don't end the carousel: end it here
+  if (carouselMode) { carouselMode = false; hideCarouselControls(); updatePreview(); }
+  const preview = document.getElementById('cv-preview');
+  if (!preview || !preview.innerHTML.trim() || preview.querySelector('.cv-empty')) return 'empty';
+  scalePreview();
+  if (pfPages.natural > pfPages.chosen) return 'overflow';
+  return '';
+}
+function pfPdfGate(anchor) {
+  const reason = pfPdfBlockReason();
+  if (reason) { pfDlBlocked(reason, anchor); return true; }
+  pfCloseDlPrompt();
+  return false;
+}
+function pfDlBlocked(reason, anchor) {
+  if (window.PFEvents) PFEvents.cvDownloadBlocked(reason);
+  pfShowDlPrompt(reason, anchor);
+}
+function pfPdfLabels() {
+  const named = !!(document.getElementById('f-name')?.value || '').trim();
+  document.querySelectorAll('[data-pf-pdf]').forEach(b => {
+    const t = named ? b.dataset.pfPdf : b.dataset.pfPdf + ' (add your name first)';
+    if (b.textContent !== t) b.textContent = t;
+  });
+}
+function pfDlPromptHtml(reason) {
+  const C = pfPages.chosen, s = (n) => n === 1 ? '' : 's';
+  const x = '<button type="button" class="x" aria-label="Close" onclick="pfCloseDlPrompt()">×</button>';
+  if (reason === 'sample_showing')
+    return x + '<p><b>This is a sample — add your details to download your CV</b></p>' +
+      '<div class="b"><button type="button" class="pri" data-act="details" onclick="pfAddDetails()">Add your details</button>' +
+      '<button type="button" class="sec" data-act="sample" onclick="pfDownloadSample()">Download this sample as PDF</button></div>';
+  if (reason === 'empty')
+    return x + '<p><b>Your CV is empty — add your details to download it</b></p>' +
+      '<div class="b"><button type="button" class="pri" data-act="details" onclick="pfAddDetails()">Add your details</button></div>';
+  if (reason === 'overflow')
+    return x + `<p><b>Your CV is ${pfPages.overLines} line${s(pfPages.overLines)} over ${C} page${s(C)}</b> — fit it or add a page, then download.</p>` +
+      (pfPages.msg === 'fitfail' ? `<p class="n">Can’t fit on ${C} page${s(C)} without going below 9.5pt — add a page instead.</p>` : '') +
+      `<div class="b"><button type="button" class="pri" data-act="fit" onclick="pfDlFix('fit')">✨ Fit to ${C} page${s(C)}</button>` +
+      (C < 3 ? `<button type="button" class="sec" data-act="add" onclick="pfDlFix('add')">+ Add page ${C + 1}</button>` : '') + '</div>';
+  if (reason === 'ready')
+    return x + `<p><b>✓ Your CV fits on ${C} page${s(C)} now</b></p>` +
+      '<div class="b"><button type="button" class="pri" data-act="download" onclick="downloadPDF(this)">⬇ Download PDF</button></div>';
+  return x + '<p><b>Couldn’t create the PDF</b> — check your connection and try again.</p>' +
+    '<div class="b"><button type="button" class="pri" data-act="retry" onclick="downloadPDF(this)">Try again</button></div>';
+}
+function pfShowDlPrompt(reason, anchor) {
+  pfCloseDlPrompt();
+  if (!document.getElementById('cvDlPromptCss')) {
+    const st = document.createElement('style'); st.id = 'cvDlPromptCss';
+    st.textContent = '#cvDlPrompt{position:relative;margin:10px 14px;padding:12px 34px 12px 14px;background:#fff8e6;border:1.5px solid #f0c36d;border-radius:10px;font-family:"DM Sans",sans-serif;font-size:13px;color:#1a1814;line-height:1.45;flex-shrink:0;text-align:left}' +
+      '#cvDlPrompt p{margin:0 0 8px}#cvDlPrompt .n{font-size:12px;color:#8a4b12}#cvDlPrompt .b{display:flex;flex-wrap:wrap;gap:8px}' +
+      '#cvDlPrompt .b button{padding:8px 14px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}' +
+      '#cvDlPrompt .pri{background:var(--accent);color:#fff;border:none}#cvDlPrompt .sec{background:#fff;color:var(--accent);border:1.5px solid var(--accent)}' +
+      '#cvDlPrompt .x{position:absolute;top:4px;right:6px;background:none;border:none;font-size:20px;line-height:1;color:#8a8580;cursor:pointer;padding:2px 6px}';
+    document.head.appendChild(st);
+  }
+  const box = document.createElement('div');
+  box.id = 'cvDlPrompt'; box.setAttribute('role', 'alertdialog'); box.setAttribute('aria-live', 'assertive');
+  box.dataset.reason = reason;
+  box.innerHTML = pfDlPromptHtml(reason);
+  let sheet = anchor && anchor.closest ? anchor.closest('#sheetContent') : null;
+  if (!sheet && !anchor && window.innerWidth <= 900 && typeof openSheet === 'function') { openSheet('download'); sheet = document.getElementById('sheetContent'); }
+  const form = anchor && anchor.closest ? anchor.closest('#cvFormPanel') : null;
+  if (sheet) sheet.prepend(box);
+  else if (form && form.querySelector('.cv-ats-note')) form.querySelector('.cv-ats-note').after(box);
+  else { const g = document.getElementById('dlGrid'); g.parentNode.insertBefore(box, g); }
+  box.pfAnchor = anchor || null;
+  try { box.scrollIntoView({ block: 'nearest' }); } catch (e) {}
+  const pri = box.querySelector('.pri'); if (pri) pri.focus({ preventScroll: true });
+}
+function pfCloseDlPrompt() { const b = document.getElementById('cvDlPrompt'); if (b) b.remove(); }
+// overflow, right in the prompt: Fit / Add page, then "Download PDF" once it fits
+function pfDlFix(act) {
+  const box = document.getElementById('cvDlPrompt');
+  if (act === 'fit') pfFitToPages(pfPages.chosen); else pfSetChosenPages(pfPages.chosen + 1);
+  if (!box) return;
+  const r = pfPdfBlockReason() || 'ready';
+  box.dataset.reason = r; box.innerHTML = pfDlPromptHtml(r);
+  const pri = box.querySelector('.pri'); if (pri) pri.focus({ preventScroll: true });
+}
+// the first empty detail (Full name first), opened, scrolled to and focused — in the phone sheet on small screens
+function pfAddDetails() {
+  pfCloseDlPrompt();
+  const ids = ['f-name', 'f-jobtitle', 'f-email', 'f-phone', 'f-location'];
+  const id = ids.find(i => !(document.getElementById(i)?.value || '').trim()) || 'f-name';
+  const go = () => {
+    const sec = document.getElementById('section-personal');
+    if (sec && getComputedStyle(sec).display === 'none' && typeof toggleSection === 'function') toggleSection('personal');
+    const el = document.getElementById(id);
+    if (!el) return;
+    try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) { el.scrollIntoView(); }
+    el.focus({ preventScroll: true });
+  };
+  if (window.innerWidth <= 900 && typeof openSheet === 'function') {
+    const open = document.getElementById('bottomSheet')?.classList.contains('open');
+    if (open) closeSheet();
+    setTimeout(() => { openSheet('edit'); setTimeout(go, 320); }, open ? 300 : 0);
+  } else go();
+}
+function pfDownloadSample() { pfCloseDlPrompt(); return downloadPDF(null, { sample: true }); }
+// cv_started: the first CV field typed in (once per page load). Only which field, never what was typed.
+(function () {
+  const F = ['name', 'jobtitle', 'email', 'phone', 'location', 'linkedin', 'summary', 'skills', 'certs'];
+  let sent = false;
+  document.addEventListener('input', function (e) {
+    const t = e.target, card = t && t.closest ? t.closest('.cv-section-card') : null;
+    if (!card || card.id === 'sec-jobmatch' || /^sec-cl/.test(card.id)) return;
+    const p = document.getElementById('cvDlPrompt');
+    if (p && (p.dataset.reason === 'sample_showing' || p.dataset.reason === 'empty')) p.remove();
+    if (sent || !e.isTrusted) return;
+    sent = true;
+    const m = /^f-([a-z]+)$/.exec(t.id || '');
+    const field = m && F.indexOf(m[1]) >= 0 ? m[1] : card.id === 'sec-experience' ? 'experience' : card.id === 'sec-education' ? 'education' : 'other';
+    if (window.PFEvents) PFEvents.cvStarted(field);
+  }, true);
+})();
+async function downloadPDF(anchor, opts) {
+  opts = opts || {};
+  if (!opts.sample && !opts.gated && pfPdfGate(anchor)) return;
+  if (!opts.sample) return pfMakePDF(anchor, false);
+  const badge = document.getElementById('carBadge');                   // the "Sample data" badge is not part of the PDF
+  if (badge) badge.remove();
+  try { await pfMakePDF(anchor, true); } finally { if (pfSampleShowing()) renderCarousel(); }
+}
+
+async function pfMakePDF(anchor, sample) {
   const preview = document.getElementById('cv-preview');
   const scaleEl = document.getElementById('cvPreviewScale');
-  if (!preview || !preview.innerHTML.trim() || preview.querySelector('.cv-empty')) {
-    showToast('Please fill in your CV details first.'); return;
-  }
-  if (carouselMode) { showToast('Fill in your details first — then download!'); return; }
   scalePreview();
-  if (pfPages.natural > pfPages.chosen) {
-    const C = pfPages.chosen;
-    showToast(`Your CV doesn’t fit on ${C} page${C > 1 ? 's' : ''} — fit it or add a page first`);
-    const bar = document.getElementById('cvPageBar');
-    if (bar) { bar.classList.add('flash'); setTimeout(() => bar.classList.remove('flash'), 1200); }
-    return;
-  }
+  const tplEv = sample ? (Object.keys(RENDER_MAP)[carouselIndex] || 'classic') : currentTemplate;
 
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -3688,13 +3813,19 @@ async function downloadPDF() {
     if (mobileWin) mobileWin.document.write('<p style="font-family:sans-serif;padding:40px;text-align:center;color:#666;">⏳ Preparing your CV PDF...</p>');
   }
 
-  if (typeof html2canvas === 'undefined') {
-    showToast('⏳ Loading renderer...');
-    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
-  }
-  if (typeof window.jspdf === 'undefined') {
-    showToast('⏳ Loading PDF library...');
-    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  try {
+    if (typeof html2canvas === 'undefined') {
+      showToast('⏳ Loading renderer...');
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    }
+    if (typeof window.jspdf === 'undefined') {
+      showToast('⏳ Loading PDF library...');
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    }
+  } catch (e) {                                            // libraries didn't load (offline, blocked): nothing downloaded
+    if (mobileWin) mobileWin.close();
+    pfDlBlocked('other', anchor);
+    return;
   }
   showToast('⏳ Creating PDF...');
   const originalTransform = scaleEl ? scaleEl.style.transform : '';
@@ -3736,24 +3867,25 @@ async function downloadPDF() {
       pdf.addImage(pc.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, 297, '', 'FAST');
       pfAddTextLayer(pdf, textRuns, linkTargets, p, fontsOk);
     }
-    const name = (getFormData().name || 'CV').replace(/\s+/g, '-');
+    const name = sample ? 'Sample' : (getFormData().name || 'CV').replace(/\s+/g, '-');
+    pfCloseDlPrompt();
 
     if (!isMobile) {
       pdf.save(`${name}-CV.pdf`);
       showToast('✓ PDF downloaded!');
-      if (window.PFEvents) PFEvents.cvDownload(currentTemplate, 'pdf');
+      if (window.PFEvents) PFEvents.cvDownload(tplEv, 'pdf', sample);
     } else if (isIOS) {
       const blob = pdf.output('blob');
       const url = URL.createObjectURL(blob);
       if (mobileWin && !mobileWin.closed) {
         mobileWin.location.href = url;
         showToast('✓ PDF opened — tap Share → Save to Files');
-        if (window.PFEvents) PFEvents.cvDownload(currentTemplate, 'pdf');
+        if (window.PFEvents) PFEvents.cvDownload(tplEv, 'pdf', sample);
       } else {
         // Popup was blocked — navigate current tab via data URI
         window.location.href = pdf.output('datauristring');
         showToast('✓ PDF loading — tap Share → Save to Files');
-        if (window.PFEvents) PFEvents.cvDownload(currentTemplate, 'pdf');
+        if (window.PFEvents) PFEvents.cvDownload(tplEv, 'pdf', sample);
       }
       setTimeout(() => URL.revokeObjectURL(url), 60000);
     } else {
@@ -3764,7 +3896,7 @@ async function downloadPDF() {
       a.href = url; a.download = `${name}-CV.pdf`;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       showToast('✓ PDF saved to Downloads');
-      if (window.PFEvents) PFEvents.cvDownload(currentTemplate, 'pdf');
+      if (window.PFEvents) PFEvents.cvDownload(tplEv, 'pdf', sample);
       setTimeout(() => URL.revokeObjectURL(url), 10000);
     }
   } catch(err) {
@@ -3778,9 +3910,10 @@ async function downloadPDF() {
       win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width"><title>CV</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{width:210mm;background:white;}@media print{body{width:210mm;margin:0;padding:0;}@page{size:A4;margin:0;}}</style></head><body>${preview.outerHTML}<script>setTimeout(()=>window.print(),500)<\/script></body></html>`);
       win.document.close();
       showToast('💡 Print → Save as PDF');
-      if (window.PFEvents) PFEvents.cvDownload(currentTemplate, 'pdf');
+      if (window.PFEvents) PFEvents.cvDownload(tplEv, 'pdf', sample);
     } else {
       showToast('❌ Error: ' + err.message);
+      pfDlBlocked('other', anchor);
     }
   }
 }
@@ -6837,8 +6970,9 @@ function openSheet(name) {
     content.innerHTML = isCL
       ? '<button onclick="downloadCLasPDF();closeSheet();" style="width:100%;padding:16px;background:var(--accent);color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download Letter PDF</button>' +
         '<button onclick="closeSheet();setTimeout(downloadCLasDOCX,350);" style="width:100%;padding:16px;background:white;color:var(--accent);border:2px solid var(--accent);border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download Letter Word</button>'
-      : '<button onclick="downloadPDF();closeSheet();" style="width:100%;padding:16px;background:var(--accent);color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download PDF</button>' +
+      : '<button id="cvPdfSheet" data-pf-pdf="⬇️ Download PDF" onclick="if(!pfPdfGate(this)){downloadPDF(null,{gated:true});closeSheet();}" style="width:100%;padding:16px;background:var(--accent);color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;-webkit-tap-highlight-color:transparent;">⬇️ Download PDF</button>' +
         '<p class="cv-ats-note" style="margin:10px 2px 0;font-size:12px;color:var(--text3);text-align:center;">Text in your PDF is selectable and readable by applicant tracking systems.</p>';
+    if (!isCL) pfPdfLabels();
   } else {
     config.selectors.forEach(sel => {
       const el = document.querySelector(sel);

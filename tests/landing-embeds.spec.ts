@@ -35,7 +35,8 @@ async function cdnRoute(route: Route) {
   return route.fulfill({ status: 200, body: fs.readFileSync(body), headers: { 'content-type': ct, 'access-control-allow-origin': '*' } });
 }
 
-const atBase = (f: string) => lf(execSync(`git show ${BASE}:${f}`, { cwd: ROOT, maxBuffer: 64 << 20 }).toString('utf8'));
+const LANDING_EMBEDS = '0a0daee';                                   // the last landing-embeds commit
+const atBase = (f: string, rev = BASE) => lf(execSync(`git show ${rev}:${f}`, { cwd: ROOT, maxBuffer: 64 << 20 }).toString('utf8'));
 const read = (f: string) => fs.readFileSync(path.join(ROOT, f), 'utf8');
 // every page with a "try it here" block, and what it embeds
 const TOUCHED = fs.readdirSync(ROOT).filter((f) => f.endsWith('.html') && read(f).includes('<!-- TRY THE TOOL HERE'));
@@ -252,7 +253,8 @@ test.describe('no double scrollbars', () => {
 test.describe('without ?embed nothing changed', () => {
   test('index.html and cv-builder.html minus the embed additions are byte-for-byte the files before this round', () => {
     expect(indexWithoutEmbed() === atBase('index.html'), 'index.html').toBe(true);
-    expect(cvBuilderWithoutEmbedChanges() === atBase('cv-builder.html'), 'cv-builder.html').toBe(true);
+    // cv-builder.html as this round left it (later rounds changed it on purpose: cv-conversion)
+    expect(cvBuilderWithoutEmbedChanges(atBase('cv-builder.html', LANDING_EMBEDS)) === atBase('cv-builder.html'), 'cv-builder.html').toBe(true);
   });
 
   test('homepage without ?embed: same layout, GA calls and requests as before', async ({ page }) => {
@@ -412,10 +414,10 @@ test.describe('cv_download after a successful PDF download', () => {
       await f.fill('#f-name', 'Alice Download');
       expect((await dataLayer(f)).filter((a) => a[1] === 'cv_download')).toEqual([]);
       const dl = page.waitForEvent('download', { timeout: 90000 });
-      await f.locator('button[onclick="downloadPDF()"]').first().click();
+      await f.locator('button[onclick^="downloadPDF("]').first().click();
       const pdf = await dl;
       expect(fs.readFileSync((await pdf.path())!).subarray(0, 5).toString()).toBe('%PDF-');
-      await expect.poll(async () => (await dataLayer(f)).filter((a) => a[1] === 'cv_download')).toEqual([['event', 'cv_download', { template: 'classic', format: 'pdf' }]]);
+      await expect.poll(async () => (await dataLayer(f)).filter((a) => a[1] === 'cv_download')).toEqual([['event', 'cv_download', { template: 'classic', format: 'pdf', sample: 'false' }]]);
       const set = (await dataLayer(f)).filter((a) => a[0] === 'set');
       expect(set).toEqual(embedPage ? [['set', { embed_page: embedPage }]] : []);
       expect(net.errors).toEqual([]);
