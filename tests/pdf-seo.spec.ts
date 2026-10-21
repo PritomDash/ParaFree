@@ -191,10 +191,10 @@ test.describe('PDF tool landing pages', () => {
   test('pdf-tools.html keeps its tool and links to the five pages; footers point to the landing pages', async ({ page }) => {
     await setup(page);
     await page.goto('/pdf-tools.html');
-    await expect(page.locator('.tool-tabs .tool-tab')).toHaveCount(5);
+    await expect(page.locator('.tool-tabs .tool-tab')).toHaveCount(6);                  // + PDF to JPG (pdf-to-jpg round)
     await expect(panel(page, 'pdf-to-word')).toBeVisible();
     const hub = await page.locator('.pf-hub-links a').evaluateAll((as) => as.map((a) => a.getAttribute('href')));
-    expect(hub).toEqual(TOOLS.map((t) => `/${t}.html`));
+    expect(hub).toEqual([...TOOLS, 'pdf-to-jpg'].map((t) => `/${t}.html`));
     for (const f of ['index.html', 'pdf-tools.html', ...TOOLS.map((t) => `${t}.html`), 'cv-builder.html', 'paraphrase-document-online-keep-format.html', 'paraphrase-pdf.html',
       'paraphrase-powerpoint.html', 'paraphrase-word-document-keep-formatting.html', 'paraphrase-word-document.html', 'quillbot-alternative.html']) {
       const s = read(f);

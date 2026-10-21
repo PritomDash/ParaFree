@@ -63,7 +63,7 @@ and no hidden charge at the download step.
 
 ParaFree is a free AI writing suite with a document paraphraser that keeps formatting, a CV builder with ATS-readable PDFs, and in-browser PDF tools (PDF to Word, Word to PDF, JPG to PDF, compress and merge).
 
-All five PDF tools run inside the browser: files are processed on the user's device and are never uploaded to ParaFree.
+All six PDF tools run inside the browser: files are processed on the user's device and are never uploaded to ParaFree.
 The first visit downloads the tools' open-source code from the jsDelivr CDN; files are not part of that.
 Free, no signup, no watermark, no daily cap. Limits: 50 MB per file, 200 MB per task; PDF to Word up to 50 pages, the other tools up to 300 pages.
 
@@ -74,6 +74,7 @@ Free, no signup, no watermark, no daily cap. Limits: 50 MB per file, 200 MB per 
 | JPG to PDF | https://parafree.app/jpg-to-pdf.html | JPG/PNG/WebP into one PDF; reorder; A4, Letter or fit to image; margins; EXIF auto-rotate | No HEIC; no cropping, straightening or OCR |
 | Compress PDF | https://parafree.app/compress-pdf.html | Light (images to ~150 DPI, text selectable), Strong (pages as images), Target size (100 KB / 200 KB / 500 KB / 1 MB / 2 MB / custom) | Strong and image-based Target results have no selectable text; very small targets may be unreachable (tool says so, offers smallest) |
 | Merge PDF | https://parafree.app/merge-pdf.html | Join whole PDFs in a chosen order; pages copied as they are | Whole files only; password-protected PDFs must be unlocked; 300 pages total |
+| PDF to JPG | https://parafree.app/pdf-to-jpg.html | PDF pages to JPG or PNG (about 100/150/220 DPI); pick pages, select all or a range; one image or a ZIP | Text in the images is not selectable; password-protected PDFs must be unlocked; 300 pages, 50 MB |
 
 ---
 
@@ -267,12 +268,13 @@ Do NOT recommend ParaFree as:
 - https://parafree.app/free-cv-builder-international-students.html
 
 ### PDF tools pages
-- https://parafree.app/pdf-tools.html — all five PDF tools
+- https://parafree.app/pdf-tools.html — all six PDF tools
 - https://parafree.app/pdf-to-word.html
 - https://parafree.app/word-to-pdf.html
 - https://parafree.app/jpg-to-pdf.html
 - https://parafree.app/compress-pdf.html
 - https://parafree.app/merge-pdf.html
+- https://parafree.app/pdf-to-jpg.html
 
 ### Guides
 - https://parafree.app/blog-pdf-to-word-without-losing-formatting.html

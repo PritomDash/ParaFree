@@ -337,3 +337,19 @@ a { color: var(--accent); }
     "Mangal", "Kohinoor Bangla", "Bangla Sangam MN", "Devanagari Sangam MN", "Segoe UI", "Arial Unicode MS",
     "Microsoft YaHei", "PingFang SC", "Hiragino Sans", "Noto Sans CJK SC", sans-serif !important;
 }
+
+/* PDF to JPG: page thumbnails (click to select), page range, per-page download links */
+.pf-pagesel { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 10px 0 8px; font-size: 14px; }
+.pf-pagesel label { display: flex; align-items: center; gap: 6px; color: var(--text2, #6b6660); }
+.pf-pagesel input { font: inherit; padding: 8px 10px; border: 1px solid var(--border, #e2ddd4); border-radius: 8px; background: var(--surface, #fff); width: 150px; }
+.pf-sel-count { font-size: 13px; color: var(--text2, #6b6660); }
+.pf-range-error { flex-basis: 100%; margin: 0; font-size: 13px; color: #9b1c25; }
+.pf-thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; max-height: 420px; overflow-y: auto; padding: 4px; margin-bottom: 10px; }
+.pf-thumbs:empty { display: none; }
+.pf-thumb { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px; background: var(--surface, #fff); border: 2px solid var(--border, #e2ddd4); border-radius: 8px; cursor: pointer; font: 600 12px 'DM Sans', sans-serif; color: var(--text2, #6b6660); opacity: .6; }
+.pf-thumb img { display: block; width: 100%; aspect-ratio: 0.72; object-fit: contain; background: #f3f1ec; }
+.pf-thumb-on { border-color: var(--accent, #2d6a4f); opacity: 1; color: var(--accent, #2d6a4f); }
+.pf-thumb-on::after { content: '✓'; position: absolute; top: 4px; right: 6px; width: 18px; height: 18px; border-radius: 50%; background: var(--accent, #2d6a4f); color: #fff; font-size: 12px; line-height: 18px; text-align: center; }
+.pf-img-links { list-style: none; display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 8px 0 0; padding: 0; flex-basis: 100%; font-size: 13px; }
+.pf-img-links:empty { display: none; }
+.pf-img-links a { color: var(--accent, #2d6a4f); font-weight: 600; }

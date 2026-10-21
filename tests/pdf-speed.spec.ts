@@ -75,7 +75,7 @@ async function timeHomeClick(page: Page) {
     const tick = () => {
       const now = performance.now() - t0;
       const host = document.getElementById('pfHomePdf');
-      if (shell < 0 && host && !host.hidden && host.querySelectorAll('.pf-subtab').length === 5 && host.getBoundingClientRect().height > 0) shell = now;
+      if (shell < 0 && host && !host.hidden && host.querySelectorAll('.pf-subtab').length === 6 && host.getBoundingClientRect().height > 0) shell = now;
       const panel = host && host.querySelector('#panel-pdf-to-word');
       const status = panel && panel.querySelector('[data-role="lib-status"]');
       const tools = (window as any).PFTools;

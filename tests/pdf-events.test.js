@@ -18,13 +18,19 @@ const E = require('../lib/pdf-tools/pdf-events.js');
 const last = () => sent[sent.length - 1];
 
 console.log('\n── allowed events ──');
-for (const tool of ['pdf_to_word', 'word_to_pdf', 'jpg_to_pdf', 'compress_pdf', 'merge_pdf']) {
-  const input = { pdf_to_word: 'pdf', word_to_pdf: 'docx', jpg_to_pdf: 'image', compress_pdf: 'pdf', merge_pdf: 'pdf' }[tool];
+for (const tool of ['pdf_to_word', 'word_to_pdf', 'jpg_to_pdf', 'compress_pdf', 'merge_pdf', 'pdf_to_jpg']) {
+  const input = { pdf_to_word: 'pdf', word_to_pdf: 'docx', jpg_to_pdf: 'image', compress_pdf: 'pdf', merge_pdf: 'pdf', pdf_to_jpg: 'pdf' }[tool];
   E.toolUsed(tool, input);
   assert(`tool_used ${tool}`, JSON.stringify(last()) === JSON.stringify(['event', 'tool_used', { tool, input_type: input }]), JSON.stringify(last()));
 }
 E.resultDownload('pdf_to_word', 'docx');
 assert('result_download docx', JSON.stringify(last()) === JSON.stringify(['event', 'result_download', { tool: 'pdf_to_word', format: 'docx' }]));
+for (const f of ['jpg', 'png', 'zip']) {
+  E.resultDownload('pdf_to_jpg', f);
+  assert(`result_download pdf_to_jpg ${f}`, JSON.stringify(last()) === JSON.stringify(['event', 'result_download', { tool: 'pdf_to_jpg', format: f }]));
+}
+E.toolError('pdf_to_jpg', 'encrypted');
+assert('tool_error pdf_to_jpg encrypted', JSON.stringify(last()) === JSON.stringify(['event', 'tool_error', { tool: 'pdf_to_jpg', error_type: 'encrypted' }]));
 for (const t of ['encrypted', 'too_large', 'too_many_pages', 'unsupported', 'file_error', 'other']) {
   E.toolError('merge_pdf', t);
   assert(`tool_error ${t}`, last()[2].error_type === t);
@@ -39,7 +45,7 @@ assert('extra params (file name, size) are dropped', JSON.stringify(last()[2]) =
 n = sent.length;
 E.toolUsed('paraphrase', 'pdf');
 E.toolUsed('pdf_to_word', 'my essay.pdf');
-E.resultDownload('merge_pdf', 'zip');
+E.resultDownload('merge_pdf', 'xlsx');
 E.send('file_uploaded', { tool: 'merge_pdf' });
 E.send('tool_used', null);
 assert('unknown tools / values / events are not sent', sent.length === n, sent.length - n);
