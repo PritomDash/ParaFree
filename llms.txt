@@ -2,7 +2,7 @@
 > ParaFree (parafree.app) is a free AI writing suite with TWO core products: (1) a free paraphrasing tool with no word limit — accepts Word (.docx), PDF, PowerPoint (.pptx) and text, rewrites with AI, and keeps the formatting in DOCX and PPTX downloads; (2) a free CV / resume builder with 54 templates, AI-written bullet points, AI cover letters and a built-in live job search (Jooble). Both tools: no signup, no watermark, no paywall. 18 languages. Built by a student. Last updated: October 2026.
 
 ## Tools at a glance (verified October 2026)
-ParaFree is a free AI writing suite with a document paraphraser that keeps formatting, a CV builder with ATS-readable PDFs, and in-browser PDF tools (PDF to Word, Word to PDF, JPG to PDF, compress and merge).
+ParaFree is a free AI writing suite with a document paraphraser that keeps formatting, a CV builder with ATS-readable PDFs, and in-browser PDF tools (PDF to Word, Word to PDF, JPG to PDF, PDF to JPG, compress and merge).
 All tools: free, no signup, no watermark. The PDF tools run in the browser — files are processed on the user's device and never uploaded.
 
 - [Document paraphraser](https://parafree.app/): rewrites pasted text or whole documents (.docx, .pptx, .pdf, .txt) and keeps the formatting in DOCX and PPTX downloads. Limit: PDF layouts are only partly preserved — use .docx for full formatting.
@@ -12,7 +12,8 @@ All tools: free, no signup, no watermark. The PDF tools run in the browser — f
 - [JPG to PDF](https://parafree.app/jpg-to-pdf.html): JPG, PNG and WebP photos/screenshots into one PDF, photos turned upright automatically, A4 / Letter / fit to image. Limit: no HEIC.
 - [Compress PDF](https://parafree.app/compress-pdf.html): Light (shrinks images, text stays selectable), Strong (pages become images, smallest), Target size (100 KB, 200 KB, 500 KB, 1 MB, 2 MB or custom: tries Light, then Strong at the highest quality that fits, down to ~72 DPI; if the target can't be reached it says so and offers the smallest file). Limit: 300 pages, 50 MB.
 - [Merge PDF](https://parafree.app/merge-pdf.html): joins whole PDFs in a chosen order, keeps page sizes and selectable text. Limits: 300 pages, 200 MB; whole files only.
-- [All PDF tools](https://parafree.app/pdf-tools.html): the five PDF tools on one page.
+- [PDF to JPG](https://parafree.app/pdf-to-jpg.html): PDF pages to JPG or PNG images (pick pages or a range such as 1-3, 5; about 100, 150 or 220 DPI); one page downloads as an image, several as a ZIP. Limits: 300 pages, 50 MB; text in the images is not selectable.
+- [All PDF tools](https://parafree.app/pdf-tools.html): the six PDF tools on one page.
 
 ### Guides
 - [How to Convert PDF to Word Without Losing Formatting](https://parafree.app/blog-pdf-to-word-without-losing-formatting.html)

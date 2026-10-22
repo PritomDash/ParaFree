@@ -61,7 +61,9 @@ async function setup(page: Page, api: Api = () => ({ success: false })) {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(api(body)) });
     }
     // the same page as it was before this round (git, commit BASE): /__base/<file>
-    if (url.pathname.startsWith('/__base/')) return route.fulfill({ status: 200, contentType: 'text/html', body: atBase(url.pathname.slice(8) || 'index.html') });
+    // the homepage: today's index.html minus the embed code (so later, unrelated homepage changes don't count)
+    if (url.pathname === '/__base/index.html') return route.fulfill({ status: 200, contentType: 'text/html', body: indexWithoutEmbed() });
+    if (url.pathname.startsWith('/__base/')) return route.fulfill({ status: 200, contentType: 'text/html', body: atBase(url.pathname.slice(8)) });
     const file = path.join(ROOT, decodeURIComponent(url.pathname === '/' ? '/index.html' : url.pathname));
     if (!file.startsWith(ROOT) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) return route.fulfill({ status: 404, body: '' });
     return route.fulfill({ path: file, contentType: MIME[path.extname(file)] || 'application/octet-stream' });
@@ -252,7 +254,9 @@ test.describe('no double scrollbars', () => {
 // ─────────────────────────────────────────────────────────────
 test.describe('without ?embed nothing changed', () => {
   test('index.html and cv-builder.html minus the embed additions are byte-for-byte the files before this round', () => {
-    expect(indexWithoutEmbed() === atBase('index.html'), 'index.html').toBe(true);
+    // index.html as this round left it (later rounds changed it on purpose: pdf-to-jpg); today's still has the one embed block
+    expect(indexWithoutEmbed(atBase('index.html', LANDING_EMBEDS)) === atBase('index.html'), 'index.html').toBe(true);
+    expect(() => indexWithoutEmbed()).not.toThrow();
     // cv-builder.html as this round left it (later rounds changed it on purpose: cv-conversion)
     expect(cvBuilderWithoutEmbedChanges(atBase('cv-builder.html', LANDING_EMBEDS)) === atBase('cv-builder.html'), 'cv-builder.html').toBe(true);
   });
@@ -314,7 +318,10 @@ test.describe('touched pages: additive only', () => {
   test(`${TOUCHED.length} pages: removing the one embed block gives back the page as it was (title, H1, meta, JSON-LD, canonical, content)`, () => {
     expect(TOUCHED.length).toBe(74);
     for (const f of TOUCHED) {
-      expect(pageWithoutEmbed(f) === atBase(f), f).toBe(true);
+      // as this round left the page (later rounds changed some footers on purpose); today's page still has the same block
+      expect(pageWithoutEmbed(f, atBase(f, LANDING_EMBEDS)) === atBase(f), f).toBe(true);
+      const blk = (x: string) => x.slice(x.indexOf('<!-- TRY THE TOOL HERE'), x.indexOf('<!-- /TRY THE TOOL HERE -->'));
+      expect(blk(lf(read(f))) === blk(atBase(f, LANDING_EMBEDS)), f).toBe(true);
       const s = lf(read(f)), block = s.slice(s.indexOf('<!-- TRY THE TOOL HERE'), s.indexOf('<!-- /TRY THE TOOL HERE -->'));
       expect(block, f).not.toMatch(/ld\+json|rel="canonical"|<meta|<title|<h1|<h2/);
       for (const m of s.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)) expect(() => JSON.parse(m[1]), f).not.toThrow();

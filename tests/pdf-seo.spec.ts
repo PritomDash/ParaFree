@@ -30,7 +30,7 @@ const TITLES: Record<string, string> = {
   'merge-pdf': 'Merge PDF Files Free — Combine Assignment, Cover Sheet & Appendix',
 };
 const GUIDES = ['blog-pdf-to-word-without-losing-formatting.html', 'blog-compress-pdf-upload-limits.html', 'blog-ats-friendly-cv-guide.html'];
-const ENTITY = 'ParaFree is a free AI writing suite with a document paraphraser that keeps formatting, a CV builder with ATS-readable PDFs, and in-browser PDF tools (PDF to Word, Word to PDF, JPG to PDF, compress and merge).';
+const ENTITY = 'ParaFree is a free AI writing suite with a document paraphraser that keeps formatting, a CV builder with ATS-readable PDFs, and in-browser PDF tools (PDF to Word, Word to PDF, JPG to PDF, PDF to JPG, compress and merge).';
 const SPEED = 'No upload, no waiting — your file is processed on your device.';
 const read = (f: string) => fs.readFileSync(path.join(ROOT, f), 'utf8');
 const htmlPages = () => fs.readdirSync(ROOT).filter((f) => f.endsWith('.html') && !/^google[0-9a-f]+\.html$/.test(f));
@@ -191,10 +191,10 @@ test.describe('PDF tool landing pages', () => {
   test('pdf-tools.html keeps its tool and links to the five pages; footers point to the landing pages', async ({ page }) => {
     await setup(page);
     await page.goto('/pdf-tools.html');
-    await expect(page.locator('.tool-tabs .tool-tab')).toHaveCount(5);
+    await expect(page.locator('.tool-tabs .tool-tab')).toHaveCount(6);                  // + PDF to JPG (pdf-to-jpg round)
     await expect(panel(page, 'pdf-to-word')).toBeVisible();
     const hub = await page.locator('.pf-hub-links a').evaluateAll((as) => as.map((a) => a.getAttribute('href')));
-    expect(hub).toEqual(TOOLS.map((t) => `/${t}.html`));
+    expect(hub).toEqual([...TOOLS, 'pdf-to-jpg'].map((t) => `/${t}.html`));
     for (const f of ['index.html', 'pdf-tools.html', ...TOOLS.map((t) => `${t}.html`), 'cv-builder.html', 'paraphrase-document-online-keep-format.html', 'paraphrase-pdf.html',
       'paraphrase-powerpoint.html', 'paraphrase-word-document-keep-formatting.html', 'paraphrase-word-document.html', 'quillbot-alternative.html']) {
       const s = read(f);

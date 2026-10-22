@@ -1,5 +1,5 @@
-"""Builds the five PDF tool landing pages (pdf-to-word.html, word-to-pdf.html, jpg-to-pdf.html,
-compress-pdf.html, merge-pdf.html) from one shell, so nav, footer, scripts and JSON-LD stay identical.
+"""Builds the six PDF tool landing pages (pdf-to-word.html, word-to-pdf.html, jpg-to-pdf.html,
+compress-pdf.html, merge-pdf.html, pdf-to-jpg.html) from one shell, so nav, footer, scripts and JSON-LD stay identical.
 Each page embeds the real tool (lib/pdf-tools, same modules as pdf-tools.html) opened on its own tab.
     python scripts/build-pdf-pages.py
 then: node tests/pdf-tools-version.js --write   (stamps ?v= on the lib/pdf-tools URLs)
@@ -9,11 +9,11 @@ import html, json, os
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SITE = 'https://parafree.app'
 ENTITY = ('ParaFree is a free AI writing suite with a document paraphraser that keeps formatting, a CV builder with '
-          'ATS-readable PDFs, and in-browser PDF tools (PDF to Word, Word to PDF, JPG to PDF, compress and merge).')
+          'ATS-readable PDFs, and in-browser PDF tools (PDF to Word, Word to PDF, JPG to PDF, PDF to JPG, compress and merge).')
 SPEED = 'No upload, no waiting — your file is processed on your device.'
 TOOLS = [  # slug (= page and tab id), short name, emoji
     ('pdf-to-word', 'PDF to Word', '📄'), ('word-to-pdf', 'Word to PDF', '📝'), ('jpg-to-pdf', 'JPG to PDF', '🖼'),
-    ('compress-pdf', 'Compress PDF', '🗜'), ('merge-pdf', 'Merge PDF', '➕'),
+    ('compress-pdf', 'Compress PDF', '🗜'), ('merge-pdf', 'Merge PDF', '➕'), ('pdf-to-jpg', 'PDF to JPG', '🖼'),
 ]
 LIMIT_COMMON = '50 MB per file, 200 MB per task'
 
@@ -219,6 +219,48 @@ PAGES = {
     ('How many files can I merge?', 'As many as fit in 200 MB, with up to 300 pages in the merged PDF.'),
     ('Are my files uploaded?', 'No. ' + SPEED),
     ('Can I merge some of the pages of a PDF?', 'Not yet — whole files are merged. Save the pages you need as a separate PDF first, then merge.'),
+  ]),
+'pdf-to-jpg': dict(
+  title='Free PDF to JPG Converter — Convert PDF Pages to Images | No Signup',
+  desc='Convert PDF pages to JPG or PNG images free: pick the pages, choose the quality, download one image or a ZIP. Runs in your browser — no signup, no watermark, nothing uploaded.',
+  h1='Free PDF to JPG Converter',
+  lead='Turn the pages of a PDF into JPG or PNG images — all pages or just the ones you pick, in low, medium or high quality. One page downloads as an image, several as a ZIP. Free, no signup, no watermark.',
+  limits=LIMIT_COMMON + '; up to 300 pages per PDF',
+  steps=['Choose your PDF (or drag it into the box) — a thumbnail of every page appears.', 'Pick the pages: click thumbnails, use “Select all”, or type a range such as 1-3, 5.',
+         'Choose JPG or PNG and Low, Medium or High quality.', 'Click “Convert” and download the image, or the ZIP with one image per page.'],
+  sections=[
+    ('PDF pages to JPG images', [
+      'A PDF is great for printing and submitting, but sometimes you need a picture of a page: to send it in a chat, drop it into a slide, or upload it to a form that wants an image. This converter draws each page you choose as an image, exactly as it looks in the PDF, and saves it as a JPG or a PNG.',
+      'You decide which pages become images. Every page is shown as a thumbnail — click a thumbnail to leave it out or put it back, use “Select all” and “Select none”, or type the pages you want, such as <strong>1-3, 5</strong>. The images always come out in page order, named after your file and the page number, for example <em>notes-p3.jpg</em>.']),
+    ('Lecture slides and notes as images', [
+      'Lecture slides exported as a PDF are easier to revise from when each slide is an image you can flick through in your phone’s gallery, add to a flashcard app or annotate with a drawing app. Convert the slides you need and keep them next to your photos of the whiteboard.',
+      'The same works for typed notes, worksheets and past papers: convert one question or one page and you have an image you can crop, mark up or print on its own.']),
+    ('Share a page on WhatsApp or social media', [
+      'Chat apps and social media show images straight away, while a PDF has to be downloaded and opened first. To share one page of a timetable, a results notice or a page of notes with your class group, convert that page to JPG and send the image.',
+      'Medium quality is usually right for sharing: the text is readable when zoomed in and the file stays small. Chat apps often compress images again, so if small text needs to stay sharp, use High quality or send the PNG as a document.']),
+    ('Put a PDF page into PowerPoint or Word', [
+      'PowerPoint, Word and Google Slides cannot place a PDF page on a slide or in a document, but they can insert an image. Convert the page — a chart from a report, a diagram from an article or a page of a handout — and insert the JPG or PNG like any other picture, then crop or resize it.',
+      'For diagrams, tables and anything with fine lines, choose PNG and High quality: PNG keeps edges crisp, and 220 DPI is sharp enough to fill a slide. If you need to edit the text itself rather than show the page, use PDF to Word instead.']),
+    ('Upload a page as an image', [
+      'Some forms and portals want a JPG or PNG file rather than a PDF — for example, a profile document, an ID page, a certificate or a signed form you scanned as a PDF. Convert the page you need and upload the image.',
+      'If the portal also has a file size limit, Low or Medium quality gives a smaller image. The result shows the size of every image, so you can check it before you upload.']),
+    ('JPG or PNG — and which quality?', [
+      'JPG makes smaller files and suits pages with photos or coloured backgrounds. PNG is lossless: text and lines stay perfectly sharp, but files are larger, especially for photo-heavy pages. When unsure, use JPG for sharing and PNG for slides and printing.',
+      'Low quality renders pages at about 100 DPI, Medium at 150 DPI and High at 220 DPI. JPG files use a compression quality of 0.75, 0.85 or 0.92 for the three settings.']),
+    ('PDF to JPG on your phone', [
+      'The converter runs in the browser on Android phones and iPhones. Choose the PDF from your files or downloads, pick the pages and convert. A single page downloads as an image; several pages download as one ZIP. On iPhone, open the ZIP in the Files app to unpack it, or save single pages with the links that appear under the ZIP button.',
+      'Pages are drawn one at a time and each one is cleared from memory before the next, so long PDFs work on phones too — they just take a little longer. ' + SPEED]),
+    ('What it can and can’t do', [
+      'It turns any page of an ordinary PDF — typed documents, slides, scans and forms — into an image that looks like the page. Text in the image is part of the picture, so it cannot be selected or searched; to get editable text, use PDF to Word.',
+      'It handles PDFs up to 50 MB and 300 pages. Password-protected PDFs need the password removed first. Very large pages, such as posters, are scaled down to about 16 megapixels so they do not run out of memory on phones. It does not crop, rotate or edit the pages.']),
+  ],
+  faq=[
+    ('Is the PDF to JPG converter free?', 'Yes. It is free with no signup, no watermark and no daily limit. PDFs can be up to 50 MB and 300 pages.'),
+    ('Can I convert just some pages?', 'Yes. Click the thumbnails to choose pages, use Select all or Select none, or type a range such as 1-3, 5. Images always come out in page order.'),
+    ('How do I get several pages at once?', 'Several pages download as one ZIP file with one image per page, named after your file and the page number. Each page also has its own download link.'),
+    ('Should I choose JPG or PNG?', 'JPG gives smaller files and suits photos and sharing. PNG keeps text and lines perfectly sharp and suits slides, diagrams and printing, but the files are larger.'),
+    ('Is my PDF uploaded anywhere?', 'No. ' + SPEED + ' The page downloads the free open-source code it needs the first time you use it; your file is not part of that.'),
+    ('Can I copy the text from the images?', 'No — the text becomes part of the picture. To get editable text, use PDF to Word, which also reads scanned pages with OCR.'),
   ]),
 }
 
