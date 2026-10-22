@@ -23,6 +23,9 @@ const LAST_TIMEOUT = 14000;  // ms for the last-resort provider
 const SLOW_TIMEOUT = 25000;  // ms for slow providers (OVHcloud, LLM7, NVIDIA) — they need 10-20s per chunk
 const REQUEST_BUDGET = 55000; // ms — every provider timeout is clipped so the whole request ends under maxDuration=60s
 const MIN_ATTEMPT_MS = 1500;  // don't start a provider call with less time than this left in the budget
+const SAFETY_NET_MS  = 5000;  // ms each chunk keeps back for the Cloudflare safety net (Tier 4, ~1-3 s per chunk)
+const TIMEOUT_COOLDOWN        = 2 * 60 * 1000; // a model that timed out sits out 2 min (this instance)…
+const TIMEOUT_COOLDOWN_MIN_MS = 8000;          // …only if it had at least 8 s (not when the budget clipped it)
 
 // NOTE: In-memory only — resets on every Vercel cold start.
 const rateLimitMap = new Map();
@@ -261,22 +264,30 @@ const CF_MODEL     = "@cf/meta/llama-3.1-8b-instruct";   // callCloudflare defau
 // retired models are replaced without code changes. See api/_model-discovery.js.
 const { createModelDiscovery } = require("./_model-discovery");
 const ratings = require("./_ratings");
+const usage = require("./_usage");
 const discovery = createModelDiscovery({ fetchWithTimeout, getRedis: () => redis });
 
 // ── PROVIDER CHAIN ──
 // One working chain shared by every tool: paraphrase, humanize, summarize, grammar,
 // detector, CV builder and ParaFree AI chat/code. Every key+model is its own entry
-// (own cooldown), named "<key>/<model>" for Groq and Gemini-key models.
-// Each Groq model group is rotated per chunk/request (startOffset) across the 3 keys.
-//   TIER 1 — first resolved model of: groq ×3 keys → gemini
-//   TIER 2 — following resolved models: groq ×3 per model → gemini → cloudflare (ALL its slots:
-//            it resolves to a small ~8B model, so it never sits ahead of the stronger Tier 2 models)
-//   TIER 3 — slow backups, in PROVIDER_ORDER: ovhcloud → llm7 → nvidia
-const PROVIDER_ORDER = ["ovhcloud", "llm7", "nvidia"];
+// (own cooldown), named "<key>/<model>" for Groq, Gemini-key and NVIDIA models.
+// Each Groq / Gemini model group is rotated per chunk/request (startOffset) across that
+// provider's keys (groq, groq-2, groq-3, groq-4 / gemini, gemini-2 — extra keys only when set).
+//   TIER 1 — first resolved model of: groq ×keys → gemini ×keys
+//   TIER 2 — following resolved models: groq ×keys per model → gemini ×keys per model
+//   TIER 3 — stronger backups in TIER3_ORDER (fixed quality/speed order, never reordered by
+//            recent success): nvidia nemotron-3-ultra-550b → nvidia nemotron-3.5-lightning-30b
+//            (fast) → ovhcloud Llama 3.3 70B → llm7
+//   TIER 4 — cloudflare (ALL its slots): a small ~8B model — the fast safety net, always last
+// Env FALLBACK_ORDER (comma-separated, "nvidia#N" = Nth resolved NVIDIA model) replaces TIER3_ORDER.
+const TIER3_ORDER = (process.env.FALLBACK_ORDER || "nvidia#0,nvidia#1,ovhcloud,llm7")
+  .split(",").map(s => s.trim()).filter(Boolean);
+const tier3Rank = (name) => { const i = TIER3_ORDER.indexOf(name); return i === -1 ? 1900 : 1000 + i; };
 const SLOT_RANK = {
   groq:       (slot) => slot === 0 ? 0 : 10 + slot,
   gemini:     (slot) => slot === 0 ? 1 : 100 + slot,
-  cloudflare: (slot) => 200 + slot,
+  nvidia:     (slot) => TIER3_ORDER.includes("nvidia#" + slot) ? tier3Rank("nvidia#" + slot) : 1100 + slot,
+  cloudflare: (slot) => 5000 + slot,
 };
 
 // Permanently dead providers (billing walls, paid-only plans, revoked keys).
@@ -295,7 +306,7 @@ const PROVIDER_TIMEOUTS = { ovhcloud: SLOW_TIMEOUT, llm7: SLOW_TIMEOUT, nvidia: 
 // it is marked dead and the SAME entry retries at once with the model the slot now resolves to.
 function slotEntry(provider, pk, slot, model, call, nameFor, patternIndex = slot) {
   const entry = {
-    name: nameFor(model), rank: SLOT_RANK[provider](slot), group: provider === "groq" ? "groq:" + slot : undefined,
+    name: nameFor(model), rank: SLOT_RANK[provider](slot), group: provider === "groq" || provider === "gemini" ? provider + ":" + slot : undefined,
     pk, patternIndex, model,
     async fn(ms) {
       const deadline = Date.now() + ms;
@@ -317,8 +328,9 @@ function slotEntry(provider, pk, slot, model, call, nameFor, patternIndex = slot
   return entry;
 }
 
-// Tier 1 + Tier 2 entries for every resolved slot. callers.groq(key) / gemini / cloudflare
-// return (model, ms) => Promise<string> for the path being built (writing or chat).
+// Slot entries for every resolved model: Groq / Gemini (Tiers 1–2), NVIDIA (Tier 3), Cloudflare
+// (Tier 4). callers.groq(key) / gemini(key) and callers.nvidia / cloudflare return
+// (model, ms) => Promise<string> for the path being built (writing or chat).
 function slotEntries(keys, callers) {
   const out = [];
   const add = (provider, pk, call, nameFor) => {
@@ -329,34 +341,35 @@ function slotEntries(keys, callers) {
       out.push(slotEntry(provider, pk, slot, s.model, call, (m) => nameFor(m, slot), patternIndex));
     });
   };
-  const groqKeys = { "groq": keys.GROQ_KEY, "groq-2": keys.GROQ_KEY_2, "groq-3": keys.GROQ_KEY_3 };
+  const groqKeys = { "groq": keys.GROQ_KEY, "groq-2": keys.GROQ_KEY_2, "groq-3": keys.GROQ_KEY_3, "groq-4": keys.GROQ_KEY_4 };
   for (const [k, key] of Object.entries(groqKeys)) {
     if (validKey(key)) add("groq", k, callers.groq(key), (m) => k + "/" + m);
   }
-  if (validKey(keys.GEMINI_KEY)) add("gemini", "gemini", callers.gemini, (m) => "gemini/" + m);
+  const geminiKeys = { "gemini": keys.GEMINI_KEY, "gemini-2": keys.GEMINI_KEY_2 };
+  for (const [k, key] of Object.entries(geminiKeys)) {
+    if (validKey(key)) add("gemini", k, callers.gemini(key), (m) => k + "/" + m);
+  }
+  if (validKey(keys.NVIDIA_KEY)) add("nvidia", "nvidia", callers.nvidia, (m) => "nvidia/" + m);
   if (validKey(keys.CF_KEY) && validKey(keys.CF_ACCOUNT)) {
     add("cloudflare", "cloudflare", callers.cloudflare, (m, slot) => slot === 0 ? "cloudflare" : "cloudflare/" + m);
   }
   return out;
 }
 
-// Tier of a chain entry: slot ranks 0–9 = Tier 1, 10–999 = Tier 2, the rest (Tier 3) = 3.
-function tierOf(c) { return c.rank === undefined ? 3 : c.rank < 10 ? 1 : 2; }
+// Rank of a chain entry: slot entries carry `rank`; ovhcloud / llm7 follow TIER3_ORDER
+// (unlisted names go to the end of Tier 3). Tiers: 0–9 = 1, 10–999 = 2, 1000–4999 = 3, 5000+ = 4.
+function rankOf(c) { return c.rank !== undefined ? c.rank : tier3Rank(c.name); }
+function tierOf(c) { const r = rankOf(c); return r < 10 ? 1 : r < 1000 ? 2 : r < 5000 ? 3 : 4; }
 
-// Drops disabled providers, sorts by tier (slot entries carry `rank`; Tier 3 follows
-// PROVIDER_ORDER; unlisted names keep insertion order at the end) and rotates each run of
-// same-`group` entries (one Groq slot across the three keys) by startOffset, so
-// consecutive chunks start on a different key.
-// Then, WITHIN each tier only, the most recently successful entry goes first ("last known
-// good", shared across instances). Tiers are never reordered against each other, and entries
-// that tie (no recent success, or the same 10-minute bucket) keep the rotation order.
+// Drops disabled providers, sorts by rank and rotates each run of same-`group` entries (one
+// Groq or Gemini slot across that provider's keys) by startOffset, so consecutive chunks start
+// on a different key.
+// Then, WITHIN Tiers 1, 2 and 4 only, the most recently successful entry goes first ("last known
+// good", shared across instances). Tier 3 keeps its fixed quality order. Tiers are never
+// reordered against each other, and entries that tie (no recent success, or the same 10-minute
+// bucket) keep the rotation order.
 function orderChain(candidates, startOffset) {
-  const rank = (c) => {
-    if (c.rank !== undefined) return c.rank;
-    const i = PROVIDER_ORDER.indexOf(c.name);
-    return i === -1 ? 9999 : 1000 + i;
-  };
-  const active = candidates.filter(c => !DISABLED_PROVIDERS.has(c.name)).sort((a, b) => rank(a) - rank(b));
+  const active = candidates.filter(c => !DISABLED_PROVIDERS.has(c.name)).sort((a, b) => rankOf(a) - rankOf(b));
   const out = [];
   for (let i = 0; i < active.length;) {
     let j = i + 1;
@@ -366,31 +379,61 @@ function orderChain(candidates, startOffset) {
     out.push(...run.slice(s), ...run.slice(0, s));
     i = j;
   }
-  // A Groq group (one model across the three keys) shares the recency of its most recent
+  // A Groq / Gemini group (one model across the keys) shares the recency of its most recent
   // member, so the keys tie with each other and the rotation keeps spreading load across them.
   const groupRecency = {};
   for (const c of out) if (c.group) groupRecency[c.group] = Math.max(groupRecency[c.group] ?? -1, discovery.recency(c.name));
+  const recent = (c, tier) => tier === 3 ? -1 : c.group ? groupRecency[c.group] : discovery.recency(c.name);
   return out
-    .map((c, idx) => ({ c, idx, tier: tierOf(c), recent: c.group ? groupRecency[c.group] : discovery.recency(c.name) }))
+    .map((c, idx) => { const tier = tierOf(c); return { c, idx, tier, recent: recent(c, tier) }; })
     .sort((a, b) => (a.tier - b.tier) || (b.recent - a.recent) || (a.idx - b.idx))
     .map(x => x.c);
 }
 
 // ── PROVIDER COOLDOWN ──
 // A provider that returns a rate-limit/quota error is skipped for a while instead of
-// being retried on every chunk: 60 s for per-minute limits, 15 min for daily quotas.
-// In-memory only — resets on cold start.
+// being retried on every chunk: 60 s for per-minute limits, 15 min for daily quotas. When the
+// provider says how long to wait (Retry-After header / Gemini retryDelay) that is used instead:
+// per-minute → 5 s…15 min, daily → at least 15 min, at most 6 h.
+// A Tier 1–3 model that times out with ≥8 s to work with sits out TIMEOUT_COOLDOWN (2 min).
+// In-memory only (per serverless instance) — resets on cold start. The health-check skip list
+// and dead-model marks are the shared (Upstash) part.
 const MINUTE_COOLDOWN = 60 * 1000;
 const DAILY_COOLDOWN  = 15 * 60 * 1000;
+const MAX_COOLDOWN    = 6 * 60 * 60 * 1000;
 const providerCooldowns = new Map(); // name → epoch ms when it may be tried again
 
 function isQuotaError(msg) {
   return /:429\b|quota|rate.?limit|RESOURCE_EXHAUSTED|too many requests/i.test(msg || "");
 }
-// Daily quotas: Groq "requests per day (RPD)" / TPD, Gemini "...PerDay..." / "per_day",
-// Cloudflare "used up your daily free allocation". Anything else is treated as per-minute.
+// Daily quotas: Groq "requests per day (RPD)" / "tokens per day (TPD)", Gemini "...PerDay..." /
+// "per_day", Cloudflare "used up your daily free allocation". Anything else is per-minute.
+const DAILY_RE = /per.?day|daily|\bRPD\b|\bTPD\b/i;
 function quotaCooldown(msg) {
-  return /per.?day|daily|\bRPD\b|\bTPD\b/i.test(msg || "") ? DAILY_COOLDOWN : MINUTE_COOLDOWN;
+  return DAILY_RE.test(msg || "") ? DAILY_COOLDOWN : MINUTE_COOLDOWN;
+}
+function retryAfterMs(msg) {
+  const m = /\[retry-after (\d+)s\]/.exec(msg || "");
+  return m ? Number(m[1]) * 1000 : 0;
+}
+function quotaCooldownMs(msg) {
+  const base = quotaCooldown(msg), ra = retryAfterMs(msg);
+  if (!ra) return base;
+  return base === DAILY_COOLDOWN ? Math.min(MAX_COOLDOWN, Math.max(DAILY_COOLDOWN, ra)) : Math.min(DAILY_COOLDOWN, Math.max(5000, ra));
+}
+// Error detail for a failed call: the first 200 characters of the body, plus for a 429
+// "[per-day quota]" when the daily marker sits further down (Gemini's quota id "…PerDay…" comes
+// well after 200 characters) and "[retry-after Ns]" from the Retry-After header or retryDelay.
+function errDetail(res, body) {
+  const b = String(body || "");
+  let d = b.slice(0, 200);
+  if (res.status !== 429) return d;
+  if (DAILY_RE.test(b) && !DAILY_RE.test(d)) d += " [per-day quota]";
+  let ra = 0;
+  try { ra = Number(res.headers && res.headers.get && res.headers.get("retry-after")) || 0; } catch (_) {}
+  if (!ra) { const m = /"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/.exec(b); if (m) ra = Number(m[1]); }
+  if (ra > 0) d += " [retry-after " + Math.ceil(ra) + "s]";
+  return d;
 }
 // Cooling = rate-limit cooldown (this instance) OR on the shared health-check skip list.
 function cooldownUntil(name) {
@@ -401,10 +444,9 @@ function cooldownUntil(name) {
 function isCoolingDown(name) {
   return cooldownUntil(name) > Date.now();
 }
-function startCooldown(name, msg) {
-  const ms = quotaCooldown(msg);
+function startCooldown(name, msg, ms = quotaCooldownMs(msg), why = quotaCooldown(msg) === DAILY_COOLDOWN ? 'daily quota' : 'rate-limited') {
   providerCooldowns.set(name, Date.now() + ms);
-  console.log(`[ParaFree] ⏸ ${name} ${ms === DAILY_COOLDOWN ? 'daily quota' : 'rate-limited'} — skipping it for ${ms / 1000}s`);
+  console.log(`[ParaFree] ⏸ ${name} ${why} — skipping it for ${Math.round(ms / 1000)}s`);
 }
 // If EVERY candidate is cooling down, returns the one whose cooldown ends soonest
 // (it gets tried anyway rather than failing outright); otherwise null.
@@ -414,9 +456,9 @@ function soonestIfAllCooling(candidates) {
   console.log(`[ParaFree] ⏸ all providers cooling down — trying ${pick.name} (cooldown ends soonest, in ${Math.ceil((cooldownUntil(pick.name) - Date.now()) / 1000)}s)`);
   return pick;
 }
-// Per-provider timeout, clipped to what's left of the request budget.
-function providerTimeout(name, deadline) {
-  return Math.min(PROVIDER_TIMEOUTS[name] || FAST_TIMEOUT, deadline - Date.now());
+// Per-provider timeout ("nvidia/<model>" uses the nvidia value), clipped to `until`.
+function providerTimeout(name, until) {
+  return Math.min(PROVIDER_TIMEOUTS[name] || PROVIDER_TIMEOUTS[name.split("/")[0]] || FAST_TIMEOUT, until - Date.now());
 }
 
 async function callGroq(text, prompt, key, maxTokens = 2048, ms, model = GROQ_MODEL) {
@@ -433,7 +475,7 @@ async function callGroq(text, prompt, key, maxTokens = 2048, ms, model = GROQ_MO
       ...(isGptOss(model) ? { reasoning_effort: "low" } : {})
     })
   }, ms);
-  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Groq/" + model + ":" + res.status + " " + b.slice(0,200)); }
+  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Groq/" + model + ":" + res.status + " " + errDetail(res, b)); }
   const data = await res.json();
   if (!data.choices || !data.choices[0]) throw new Error("Groq: no response");
   const content = data.choices[0].message?.content;
@@ -454,7 +496,7 @@ async function callGemini(text, prompt, key, maxTokens = 2048, ms, model = GEMIN
       generationConfig: { temperature: 0.7, maxOutputTokens: maxTokens }
     })
   }, ms);
-  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Gemini/" + model + ":" + res.status + " " + b.slice(0,200)); }
+  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Gemini/" + model + ":" + res.status + " " + errDetail(res, b)); }
   const data = await res.json();
   if (data.error) throw new Error("Gemini/" + model + ":" + data.error.message);
   if (!data.candidates || !data.candidates[0]) throw new Error("Gemini/" + model + ": no response");
@@ -530,7 +572,7 @@ async function callGroqModel(text, prompt, key, model, ms) {
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
     body: JSON.stringify({ model, messages: [{ role: "user", content: prompt + "\n\n" + text }], temperature: 0.7, max_tokens: 4096 })
   }, ms);
-  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Groq/" + model + ":" + res.status + " " + b.slice(0,200)); }
+  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Groq/" + model + ":" + res.status + " " + errDetail(res, b)); }
   const data = await res.json();
   if (!data.choices || !data.choices[0]) throw new Error("Groq/" + model + ": no response");
   const content = data.choices[0].message?.content;
@@ -571,7 +613,7 @@ async function callCloudflare(text, prompt, key, account, maxTokens = 2048, ms, 
     },
     ms
   );
-  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Cloudflare:" + res.status + " " + b.slice(0,200)); }
+  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Cloudflare:" + res.status + " " + errDetail(res, b)); }
   const data = await res.json();
   if (!data.success) throw new Error("Cloudflare: " + JSON.stringify(data.errors));
   return data.result.response;
@@ -642,34 +684,22 @@ async function callSambaNova(text, prompt, key) {
   return data.choices[0].message.content;
 }
 
-// Walks the resolved NVIDIA models (NVIDIA_MODEL_PREFS); a model answering 404/410 is
-// marked dead for 24 h (memory + Upstash) and the next one is tried at once.
-// Models on the health-check skip list ("nvidia/<model>") are passed over too (checkSkip=false
-// lets the health check itself still test them).
-async function callNvidia(text, prompt, key, maxTokens = 1500, ms = FAST_TIMEOUT, models = discovery.models("nvidia"), checkSkip = true) {
-  for (const model of models) {
-    if (discovery.isDead("nvidia", model)) continue;
-    if (checkSkip && discovery.isSkipped("nvidia/" + model)) continue;
-    console.log("[ParaFree] Trying: nvidia/" + model);
-    const res = await fetchWithTimeout("https://integrate.api.nvidia.com/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
-      body: JSON.stringify({ model, messages: [{ role: "user", content: prompt + "\n\n" + text }], temperature: 0.7, max_tokens: maxTokens, stream: false })
-    }, ms);
-    if (res.status === 410 || res.status === 404) {
-      let b = ""; try { b = await res.text(); } catch (_) {}
-      console.warn("[ParaFree] NVIDIA " + model + " unavailable (" + res.status + ") — next model");
-      await discovery.markDead("nvidia", model, "HTTP " + res.status + " " + b.slice(0, 60));
-      continue;
-    }
-    if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("NVIDIA:" + res.status + " " + b.slice(0,200)); }
-    const data = await res.json();
-    if (!data.choices?.[0]) throw new Error("NVIDIA: no response");
-    const content = data.choices[0].message?.content;
-    if (content === null || content === undefined) throw new Error("NVIDIA: null content (finish_reason=" + (data.choices[0].finish_reason || "unknown") + ")");
-    return content;
-  }
-  throw new Error("NVIDIA: all fallback models exhausted");
+// One NVIDIA model per call: each resolved NVIDIA model (NVIDIA_MODEL_PREFS) is its own chain
+// entry ("nvidia/<model>"). A 404/410 is marked dead by the entry, which retries at once with the
+// model its slot now resolves to.
+async function callNvidiaModel(text, prompt, key, maxTokens = 1500, ms = FAST_TIMEOUT, model) {
+  console.log("[ParaFree] Trying: nvidia/" + model);
+  const res = await fetchWithTimeout("https://integrate.api.nvidia.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
+    body: JSON.stringify({ model, messages: [{ role: "user", content: prompt + "\n\n" + text }], temperature: 0.7, max_tokens: maxTokens, stream: false })
+  }, ms);
+  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("NVIDIA/" + model + ":" + res.status + " " + errDetail(res, b)); }
+  const data = await res.json();
+  if (!data.choices?.[0]) throw new Error("NVIDIA/" + model + ": no response");
+  const content = data.choices[0].message?.content;
+  if (content === null || content === undefined) throw new Error("NVIDIA/" + model + ": null content (finish_reason=" + (data.choices[0].finish_reason || "unknown") + ")");
+  return content;
 }
 
 async function callOVHcloud(text, prompt, maxTokens = 1500, ms) {
@@ -684,7 +714,7 @@ async function callOVHcloud(text, prompt, maxTokens = 1500, ms) {
       max_tokens: maxTokens
     })
   }, ms);
-  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("OVHcloud:" + res.status + " " + b.slice(0,200)); }
+  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("OVHcloud:" + res.status + " " + errDetail(res, b)); }
   const data = await res.json();
   if (!data.choices?.[0]) throw new Error("OVHcloud: no response");
   const _ovc = data.choices[0].message?.content;
@@ -722,7 +752,7 @@ async function callLLM7(text, prompt, maxTokens = 1500, ms) {
       max_tokens: maxTokens
     })
   }, ms);
-  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("LLM7:" + res.status + " " + b.slice(0,200)); }
+  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("LLM7:" + res.status + " " + errDetail(res, b)); }
   const data = await res.json();
   if (!data.choices?.[0]) throw new Error("LLM7: no response");
   const _lc = data.choices[0].message?.content;
@@ -1066,14 +1096,15 @@ async function parallelLimit(fns, limit) {
 //
 // Returns { chain, lastResort }:
 //   chain      — every candidate whose key is set; orderChain() later drops DISABLED_PROVIDERS,
-//                applies PROVIDER_ORDER and rotates the Groq keys. Each fn takes a timeout (ms).
+//                applies TIER3_ORDER and rotates the Groq / Gemini keys. Each fn takes a timeout (ms).
 //   lastResort — tried after chain exhausts; NOT rotated; gets LAST_TIMEOUT. Currently none.
 //
-// Active chain (see PROVIDER_ORDER): Tier 1 groq×3/gpt-oss-120b → gemini → cloudflare;
-// Tier 2 groq×3/gpt-oss-20b → groq×3/llama-3.3-70b → gemini-key Flash-Lite → Gemma; Tier 3 ovhcloud → llm7 → nvidia
+// Active chain (see PROVIDER CHAIN): Tier 1 groq×keys/gpt-oss-120b → gemini×keys; Tier 2 groq×keys/
+// gpt-oss-20b → groq×keys/third slot → gemini×keys Flash → Gemma; Tier 3 nvidia ultra → nvidia
+// lightning → ovhcloud → llm7; Tier 4 cloudflare (safety net)
 // Disabled: see DISABLED_PROVIDERS; GLM (ToS unverifiable, data in China) stays commented out.
 function buildWritingCandidates(text, prompt, keys) {
-  const { DEEPSEEK_KEY, GEMINI_KEY, GROQ_KEY, GROQ_KEY_2, GROQ_KEY_3, MISTRAL_KEY, MISTRAL_KEY_2,
+  const { DEEPSEEK_KEY, GROQ_KEY, GROQ_KEY_2, GROQ_KEY_3, MISTRAL_KEY, MISTRAL_KEY_2,
           CF_KEY, CF_ACCOUNT, OPENROUTER_KEY, GLM_KEY, SAMBANOVA_KEY, NVIDIA_KEY,
           SCW_KEY, HF_KEY, CHUTES_KEY, HETZNER_KEY,
           EXTRA1_KEY, EXTRA2_KEY, EXTRA3_KEY, EXTRA4_KEY, EXTRA5_KEY, EXTRA6_KEY } = keys;
@@ -1089,16 +1120,16 @@ function buildWritingCandidates(text, prompt, keys) {
   const chunkWords = countWordsApprox(text);
   const mt = Math.min(1500, Math.max(600, Math.ceil(chunkWords * 1.5)));
 
-  // Working chain (final order from orderChain: slot ranks for Tiers 1–2, PROVIDER_ORDER for Tier 3)
-  // One entry per resolved key+model slot; `group` lets orderChain rotate each Groq slot across the keys.
+  // Working chain (final order from orderChain: slot ranks, TIER3_ORDER for Tier 3)
+  // One entry per resolved key+model slot; `group` lets orderChain rotate each Groq / Gemini slot across the keys.
   chain.push(...slotEntries(keys, {
     groq:       (key) => (m, ms) => callGroq(text, prompt, key, mt, ms, m),
-    gemini:     (m, ms) => callGemini(text, prompt, GEMINI_KEY, mt, ms, m),
+    gemini:     (key) => (m, ms) => callGemini(text, prompt, key, mt, ms, m),
+    nvidia:     (m, ms) => callNvidiaModel(text, prompt, NVIDIA_KEY, mt, ms, m),
     cloudflare: (m, ms) => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT, mt, ms, m),
   }));
   add("ovhcloud",   (ms) => callOVHcloud(text, prompt, mt, ms),                       true);
   add("llm7",       (ms) => callLLM7(text, prompt, mt, ms),                           true);
-  add("nvidia",     (ms) => callNvidia(text, prompt, NVIDIA_KEY, mt, ms),             validKey(NVIDIA_KEY));
 
   // ── DISABLED (listed in DISABLED_PROVIDERS — filtered out by orderChain) ──
   // mistral / mistral-2 — free plan requires paid upgrade to activate keys (card required)
@@ -1124,13 +1155,16 @@ function buildWritingCandidates(text, prompt, keys) {
   return { chain, lastResort };
 }
 
-// Tries every writing provider for one chunk, in PROVIDER_ORDER with the Groq keys
-// rotated by startOffset. Providers in cooldown are skipped; every timeout is clipped
-// to the request deadline. Returns the result string, or null if every provider failed.
-async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0, deadline = Date.now() + REQUEST_BUDGET) {
+// Tries every writing provider for one chunk, in chain order with the Groq / Gemini keys
+// rotated by startOffset. Providers in cooldown are skipped. Time: the chunk gets a fair share of
+// what is left of the request budget (budget ÷ chunks still to do), so one slow model can't starve
+// the chunks after it; Tiers 1–3 also leave SAFETY_NET_MS of that share for the Cloudflare safety
+// net, which may itself run until the deadline minus SAFETY_NET_MS per later chunk. Every attempt
+// is capped by its provider timeout as before. Returns the result string, or null if all failed.
+async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0, deadline = Date.now() + REQUEST_BUDGET, chunksLeft = 1) {
   const { chain, lastResort } = buildWritingCandidates(chunkText, prompt, envKeys);
   // startOffset comes from runChain's sequential counter (baseOffset + chunkSeq), so
-  // consecutive chunks start on a DIFFERENT Groq key — even load across the three keys.
+  // consecutive chunks start on a DIFFERENT Groq key — even load across the keys.
   const rotated = orderChain(chain, startOffset);
   const ordered = lastResort ? [...rotated, lastResort] : rotated;
   if (ordered.length === 0) {
@@ -1139,16 +1173,25 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0,
   }
 
   const chunkStart = Date.now();
-  console.log(`[ParaFree] chunk seq=${seq}: ${chunkText.length} chars, chain: ${ordered.map(c => c.name).join(' → ')}`);
+  const chunkDeadline = chunkStart + (deadline - chunkStart) / Math.max(1, chunksLeft);
+  const laterReserve = Math.max(0, chunksLeft - 1) * SAFETY_NET_MS;
+  console.log(`[ParaFree] chunk seq=${seq}: ${chunkText.length} chars, ${Math.round((chunkDeadline - chunkStart) / 1000)}s share, chain: ${ordered.map(c => c.name).join(' → ')}`);
   const forced = soonestIfAllCooling(ordered);
+  const hasNet = ordered.some(c => tierOf(c) === 4 && (c === forced || !isCoolingDown(c.name)));
   for (const c of ordered) {
     if (c !== forced && isCoolingDown(c.name)) {
       console.log(`[ParaFree] ⏭ chunk seq=${seq} ${c.name} [cooldown] — skipped`);
       continue;
     }
+    const isNet = tierOf(c) === 4;
+    const until = isNet ? deadline - laterReserve : chunkDeadline - (hasNet ? SAFETY_NET_MS : 0);
     const isLast = lastResort !== null && c.name === lastResort.name;
-    const expectedTimeout = isLast ? Math.min(LAST_TIMEOUT, deadline - Date.now()) : providerTimeout(c.name, deadline);
+    const expectedTimeout = isLast ? Math.min(LAST_TIMEOUT, until - Date.now()) : providerTimeout(c.name, until);
     if (expectedTimeout < MIN_ATTEMPT_MS) {
+      if (!isNet && hasNet) {
+        console.log(`[ParaFree] ⏭ chunk seq=${seq} ${c.name} [no time left in this chunk's share] — skipped`);
+        continue;
+      }
       console.warn(`[ParaFree] ⏱ chunk seq=${seq} request budget exhausted before ${c.name}`);
       break;
     }
@@ -1159,6 +1202,7 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0,
       if (result && result.trim().length > 5) {
         console.log(`[ParaFree] ✅ chunk seq=${seq} handled by ${c.name} in ${ms}ms (${result.trim().length} chars out)`);
         discovery.noteSuccess(c.name, c.pk, c.patternIndex, c.model);
+        usage.record(redis, 'chunk', c.name);
         return result.trim();
       }
       console.warn(`[ParaFree] ⚠️ chunk seq=${seq} ${c.name} empty/short (${result?.length || 0} chars, ${ms}ms) — next`);
@@ -1170,25 +1214,30 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0,
       const tag = quota ? '429-rate-limit' : msg.includes(':401') ? '401-auth' : msg.includes(':403') ? '403-forbidden' : msg.includes(':404') ? '404-model-not-found' : msg.includes(':503') ? '503-unavailable' : isAbort ? `TIMEOUT-${expectedTimeout}ms` : 'error';
       console.log(`[ParaFree] ❌ chunk seq=${seq} ${c.name} [${tag}] in ${ms}ms — ${msg.slice(0, 200)}`);
       if (quota) startCooldown(c.name, msg);
+      else if (isAbort && !isNet && expectedTimeout >= TIMEOUT_COOLDOWN_MIN_MS) startCooldown(c.name, msg, TIMEOUT_COOLDOWN, 'timed out');
     }
   }
   console.error(`[ParaFree] ❌ chunk seq=${seq} exhausted all ${ordered.length} providers in ${Date.now() - chunkStart}ms`);
+  usage.record(redis, 'chunk', null);
   return null;
 }
 
 // ── MAIN API CHAIN ──
-// Every tool (writing chunks, AI chat/code, CV extract) uses the same chain:
-//   Tier 1 groq×3/gpt-oss-120b → gemini → cloudflare → Tier 2 groq×3/gpt-oss-20b → groq×3/llama
-//   → gemini/Flash-Lite → gemini/Gemma → Tier 3 ovhcloud → llm7 → nvidia (one entry per key+model)
-// The Groq keys rotate per chunk (writing) or per request (chat/CV). Disabled providers:
-// DISABLED_PROVIDERS. Rate-limited providers sit out PROVIDER_COOLDOWN.
+// Every tool (writing chunks, AI chat/code, CV extract) uses the same chain (see PROVIDER CHAIN):
+//   Tier 1 groq/gpt-oss-120b → gemini Flash-Lite → Tier 2 groq/gpt-oss-20b → groq third slot →
+//   gemini Flash → Gemma → Tier 3 nvidia ultra → nvidia lightning → ovhcloud → llm7 →
+//   Tier 4 cloudflare (one entry per key+model)
+// The Groq / Gemini keys rotate per chunk (writing) or per request (chat/CV). Disabled providers:
+// DISABLED_PROVIDERS. Rate-limited providers sit out their cooldown (PROVIDER COOLDOWN).
 async function runChain(text, prompt, type) {
   const deadline       = Date.now() + REQUEST_BUDGET;
   await discovery.ensure();   // model lists: never waits more than ~1 s (cold instance only)
   const GROQ_KEY       = process.env.GROQ_KEY;
   const GROQ_KEY_2     = process.env.GROQ_KEY_2;
   const GROQ_KEY_3     = process.env.GROQ_KEY_3;
+  const GROQ_KEY_4     = process.env.GROQ_KEY_4;     // optional — used only when set
   const GEMINI_KEY     = process.env.GEMINI_KEY;
+  const GEMINI_KEY_2   = process.env.GEMINI_KEY_2;   // optional — used only when set
   const OPENROUTER_KEY = process.env.OPENROUTER_KEY;
   const GLM_KEY        = process.env.GLM_KEY;
   const MISTRAL_KEY    = process.env.MISTRAL_KEY;
@@ -1219,7 +1268,7 @@ async function runChain(text, prompt, type) {
   // starting at a different offset so parallel calls spread across providers.
   if (!isAIChat && !isCVExtract) {
     const envKeys = {
-      DEEPSEEK_KEY, GEMINI_KEY, GROQ_KEY, GROQ_KEY_2, GROQ_KEY_3, MISTRAL_KEY, MISTRAL_KEY_2,
+      DEEPSEEK_KEY, GEMINI_KEY, GEMINI_KEY_2, GROQ_KEY, GROQ_KEY_2, GROQ_KEY_3, GROQ_KEY_4, MISTRAL_KEY, MISTRAL_KEY_2,
       CF_KEY, CF_ACCOUNT, OPENROUTER_KEY, GLM_KEY, SAMBANOVA_KEY, NVIDIA_KEY,
       SCW_KEY, HF_KEY, CHUTES_KEY, HETZNER_KEY,
       EXTRA1_KEY, EXTRA2_KEY, EXTRA3_KEY, EXTRA4_KEY, EXTRA5_KEY, EXTRA6_KEY
@@ -1249,7 +1298,7 @@ async function runChain(text, prompt, type) {
     const rawResults = await parallelLimit(
       indexedChunks.map(({ seq, text: chunkText }) => async () => {
         if (seq > 0) await new Promise(r => setTimeout(r, CHUNK_INTER_DELAY));
-        const result = await paraphraseChunk(chunkText, prompt, envKeys, baseOffset + seq, seq, deadline);
+        const result = await paraphraseChunk(chunkText, prompt, envKeys, baseOffset + seq, seq, deadline, indexedChunks.length - seq);
         return { seq, result };
       }),
       CHUNK_CONCURRENCY
@@ -1286,17 +1335,17 @@ async function runChain(text, prompt, type) {
   const addC = (name, fn, keyOk = true) => { if (keyOk) candidates.push({ name, fn }); };
 
   // AI chat/code and CV extract share one chain (Cerebras removed — requires payment).
-  // Same default max_tokens per caller as before; order comes from PROVIDER_ORDER.
+  // Same default max_tokens per caller as before; order comes from orderChain (see PROVIDER CHAIN).
   // One entry per resolved key+model slot (rotated per request by orderChain); Groq calls here
   // are unchanged otherwise — callGroqModel never sends reasoning_effort.
-  candidates.push(...slotEntries({ GROQ_KEY, GROQ_KEY_2, GROQ_KEY_3, GEMINI_KEY, CF_KEY, CF_ACCOUNT }, {
+  candidates.push(...slotEntries({ GROQ_KEY, GROQ_KEY_2, GROQ_KEY_3, GROQ_KEY_4, GEMINI_KEY, GEMINI_KEY_2, NVIDIA_KEY, CF_KEY, CF_ACCOUNT }, {
     groq:       (key) => (m, ms) => callGroqModel(text, prompt, key, m, ms),
-    gemini:     (m, ms) => callGemini(text, prompt, GEMINI_KEY, undefined, ms, m),
+    gemini:     (key) => (m, ms) => callGemini(text, prompt, key, undefined, ms, m),
+    nvidia:     (m, ms) => callNvidiaModel(text, prompt, NVIDIA_KEY, undefined, ms, m),
     cloudflare: (m, ms) => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT, undefined, ms, m),
   }));
   addC("ovhcloud",   (ms) => callOVHcloud(text, prompt, undefined, ms),                    true);
   addC("llm7",       (ms) => callLLM7(text, prompt, undefined, ms),                        true);
-  addC("nvidia",     (ms) => callNvidia(text, prompt, NVIDIA_KEY, undefined, ms),          validKey(NVIDIA_KEY));
   if (isAIChat) {
     // ── DISABLED (listed in DISABLED_PROVIDERS — filtered out by orderChain) ──
     addC("deepseek-coder", () => callOpenRouterModel(text, prompt, OPENROUTER_KEY, "deepseek/deepseek-coder-v2-instruct:free"), validKey(OPENROUTER_KEY));
@@ -1326,23 +1375,32 @@ async function runChain(text, prompt, type) {
     const apiStatuses = {};
     candidates.forEach(c => { apiStatuses[c.name] = "skipped"; });
     const forced = soonestIfAllCooling(candidates);
+    // Tiers 1–3 leave SAFETY_NET_MS of the budget for the Cloudflare safety net (Tier 4).
+    const hasNet = candidates.some(c => tierOf(c) === 4 && (c === forced || !isCoolingDown(c.name)));
     for (const c of candidates) {
       if (c !== forced && isCoolingDown(c.name)) {
         apiStatuses[c.name] = "limit";
         console.log(`[ParaFree] ⏭ ${c.name} [cooldown] — skipped`);
         continue;
       }
-      const ms = providerTimeout(c.name, deadline);
+      const isNet = tierOf(c) === 4;
+      const ms = providerTimeout(c.name, isNet || !hasNet ? deadline : deadline - SAFETY_NET_MS);
       if (ms < MIN_ATTEMPT_MS) {
+        if (!isNet && hasNet) {
+          console.log(`[ParaFree] ⏭ ${c.name} [no time left before the safety net] — skipped`);
+          continue;
+        }
         console.warn(`[ParaFree] ⏱ request budget exhausted before ${c.name}`);
         break;
       }
       apiStatuses[c.name] = "trying";
+      const t0 = Date.now();
       try {
         const result = await c.fn(ms);
         if (result && result.trim().length > 5) {
           console.log(`[ParaFree] ✅ ${isCVExtract ? 'CV' : 'AI'} request handled by ${c.name}${attempt > 0 ? ' (retry)' : ''}`);
           discovery.noteSuccess(c.name, c.pk, c.patternIndex, c.model);
+          usage.record(redis, 'chat', c.name);
           apiStatuses[c.name] = "success";
           return { success: true, result: result.trim(), usedApi: c.name, apiStatuses };
         }
@@ -1353,7 +1411,9 @@ async function runChain(text, prompt, type) {
         const quota = isQuotaError(msg);
         apiStatuses[c.name] = quota ? "limit" : (msg.includes(":401") || msg.includes(":403")) ? "expired" : msg.includes(":404") ? "model_not_found" : "failed";
         console.log(`[ParaFree] ❌ ${c.name} — ${msg}`);
+        const isAbort = /abort/i.test(msg) || Date.now() - t0 >= ms - 100;
         if (quota) startCooldown(c.name, msg);
+        else if (isAbort && !isNet && ms >= TIMEOUT_COOLDOWN_MIN_MS) startCooldown(c.name, msg, TIMEOUT_COOLDOWN, 'timed out');
       }
     }
     lastApiStatuses = { ...apiStatuses };
@@ -1433,13 +1493,16 @@ async function handleTestKeys(body) {
     });
   };
 
+  // groq-4 / gemini-2 rows appear only when GROQ_KEY_4 / GEMINI_KEY_2 are set.
+  const keyRows = (pairs) => pairs.filter(([n, key]) => !/-[24]$/.test(n) || validKey(key));
   const tests = [
-    ...[["groq", process.env.GROQ_KEY], ["groq-2", process.env.GROQ_KEY_2], ["groq-3", process.env.GROQ_KEY_3]].flatMap(([n, key]) =>
+    ...keyRows([["groq", process.env.GROQ_KEY], ["groq-2", process.env.GROQ_KEY_2], ["groq-3", process.env.GROQ_KEY_3], ["groq-4", process.env.GROQ_KEY_4]]).flatMap(([n, key]) =>
       slotRows(n, "groq", key, (k, m) => callGroq(testText, testPrompt, k, undefined, undefined, m), (m) => n + "/" + m)),
-    ...slotRows("gemini", "gemini", process.env.GEMINI_KEY, (k, m) => callGemini(testText, testPrompt, k, undefined, undefined, m), (m) => "gemini/" + m),
+    ...keyRows([["gemini", process.env.GEMINI_KEY], ["gemini-2", process.env.GEMINI_KEY_2]]).flatMap(([n, key]) =>
+      slotRows(n, "gemini", key, (k, m) => callGemini(testText, testPrompt, k, undefined, undefined, m), (m) => n + "/" + m)),
     ...slotRows("cloudflare", "cloudflare", process.env.CF_KEY, (k, m) => callCloudflare(testText, testPrompt, k, cfAccount, undefined, undefined, m),
       (m, pos) => pos === 0 ? "cloudflare" : "cloudflare/" + m, { account: cfAccount }),
-    ...slotRows("nvidia", "nvidia", process.env.NVIDIA_KEY, (k, m) => callNvidia(testText, testPrompt, k, undefined, undefined, [m], false), (m) => "nvidia/" + m),
+    ...slotRows("nvidia", "nvidia", process.env.NVIDIA_KEY, (k, m) => callNvidiaModel(testText, testPrompt, k, undefined, undefined, m), (m) => "nvidia/" + m),
     { name: "sambanova",  model: "Meta-Llama-3.3-70B-Instruct",       key: process.env.SAMBANOVA_KEY,  fn: (k) => callSambaNova(testText, testPrompt, k) },
     { name: "mistral",    model: "mistral-small-latest",              key: process.env.MISTRAL_KEY,    fn: (k) => callMistral(testText, testPrompt, k) },
     { name: "mistral-2",  model: "mistral-small-latest",              key: process.env.MISTRAL_KEY_2,  fn: async (k) => { await new Promise(r => setTimeout(r, 3500)); return callMistral(testText, testPrompt, k); } },
@@ -1517,9 +1580,15 @@ async function handleTestKeys(body) {
     }
   }
 
+  // Which provider served how many writing chunks / chat requests per UTC day (counts only).
+  let usageDays;
+  try { usageDays = await usage.getUsage(redis, body.usageDays || 7); } catch (e) { usageDays = { ok: false, error: e.message }; }
+
   return {
     success: true, results,
-    discovery: discovery.status(),   // when each model list was last refreshed, its source, dead models, preference lists
+    discovery: discovery.status(),   // when each model list was last refreshed, its source, dead + blocked models, preference lists
+    chainOrder: { tier3: TIER3_ORDER, safetyNet: "cloudflare (Tier 4)" },
+    usage: usageDays,
     note: "CF_ACCOUNT " + (cfAccount ? "is set" : "NOT SET — add to Vercel env vars")
   };
 }
@@ -1533,7 +1602,9 @@ module.exports = async function handler(req, res) {
     groq:       hasKey("GROQ_KEY"),
     groq2:      hasKey("GROQ_KEY_2"),
     groq3:      hasKey("GROQ_KEY_3"),
+    groq4:      hasKey("GROQ_KEY_4"),
     gemini:     hasKey("GEMINI_KEY"),
+    gemini2:    hasKey("GEMINI_KEY_2"),
     cloudflare: hasKey("CF_KEY") && hasKey("CF_ACCOUNT"),
     nvidia:     hasKey("NVIDIA_KEY"),
     sambanova:  hasKey("SAMBANOVA_KEY"),
@@ -1650,6 +1721,22 @@ module.exports = async function handler(req, res) {
         return res.status(200).json({ ok: true, feedback: parsed });
       } catch (e) {
         return res.status(500).json({ error: "Failed to read feedback" });
+      }
+    }
+
+    // Daily provider usage (counts only, no text) — PIN-gated, private
+    if (body && body.type === "providerUsage") {
+      try {
+        const correctPin = process.env.FEEDBACK_PIN;
+        if (!correctPin) {
+          return res.status(503).json({ error: "Feedback PIN is not configured" });
+        }
+        if (body.pin !== correctPin) {
+          return res.status(403).json({ error: "Invalid PIN" });
+        }
+        return res.status(200).json(await usage.getUsage(redis, body.days));
+      } catch (e) {
+        return res.status(500).json({ error: "Failed to read usage" });
       }
     }
 

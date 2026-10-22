@@ -19,7 +19,7 @@ const MIME: Record<string, string> = {
   '.xml': 'application/xml', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.ico': 'image/x-icon', '.json': 'application/json',
 };
 const read = (f: string) => fs.readFileSync(path.join(ROOT, f), 'utf8');
-const BASE = 'main';                                                 // the site before this round
+const BASE = '288e751';                                              // the site before this round (v2.17 merge; main has this round since v2.18)
 const before = (f: string) => { try { return execSync(`git show ${BASE}:${f}`, { cwd: ROOT, maxBuffer: 64 << 20 }).toString('utf8'); } catch (e) { return ''; } };
 const TOOL_PAGES = ['pdf-to-word', 'word-to-pdf', 'jpg-to-pdf', 'compress-pdf', 'merge-pdf', 'pdf-to-jpg'];
 const TASK_PAGES = ['compress-pdf-to-100kb', 'compress-pdf-to-200kb', 'jpg-to-pdf-for-assignment'];
