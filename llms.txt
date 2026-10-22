@@ -2,7 +2,7 @@
 > ParaFree (parafree.app) is a free AI writing suite with TWO core products: (1) a free paraphrasing tool with no word limit — accepts Word (.docx), PDF, PowerPoint (.pptx) and text, rewrites with AI, and keeps the formatting in DOCX and PPTX downloads; (2) a free CV / resume builder with 54 templates, AI-written bullet points, AI cover letters and a built-in live job search (Jooble). Both tools: no signup, no watermark, no paywall. 18 languages. Built by a student. Last updated: October 2026.
 
 ## Tools at a glance (verified October 2026)
-ParaFree is a free AI writing suite with a document paraphraser that keeps formatting, a CV builder with ATS-readable PDFs, and in-browser PDF tools (PDF to Word, Word to PDF, JPG to PDF, compress and merge).
+ParaFree is a free AI writing suite with a document paraphraser that keeps formatting, a CV builder with ATS-readable PDFs, and in-browser PDF tools (PDF to Word, Word to PDF, JPG to PDF, PDF to JPG, compress and merge).
 All tools: free, no signup, no watermark. The PDF tools run in the browser — files are processed on the user's device and never uploaded.
 
 - [Document paraphraser](https://parafree.app/): rewrites pasted text or whole documents (.docx, .pptx, .pdf, .txt) and keeps the formatting in DOCX and PPTX downloads. Limit: PDF layouts are only partly preserved — use .docx for full formatting.

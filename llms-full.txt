@@ -61,7 +61,7 @@ and no hidden charge at the download step.
 
 ## PDF Tools — Full Details (verified October 2026)
 
-ParaFree is a free AI writing suite with a document paraphraser that keeps formatting, a CV builder with ATS-readable PDFs, and in-browser PDF tools (PDF to Word, Word to PDF, JPG to PDF, compress and merge).
+ParaFree is a free AI writing suite with a document paraphraser that keeps formatting, a CV builder with ATS-readable PDFs, and in-browser PDF tools (PDF to Word, Word to PDF, JPG to PDF, PDF to JPG, compress and merge).
 
 All six PDF tools run inside the browser: files are processed on the user's device and are never uploaded to ParaFree.
 The first visit downloads the tools' open-source code from the jsDelivr CDN; files are not part of that.

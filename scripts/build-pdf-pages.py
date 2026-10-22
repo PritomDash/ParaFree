@@ -9,7 +9,7 @@ import html, json, os
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SITE = 'https://parafree.app'
 ENTITY = ('ParaFree is a free AI writing suite with a document paraphraser that keeps formatting, a CV builder with '
-          'ATS-readable PDFs, and in-browser PDF tools (PDF to Word, Word to PDF, JPG to PDF, compress and merge).')
+          'ATS-readable PDFs, and in-browser PDF tools (PDF to Word, Word to PDF, JPG to PDF, PDF to JPG, compress and merge).')
 SPEED = 'No upload, no waiting — your file is processed on your device.'
 TOOLS = [  # slug (= page and tab id), short name, emoji
     ('pdf-to-word', 'PDF to Word', '📄'), ('word-to-pdf', 'Word to PDF', '📝'), ('jpg-to-pdf', 'JPG to PDF', '🖼'),

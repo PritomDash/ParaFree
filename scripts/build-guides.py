@@ -9,7 +9,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SITE = 'https://parafree.app'
 DATE, DATE_TEXT = '2026-10-21', 'October 21, 2026'
 ENTITY = ('ParaFree is a free AI writing suite with a document paraphraser that keeps formatting, a CV builder with '
-          'ATS-readable PDFs, and in-browser PDF tools (PDF to Word, Word to PDF, JPG to PDF, compress and merge).')
+          'ATS-readable PDFs, and in-browser PDF tools (PDF to Word, Word to PDF, JPG to PDF, PDF to JPG, compress and merge).')
 
 POSTS = [
 dict(slug='blog-pdf-to-word-without-losing-formatting',

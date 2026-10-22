@@ -30,7 +30,7 @@ const TITLES: Record<string, string> = {
   'merge-pdf': 'Merge PDF Files Free — Combine Assignment, Cover Sheet & Appendix',
 };
 const GUIDES = ['blog-pdf-to-word-without-losing-formatting.html', 'blog-compress-pdf-upload-limits.html', 'blog-ats-friendly-cv-guide.html'];
-const ENTITY = 'ParaFree is a free AI writing suite with a document paraphraser that keeps formatting, a CV builder with ATS-readable PDFs, and in-browser PDF tools (PDF to Word, Word to PDF, JPG to PDF, compress and merge).';
+const ENTITY = 'ParaFree is a free AI writing suite with a document paraphraser that keeps formatting, a CV builder with ATS-readable PDFs, and in-browser PDF tools (PDF to Word, Word to PDF, JPG to PDF, PDF to JPG, compress and merge).';
 const SPEED = 'No upload, no waiting — your file is processed on your device.';
 const read = (f: string) => fs.readFileSync(path.join(ROOT, f), 'utf8');
 const htmlPages = () => fs.readdirSync(ROOT).filter((f) => f.endsWith('.html') && !/^google[0-9a-f]+\.html$/.test(f));
