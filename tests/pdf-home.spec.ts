@@ -25,7 +25,8 @@ const MIME: Record<string, string> = {
 // The homepage may grow by less than 15 KB.
 const BASELINE_INDEX_BYTES = 473317;
 // The budget is for the PDF tools: the landing-embeds bootstrap (?embed=paraphraser, see embed-original.ts) is not counted.
-const pdfRoundSize = () => Buffer.byteLength(indexWithoutEmbed(), 'utf8');
+// Nor is the seo-push "Working with PDFs?" line by the paraphraser's upload button (a link line, not PDF-tool code).
+const pdfRoundSize = () => Buffer.byteLength(indexWithoutEmbed().replace(/\n      <span class="pf-pdf-hint"[^\n]*<\/span>/, ''), 'utf8');
 // the PDF tools' own libraries — none of these may load with the homepage
 const PDF_TOOL_LIBS = /cdn\.jsdelivr\.net\/npm\/(pdf-lib@|pdfjs-dist@|docx@|docx-preview@|jszip@|jspdf@|tesseract\.js|@tesseract\.js-data|@expo-google-fonts)|\/lib\/pdf-tools\/|\/pdf-tools\.(css|html)/;
 

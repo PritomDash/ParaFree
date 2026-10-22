@@ -12,13 +12,13 @@
 <meta property="og:url" content="https://parafree.app/word-to-pdf.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="ParaFree">
-<meta property="og:image" content="https://parafree.app/og-image.png">
+<meta property="og:image" content="https://parafree.app/og/word-to-pdf.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Free Word to PDF Converter — DOCX to PDF for Assignment Submission">
 <meta name="twitter:description" content="Convert a Word document (.docx) to PDF free for Moodle, Canvas or Turnitin uploads. Fonts, images and tables kept, text stays selectable. No signup, no watermark, runs in your browser.">
-<meta name="twitter:image" content="https://parafree.app/og-image.png">
+<meta name="twitter:image" content="https://parafree.app/og/word-to-pdf.png">
 <meta name="twitter:site" content="@parafree">
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0QEEGS0DZQ"></script>
@@ -104,6 +104,30 @@
         "@type": "Answer",
         "text": "Fonts are matched to built-in fonts, which can be slightly wider or narrower than yours, so a line or a picture can move to the next page. Check the preview, or use “Print / Save as PDF” to use your own fonts."
       }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I convert a Word document to PDF for free without Microsoft Word?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Upload the .docx to ParaFree’s Word to PDF converter in any browser and download a PDF with selectable text — no Word installation, signup or watermark needed."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I make a PDF from a .docx for Turnitin or Moodle?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Convert the .docx with Word to PDF, open the PDF once to check the page count and layout, then upload it. The PDF has real, selectable text, which is what course portals and similarity checkers expect."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I convert Word to PDF on an iPhone?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Choose the .docx in Safari or Chrome, check the preview and download; the PDF is in the Files app under Downloads."
+      }
     }
   ]
 }
@@ -143,7 +167,7 @@
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/pdf-tools.css">
-<link rel="preload" as="script" href="/lib/pdf-tools/word-to-pdf.js?v=2ebeb8c785">
+<link rel="preload" as="script" href="/lib/pdf-tools/word-to-pdf.js?v=f5158bf3cd">
 </head>
 <body data-pf-tool="word-to-pdf">
 
@@ -187,13 +211,14 @@
     <h1>Free Word to PDF Converter</h1>
     <p>Turn a Word document (.docx) into a PDF for assignment submission — fonts, headings, images and tables kept, with real selectable text. Free, no signup, no watermark.</p>
     <div class="pf-privacy"><span aria-hidden="true">🔒</span> No upload, no waiting — your file is processed on your device.</div>
+    <p class="pf-updated">Last updated: October 22, 2026</p>
   </div>
 </header>
 
 <!-- THE TOOL (the same module as pdf-tools.html, opened on this tool) -->
 <main class="pf-tools"></main>
-<script>window.PFV = '2ebeb8c785';</script>
-<script src="/lib/pdf-tools/panels.js?v=2ebeb8c785"></script>
+<script>window.PFV = 'f5158bf3cd';</script>
+<script src="/lib/pdf-tools/panels.js?v=f5158bf3cd"></script>
 <script>window.PFPanels.render(document.querySelector('main.pf-tools'));</script>
 
 <div class="pf-content">
@@ -239,6 +264,7 @@
     <h2>Why submit a PDF instead of a Word file?</h2>
     <p>A Word file can look different on the marker’s computer: a missing font, a different version of Word or another page size can move headings, push a table onto the next page or change the page count. A PDF fixes the layout, so what you checked is what they see.</p>
     <p>A PDF also cannot be changed by accident after you submit it, opens on any device without Word, and is usually smaller than the .docx with its images. Keep the .docx too — it is the file you edit if you need to make changes later.</p>
+    <p>If the course wants one file with a cover sheet or declaration in front, <a href="/merge-pdf.html">merge the PDFs in the right order</a>; if the portal has a size limit, <a href="/compress-pdf.html">compress the PDF under that limit</a>.</p>
   </section>
   <section class="faq" id="faq">
     <h2>Frequently asked questions</h2>
@@ -248,6 +274,9 @@
     <div class="faq-item"><p class="faq-q">Can it convert Bengali, Hindi or Arabic documents?</p><p class="faq-a">Yes, through the print method: the document opens in a print view and you save it as a PDF from your browser, which shapes these scripts correctly.</p></div>
     <div class="faq-item"><p class="faq-q">Can I convert .doc files?</p><p class="faq-a">No — .docx files. Open an old .doc in Word, LibreOffice or Google Docs and save it as .docx first.</p></div>
     <div class="faq-item"><p class="faq-q">Why does my PDF have a different number of pages?</p><p class="faq-a">Fonts are matched to built-in fonts, which can be slightly wider or narrower than yours, so a line or a picture can move to the next page. Check the preview, or use “Print / Save as PDF” to use your own fonts.</p></div>
+    <div class="faq-item"><p class="faq-q">How do I convert a Word document to PDF for free without Microsoft Word?</p><p class="faq-a">Upload the .docx to ParaFree’s Word to PDF converter in any browser and download a PDF with selectable text — no Word installation, signup or watermark needed.</p></div>
+    <div class="faq-item"><p class="faq-q">How do I make a PDF from a .docx for Turnitin or Moodle?</p><p class="faq-a">Convert the .docx with Word to PDF, open the PDF once to check the page count and layout, then upload it. The PDF has real, selectable text, which is what course portals and similarity checkers expect.</p></div>
+    <div class="faq-item"><p class="faq-q">Can I convert Word to PDF on an iPhone?</p><p class="faq-a">Yes. Choose the .docx in Safari or Chrome, check the preview and download; the PDF is in the Files app under Downloads.</p></div>
   </section>
   <section class="pf-section pf-related">
     <h2>More free tools</h2>
@@ -311,9 +340,9 @@
 </footer>
 
 <!-- core only; this tool's module loads right away (app.js opens the tool named on <body>) -->
-<script src="/lib/pdf-tools/pdf-events.js?v=2ebeb8c785"></script>
-<script src="/lib/pdf-tools/loader.js?v=2ebeb8c785"></script>
-<script src="/lib/pdf-tools/common.js?v=2ebeb8c785"></script>
-<script src="/lib/pdf-tools/app.js?v=2ebeb8c785"></script>
+<script src="/lib/pdf-tools/pdf-events.js?v=f5158bf3cd"></script>
+<script src="/lib/pdf-tools/loader.js?v=f5158bf3cd"></script>
+<script src="/lib/pdf-tools/common.js?v=f5158bf3cd"></script>
+<script src="/lib/pdf-tools/app.js?v=f5158bf3cd"></script>
 </body>
 </html>

@@ -353,3 +353,4 @@ a { color: var(--accent); }
 .pf-img-links { list-style: none; display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 8px 0 0; padding: 0; flex-basis: 100%; font-size: 13px; }
 .pf-img-links:empty { display: none; }
 .pf-img-links a { color: var(--accent, #2d6a4f); font-weight: 600; }
+.pf-updated { margin: 12px 0 0; font-size: 13px; color: rgba(255,255,255,0.7); }

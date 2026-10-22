@@ -13,7 +13,7 @@ const crypto = require('crypto');
 
 const ROOT = path.join(__dirname, '..');
 const DIR = path.join(ROOT, 'lib', 'pdf-tools');
-const PAGES = ['index.html', 'pdf-tools.html', 'pdf-to-word.html', 'word-to-pdf.html', 'jpg-to-pdf.html', 'compress-pdf.html', 'merge-pdf.html', 'pdf-to-jpg.html'];
+const PAGES = ['index.html', 'pdf-tools.html', 'pdf-to-word.html', 'word-to-pdf.html', 'jpg-to-pdf.html', 'compress-pdf.html', 'merge-pdf.html', 'pdf-to-jpg.html', 'compress-pdf-to-100kb.html', 'compress-pdf-to-200kb.html', 'jpg-to-pdf-for-assignment.html'];
 
 function version() {
   const h = crypto.createHash('sha256');

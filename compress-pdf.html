@@ -12,13 +12,13 @@
 <meta property="og:url" content="https://parafree.app/compress-pdf.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="ParaFree">
-<meta property="og:image" content="https://parafree.app/og-image.png">
+<meta property="og:image" content="https://parafree.app/og/compress-pdf.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Compress PDF to 100KB, 200KB, 500KB or 1MB — Free, No Signup">
 <meta name="twitter:description" content="Compress a PDF to a target size — 100 KB, 200 KB, 500 KB, 1 MB, 2 MB or your own — for university, job and form upload limits. Free, no signup, no watermark, and your file stays on your device.">
-<meta name="twitter:image" content="https://parafree.app/og-image.png">
+<meta name="twitter:image" content="https://parafree.app/og/compress-pdf.png">
 <meta name="twitter:site" content="@parafree">
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0QEEGS0DZQ"></script>
@@ -104,6 +104,30 @@
         "@type": "Answer",
         "text": "It tries Light first. If that is still above your target, it rebuilds the pages as images and searches for the highest resolution and quality that stays under the target, down to about 72 DPI. If even that is too big, you get the smallest version and a clear message."
       }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I compress a PDF to under 100 KB on my phone?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Often, yes: choose Target size → 100 KB on the Compress PDF page in your phone’s browser. Text PDFs of a few pages usually fit; long scans may not, and the tool then tells you the smallest size it reached."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I reduce a PDF’s size without losing quality?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Use Light mode first: it shrinks large images to about 150 DPI and keeps text, vector graphics and fonts exactly as they were, so text stays sharp and selectable."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I compress a PDF for a job application?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Pick a target such as 200 KB or 1 MB. Light mode is tried first, so the text in your CV stays selectable for applicant tracking systems."
+      }
     }
   ]
 }
@@ -143,7 +167,7 @@
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/pdf-tools.css">
-<link rel="preload" as="script" href="/lib/pdf-tools/compress-pdf.js?v=2ebeb8c785">
+<link rel="preload" as="script" href="/lib/pdf-tools/compress-pdf.js?v=f5158bf3cd">
 </head>
 <body data-pf-tool="compress-pdf">
 
@@ -187,13 +211,14 @@
     <h1>Compress PDF to a Target Size</h1>
     <p>Shrink a PDF to fit an upload limit — pick 100 KB, 200 KB, 500 KB, 1 MB, 2 MB or type your own size. Free, no signup, no watermark, and you always see the size before and after.</p>
     <div class="pf-privacy"><span aria-hidden="true">🔒</span> No upload, no waiting — your file is processed on your device.</div>
+    <p class="pf-updated">Last updated: October 22, 2026</p>
   </div>
 </header>
 
 <!-- THE TOOL (the same module as pdf-tools.html, opened on this tool) -->
 <main class="pf-tools"></main>
-<script>window.PFV = '2ebeb8c785';</script>
-<script src="/lib/pdf-tools/panels.js?v=2ebeb8c785"></script>
+<script>window.PFV = 'f5158bf3cd';</script>
+<script src="/lib/pdf-tools/panels.js?v=f5158bf3cd"></script>
 <script>window.PFPanels.render(document.querySelector('main.pf-tools'));</script>
 
 <div class="pf-content">
@@ -214,11 +239,13 @@
     <h2>Government and application form size limits</h2>
     <p>Online application forms often ask for scanned documents — certificates, ID pages, letters — under a small limit such as 100 KB, 200 KB or 500 KB. Pick the matching target. A one-page scan usually fits under 200 KB; many pages may not fit under a very small limit at a readable quality.</p>
     <p>If a target cannot be reached, the tool says so plainly and offers the smallest version it could make, with its size. Then you can remove pages you don’t need, upload pages separately, or scan at a lower resolution.</p>
+    <p>There are step-by-step pages for the two most common limits: <a href="/compress-pdf-to-100kb.html">getting a scanned form under 100 KB</a> and <a href="/compress-pdf-to-200kb.html">getting a CV or application PDF under 200 KB</a>.</p>
   </section>
   <section class="pf-section">
     <h2>Compress scanned PDFs</h2>
     <p>Scanned PDFs are big because every page is a photo. Light mode resizes those photos to about 150 DPI at the size they are shown — sharp on screen and in print — and saves them as efficient JPEG. That alone often makes a scanned PDF several times smaller.</p>
     <p>Strong mode turns every page into one image at a lower resolution. That gives the smallest file, but the text can no longer be selected or searched.</p>
+    <p>If your “scan” is really a set of phone photos, <a href="/jpg-to-pdf.html">turn the photos into one PDF</a> first. Several documents for the same form can be <a href="/merge-pdf.html">merged into a single PDF</a> and then compressed together.</p>
   </section>
   <section class="pf-section">
     <h2>Keep text selectable (Light)</h2>
@@ -248,6 +275,9 @@
     <div class="faq-item"><p class="faq-q">Is my PDF uploaded to a server?</p><p class="faq-a">No. No upload, no waiting — your file is processed on your device.</p></div>
     <div class="faq-item"><p class="faq-q">Why did my PDF not get smaller?</p><p class="faq-a">If a PDF is mostly text, or its images are already small, there is little to remove. The tool then says it is already well compressed and offers your original file.</p></div>
     <div class="faq-item"><p class="faq-q">How does Target size decide?</p><p class="faq-a">It tries Light first. If that is still above your target, it rebuilds the pages as images and searches for the highest resolution and quality that stays under the target, down to about 72 DPI. If even that is too big, you get the smallest version and a clear message.</p></div>
+    <div class="faq-item"><p class="faq-q">Can I compress a PDF to under 100 KB on my phone?</p><p class="faq-a">Often, yes: choose Target size → 100 KB on the Compress PDF page in your phone’s browser. Text PDFs of a few pages usually fit; long scans may not, and the tool then tells you the smallest size it reached.</p></div>
+    <div class="faq-item"><p class="faq-q">How do I reduce a PDF’s size without losing quality?</p><p class="faq-a">Use Light mode first: it shrinks large images to about 150 DPI and keeps text, vector graphics and fonts exactly as they were, so text stays sharp and selectable.</p></div>
+    <div class="faq-item"><p class="faq-q">How do I compress a PDF for a job application?</p><p class="faq-a">Pick a target such as 200 KB or 1 MB. Light mode is tried first, so the text in your CV stays selectable for applicant tracking systems.</p></div>
   </section>
   <section class="pf-section pf-related">
     <h2>More free tools</h2>
@@ -311,9 +341,9 @@
 </footer>
 
 <!-- core only; this tool's module loads right away (app.js opens the tool named on <body>) -->
-<script src="/lib/pdf-tools/pdf-events.js?v=2ebeb8c785"></script>
-<script src="/lib/pdf-tools/loader.js?v=2ebeb8c785"></script>
-<script src="/lib/pdf-tools/common.js?v=2ebeb8c785"></script>
-<script src="/lib/pdf-tools/app.js?v=2ebeb8c785"></script>
+<script src="/lib/pdf-tools/pdf-events.js?v=f5158bf3cd"></script>
+<script src="/lib/pdf-tools/loader.js?v=f5158bf3cd"></script>
+<script src="/lib/pdf-tools/common.js?v=f5158bf3cd"></script>
+<script src="/lib/pdf-tools/app.js?v=f5158bf3cd"></script>
 </body>
 </html>
