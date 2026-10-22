@@ -15,6 +15,7 @@
 .pf-home-pdf .pf-subtab:hover { background: var(--surface2); color: var(--text); }
 .pf-home-pdf .pf-subtab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 .pf-home-pdf .pf-home-full { font-size: 13px; font-weight: 700; color: var(--accent); text-decoration: none; white-space: nowrap; }
+.pf-home-pdf .pf-home-page { font-size: 13px; font-weight: 600; color: var(--accent); text-decoration: none; white-space: nowrap; margin-left: auto; }
 .pf-home-pdf .pf-home-privacy { font-size: 13px; color: var(--accent); font-weight: 600; margin: 0 0 10px; }
 .pf-home-pdf .pf-home-loading { padding: 28px 16px; text-align: center; color: var(--text2); font-size: 14px; }
 .pf-home-pdf .panel-header { flex-wrap: wrap; gap: 10px; }

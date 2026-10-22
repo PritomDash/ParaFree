@@ -8,11 +8,13 @@ import html, json, os, re
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SITE = 'https://parafree.app'
 DATE, DATE_TEXT = '2026-10-21', 'October 21, 2026'
+MODIFIED, MODIFIED_TEXT = '2026-10-22', 'October 22, 2026'
 ENTITY = ('ParaFree is a free AI writing suite with a document paraphraser that keeps formatting, a CV builder with '
           'ATS-readable PDFs, and in-browser PDF tools (PDF to Word, Word to PDF, JPG to PDF, PDF to JPG, compress and merge).')
 
 POSTS = [
 dict(slug='blog-pdf-to-word-without-losing-formatting',
+  related='Related guides: if the converted document ends up too big for a portal, <a href="/blog-compress-pdf-upload-limits.html">how to compress a PDF for upload limits</a> walks through the size options, and if the PDF is your CV, <a href="/blog-ats-friendly-cv-guide.html">making a CV that applicant tracking systems can read</a> explains why a text PDF matters. Need one page as a picture rather than a document? <a href="/pdf-to-jpg.html">Save PDF pages as JPG images</a>.',
   title='How to Convert PDF to Word Without Losing Formatting (Free, 2026)',
   desc='Why PDF to Word conversions break layouts, how to keep headings, fonts, lists, tables and two-column pages, what to do with scanned PDFs, and how to check the result before you submit.',
   cta=('Convert a PDF to Word free — no signup, your file stays on your device.', '/pdf-to-word.html', 'Open PDF to Word →'),
@@ -53,6 +55,7 @@ dict(slug='blog-pdf-to-word-without-losing-formatting',
 <p>If you are adapting someone else’s text, cite the source. ParaFree’s <a href="/">document paraphraser</a> can reword the converted Word file while keeping its formatting — use it to help with your own writing, and check the result yourself.</p>
 '''),
 dict(slug='blog-compress-pdf-upload-limits',
+  related='Related guides: for a strict form limit, the <a href="/compress-pdf-to-100kb.html">100 KB compression page</a> covers scans and what to do when 100 KB is impossible, and the <a href="/compress-pdf-to-200kb.html">200 KB page for job portals</a> keeps a CV readable by applicant tracking systems. If you have to edit the PDF before you upload it, read <a href="/blog-pdf-to-word-without-losing-formatting.html">how to convert a PDF to Word without losing formatting</a>; for CVs, see <a href="/blog-ats-friendly-cv-guide.html">the ATS-friendly CV guide</a>.',
   title='How to Compress a PDF for University and Job Portal Upload Limits (Free)',
   desc='Upload portals cap PDFs at 1–5 MB, forms at 100–500 KB. How PDF compression works, when your text stays selectable, how to hit an exact target size, and what to do when it will not fit.',
   cta=('Compress a PDF to a target size free — your file stays on your device.', '/compress-pdf.html', 'Open Compress PDF →'),
@@ -89,6 +92,7 @@ dict(slug='blog-compress-pdf-upload-limits',
 <p>Need to put several files together first? Use <a href="/merge-pdf.html">Merge PDF</a>, then compress the merged file. Photos of documents? Make them into one PDF with <a href="/jpg-to-pdf.html">JPG to PDF</a> before compressing.</p>
 '''),
 dict(slug='blog-ats-friendly-cv-guide',
+  related='Related guides: if a job portal rejects your CV for its size, <a href="/compress-pdf-to-200kb.html">compress the CV PDF to under 200 KB</a> while keeping its text, or read <a href="/blog-compress-pdf-upload-limits.html">the guide to PDF upload limits</a>. Is your old CV just a PDF? <a href="/blog-pdf-to-word-without-losing-formatting.html">Convert it to Word without losing the formatting</a>, update it, and rebuild it in the <a href="/cv-builder.html">free CV builder</a>.',
   title='How to Make an ATS-Friendly CV That Recruiters’ Systems Can Read (Free, 2026)',
   desc='What applicant tracking systems read, why an image-only PDF CV can come through empty, how to check your PDF in ten seconds, and whether your CV should be one page or two.',
   cta=('Build a CV with an ATS-readable PDF — free, no signup, 54 templates.', '/cv-builder.html', 'Open the CV Builder →'),
@@ -152,7 +156,7 @@ def build(post, shell):
         val = {'twitter:title': f'{t} | ParaFree', 'twitter:description': d}[prop]
         s = re.sub(rf'(<meta name="{prop}" content=")[^"]*(">)', lambda m: m.group(1) + e(val) + m.group(2), s, count=1)
     article = {'@context': 'https://schema.org', '@type': 'Article', 'headline': t, 'description': d,
-               'author': {'@type': 'Person', 'name': 'Pritom Dash'}, 'datePublished': DATE, 'dateModified': DATE,
+               'author': {'@type': 'Person', 'name': 'Pritom Dash'}, 'datePublished': DATE, 'dateModified': MODIFIED,
                'publisher': {'@type': 'Organization', 'name': 'ParaFree', 'url': SITE}, 'mainEntityOfPage': url, 'url': url}
     crumbs = {'@context': 'https://schema.org', '@type': 'BreadcrumbList', 'itemListElement': [
         {'@type': 'ListItem', 'position': 1, 'name': 'Home', 'item': SITE + '/'},
@@ -164,8 +168,9 @@ def build(post, shell):
     cta_p, cta_href, cta_txt = post['cta']
     art = (f'''  <article>
     <h1>{e(t)}</h1>
-    <p class="article-meta">By Pritom Dash &middot; Published {DATE_TEXT}</p>
+    <p class="article-meta">By Pritom Dash &middot; Published {DATE_TEXT} &middot; Last updated: {MODIFIED_TEXT}</p>
 {post['body'].strip()}
+<p>{post['related']}</p>
 <p><em>{e(ENTITY)}</em></p>
 <p class="author-sig">— Pritom Dash</p>
     <div class="cta-box">

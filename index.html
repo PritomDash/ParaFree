@@ -24,10 +24,10 @@
 <meta property="og:locale" content="en_AU">
 <meta property="og:locale:alternate" content="en_US">
 <meta property="og:locale:alternate" content="en_GB">
-<meta property="og:image" content="https://parafree.app/og-image.png">
+<meta property="og:image" content="https://parafree.app/og/home.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta name="twitter:image" content="https://parafree.app/og-image.png">
+<meta name="twitter:image" content="https://parafree.app/og/home.png">
 <meta name="twitter:site" content="@parafree">
 <meta name="twitter:creator" content="@parafree">
   <!-- Google tag (gtag.js) -->
@@ -1643,7 +1643,7 @@ body.pf-cv-open #pf-scroll-top,body.pf-cv-open #pf-feedback-card{display:none!im
 <script>/* Extra tabs (PDF Tools, CV Builder): the text tools are only hidden while one is open (body.pf-alt-active)
    and shown again on any tool switch. PDF Tools: the shell shows at once; lib/pdf-tools home.js then loads only the
    active tool (files versioned with ?v=, long-cached) and is prefetched when the page is idle. CV Builder is static. */
-(function(){var V=window.PFV='2ebeb8c785',T=['pdf-to-word','word-to-pdf','jpg-to-pdf','compress-pdf','merge-pdf','pdf-to-jpg'],N=['📄 PDF to Word','📝 Word to PDF','🖼 JPG to PDF','🗜 Compress PDF','➕ Merge PDF','🖼 PDF to JPG'],
+(function(){var V=window.PFV='f5158bf3cd',T=['pdf-to-word','word-to-pdf','jpg-to-pdf','compress-pdf','merge-pdf','pdf-to-jpg'],N=['📄 PDF to Word','📝 Word to PDF','🖼 JPG to PDF','🗜 Compress PDF','➕ Merge PDF','🖼 PDF to JPG'],
 L=null,P=null,A=null,d=document,PANEL={pdf:'pfHomePdf',cv:'pfHomeCv'};
 function u(n,x){return '/lib/pdf-tools/'+n+(x||'.js')+'?v='+V}
 function js(src){return new Promise(function(r,j){var s=d.createElement('script');s.src=src;s.onload=r;s.onerror=j;d.head.appendChild(s)})}
@@ -1798,6 +1798,7 @@ document.addEventListener('DOMContentLoaded', function() {
       </label>
       <span style="font-size:12px; color:var(--text3);">TXT, PDF, DOCX, DOC, PPTX supported</span>
       <span id="fileName" style="font-size:12px; color:var(--accent); font-weight:500;"></span>
+      <span class="pf-pdf-hint" style="flex-basis:100%; font-size:12px; color:var(--text3);">Working with PDFs? <a href="/pdf-to-word.html" target="_top" style="color:var(--accent);">Turn a PDF into an editable Word file</a> or <a href="/compress-pdf.html" target="_top" style="color:var(--accent);">shrink a PDF for an upload limit</a> — free, in your browser.</span>
     </div>
     <div class="panel-footer">
       <button class="btn-sm btn-clear" onclick="clearInput()">✕ Clear</button>

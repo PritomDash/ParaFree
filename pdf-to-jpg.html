@@ -12,13 +12,13 @@
 <meta property="og:url" content="https://parafree.app/pdf-to-jpg.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="ParaFree">
-<meta property="og:image" content="https://parafree.app/og-image.png">
+<meta property="og:image" content="https://parafree.app/og/pdf-to-jpg.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Free PDF to JPG Converter — Convert PDF Pages to Images | No Signup">
 <meta name="twitter:description" content="Convert PDF pages to JPG or PNG images free: pick the pages, choose the quality, download one image or a ZIP. Runs in your browser — no signup, no watermark, nothing uploaded.">
-<meta name="twitter:image" content="https://parafree.app/og-image.png">
+<meta name="twitter:image" content="https://parafree.app/og/pdf-to-jpg.png">
 <meta name="twitter:site" content="@parafree">
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0QEEGS0DZQ"></script>
@@ -104,6 +104,30 @@
         "@type": "Answer",
         "text": "No — the text becomes part of the picture. To get editable text, use PDF to Word, which also reads scanned pages with OCR."
       }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I convert one page of a PDF to a JPG for free?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Choose the PDF in ParaFree’s PDF to JPG tool, type the page number in the Pages box and click Convert — that page downloads as a JPG."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I put a PDF page into a PowerPoint slide?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Convert the page to PNG at High quality with PDF to JPG, then insert the image into the slide like any other picture."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I convert a PDF to JPG on my phone?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes, in the phone’s browser. One page downloads as an image; several pages download as a ZIP, which the Files app on iPhone or Android can open."
+      }
     }
   ]
 }
@@ -143,7 +167,7 @@
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/pdf-tools.css">
-<link rel="preload" as="script" href="/lib/pdf-tools/pdf-to-jpg.js?v=2ebeb8c785">
+<link rel="preload" as="script" href="/lib/pdf-tools/pdf-to-jpg.js?v=f5158bf3cd">
 </head>
 <body data-pf-tool="pdf-to-jpg">
 
@@ -187,13 +211,14 @@
     <h1>Free PDF to JPG Converter</h1>
     <p>Turn the pages of a PDF into JPG or PNG images — all pages or just the ones you pick, in low, medium or high quality. One page downloads as an image, several as a ZIP. Free, no signup, no watermark.</p>
     <div class="pf-privacy"><span aria-hidden="true">🔒</span> No upload, no waiting — your file is processed on your device.</div>
+    <p class="pf-updated">Last updated: October 22, 2026</p>
   </div>
 </header>
 
 <!-- THE TOOL (the same module as pdf-tools.html, opened on this tool) -->
 <main class="pf-tools"></main>
-<script>window.PFV = '2ebeb8c785';</script>
-<script src="/lib/pdf-tools/panels.js?v=2ebeb8c785"></script>
+<script>window.PFV = 'f5158bf3cd';</script>
+<script src="/lib/pdf-tools/panels.js?v=f5158bf3cd"></script>
 <script>window.PFPanels.render(document.querySelector('main.pf-tools'));</script>
 
 <div class="pf-content">
@@ -223,7 +248,8 @@
   <section class="pf-section">
     <h2>Put a PDF page into PowerPoint or Word</h2>
     <p>PowerPoint, Word and Google Slides cannot place a PDF page on a slide or in a document, but they can insert an image. Convert the page — a chart from a report, a diagram from an article or a page of a handout — and insert the JPG or PNG like any other picture, then crop or resize it.</p>
-    <p>For diagrams, tables and anything with fine lines, choose PNG and High quality: PNG keeps edges crisp, and 220 DPI is sharp enough to fill a slide. If you need to edit the text itself rather than show the page, use PDF to Word instead.</p>
+    <p>For diagrams, tables and anything with fine lines, choose PNG and High quality: PNG keeps edges crisp, and 220 DPI is sharp enough to fill a slide. If you need to edit the text itself rather than show the page, <a href="/pdf-to-word.html">convert the PDF to an editable Word file</a> instead.</p>
+    <p>Going the other way — photos or screenshots that should become one document? <a href="/jpg-to-pdf.html">Combine the images into a PDF</a>, one image per page.</p>
   </section>
   <section class="pf-section">
     <h2>Upload a page as an image</h2>
@@ -253,6 +279,9 @@
     <div class="faq-item"><p class="faq-q">Should I choose JPG or PNG?</p><p class="faq-a">JPG gives smaller files and suits photos and sharing. PNG keeps text and lines perfectly sharp and suits slides, diagrams and printing, but the files are larger.</p></div>
     <div class="faq-item"><p class="faq-q">Is my PDF uploaded anywhere?</p><p class="faq-a">No. No upload, no waiting — your file is processed on your device. The page downloads the free open-source code it needs the first time you use it; your file is not part of that.</p></div>
     <div class="faq-item"><p class="faq-q">Can I copy the text from the images?</p><p class="faq-a">No — the text becomes part of the picture. To get editable text, use PDF to Word, which also reads scanned pages with OCR.</p></div>
+    <div class="faq-item"><p class="faq-q">How do I convert one page of a PDF to a JPG for free?</p><p class="faq-a">Choose the PDF in ParaFree’s PDF to JPG tool, type the page number in the Pages box and click Convert — that page downloads as a JPG.</p></div>
+    <div class="faq-item"><p class="faq-q">How do I put a PDF page into a PowerPoint slide?</p><p class="faq-a">Convert the page to PNG at High quality with PDF to JPG, then insert the image into the slide like any other picture.</p></div>
+    <div class="faq-item"><p class="faq-q">Can I convert a PDF to JPG on my phone?</p><p class="faq-a">Yes, in the phone’s browser. One page downloads as an image; several pages download as a ZIP, which the Files app on iPhone or Android can open.</p></div>
   </section>
   <section class="pf-section pf-related">
     <h2>More free tools</h2>
@@ -316,9 +345,9 @@
 </footer>
 
 <!-- core only; this tool's module loads right away (app.js opens the tool named on <body>) -->
-<script src="/lib/pdf-tools/pdf-events.js?v=2ebeb8c785"></script>
-<script src="/lib/pdf-tools/loader.js?v=2ebeb8c785"></script>
-<script src="/lib/pdf-tools/common.js?v=2ebeb8c785"></script>
-<script src="/lib/pdf-tools/app.js?v=2ebeb8c785"></script>
+<script src="/lib/pdf-tools/pdf-events.js?v=f5158bf3cd"></script>
+<script src="/lib/pdf-tools/loader.js?v=f5158bf3cd"></script>
+<script src="/lib/pdf-tools/common.js?v=f5158bf3cd"></script>
+<script src="/lib/pdf-tools/app.js?v=f5158bf3cd"></script>
 </body>
 </html>

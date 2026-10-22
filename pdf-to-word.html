@@ -12,13 +12,13 @@
 <meta property="og:url" content="https://parafree.app/pdf-to-word.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="ParaFree">
-<meta property="og:image" content="https://parafree.app/og-image.png">
+<meta property="og:image" content="https://parafree.app/og/pdf-to-word.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Free PDF to Word Converter — Editable, Keeps Fonts &amp; Columns | No Signup">
 <meta name="twitter:description" content="Convert PDF to an editable Word file free: text, headings, fonts, lists, tables and two-column layouts carry across, scanned pages are read with OCR. No signup, no watermark, runs in your browser.">
-<meta name="twitter:image" content="https://parafree.app/og-image.png">
+<meta name="twitter:image" content="https://parafree.app/og/pdf-to-word.png">
 <meta name="twitter:site" content="@parafree">
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0QEEGS0DZQ"></script>
@@ -104,6 +104,30 @@
         "@type": "Answer",
         "text": "A PDF stores where each word is drawn, not the reading order. The converter rebuilds the order from the layout, including two-column pages; unusual layouts such as text boxes or sidebars can still come out in a different order, so read through the result."
       }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I convert a PDF to Word without losing formatting for free?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Upload it to ParaFree’s PDF to Word converter: it rebuilds headings, fonts, lists, tables, images and two-column pages as real Word content, free and in your browser. Check the result in the built-in editor before you download the .docx."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I convert a PDF to Word on my phone without an app?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Open the PDF to Word page in your phone’s browser, choose the PDF and download the .docx. Long or scanned PDFs take longer on a phone, because the work happens on the device."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I edit a scanned PDF in Word?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Convert it with PDF to Word: pages without a text layer are read with OCR (English) in your browser and become editable text. Read the result carefully, as OCR can misread unclear print."
+      }
     }
   ]
 }
@@ -143,7 +167,7 @@
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/pdf-tools.css">
-<link rel="preload" as="script" href="/lib/pdf-tools/pdf-to-word.js?v=2ebeb8c785">
+<link rel="preload" as="script" href="/lib/pdf-tools/pdf-to-word.js?v=f5158bf3cd">
 </head>
 <body data-pf-tool="pdf-to-word">
 
@@ -187,13 +211,14 @@
     <h1>Free PDF to Word Converter</h1>
     <p>Turn a PDF into an editable Word document (.docx) — text, headings, bold and italic, fonts, lists, tables, images and two-column layouts carry across, and scanned pages are read with OCR. Free, no signup, no watermark.</p>
     <div class="pf-privacy"><span aria-hidden="true">🔒</span> No upload, no waiting — your file is processed on your device.</div>
+    <p class="pf-updated">Last updated: October 22, 2026</p>
   </div>
 </header>
 
 <!-- THE TOOL (the same module as pdf-tools.html, opened on this tool) -->
 <main class="pf-tools"></main>
-<script>window.PFV = '2ebeb8c785';</script>
-<script src="/lib/pdf-tools/panels.js?v=2ebeb8c785"></script>
+<script>window.PFV = 'f5158bf3cd';</script>
+<script src="/lib/pdf-tools/panels.js?v=f5158bf3cd"></script>
 <script>window.PFPanels.render(document.querySelector('main.pf-tools'));</script>
 
 <div class="pf-content">
@@ -234,6 +259,7 @@
   <section class="pf-section">
     <h2>What it can and can’t do</h2>
     <p>It handles the PDFs students meet most: typed assignments, reports, journal articles, lecture handouts and scans of printed pages. It keeps the order of the text, headings, lists, tables, images and the look of the fonts, and it gives you an editor to fix anything before you download.</p>
+    <p>Edited the Word file and need a PDF again for submission? <a href="/word-to-pdf.html">Turn the .docx back into a PDF</a>, and if it is over the portal’s size limit, <a href="/compress-pdf.html">shrink the PDF to a target size</a> before you upload it.</p>
     <p>It does not rebuild page furniture such as text boxes floating over images, form fields, comments or tracked changes, and its OCR reads English. Password-protected PDFs need the password removed first. Each conversion handles up to 50 pages — split a longer PDF and convert it in parts.</p>
   </section>
   <section class="pf-section">
@@ -249,6 +275,9 @@
     <div class="faq-item"><p class="faq-q">Is my PDF uploaded anywhere?</p><p class="faq-a">No. No upload, no waiting — your file is processed on your device. The page downloads the free open-source code it needs the first time you use it; your file is not part of that.</p></div>
     <div class="faq-item"><p class="faq-q">Can I reword the converted document?</p><p class="faq-a">Yes. After converting, use “Paraphrase the Word file” to open it in ParaFree’s document paraphraser, which keeps the formatting while it rewrites the text.</p></div>
     <div class="faq-item"><p class="faq-q">Why are some lines in a different order?</p><p class="faq-a">A PDF stores where each word is drawn, not the reading order. The converter rebuilds the order from the layout, including two-column pages; unusual layouts such as text boxes or sidebars can still come out in a different order, so read through the result.</p></div>
+    <div class="faq-item"><p class="faq-q">How do I convert a PDF to Word without losing formatting for free?</p><p class="faq-a">Upload it to ParaFree’s PDF to Word converter: it rebuilds headings, fonts, lists, tables, images and two-column pages as real Word content, free and in your browser. Check the result in the built-in editor before you download the .docx.</p></div>
+    <div class="faq-item"><p class="faq-q">Can I convert a PDF to Word on my phone without an app?</p><p class="faq-a">Yes. Open the PDF to Word page in your phone’s browser, choose the PDF and download the .docx. Long or scanned PDFs take longer on a phone, because the work happens on the device.</p></div>
+    <div class="faq-item"><p class="faq-q">How do I edit a scanned PDF in Word?</p><p class="faq-a">Convert it with PDF to Word: pages without a text layer are read with OCR (English) in your browser and become editable text. Read the result carefully, as OCR can misread unclear print.</p></div>
   </section>
   <section class="pf-section pf-related">
     <h2>More free tools</h2>
@@ -312,9 +341,9 @@
 </footer>
 
 <!-- core only; this tool's module loads right away (app.js opens the tool named on <body>) -->
-<script src="/lib/pdf-tools/pdf-events.js?v=2ebeb8c785"></script>
-<script src="/lib/pdf-tools/loader.js?v=2ebeb8c785"></script>
-<script src="/lib/pdf-tools/common.js?v=2ebeb8c785"></script>
-<script src="/lib/pdf-tools/app.js?v=2ebeb8c785"></script>
+<script src="/lib/pdf-tools/pdf-events.js?v=f5158bf3cd"></script>
+<script src="/lib/pdf-tools/loader.js?v=f5158bf3cd"></script>
+<script src="/lib/pdf-tools/common.js?v=f5158bf3cd"></script>
+<script src="/lib/pdf-tools/app.js?v=f5158bf3cd"></script>
 </body>
 </html>

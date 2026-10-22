@@ -12,13 +12,13 @@
 <meta property="og:url" content="https://parafree.app/jpg-to-pdf.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="ParaFree">
-<meta property="og:image" content="https://parafree.app/og-image.png">
+<meta property="og:image" content="https://parafree.app/og/jpg-to-pdf.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Free JPG to PDF — Combine Photos of Notes into One PDF">
 <meta name="twitter:description" content="Turn phone photos of handwritten notes, worksheets and screenshots into one PDF free. JPG, PNG and WebP, A4 or Letter pages, photos turned upright automatically. No signup, no watermark.">
-<meta name="twitter:image" content="https://parafree.app/og-image.png">
+<meta name="twitter:image" content="https://parafree.app/og/jpg-to-pdf.png">
 <meta name="twitter:site" content="@parafree">
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0QEEGS0DZQ"></script>
@@ -104,6 +104,30 @@
         "@type": "Answer",
         "text": "Not directly — each page is an image. Run the PDF through PDF to Word, which reads clear printed English with OCR; handwriting is read much less accurately."
       }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I combine multiple photos into one PDF for free?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Choose all the photos in ParaFree’s JPG to PDF tool, drag them into order and click Create PDF — each photo becomes one page, with no signup or watermark."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I turn photos of handwritten notes into a PDF on my phone?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Open the JPG to PDF page in your phone’s browser, pick the photos from your gallery, put them in order and create the PDF. Photos are turned the right way up automatically."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I convert iPhone HEIC photos to PDF?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Not directly — HEIC is not supported yet. Share or export the photos as JPG (or set Camera → Formats → Most Compatible), then convert them."
+      }
     }
   ]
 }
@@ -143,7 +167,7 @@
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/pdf-tools.css">
-<link rel="preload" as="script" href="/lib/pdf-tools/jpg-to-pdf.js?v=2ebeb8c785">
+<link rel="preload" as="script" href="/lib/pdf-tools/jpg-to-pdf.js?v=f5158bf3cd">
 </head>
 <body data-pf-tool="jpg-to-pdf">
 
@@ -187,13 +211,14 @@
     <h1>Free JPG to PDF Converter</h1>
     <p>Combine photos of your notes, worksheets and screenshots into one PDF, in the order you choose — JPG, PNG and WebP, on A4 or Letter pages. Free, no signup, no watermark.</p>
     <div class="pf-privacy"><span aria-hidden="true">🔒</span> No upload, no waiting — your file is processed on your device.</div>
+    <p class="pf-updated">Last updated: October 22, 2026</p>
   </div>
 </header>
 
 <!-- THE TOOL (the same module as pdf-tools.html, opened on this tool) -->
 <main class="pf-tools"></main>
-<script>window.PFV = '2ebeb8c785';</script>
-<script src="/lib/pdf-tools/panels.js?v=2ebeb8c785"></script>
+<script>window.PFV = 'f5158bf3cd';</script>
+<script src="/lib/pdf-tools/panels.js?v=f5158bf3cd"></script>
 <script>window.PFPanels.render(document.querySelector('main.pf-tools'));</script>
 
 <div class="pf-content">
@@ -209,11 +234,12 @@
     <h2>Handwritten notes photos to PDF</h2>
     <p>Photographed your handwritten notes, a whiteboard or a printed worksheet? Many teachers and portals want one PDF, not ten separate photos. Choose the photos, put them in order and create a single PDF with one photo per page.</p>
     <p>For the clearest result, photograph each page flat, in good light, filling most of the frame. The tool does not straighten tilted pages or remove shadows, so a careful photo makes a better PDF.</p>
+    <p>Handing in homework this way? <a href="/jpg-to-pdf-for-assignment.html">The assignment version of this tool</a> opens with A4 portrait pages and small margins already set. If the typed part of the assignment is a separate PDF, <a href="/merge-pdf.html">merge it with the photo PDF</a> so you upload one file.</p>
   </section>
   <section class="pf-section">
     <h2>Multiple images to one PDF</h2>
     <p>You can choose many images in one go. Each image becomes its own page, scaled to fit the page with no, a small or a large margin. Drag the images into order, or use the up and down arrows, and remove any you picked by mistake with ✕ before you create the PDF.</p>
-    <p>Very large photos are scaled down to 3,000 pixels on the long side, which is still sharp when printed, and keeps the PDF a sensible size. If the PDF is still too big for an upload limit, run it through Compress PDF with a target size.</p>
+    <p>Very large photos are scaled down to 3,000 pixels on the long side, which is still sharp when printed, and keeps the PDF a sensible size. If the PDF is still too big for an upload limit, <a href="/compress-pdf.html">compress the finished PDF to a target size</a>.</p>
   </section>
   <section class="pf-section">
     <h2>PNG and screenshots</h2>
@@ -253,6 +279,9 @@
     <div class="faq-item"><p class="faq-q">Can I choose the page size?</p><p class="faq-a">Yes — A4, Letter or “Fit to image”, with portrait, landscape or automatic orientation and a choice of margins. Each photo is fitted to the page without stretching.</p></div>
     <div class="faq-item"><p class="faq-q">Are my photos uploaded?</p><p class="faq-a">No. No upload, no waiting — your file is processed on your device.</p></div>
     <div class="faq-item"><p class="faq-q">Can I turn the PDF into editable text?</p><p class="faq-a">Not directly — each page is an image. Run the PDF through PDF to Word, which reads clear printed English with OCR; handwriting is read much less accurately.</p></div>
+    <div class="faq-item"><p class="faq-q">How do I combine multiple photos into one PDF for free?</p><p class="faq-a">Choose all the photos in ParaFree’s JPG to PDF tool, drag them into order and click Create PDF — each photo becomes one page, with no signup or watermark.</p></div>
+    <div class="faq-item"><p class="faq-q">How do I turn photos of handwritten notes into a PDF on my phone?</p><p class="faq-a">Open the JPG to PDF page in your phone’s browser, pick the photos from your gallery, put them in order and create the PDF. Photos are turned the right way up automatically.</p></div>
+    <div class="faq-item"><p class="faq-q">Can I convert iPhone HEIC photos to PDF?</p><p class="faq-a">Not directly — HEIC is not supported yet. Share or export the photos as JPG (or set Camera → Formats → Most Compatible), then convert them.</p></div>
   </section>
   <section class="pf-section pf-related">
     <h2>More free tools</h2>
@@ -316,9 +345,9 @@
 </footer>
 
 <!-- core only; this tool's module loads right away (app.js opens the tool named on <body>) -->
-<script src="/lib/pdf-tools/pdf-events.js?v=2ebeb8c785"></script>
-<script src="/lib/pdf-tools/loader.js?v=2ebeb8c785"></script>
-<script src="/lib/pdf-tools/common.js?v=2ebeb8c785"></script>
-<script src="/lib/pdf-tools/app.js?v=2ebeb8c785"></script>
+<script src="/lib/pdf-tools/pdf-events.js?v=f5158bf3cd"></script>
+<script src="/lib/pdf-tools/loader.js?v=f5158bf3cd"></script>
+<script src="/lib/pdf-tools/common.js?v=f5158bf3cd"></script>
+<script src="/lib/pdf-tools/app.js?v=f5158bf3cd"></script>
 </body>
 </html>

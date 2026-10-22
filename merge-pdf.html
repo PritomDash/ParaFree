@@ -12,13 +12,13 @@
 <meta property="og:url" content="https://parafree.app/merge-pdf.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="ParaFree">
-<meta property="og:image" content="https://parafree.app/og-image.png">
+<meta property="og:image" content="https://parafree.app/og/merge-pdf.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Merge PDF Files Free — Combine Assignment, Cover Sheet &amp; Appendix">
 <meta name="twitter:description" content="Merge PDF files into one free: put your cover sheet, assignment and appendix together, or join lecture slides into one study pack. Reorder by drag and drop. No signup, no watermark.">
-<meta name="twitter:image" content="https://parafree.app/og-image.png">
+<meta name="twitter:image" content="https://parafree.app/og/merge-pdf.png">
 <meta name="twitter:site" content="@parafree">
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0QEEGS0DZQ"></script>
@@ -104,6 +104,30 @@
         "@type": "Answer",
         "text": "Not yet — whole files are merged. Save the pages you need as a separate PDF first, then merge."
       }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I combine a cover sheet and an assignment into one PDF for free?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Choose both PDFs in Merge PDF, put the cover sheet first and click Merge — you get one PDF with every page unchanged, free and without signup."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I merge PDFs on my phone?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Choose the PDFs from your files in the phone’s browser, set the order with the arrows and merge; nothing is uploaded."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Will merging make my PDF too big to upload?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The merged PDF is about the sizes of the parts added together. If it is over the limit, compress it with a target size before you upload."
+      }
     }
   ]
 }
@@ -143,7 +167,7 @@
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/pdf-tools.css">
-<link rel="preload" as="script" href="/lib/pdf-tools/merge-pdf.js?v=2ebeb8c785">
+<link rel="preload" as="script" href="/lib/pdf-tools/merge-pdf.js?v=f5158bf3cd">
 </head>
 <body data-pf-tool="merge-pdf">
 
@@ -187,13 +211,14 @@
     <h1>Merge PDF Files Free</h1>
     <p>Combine PDFs into one file — a cover sheet, your assignment and an appendix, or a term of lecture slides — in the order you choose. Free, no signup, no watermark.</p>
     <div class="pf-privacy"><span aria-hidden="true">🔒</span> No upload, no waiting — your file is processed on your device.</div>
+    <p class="pf-updated">Last updated: October 22, 2026</p>
   </div>
 </header>
 
 <!-- THE TOOL (the same module as pdf-tools.html, opened on this tool) -->
 <main class="pf-tools"></main>
-<script>window.PFV = '2ebeb8c785';</script>
-<script src="/lib/pdf-tools/panels.js?v=2ebeb8c785"></script>
+<script>window.PFV = 'f5158bf3cd';</script>
+<script src="/lib/pdf-tools/panels.js?v=f5158bf3cd"></script>
 <script>window.PFPanels.render(document.querySelector('main.pf-tools'));</script>
 
 <div class="pf-content">
@@ -229,6 +254,7 @@
     <h2>Tips before you merge</h2>
     <p>Name your files so you can tell them apart in the list, for example “1 cover”, “2 essay”, “3 appendix”. Check that each file is the final version — merging does not change the pages, so a typo in one file stays in the merged PDF.</p>
     <p>If your course asks for a specific order, such as declaration first and references last, set it in the list before you merge, then scroll through the merged PDF once to confirm it.</p>
+    <p>Still have one part as a Word file? <a href="/word-to-pdf.html">Convert the .docx to PDF</a> first, then add it to the list. If the merged file is too large to upload, <a href="/compress-pdf.html">compress it to the portal’s limit</a>.</p>
   </section>
   <section class="pf-section">
     <h2>What it can and can’t do</h2>
@@ -253,6 +279,9 @@
     <div class="faq-item"><p class="faq-q">How many files can I merge?</p><p class="faq-a">As many as fit in 200 MB, with up to 300 pages in the merged PDF.</p></div>
     <div class="faq-item"><p class="faq-q">Are my files uploaded?</p><p class="faq-a">No. No upload, no waiting — your file is processed on your device.</p></div>
     <div class="faq-item"><p class="faq-q">Can I merge some of the pages of a PDF?</p><p class="faq-a">Not yet — whole files are merged. Save the pages you need as a separate PDF first, then merge.</p></div>
+    <div class="faq-item"><p class="faq-q">How do I combine a cover sheet and an assignment into one PDF for free?</p><p class="faq-a">Choose both PDFs in Merge PDF, put the cover sheet first and click Merge — you get one PDF with every page unchanged, free and without signup.</p></div>
+    <div class="faq-item"><p class="faq-q">Can I merge PDFs on my phone?</p><p class="faq-a">Yes. Choose the PDFs from your files in the phone’s browser, set the order with the arrows and merge; nothing is uploaded.</p></div>
+    <div class="faq-item"><p class="faq-q">Will merging make my PDF too big to upload?</p><p class="faq-a">The merged PDF is about the sizes of the parts added together. If it is over the limit, compress it with a target size before you upload.</p></div>
   </section>
   <section class="pf-section pf-related">
     <h2>More free tools</h2>
@@ -316,9 +345,9 @@
 </footer>
 
 <!-- core only; this tool's module loads right away (app.js opens the tool named on <body>) -->
-<script src="/lib/pdf-tools/pdf-events.js?v=2ebeb8c785"></script>
-<script src="/lib/pdf-tools/loader.js?v=2ebeb8c785"></script>
-<script src="/lib/pdf-tools/common.js?v=2ebeb8c785"></script>
-<script src="/lib/pdf-tools/app.js?v=2ebeb8c785"></script>
+<script src="/lib/pdf-tools/pdf-events.js?v=f5158bf3cd"></script>
+<script src="/lib/pdf-tools/loader.js?v=f5158bf3cd"></script>
+<script src="/lib/pdf-tools/common.js?v=f5158bf3cd"></script>
+<script src="/lib/pdf-tools/app.js?v=f5158bf3cd"></script>
 </body>
 </html>

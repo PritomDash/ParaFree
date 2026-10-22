@@ -162,7 +162,7 @@ test.describe('PDF tool landing pages', () => {
         return t.split(/\s+/).filter(Boolean).length;
       });
       expect(words, 'about 900–1,300 words').toBeGreaterThanOrEqual(900);
-      expect(words).toBeLessThanOrEqual(1400);
+      expect(words).toBeLessThanOrEqual(1550);                       // seo-push added 3 FAQ questions per page
       // FAQ JSON-LD = the visible FAQ; WebApplication free; BreadcrumbList; no aggregateRating
       const ld = ldBlocks(read(`${slug}.html`)).map((b) => JSON.parse(b));
       const types = ld.map((x) => x['@type']);

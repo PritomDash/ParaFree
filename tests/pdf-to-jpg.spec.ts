@@ -310,7 +310,7 @@ test.describe('PDF to JPG — everywhere the PDF tools are', () => {
     const body = s.split('<main class="pf-tools">')[1].split('<footer')[0].replace(/<script[\s\S]*?<\/script>/g, '').replace(/<[^>]+>/g, ' ').replace(/&[#\w]+;/g, ' ');
     const words = body.split(/\s+/).filter(Boolean).length;
     expect(words).toBeGreaterThanOrEqual(900);
-    expect(words).toBeLessThanOrEqual(1200);
+    expect(words).toBeLessThanOrEqual(1450);                         // seo-push added 3 FAQ questions
     for (const re of [/\bbest\b/i, /#1/, /\bonly\b/i, /quillbot|ilovepdf|smallpdf|adobe|sejda|zety|\bcanva\b|novoresume/i]) expect(body.match(re)?.[0], String(re)).toBeUndefined();
     for (const use of ['WhatsApp', 'PowerPoint', 'Word', 'slides', 'upload']) expect(body, use).toContain(use);
   });
