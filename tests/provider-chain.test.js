@@ -33,14 +33,16 @@ const G1 = 'gemini/gemini-3.5-flash-lite', GLITE = 'gemini/gemini-3.1-flash-lite
 const GROQS = ['groq', 'groq-2', 'groq-3'];
 const rot = (arr, i) => [...arr.slice(i), ...arr.slice(0, i)];
 const keyOf = (name) => name.split('/')[0];
+const NV_U = 'nvidia/nvidia/nemotron-3-ultra-550b-a55b', NV_L = 'nvidia/nvidia/nemotron-3.5-lightning-30b-a3b';
 // Full expected order for a given starting Groq key (all three Groq model groups share the offset).
 function expectedChain(firstKey) {
   const ks = rot(GROQS, GROQS.indexOf(firstKey));
   return [...ks.map(k => k + '/' + M120), G1,                                   // Tier 1
-          ...ks.map(k => k + '/' + M20), ...ks.map(k => k + '/' + LLAMA), GLITE, GEMMA, 'cloudflare',   // Tier 2 (Cloudflare last)
-          'ovhcloud', 'llm7', 'nvidia'];                                               // Tier 3
+          ...ks.map(k => k + '/' + M20), ...ks.map(k => k + '/' + LLAMA), GLITE, GEMMA,   // Tier 2
+          NV_U, NV_L, 'ovhcloud', 'llm7',                                       // Tier 3 (quality order)
+          'cloudflare'];                                                         // Tier 4 (safety net)
 }
-const CHAIN_LEN = 16;
+const CHAIN_LEN = 17;
 
 // ── Fetch mock ──
 // Names a request exactly like the chain entry: "<groq key>/<model>", "gemini/<model>", or the provider.
@@ -54,7 +56,7 @@ function providerOf(url, opts, body) {
   if (url.startsWith('https://api.cloudflare.com/')) return 'cloudflare';
   if (url.startsWith('https://oai.endpoints.kepler.ai.cloud.ovh.net/')) return 'ovhcloud';
   if (url.startsWith('https://api.llm7.io/')) return 'llm7';
-  if (url.startsWith('https://integrate.api.nvidia.com/')) return 'nvidia';
+  if (url.startsWith('https://integrate.api.nvidia.com/')) return 'nvidia/' + body.model;
   if (url.startsWith('https://openrouter.ai/')) return 'openrouter';
   if (url.startsWith('https://api.mistral.ai/')) return 'mistral';
   if (url.startsWith('https://api.sambanova.ai/')) return 'sambanova';
@@ -158,7 +160,7 @@ const groqCalls = (names, model) => names.filter(n => n.startsWith('groq') && (!
     r = await call(body);
     const firstPass = r.calls.slice(0, CHAIN_LEN);           // chat/CV paths retry once — first pass only
     const want = expectedChain(keyOf(firstPass[0]));
-    assert(`${tool}: Tier 1 → Tier 2 → Tier 3 in order`, JSON.stringify(firstPass) === JSON.stringify(want), firstPass.join(' → '));
+    assert(`${tool}: Tier 1 → Tier 2 → Tier 3 → Cloudflare last`, JSON.stringify(firstPass) === JSON.stringify(want), firstPass.join(' → '));
     const bad = r.calls.filter(n => DISABLED_HOST_NAMES.includes(n));
     assert(`${tool}: no disabled provider called`, bad.length === 0, bad.join(','));
   }
@@ -253,7 +255,7 @@ const groqCalls = (names, model) => names.filter(n => n.startsWith('groq') && (!
   reset({});
   r = await call({ text: SHORT, mode: 'standard' });
   const t = Object.fromEntries(r.rawCalls.map(c => [c.name, c.timeoutMs]));
-  for (const slow of ['ovhcloud', 'llm7', 'nvidia']) assert(`${slow} gets ≥20s`, t[slow] >= 20000, String(t[slow]));
+  for (const slow of ['ovhcloud', 'llm7', NV_U, NV_L]) assert(`${slow} gets ≥20s`, t[slow] >= 20000, String(t[slow]));
   for (const fast of [`groq/${M120}`, `groq-2/${M20}`, `groq-3/${LLAMA}`, G1, GLITE, GEMMA, 'cloudflare'])
     assert(`${fast} gets 10s`, t[fast] > 9000 && t[fast] <= 10000, String(t[fast]));
   assert('no timeout exceeds the 55s request budget', r.rawCalls.every(c => c.timeoutMs <= 55000));
@@ -320,6 +322,7 @@ const groqCalls = (names, model) => names.filter(n => n.startsWith('groq') && (!
   for (const d of ['openrouter', 'mistral', 'mistral-2', 'sambanova', 'deepseek', 'scaleway', 'huggingface', 'chutes']) {
     assert(`${d} reported disabled`, res9[d] && /disabled/.test(res9[d].status), JSON.stringify(res9[d]));
   }
+  assert('no groq-4 / gemini-2 rows or calls when their env vars are unset', !Object.keys(res9).some(n => /^(groq-4|gemini-2)\//.test(n)), Object.keys(res9).join(', '));
   assert('testKeys made no disabled-provider calls', !r.calls.some(n => DISABLED_HOST_NAMES.includes(n)), r.calls.join(','));
 
   // ── 10. KEYS FOUND startup log: booleans only, no key material ──
@@ -336,6 +339,7 @@ const groqCalls = (names, model) => names.filter(n => n.startsWith('groq') && (!
   assert('no "<prefix>..." key fragments in the logs', secrets.every(v => !allLogText.includes(v.slice(0, 8) + '...')));
   assert('no full key anywhere in the logs', secrets.every(v => !allLogText.includes(v)));
   assert('groq/groq2/groq3/gemini/cloudflare/nvidia reported present', kf && ['groq', 'groq2', 'groq3', 'gemini', 'cloudflare', 'nvidia'].every(k => kf[1][k] === true));
+  assert('groq4 / gemini2 reported absent (GROQ_KEY_4 / GEMINI_KEY_2 not set here)', kf && kf[1].groq4 === false && kf[1].gemini2 === false, JSON.stringify(kf && kf[1]));
 
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);

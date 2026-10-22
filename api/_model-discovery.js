@@ -18,6 +18,9 @@
 // Shared across instances via Upstash hashes: each entry's last success time (used to try
 // the most recently working entry first WITHIN a tier), each slot's last good model, and
 // health-check skips (non-quota failures, 15 min).
+//
+// KNOWN_BAD_MODELS (env MODEL_BLOCKLIST overrides) are models that list as available but fail
+// every call; they are treated like dead models, so a wildcard slot moves on to the next match.
 // ═══════════════════════════════════════════════════
 'use strict';
 
@@ -42,7 +45,25 @@ const listKey = (pk) => 'pf_models:' + pk;
 const EXCLUDE_WORDS = ['embed', 'vision', 'whisper', 'tts', 'guard', 'moderation', 'audio', 'image', 'preview',
                        'exp', 'experimental', 'learnlm', 'reward', 'reranker', 'classifier'];
 
-const GROQ_KEY_NAMES = ['groq', 'groq-2', 'groq-3'];
+const GROQ_KEY_NAMES = ['groq', 'groq-2', 'groq-3', 'groq-4'];
+const GEMINI_KEY_NAMES = ['gemini', 'gemini-2'];
+const KEY_NAMES = [...GROQ_KEY_NAMES, ...GEMINI_KEY_NAMES, 'cloudflare', 'nvidia'];
+// Env var holding each provider key's API key (groq-4 / gemini-2 are used only when set).
+const KEY_ENV = { 'groq': 'GROQ_KEY', 'groq-2': 'GROQ_KEY_2', 'groq-3': 'GROQ_KEY_3', 'groq-4': 'GROQ_KEY_4',
+                  'gemini': 'GEMINI_KEY', 'gemini-2': 'GEMINI_KEY_2' };
+
+// Listed by the provider but failing every call in the health check (Oct 23, 2026). Treated as
+// dead, so their slots resolve to the next matching model. Env MODEL_BLOCKLIST
+// ("provider:model, …"; "none" = empty) replaces this list.
+const KNOWN_BAD_MODELS = [
+  'gemini:gemini-3.8-flash', 'gemini:gemma-4-31b-it',
+  'nvidia:nvidia/llama-3.1-nemotron-70b-instruct', 'nvidia:mistralai/mistral-large-2-instruct',
+  'nvidia:nv-mistralai/mistral-nemo-12b-instruct', 'nvidia:deepseek-ai/deepseek-v4.1-flash', 'nvidia:z-ai/glm-5.3-flash',
+];
+function blocklist(env) {
+  if (env.MODEL_BLOCKLIST === undefined) return new Set(KNOWN_BAD_MODELS);
+  return new Set(parsePrefs(env.MODEL_BLOCKLIST).filter(x => x.toLowerCase() !== 'none'));
+}
 
 // How each provider ranks several matching models:
 //   largest  — biggest parameter count first (e.g. 70b before 32b), then newest
@@ -66,10 +87,9 @@ function defaultPrefs(env) {
                  'llama-*|qwen*|meta-llama/*|moonshotai/*|*-instruct'],
     gemini:     ['gemini-*-flash-lite', env.GEMINI_LITE_MODEL || 'gemini-*-flash', env.GEMMA_MODEL || 'gemma-*-it'],
     cloudflare: ['@cf/*instruct*'],
+    // Quality order: the 550B model first, the fast 30B one second (see TIER3_ORDER in process.js).
     nvidia:     [...(env.NVIDIA_MODEL ? [env.NVIDIA_MODEL] : []),
-                 'nvidia/llama-3.1-nemotron-70b-instruct', 'nvidia/nemotron-3-ultra-550b-a55b',
-                 'deepseek-ai/deepseek-v4.1-flash', 'mistralai/mistral-large-2-instruct',
-                 'nvidia/nemotron-3.5-lightning-30b-a3b', 'z-ai/glm-5.3-flash', 'nv-mistralai/mistral-nemo-12b-instruct'],
+                 'nvidia/nemotron-3-ultra-550b-a55b', 'nvidia/nemotron-3.5-lightning-30b-a3b'],
   };
 }
 // The old hard-coded models — used when there is no list and a pattern has a wildcard, and as
@@ -201,8 +221,10 @@ function createModelDiscovery({ fetchWithTimeout, getRedis, env = process.env, l
   let lastAttempt = 0, lastRefresh = 0, statsLoadedAt = 0;
 
   const validKey = (k) => !!(k && k.length > 10);
-  const providerOf = (pk) => pk.startsWith('groq') ? 'groq' : pk;
+  const providerOf = (pk) => pk.startsWith('groq') ? 'groq' : pk.startsWith('gemini') ? 'gemini' : pk;
+  const BLOCKED = blocklist(env);
   const isDead = (provider, model) => {
+    if (BLOCKED.has(provider + ':' + model)) return true;
     const until = DEAD.get(provider + ':' + model);
     if (!until) return false;
     if (until <= Date.now()) { DEAD.delete(provider + ':' + model); return false; }
@@ -228,26 +250,29 @@ function createModelDiscovery({ fetchWithTimeout, getRedis, env = process.env, l
   // providerKey → () => Promise<[{id, created}]>, only for providers with credentials.
   function fetchers() {
     const f = {};
-    const groqKeys = { 'groq': env.GROQ_KEY, 'groq-2': env.GROQ_KEY_2, 'groq-3': env.GROQ_KEY_3 };
-    for (const [pk, key] of Object.entries(groqKeys)) {
+    for (const pk of GROQ_KEY_NAMES) {
+      const key = env[KEY_ENV[pk]];
       if (validKey(key)) f[pk] = async () => {
         const d = await getJson('https://api.groq.com/openai/v1/models', { Authorization: 'Bearer ' + key });
         return (d.data || []).filter(m => m.id && m.active !== false).map(m => ({ id: m.id, created: m.created || 0 }));
       };
     }
-    if (validKey(env.GEMINI_KEY)) f.gemini = async () => {
-      const out = [];
-      let token = '';
-      for (let page = 0; page < 5; page++) {
-        const d = await getJson('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000' + (token ? '&pageToken=' + encodeURIComponent(token) : '') + '&key=' + env.GEMINI_KEY, {});
-        for (const m of d.models || []) {
-          if ((m.supportedGenerationMethods || []).includes('generateContent')) out.push({ id: String(m.name).replace(/^models\//, ''), created: 0 });
+    for (const pk of GEMINI_KEY_NAMES) {
+      const key = env[KEY_ENV[pk]];
+      if (validKey(key)) f[pk] = async () => {
+        const out = [];
+        let token = '';
+        for (let page = 0; page < 5; page++) {
+          const d = await getJson('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000' + (token ? '&pageToken=' + encodeURIComponent(token) : '') + '&key=' + key, {});
+          for (const m of d.models || []) {
+            if ((m.supportedGenerationMethods || []).includes('generateContent')) out.push({ id: String(m.name).replace(/^models\//, ''), created: 0 });
+          }
+          token = d.nextPageToken;
+          if (!token) break;
         }
-        token = d.nextPageToken;
-        if (!token) break;
-      }
-      return out;
-    };
+        return out;
+      };
+    }
     // Cloudflare's model search is paginated — read every page (a first page alone can miss
     // the model in use, which made the Cloudflare slot look empty).
     if (validKey(env.CF_KEY) && validKey(env.CF_ACCOUNT)) f.cloudflare = async () => {
@@ -280,10 +305,11 @@ function createModelDiscovery({ fetchWithTimeout, getRedis, env = process.env, l
   }
   const models = (pk) => slots(pk).map(s => s.model).filter(Boolean);
 
-  // Cloudflare's slots all sit at the end of Tier 2 (see SLOT_RANK in process.js).
+  // NVIDIA models are Tier 3 (strong slow backups); Cloudflare is Tier 4, the fast safety net
+  // (see SLOT_RANK / TIER3_ORDER in process.js).
   function tierLabel(provider, i) {
     if (provider === 'nvidia') return 'tier3 #' + (i + 1);
-    if (provider === 'cloudflare') return 'tier2';
+    if (provider === 'cloudflare') return 'tier4';
     return i === 0 ? 'tier1' : 'tier2';
   }
 
@@ -291,7 +317,7 @@ function createModelDiscovery({ fetchWithTimeout, getRedis, env = process.env, l
   // resolved models). Only positions where a model really left or arrived are logged, so a
   // retirement gives one line ("tier1 A → B") rather than every later slot shifting up.
   function logSwaps(reason, only) {
-    for (const pk of only ? [only] : [...GROQ_KEY_NAMES, 'gemini', 'cloudflare', 'nvidia']) {
+    for (const pk of only ? [only] : KEY_NAMES) {
       const now = models(pk);
       const before = LAST[pk];
       LAST[pk] = now;
@@ -306,7 +332,7 @@ function createModelDiscovery({ fetchWithTimeout, getRedis, env = process.env, l
     }
   }
   // First snapshot = what the defaults resolve to, so the first discovery logs real swaps.
-  for (const pk of [...GROQ_KEY_NAMES, 'gemini', 'cloudflare', 'nvidia']) LAST[pk] = models(pk);
+  for (const pk of KEY_NAMES) LAST[pk] = models(pk);
 
   async function loadDead() {
     const stored = await redisGet(DEAD_REDIS_KEY);
@@ -389,7 +415,7 @@ function createModelDiscovery({ fetchWithTimeout, getRedis, env = process.env, l
     for (const [k, until] of DEAD) merged[k] = until;
     await redisSet(DEAD_REDIS_KEY, merged, Math.ceil(DEAD_MS / 1000));
     log.warn(`[ParaFree] model dead: ${provider}/${model} (${String(reason).slice(0, 80)}) — skipped for 24h`);
-    const keysToLog = provider === 'groq' ? GROQ_KEY_NAMES : [provider];
+    const keysToLog = provider === 'groq' ? GROQ_KEY_NAMES : provider === 'gemini' ? GEMINI_KEY_NAMES : [provider];
     for (const k of keysToLog) logSwaps('retired: ' + String(reason).slice(0, 40), k);
     return pk !== undefined && slot !== undefined ? models(pk)[slot] || null : null;
   }
@@ -457,6 +483,7 @@ function createModelDiscovery({ fetchWithTimeout, getRedis, env = process.env, l
       lastFullRefresh: lastRefresh ? new Date(lastRefresh).toISOString() : null,
       freshForHours: FRESH_MS / 3600000,
       deadModels: dead,
+      blockedModels: [...BLOCKED],
       skippedEntries: skipped,
       lastGood,
       recentSuccess,
@@ -472,6 +499,7 @@ function createModelDiscovery({ fetchWithTimeout, getRedis, env = process.env, l
 
 module.exports = {
   createModelDiscovery, resolveSlots, patternRe, isTextModel, newestFirst, sizeOf, isDeadModelError, MIN_SIZE_B,
+  KNOWN_BAD_MODELS, blocklist,
   defaultPrefs, defaultModels, prefsFor, parsePrefs, EXCLUDE_WORDS, PROVIDER_SORT,
   FRESH_MS, WAIT_MS, DEAD_MS, SKIP_MS, RECENT_WINDOW_MS, RECENT_BUCKET_MS,
 };

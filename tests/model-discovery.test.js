@@ -148,9 +148,9 @@ const keyOf = (n) => n.split('/')[0];
 function v24Chain(firstKey, geminiT2 = 'gemini-3.1-flash-lite') {
   const ks = rot(GROQS, GROQS.indexOf(firstKey));
   return [...ks.map(k => k + '/' + M120), 'gemini/gemini-3.5-flash-lite',                                   // Tier 1
-          ...ks.map(k => k + '/' + M20), ...ks.map(k => k + '/' + LLAMA), 'gemini/' + geminiT2, 'gemini/gemma-3-27b-it',
-          'cloudflare/@cf/meta/llama-3.1-8b-instruct',                                                   // Tier 2 (Cloudflare last)
-          'ovhcloud', 'llm7'];
+          ...ks.map(k => k + '/' + M20), ...ks.map(k => k + '/' + LLAMA), 'gemini/' + geminiT2, 'gemini/gemma-3-27b-it',   // Tier 2
+          'ovhcloud', 'llm7',                                                                            // Tier 3 (NVIDIA filtered out here)
+          'cloudflare/@cf/meta/llama-3.1-8b-instruct'];                                                  // Tier 4 (safety net)
 }
 const SHORT = 'This is a short paragraph that needs paraphrasing for the test suite here.';
 const firstNonNvidia = (names) => names.filter(n => !n.startsWith('nvidia/'));
@@ -202,9 +202,8 @@ const firstNonNvidia = (names) => names.filter(n => !n.startsWith('nvidia/'));
   const seq = firstNonNvidia(r.calls);
   assert('6 model lists fetched (3 Groq keys, Gemini, Cloudflare, NVIDIA)', r.listCalls.length === 6, r.listCalls.join(' | '));
   assert('resolved chain = v2.4 shape, Gemini Tier 2 now gemini-*-flash → gemini-3.5-flash', JSON.stringify(seq) === JSON.stringify(v24Chain(keyOf(seq[0]), 'gemini-3.5-flash')), seq.join(' → '));
-  // NVIDIA's first preference is absent from its list: the slot never goes empty — it keeps the
-  // hard-coded default (it is only dropped once it actually answers 404/410 and is marked dead).
-  assert('NVIDIA slot keeps its default when absent from the list (never empty)', r.calls.filter(n => n.startsWith('nvidia/'))[0] === 'nvidia/nvidia/llama-3.1-nemotron-70b-instruct', r.calls.filter(n => n.startsWith('nvidia/')).join(','));
+  assert('NVIDIA: the two working models, ultra then lightning (failing IDs no longer in the chain)',
+    r.calls.filter(n => n.startsWith('nvidia/')).join(',') === 'nvidia/nvidia/nemotron-3-ultra-550b-a55b,nvidia/nvidia/nemotron-3.5-lightning-30b-a3b', r.calls.filter(n => n.startsWith('nvidia/')).join(','));
   assert('lists cached in Upstash', ['groq', 'groq-2', 'groq-3', 'gemini', 'cloudflare', 'nvidia'].every(pk => store.has('pf_models:' + pk)));
   assert('Upstash list entries carry fetchedAt (6h freshness) and are kept as fallback', setLog.filter(s => s.key.startsWith('pf_models:')).every(s => s.ex >= 6 * 3600));
   assert('no key material in cache keys', [...store.keys()].every(k => !Object.values(KEYS).some(v => k.includes(v))));
@@ -289,12 +288,11 @@ const firstNonNvidia = (names) => names.filter(n => !n.startsWith('nvidia/'));
                 'gemini/gemini-3.1-flash-lite': 'ok' };
   r = await call({ text: SHORT, type: 'code_assistant' });
   assert('Gemini HTTP 404 → swapped to the next resolved Gemini model at once', r.calls.includes('gemini/gemini-3.5-flash-lite') && r.payload.success && r.logs.some(l => l.includes('model swap: gemini tier1 gemini-3.5-flash-lite → gemini-3.1-flash-lite')), r.calls.join(','));
-  behaviour = { 'nvidia/nvidia/llama-3.1-nemotron-70b-instruct': 'dead',
-                'nvidia/nvidia/nemotron-3-ultra-550b-a55b': { status: 410, body: { error: 'model has reached end of life' } }, 'nvidia/deepseek-ai/deepseek-v4.1-flash': 'ok' };
+  behaviour = { 'nvidia/nvidia/nemotron-3-ultra-550b-a55b': { status: 410, body: { error: 'model has reached end of life' } }, 'nvidia/nvidia/nemotron-3.5-lightning-30b-a3b': 'ok' };
   r = await call({ text: SHORT, mode: 'standard' });
   const nv = r.calls.filter(n => n.startsWith('nvidia/'));
-  assert('NVIDIA 404 / 410 → dead + next model in the same call', nv.join(',') === 'nvidia/nvidia/llama-3.1-nemotron-70b-instruct,nvidia/nvidia/nemotron-3-ultra-550b-a55b,nvidia/deepseek-ai/deepseek-v4.1-flash' && r.payload.success, nv.join(','));
-  assert('NVIDIA dead marks + swap logged', r.logs.some(l => l.includes('model dead: nvidia/nvidia/nemotron-3-ultra-550b-a55b')) && r.logs.some(l => l.includes('model swap: nvidia tier3 #1 nvidia/llama-3.1-nemotron-70b-instruct →')), r.logs.filter(l => l.includes('swap') || l.includes('dead')).join(' | '));
+  assert('NVIDIA 410 → dead + the same entry retries at once with the next model (never a blocked one)', nv.join(',') === 'nvidia/nvidia/nemotron-3-ultra-550b-a55b,nvidia/nvidia/nemotron-3.5-lightning-30b-a3b' && r.payload.success, nv.join(','));
+  assert('NVIDIA dead mark + swap logged', r.logs.some(l => l.includes('model dead: nvidia/nvidia/nemotron-3-ultra-550b-a55b')) && r.logs.some(l => l.includes('model swap: nvidia tier3 #1 nvidia/nemotron-3-ultra-550b-a55b → nvidia/nemotron-3.5-lightning-30b-a3b')), r.logs.filter(l => l.includes('swap') || l.includes('dead')).join(' | '));
   assert('a 429 is NOT treated as retired', !MD.isDeadModelError('Groq/openai/gpt-oss-20b:429 Rate limit reached'));
 
   // ── 7. Env preference lists ──
@@ -328,12 +326,12 @@ const firstNonNvidia = (names) => names.filter(n => !n.startsWith('nvidia/'));
   assert('slot row shows pattern, resolved model, tier and status', row && row.pattern === 'openai/gpt-oss-20b' && row.model === M20 && row.tier === 'tier2' && row.status === '✅ working', JSON.stringify(row));
   const gRow = res['gemini/gemma-3-27b-it'];
   assert('wildcard slot shows its pattern (gemma-*-it → gemma-3-27b-it)', gRow && gRow.pattern === 'gemma-*-it' && gRow.tier === 'tier2', JSON.stringify(gRow));
-  assert('Cloudflare row is Tier 2', res.cloudflare && res.cloudflare.tier === 'tier2' && res.cloudflare.model === '@cf/meta/llama-3.1-8b-instruct', JSON.stringify(res.cloudflare));
+  assert('Cloudflare row is Tier 4 (safety net)', res.cloudflare && res.cloudflare.tier === 'tier4' && res.cloudflare.model === '@cf/meta/llama-3.1-8b-instruct', JSON.stringify(res.cloudflare));
   const auto = Object.entries(res).find(([, v]) => v.pattern === '@cf/nonexistent-*');
   assert('unmatched pattern auto-picks a model and the row says so (pickedBy "auto")', auto && auto[1].pickedBy === 'auto' && auto[1].autoPicked === true && auto[1].model && !/guard/.test(auto[1].model), JSON.stringify(auto));
   assert('no slot is left empty', !Object.keys(res).some(k => k.includes('(no match)')), Object.keys(res).filter(k => k.includes('no match')).join(', '));
   assert('every slot row says how it was picked', Object.values(res).filter(v => v.pattern).every(v => ['match', 'previous', 'literal', 'last-good', 'default', 'auto'].includes(v.pickedBy)));
-  assert('NVIDIA rows: one per preference (7), none empty', Object.entries(res).filter(([k, v]) => k.startsWith('nvidia/') && v.model).length === 7, Object.keys(res).filter(k => k.startsWith('nvidia')).join(', '));
+  assert('NVIDIA rows: one per preference (2), none empty', Object.entries(res).filter(([k, v]) => k.startsWith('nvidia/') && v.model).length === 2, Object.keys(res).filter(k => k.startsWith('nvidia')).join(', '));
   assert('discovery section: per-list source + last refresh time', ['groq', 'groq-2', 'groq-3', 'gemini', 'cloudflare', 'nvidia'].every(pk => disc.lists[pk] && disc.lists[pk].refreshedAt && disc.lists[pk].modelCount > 0), JSON.stringify(disc.lists));
   assert('discovery section: lastFullRefresh + preference lists', disc.lastFullRefresh && disc.prefs.cloudflare[1] === '@cf/nonexistent-*');
   delete process.env.CF_MODEL_PREFS;
@@ -390,19 +388,25 @@ const firstNonNvidia = (names) => names.filter(n => !n.startsWith('nvidia/'));
   assert('baseline: Gemini is the last Tier 1 entry and handles it', r.calls[r.calls.length - 1] === G1 && r.calls.length === 4, r.calls.join(','));
   r = await call({ text: SHORT, mode: 'standard' });
   assert('next request: the most recently successful Tier 1 entry (Gemini) is tried first', r.calls.join(',') === G1, r.calls.join(','));
-  behaviour = { [CFN]: 'ok' };                                        // Gemini stops working; only Tier-2 Cloudflare works
+  const G3 = 'gemini/gemma-3-27b-it';                                 // a Tier 2 entry (one key, so no group rotation)
+  behaviour = { [G3]: 'ok' };                                         // Gemini stops working; only one Tier-2 entry works
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('Tier 2 Cloudflare succeeds only after every Tier 1 entry was tried', T1(r.calls.slice(0, 4)).length === 4 && T1(r.calls.slice(4)).length === 0 && r.calls[r.calls.length - 1] === CFN, r.calls.join(','));
-  assert('…and Cloudflare is the LAST Tier 2 entry (after Groq 20b/qwen-slot and Gemini Tier 2)', r.calls.length === 13 && r.calls[11] === 'gemini/gemma-3-27b-it', r.calls.join(','));
+  assert('Tier 2 succeeds only after every Tier 1 entry was tried', T1(r.calls.slice(0, 4)).length === 4 && T1(r.calls.slice(4)).length === 0 && r.calls[r.calls.length - 1] === G3, r.calls.join(','));
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('Tier 1 still fully before Tier 2 (never reordered across tiers)', T1(r.calls.slice(0, 4)).length === 4 && r.calls[4] === CFN, r.calls.join(','));
-  assert('within Tier 2 the recent winner (Cloudflare) goes first', r.calls.length === 5, r.calls.join(','));
+  assert('Tier 1 still fully before Tier 2 (never reordered across tiers)', T1(r.calls.slice(0, 4)).length === 4 && r.calls[4] === G3, r.calls.join(','));
+  assert('within Tier 2 the recent winner goes first', r.calls.length === 5, r.calls.join(','));
   assert('within Tier 1 Gemini (recent) still first', r.calls[0] === G1);
+  behaviour = { [CFN]: 'ok' };                                        // only the Cloudflare safety net works
+  r = await call({ text: SHORT, mode: 'standard' });
+  assert('Cloudflare (Tier 4) succeeds only after Tiers 1–3 (incl. NVIDIA, ovhcloud, llm7)', r.calls[r.calls.length - 1] === CFN && r.calls.includes('ovhcloud') && r.calls.includes('llm7') && r.calls.includes('nvidia/nvidia/nemotron-3-ultra-550b-a55b'), r.calls.join(','));
+  r = await call({ text: SHORT, mode: 'standard' });
+  assert('a recent Cloudflare success never moves it ahead of Tiers 1–3', r.calls[r.calls.length - 1] === CFN && r.calls.length > 5, r.calls.join(','));
   await settle();
   assert('success times stored in Upstash (shared hash)', hget('pf_last_success', 'cloudflare') > 0 && hget('pf_last_success', G1) > 0);
   coldStart();
+  behaviour = { [G3]: 'ok' };
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('a new instance uses the shared order (Gemini first in Tier 1, Cloudflare first in Tier 2)', r.calls[0] === G1 && r.calls[4] === CFN, r.calls.join(','));
+  assert('a new instance uses the shared order (Gemini first in Tier 1, recent Tier 2 winner first in Tier 2)', r.calls[0] === G1 && r.calls[4] === G3, r.calls.join(','));
   advance(61 * 60 * 1000);
   r = await call({ text: SHORT, mode: 'standard' });
   assert('successes older than 1 h no longer reorder (back to Groq rotation)', r.calls[0].endsWith('/' + M120), r.calls.join(','));
@@ -419,14 +423,14 @@ const firstNonNvidia = (names) => names.filter(n => !n.startsWith('nvidia/'));
   const FORBID = { status: 403, body: { error: { message: 'Forbidden' } } };
   behaviour = { ...H, [`groq-3/${M120}`]: 'timeout', [`groq-2/${M20}`]: 'dead', [`groq/${M20}`]: 'quota',
                 [`groq/${LLAMA}`]: AUTH, [`groq-3/${LLAMA}`]: FORBID, [`groq-2/${LLAMA}`]: 'fail',
-                ovhcloud: 'timeout', llm7: 'timeout', 'nvidia/deepseek-ai/deepseek-v4.1-flash': 'timeout' };
+                ovhcloud: 'timeout', llm7: 'timeout', 'nvidia/nvidia/nemotron-3.5-lightning-30b-a3b': 'timeout' };
   r = await call({ type: 'testKeys', adminPassword: 'test-admin' });
   const hk = r.payload.results;
   const skippedNames = r.payload.discovery.skippedEntries.map(s => s.entry);
   assert('timeout row → ❌ failed but NOT skipped', hk[`groq-3/${M120}`].status === '❌ failed' && !hk[`groq-3/${M120}`].skippedForMinutes && !skippedNames.includes(`groq-3/${M120}`), JSON.stringify(hk[`groq-3/${M120}`]));
   assert('slow providers timing out (ovhcloud, llm7, nvidia model) → NOT skipped',
-    ['ovhcloud', 'llm7', 'nvidia/deepseek-ai/deepseek-v4.1-flash'].every(n => hk[n] && hk[n].status === '❌ failed' && !hk[n].skippedForMinutes && !skippedNames.includes(n)),
-    JSON.stringify(['ovhcloud', 'llm7', 'nvidia/deepseek-ai/deepseek-v4.1-flash'].map(n => hk[n])));
+    ['ovhcloud', 'llm7', 'nvidia/nvidia/nemotron-3.5-lightning-30b-a3b'].every(n => hk[n] && hk[n].status === '❌ failed' && !hk[n].skippedForMinutes && !skippedNames.includes(n)),
+    JSON.stringify(['ovhcloud', 'llm7', 'nvidia/nvidia/nemotron-3.5-lightning-30b-a3b'].map(n => hk[n])));
   assert('5xx row → NOT skipped', hk[`groq-2/${LLAMA}`].status === '❌ failed' && !hk[`groq-2/${LLAMA}`].skippedForMinutes, JSON.stringify(hk[`groq-2/${LLAMA}`]));
   assert('401 row → skipped for 15 min', hk[`groq/${LLAMA}`].skippedForMinutes === 15 && skippedNames.includes(`groq/${LLAMA}`), JSON.stringify(hk[`groq/${LLAMA}`]));
   assert('403 row → skipped for 15 min', hk[`groq-3/${LLAMA}`].skippedForMinutes === 15, JSON.stringify(hk[`groq-3/${LLAMA}`]));
