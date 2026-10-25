@@ -259,6 +259,8 @@ nav.scrolled .nav-links a.active { color: var(--accent); }
 .pf-brk-menu { display: none; position: absolute; right: 0; top: 24px; z-index: 30; background: white; border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.12); padding: 8px 12px; white-space: nowrap; font-size: 12px; color: var(--text); }
 .pf-brk.open .pf-brk-menu { display: block; }
 .pf-brk-menu label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
+.pf-brk-menu .pf-mv { display: block; width: 100%; text-align: left; background: none; border: none; padding: 3px 0; margin-bottom: 4px; font: inherit; color: inherit; cursor: pointer; }
+.pf-brk-menu .pf-mv:hover { color: var(--accent); }
 #cv-preview { width: 794px !important; min-height: var(--pf-doc-h, 1123px) !important; height: var(--pf-doc-h, 1123px) !important; background: white !important; box-sizing: border-box !important; overflow: hidden !important; position: relative !important; display: block !important; padding: 0 !important; margin: 0 !important; }
 .form-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: 0 1px 6px rgba(0,0,0,0.04); }
 .form-section-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
@@ -2847,6 +2849,7 @@ function updatePreview() {
       (mainCol || preview).insertAdjacentHTML('beforeend', decoHtml);
     }
   }
+  pfApplySectionOrder(preview);
   pfFixAlign(preview, d);
   updateDecoratorList();
   updateJobSearch();
@@ -3314,7 +3317,98 @@ function pfToggleBreak(key, on) {
   document.querySelectorAll(`.pf-brk input[data-sec="${key}"]`).forEach(i => { i.checked = !!on; });
   scalePreview();
 }
-// "⋮" menu on each form section header: Start on new page
+// ── Section order ("⋮" menu → Move up / Move down) ──
+// Templates hard-code their section order, so the chosen order is applied to the rendered preview: each
+// section (the wrapper holding only its heading and content, or a bare heading plus the content up to the
+// next heading) is moved among the sections that share its column. The PDF and its text layer are taken
+// from the preview, so they follow. Nothing changes until a section is moved (pfSecOrder stays null).
+var pfSecOrder = _pfLoad('pf_cv_order', null);   // var: updatePreview may run before this line
+function pfSectionKey(el) {
+  let t = '';
+  for (const c of el.childNodes) if (c.nodeType === 3) t += c.nodeValue;
+  t = t.replace(/\s+/g, ' ').trim().replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '');
+  if (!t || t.length > 40) return null;
+  for (const k in PF_SECTION_HEADINGS) if (PF_SECTION_HEADINGS[k].test(t)) return k;
+  return null;
+}
+function pfSectionGroups(preview) {
+  const heads = [];
+  preview.querySelectorAll('*').forEach(el => {
+    if (el.closest('#carBadge')) return;
+    const key = pfSectionKey(el);
+    if (key) heads.push({ key, el });
+  });
+  const count = (x) => heads.reduce((n, h) => n + (x.contains(h.el) ? 1 : 0), 0);
+  const groups = [];
+  heads.forEach(h => {
+    let blk = h.el;
+    while (blk.parentElement && blk.parentElement !== preview && count(blk.parentElement) === 1) blk = blk.parentElement;
+    const nodes = [blk];
+    if (blk.textContent.replace(/\s+/g, '') === h.el.textContent.replace(/\s+/g, '')) {   // bare heading: take its content
+      for (let n = blk.nextSibling; n && !(n.nodeType === 1 && count(n)); n = n.nextSibling) nodes.push(n);
+    }
+    groups.push({ key: h.key, nodes, parent: blk.parentNode });
+  });
+  return groups;
+}
+// Movable units per column: each section, plus rows that hold sections side by side (e.g. Education | Skills
+// under the main column), which move as one unit among that column's sections.
+function pfSectionUnits(preview) {
+  const groups = pfSectionGroups(preview);
+  const units = groups.map(g => ({ keys: [g.key], nodes: g.nodes, parent: g.parent }));
+  new Set(groups.map(g => g.parent)).forEach(P => {
+    if (P === preview || !P.parentNode) return;
+    const kids = [...P.children];
+    const isRow = kids.length > 1 && kids.every(k => groups.some(g => k.contains(g.nodes[0])));
+    if (isRow && groups.some(g => g.parent === P.parentNode)) {
+      units.push({ keys: groups.filter(g => P.contains(g.nodes[0])).map(g => g.key), nodes: [P], parent: P.parentNode });
+    }
+  });
+  const pos = (a, b) => a.nodes[0].compareDocumentPosition(b.nodes[0]) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+  const cols = new Map();
+  units.forEach(u => { if (!cols.has(u.parent)) cols.set(u.parent, []); cols.get(u.parent).push(u); });
+  cols.forEach(us => us.sort(pos));
+  return cols;                                   // column element → its units, top to bottom
+}
+function pfApplySectionOrder(preview) {
+  if (!pfSecOrder || carouselMode || !preview) return;
+  const rank = (u) => Math.min(...u.keys.map(k => { const i = pfSecOrder.indexOf(k); return i < 0 ? 999 : i; }));
+  pfSectionUnits(preview).forEach(us => {
+    if (us.length < 2) return;
+    const sorted = us.slice().sort((a, b) => rank(a) - rank(b));
+    if (sorted.every((u, i) => u === us[i])) return;
+    const marks = us.map(u => { const m = document.createComment('pf-sec'); u.parent.insertBefore(m, u.nodes[0]); return m; });
+    us.forEach(u => u.nodes.forEach(n => n.remove()));
+    sorted.forEach((u, i) => { u.nodes.forEach(n => marks[i].parentNode.insertBefore(n, marks[i])); marks[i].remove(); });
+  });
+}
+function pfMoveSection(key, dir) {
+  const preview = document.getElementById('cv-preview');
+  const cols = preview && !carouselMode && !preview.querySelector('.cv-empty') ? pfSectionUnits(preview) : new Map();
+  let col = null, mine = null;                   // the outermost unit holding this section, and its column
+  cols.forEach(us => us.forEach(u => {
+    if (u.keys.includes(key) && (!mine || u.nodes[0].contains(mine.nodes[0]))) { mine = u; col = us; }
+  }));
+  if (!mine) { showToast('Add content to this section first, then move it.'); return; }
+  const other = col[col.indexOf(mine) + dir];
+  if (!other) { showToast(dir < 0 ? 'Already at the top of its column in this template' : 'Already at the bottom of its column in this template'); return; }
+  let order = (pfSecOrder || []).slice();
+  cols.forEach(us => us.forEach(u => u.keys.forEach(k => { if (!order.includes(k)) order.push(k); })));   // start from what the CV shows now
+  Object.keys(PF_SECTION_HEADINGS).forEach(k => { if (!order.includes(k)) order.push(k); });
+  order = order.filter(k => k !== key);
+  const idx = other.keys.map(k => order.indexOf(k));
+  order.splice(dir < 0 ? Math.min(...idx) : Math.max(...idx) + 1, 0, key);
+  pfSecOrder = order;
+  _pfSave('pf_cv_order', order);
+  updatePreview();
+}
+function pfResetSectionOrder() {
+  pfSecOrder = null;
+  _pfSave('pf_cv_order', null);
+  updatePreview();
+}
+
+// "⋮" menu on each form section header: Move up / Move down, Start on new page
 function pfInitBreakMenus() {
   Object.keys(PF_SECTION_HEADINGS).forEach(key => {
     const hdr = document.querySelector(`.cv-section-header[onclick="toggleSection('${key}')"]`);
@@ -3323,9 +3417,21 @@ function pfInitBreakMenus() {
     const wrap = document.createElement('span');
     wrap.className = 'pf-brk';
     wrap.innerHTML = `<button type="button" class="pf-brk-btn" aria-label="Section options" title="Section options">⋮</button>` +
-      `<span class="pf-brk-menu" role="menu"><label><input type="checkbox" data-sec="${key}"> Start on new page</label></span>`;
+      `<span class="pf-brk-menu" role="menu">` +
+      `<button type="button" class="pf-mv" data-mv="-1">↑ Move up</button>` +
+      `<button type="button" class="pf-mv" data-mv="1">↓ Move down</button>` +
+      `<button type="button" class="pf-mv pf-mv-reset">↺ Reset section order</button>` +
+      `<label><input type="checkbox" data-sec="${key}"> Start on new page</label></span>`;
     wrap.addEventListener('click', e => e.stopPropagation());
-    wrap.querySelector('.pf-brk-btn').addEventListener('click', () => wrap.classList.toggle('open'));
+    wrap.querySelector('.pf-brk-btn').addEventListener('click', () => {
+      wrap.querySelector('.pf-mv-reset').style.display = pfSecOrder ? '' : 'none';
+      wrap.classList.toggle('open');
+    });
+    wrap.querySelectorAll('.pf-mv[data-mv]').forEach(b => b.addEventListener('click', () => {
+      pfMoveSection(key, +b.dataset.mv);
+      wrap.querySelector('.pf-mv-reset').style.display = pfSecOrder ? '' : 'none';
+    }));
+    wrap.querySelector('.pf-mv-reset').addEventListener('click', () => { pfResetSectionOrder(); wrap.classList.remove('open'); });
     const cb = wrap.querySelector('input');
     cb.checked = pfPages.breaks.includes(key);
     cb.addEventListener('change', () => pfToggleBreak(key, cb.checked));
