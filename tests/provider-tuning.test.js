@@ -278,6 +278,20 @@ const T12_FAIL = Object.fromEntries([...GROQS, 'gemini', 'gemini-2'].map(k => [k
   r = await call({ type: 'providerUsage' });
   assert('providerUsage: no PIN → 403', r.status === 403);
 
+  // ── 9. CV writing (cv-quality-fixes): one request, never chunked; strict system prompts ──
+  console.log('\n── 9. cv_build / cover_letter: one request with the whole instruction + CV facts ──');
+  for (const type of ['cv_build', 'cover_letter']) {
+    reset({ groq: 'ok', 'groq-2': 'ok', 'groq-3': 'ok', 'groq-4': 'ok' });
+    r = await call({ type, text: 'Instruction line.\n\n' + LONG + '\n\nCandidate data: Telstra, 45 minutes to under 10' });
+    const sent = r.rawCalls[0] && r.rawCalls[0].body.messages ? r.rawCalls[0].body.messages.map(m => m.content).join('\n') : '';
+    assert(`${type}: a long request (>1,200 words) is ONE provider call, not chunked`, r.status === 200 && r.calls.length === 1, r.calls.join(','));
+    assert(`${type}: that call carries the instruction and the CV facts together`, sent.includes('Instruction line.') && sent.includes('Telstra, 45 minutes to under 10'));
+    assert(`${type}: system prompt forbids invented facts / figures and asks for placeholders`, /Never invent|never invent/.test(sent) && sent.includes('[X]%'), sent.slice(0, 200));
+  }
+  reset({ groq: 'ok', 'groq-2': 'ok', 'groq-3': 'ok', 'groq-4': 'ok' });
+  r = await call({ text: LONG, mode: 'standard' });
+  assert('paraphraser unchanged: the same long text is still split into 4 chunks', r.calls.length === 4, r.calls.join(','));
+
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
 })().catch(e => { loud(); console.error(e); process.exit(1); });

@@ -259,6 +259,8 @@ nav.scrolled .nav-links a.active { color: var(--accent); }
 .pf-brk-menu { display: none; position: absolute; right: 0; top: 24px; z-index: 30; background: white; border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.12); padding: 8px 12px; white-space: nowrap; font-size: 12px; color: var(--text); }
 .pf-brk.open .pf-brk-menu { display: block; }
 .pf-brk-menu label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
+.pf-brk-menu .pf-mv { display: block; width: 100%; text-align: left; background: none; border: none; padding: 3px 0; margin-bottom: 4px; font: inherit; color: inherit; cursor: pointer; }
+.pf-brk-menu .pf-mv:hover { color: var(--accent); }
 #cv-preview { width: 794px !important; min-height: var(--pf-doc-h, 1123px) !important; height: var(--pf-doc-h, 1123px) !important; background: white !important; box-sizing: border-box !important; overflow: hidden !important; position: relative !important; display: block !important; padding: 0 !important; margin: 0 !important; }
 .form-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: 0 1px 6px rgba(0,0,0,0.04); }
 .form-section-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
@@ -1226,6 +1228,7 @@ html.pf-embed .cv-main { padding-top: 12px !important; padding-bottom: 16px !imp
             </div>
             <button id="ai-summary-btn" onclick="aiGenSummary()" style="width:100%;padding:10px 16px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px;" onmouseover="this.style.background='#1e4d35'" onmouseout="this.style.background='var(--accent)'"><span style="font-size:16px;">✨</span> Generate with AI</button>
             <button onclick="generateLinkedIn()" style="margin-top:8px;padding:7px 14px;background:white;border:1.5px solid #0077b5;border-radius:8px;font-size:12px;color:#0077b5;font-weight:600;cursor:pointer;width:100%;transition:all 0.2s;font-family:'DM Sans',sans-serif;" onmouseover="this.style.background='#0077b5';this.style.color='white'" onmouseout="this.style.background='white';this.style.color='#0077b5'">🔗 Generate LinkedIn Summary</button>
+            <div class="pf-ai-note" style="font-size:11.5px;color:var(--text3);margin-top:6px;line-height:1.4;">AI drafts may include placeholder figures like [X]% — replace them with your real numbers.</div>
             <div id="linkedinResult" style="display:none;margin-top:8px;padding:10px;background:#f0f7ff;border:1px solid #bfdbfe;border-radius:8px;font-size:12px;color:#1e3a5f;"></div>
           </div>
         </div>
@@ -1433,7 +1436,10 @@ html.pf-embed .cv-main { padding-top: 12px !important; padding-bottom: 16px !imp
           <div id="section-references" style="padding:16px;border-top:1px solid var(--border);display:none;">
             <div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;">
               <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;font-size:14px;">
-                <input type="radio" name="references" value="Available upon request" checked onchange="toggleRefSection(this)"> Available upon request
+                <input type="radio" name="references" value="none" checked onchange="toggleRefSection(this)"> Don't include
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;font-size:14px;">
+                <input type="radio" name="references" value="Available upon request" onchange="toggleRefSection(this)"> Available upon request
               </label>
               <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;font-size:14px;">
                 <input type="radio" name="references" value="custom" onchange="toggleRefSection(this)"> Add references
@@ -1747,6 +1753,7 @@ English — Native | Bengali — Fluent" style="width:100%;border:1.5px solid va
           </div>
           <!-- Generate button -->
           <button onclick="generateCoverLetter()" id="cover-btn" onmouseover="this.style.background='#1e4d35'" onmouseout="this.style.background='var(--accent)'" style="width:100%;padding:12px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif;transition:background 0.2s;">✨ Generate Cover Letter</button>
+          <div class="pf-ai-note" style="font-size:11.5px;color:var(--text3);margin-top:6px;line-height:1.4;">AI drafts may include placeholder figures like [X]% — replace them with your real numbers.</div>
           <div class="cv-status" id="cover-status" style="margin-top:8px;"></div>
         </div>
 
@@ -2129,7 +2136,10 @@ function getFormData() {
     school: el.querySelector('.edu-school').value.trim(),
     degree: el.querySelector('.edu-degree').value.trim(),
     start:  el.querySelector('.edu-start').value.trim(),
-    end:    el.querySelector('.edu-end').value.trim()
+    end:    el.querySelector('.edu-end').value.trim(),
+    gpa:        (el.querySelector('.edu-gpa')?.value || '').trim(),
+    coursework: (el.querySelector('.edu-coursework')?.value || '').trim(),
+    honours:    (el.querySelector('.edu-honours')?.value || '').trim()
   }));
   return {
     name:    document.getElementById('f-name').value.trim(),
@@ -2147,6 +2157,28 @@ function getFormData() {
 }
 
 // ── Render helpers ──
+// Skills are comma-separated, but a comma inside brackets belongs to the skill:
+// "SIEM (Splunk, Sentinel), Python" → ["SIEM (Splunk, Sentinel)", "Python"].
+function pfSplitSkills(text) {
+  const out = [];
+  let depth = 0, cur = '';
+  for (const ch of String(text || '')) {
+    if ('([{'.includes(ch)) depth++;
+    else if (')]}'.includes(ch)) depth = Math.max(0, depth - 1);
+    if (ch === ',' && depth === 0) { out.push(cur); cur = ''; continue; }
+    cur += ch;
+  }
+  out.push(cur);
+  return out.map(s => s.trim()).filter(Boolean);
+}
+
+// Optional education details (GPA / coursework / honours): shown under the school only when filled.
+function pfEduExtras(e) {
+  const rows = [['GPA / Grade', e && e.gpa], ['Relevant coursework', e && e.coursework], ['Honours', e && e.honours]].filter(r => r[1]);
+  if (!rows.length) return '';
+  return `<div class="cv-edu-extra" style="font-size:11.5px;line-height:1.5;margin-top:2px;opacity:.85;">${rows.map(r => `<div><span style="font-weight:600;">${r[0]}:</span> ${esc(r[1])}</div>`).join('')}</div>`;
+}
+
 function renderBullets(bulletsText, cls) {
   if (!bulletsText) return '';
   const items = bulletsText.split('\n').filter(b => b.trim());
@@ -2210,13 +2242,13 @@ function renderClassic(d) {
           <span style="font-weight:700;font-size:13px;color:#1a1814;">${esc(e.degree)}</span>
           ${dates ? `<span style="font-size:11px;color:#888;white-space:nowrap;">${esc(dates)}</span>` : ''}
         </div>
-        <div style="font-size:12px;color:${accent};font-weight:600;">${esc(e.school)}</div>
+        <div style="font-size:12px;color:${accent};font-weight:600;">${esc(e.school)}</div>${pfEduExtras(e)}
       </div>`;
     });
   }
   if (d.skills) {
     h += secTitle('Skills');
-    const pills = d.skills.split(',').map(s => s.trim()).filter(Boolean)
+    const pills = pfSplitSkills(d.skills).map(s => s.trim()).filter(Boolean)
       .map(s => `<span style="display:inline-block;background:${accentFaint};color:${accent};border:1px solid ${accentBorder};border-radius:20px;padding:3px 11px;font-size:11px;font-weight:600;">${esc(s)}</span>`).join('');
     h += `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:4px;">${pills}</div>`;
   }
@@ -2236,7 +2268,7 @@ function renderModern(d) {
     sidebar += `<div class="cv-sidebar-sec"><div class="cv-sidebar-hdr">Contact</div>${contact.map(c=>`<div class="cv-contact-item">${esc(c)}</div>`).join('')}</div>`;
   }
   if (d.skills) {
-    const pills = d.skills.split(',').map(s=>`<span class="cv-skill-pill">${esc(s.trim())}</span>`).join('');
+    const pills = pfSplitSkills(d.skills).map(s=>`<span class="cv-skill-pill">${esc(s.trim())}</span>`).join('');
     sidebar += `<div class="cv-sidebar-sec"><div class="cv-sidebar-hdr">Skills</div>${pills}</div>`;
   }
   if (d.certs) {
@@ -2263,7 +2295,7 @@ function renderModern(d) {
       const dates = [e.start,e.end].filter(Boolean).join(' – ');
       main += `<div style="margin-bottom:8px;">
         <div class="cv-exp-hdr"><span class="cv-exp-role">${esc(e.degree)}</span>${dates?`<span class="cv-exp-dates">${esc(dates)}</span>`:''}</div>
-        <div class="cv-exp-company">${esc(e.school)}</div>
+        <div class="cv-exp-company">${esc(e.school)}</div>${pfEduExtras(e)}
       </div>`;
     });
   }
@@ -2278,7 +2310,7 @@ function renderProfessional(d) {
     sidebar += `<div class="cv-sidebar-sec"><div class="cv-sidebar-hdr">Contact</div>${contact.map(c=>`<div class="cv-contact-item">${esc(c)}</div>`).join('')}</div>`;
   }
   if (d.skills) {
-    const pills = d.skills.split(',').map(s=>`<span class="cv-skill-pill">${esc(s.trim())}</span>`).join('');
+    const pills = pfSplitSkills(d.skills).map(s=>`<span class="cv-skill-pill">${esc(s.trim())}</span>`).join('');
     sidebar += `<div class="cv-sidebar-sec"><div class="cv-sidebar-hdr">Skills</div>${pills}</div>`;
   }
   if (d.certs) {
@@ -2305,7 +2337,7 @@ function renderProfessional(d) {
       const dates = [e.start,e.end].filter(Boolean).join(' – ');
       main += `<div class="cv-edu-entry">
         <div class="cv-exp-hdr"><span class="cv-exp-role">${esc(e.degree)}</span>${dates?`<span class="cv-exp-dates">${esc(dates)}</span>`:''}</div>
-        <div class="cv-exp-company">${esc(e.school)}</div>
+        <div class="cv-exp-company">${esc(e.school)}</div>${pfEduExtras(e)}
       </div>`;
     });
   }
@@ -2340,12 +2372,12 @@ function renderGradient(d) {
       const dates = [e.start,e.end].filter(Boolean).join(' – ');
       h += `<div class="cv-edu-entry">
         <div class="cv-exp-hdr"><span class="cv-exp-role">${esc(e.degree)}</span>${dates?`<span class="cv-exp-dates">${esc(dates)}</span>`:''}</div>
-        <div class="cv-exp-company">${esc(e.school)}</div>
+        <div class="cv-exp-company">${esc(e.school)}</div>${pfEduExtras(e)}
       </div>`;
     });
   }
   if (d.skills) {
-    const skillList = d.skills.split(',').map(s => s.trim()).filter(Boolean);
+    const skillList = pfSplitSkills(d.skills).map(s => s.trim()).filter(Boolean);
     const skillWidth = s => 65 + (s.split('').reduce((a,c) => a + c.charCodeAt(0), 0) % 30);
     h += `<div class="cv-sec-title">Skills</div><div class="cv-skill-bars">${
       skillList.map(s => `<div class="cv-skill-bar-wrap">
@@ -2386,7 +2418,7 @@ function renderMinimal(d) {
       const dates = [e.start,e.end].filter(Boolean).join(' – ');
       h += `<div class="cv-edu-entry">
         <div class="cv-exp-hdr"><span class="cv-exp-role">${esc(e.degree)}</span>${dates?`<span class="cv-exp-dates">${esc(dates)}</span>`:''}</div>
-        <div class="cv-exp-company">${esc(e.school)}</div>
+        <div class="cv-exp-company">${esc(e.school)}</div>${pfEduExtras(e)}
       </div>`;
     });
   }
@@ -2418,7 +2450,7 @@ function renderExecutive(d) {
     h += `<div class="cv-sec-title">Education</div>`;
     edus.forEach(e => {
       const dates = [e.start,e.end].filter(Boolean).join(' – ');
-      h += `<div class="cv-edu-entry"><div class="cv-exp-hdr"><span class="cv-exp-role">${esc(e.degree)}</span>${dates?`<span class="cv-exp-dates">${esc(dates)}</span>`:''}</div><div class="cv-exp-company">${esc(e.school)}</div></div>`;
+      h += `<div class="cv-edu-entry"><div class="cv-exp-hdr"><span class="cv-exp-role">${esc(e.degree)}</span>${dates?`<span class="cv-exp-dates">${esc(dates)}</span>`:''}</div><div class="cv-exp-company">${esc(e.school)}</div>${pfEduExtras(e)}</div>`;
     });
   }
   if (d.skills) h += `<div class="cv-sec-title">Core Competencies</div><div class="cv-sec-body">${esc(d.skills)}</div>`;
@@ -2447,13 +2479,13 @@ function renderCreative(d) {
     main += `<div class="cv-sec-title">Education</div>`;
     edus.forEach(e => {
       const dates = [e.start,e.end].filter(Boolean).join(' – ');
-      main += `<div style="margin-bottom:8px;"><div class="cv-exp-hdr"><span class="cv-exp-role">${esc(e.degree)}</span>${dates?`<span class="cv-exp-dates">${esc(dates)}</span>`:''}</div><div class="cv-exp-company">${esc(e.school)}</div></div>`;
+      main += `<div style="margin-bottom:8px;"><div class="cv-exp-hdr"><span class="cv-exp-role">${esc(e.degree)}</span>${dates?`<span class="cv-exp-dates">${esc(dates)}</span>`:''}</div><div class="cv-exp-company">${esc(e.school)}</div>${pfEduExtras(e)}</div>`;
     });
   }
   let sidebar = '';
   if (contact.length) sidebar += `<div class="cv-sidebar-hdr">Contact</div>${contact.map(c=>`<div class="cv-contact-item">${esc(c)}</div>`).join('')}`;
   if (d.skills) {
-    const pills = d.skills.split(',').map(s=>`<span class="cv-skill-pill">${esc(s.trim())}</span>`).join('');
+    const pills = pfSplitSkills(d.skills).map(s=>`<span class="cv-skill-pill">${esc(s.trim())}</span>`).join('');
     sidebar += `<div class="cv-sidebar-hdr">Skills</div><div>${pills}</div>`;
   }
   if (d.certs) sidebar += `<div class="cv-sidebar-hdr">Certifications</div><div style="font-size:10px;color:#1a1814;">${esc(d.certs)}</div>`;
@@ -2481,7 +2513,7 @@ function renderCompact(d) {
     h += `<div class="cv-sec-title">Education</div>`;
     edus.forEach(e => {
       const dates = [e.start,e.end].filter(Boolean).join(' – ');
-      h += `<div class="cv-edu-entry"><div class="cv-exp-hdr"><span class="cv-exp-role">${esc(e.degree)}</span>${dates?`<span class="cv-exp-dates">${esc(dates)}</span>`:''}</div><div class="cv-exp-company">${esc(e.school)}</div></div>`;
+      h += `<div class="cv-edu-entry"><div class="cv-exp-hdr"><span class="cv-exp-role">${esc(e.degree)}</span>${dates?`<span class="cv-exp-dates">${esc(dates)}</span>`:''}</div><div class="cv-exp-company">${esc(e.school)}</div>${pfEduExtras(e)}</div>`;
     });
   }
   if (d.skills) h += `<div class="cv-sec-title">Skills</div><div class="cv-sec-body">${esc(d.skills)}</div>`;
@@ -2513,7 +2545,7 @@ function renderTimeline(d) {
     h += `<div class="cv-sec-title">Education</div>`;
     edus.forEach(e => {
       const dates = [e.start,e.end].filter(Boolean).join(' – ');
-      h += `<div class="cv-edu-entry"><div class="cv-exp-hdr"><span class="cv-exp-role">${esc(e.degree)}</span>${dates?`<span style="font-size:11px;color:#9e9890;">${esc(dates)}</span>`:''}</div><div class="cv-exp-company">${esc(e.school)}</div></div>`;
+      h += `<div class="cv-edu-entry"><div class="cv-exp-hdr"><span class="cv-exp-role">${esc(e.degree)}</span>${dates?`<span style="font-size:11px;color:#9e9890;">${esc(dates)}</span>`:''}</div><div class="cv-exp-company">${esc(e.school)}</div>${pfEduExtras(e)}</div>`;
     });
   }
   if (d.skills) h += `<div class="cv-sec-title">Skills</div><div class="cv-sec-body">${esc(d.skills)}</div>`;
@@ -2531,7 +2563,7 @@ function renderTech(d) {
   h += `<hr class="cv-divider">`;
   if (d.summary) h += `<div class="cv-sec-title">Overview</div><div class="cv-sec-body">${esc(d.summary)}</div>`;
   if (d.skills) {
-    const tags = d.skills.split(',').map(s=>`<span class="cv-skill-tag">${esc(s.trim())}</span>`).join('');
+    const tags = pfSplitSkills(d.skills).map(s=>`<span class="cv-skill-tag">${esc(s.trim())}</span>`).join('');
     h += `<div class="cv-sec-title">Technical Skills</div><div class="cv-skills-grid">${tags}</div>`;
   }
   const exps = d.experience.filter(e=>e.company||e.role);
@@ -2547,7 +2579,7 @@ function renderTech(d) {
     h += `<div class="cv-sec-title">Education</div>`;
     edus.forEach(e => {
       const dates = [e.start,e.end].filter(Boolean).join(' – ');
-      h += `<div class="cv-edu-entry"><div class="cv-exp-hdr"><span class="cv-exp-role">${esc(e.degree)}</span>${dates?`<span class="cv-exp-dates">${esc(dates)}</span>`:''}</div><div class="cv-exp-company">${esc(e.school)}</div></div>`;
+      h += `<div class="cv-edu-entry"><div class="cv-exp-hdr"><span class="cv-exp-role">${esc(e.degree)}</span>${dates?`<span class="cv-exp-dates">${esc(dates)}</span>`:''}</div><div class="cv-exp-company">${esc(e.school)}</div>${pfEduExtras(e)}</div>`;
     });
   }
   if (d.certs)  h += `<div class="cv-sec-title">Certifications</div><div class="cv-sec-body">${esc(d.certs)}</div>`;
@@ -2577,7 +2609,7 @@ function renderBold(d) {
     h += `<div class="cv-sec-title">Education</div>`;
     edus.forEach(e => {
       const dates = [e.start,e.end].filter(Boolean).join(' – ');
-      h += `<div class="cv-edu-entry"><div class="cv-exp-hdr"><span class="cv-exp-role">${esc(e.degree)}</span>${dates?`<span class="cv-exp-dates">${esc(dates)}</span>`:''}</div><div class="cv-exp-company">${esc(e.school)}</div></div>`;
+      h += `<div class="cv-edu-entry"><div class="cv-exp-hdr"><span class="cv-exp-role">${esc(e.degree)}</span>${dates?`<span class="cv-exp-dates">${esc(dates)}</span>`:''}</div><div class="cv-exp-company">${esc(e.school)}</div>${pfEduExtras(e)}</div>`;
     });
   }
   if (d.skills) h += `<div class="cv-sec-title">Skills</div><div class="cv-sec-body">${esc(d.skills)}</div>`;
@@ -2599,7 +2631,7 @@ function renderAcademic(d) {
     h += `<div class="cv-sec-title">Education</div>`;
     edus.forEach(e => {
       const dates = [e.start,e.end].filter(Boolean).join(' – ');
-      h += `<div class="cv-edu-entry"><div class="cv-exp-hdr"><span class="cv-exp-role">${esc(e.degree)}</span>${dates?`<span class="cv-exp-dates">${esc(dates)}</span>`:''}</div><div class="cv-exp-company">${esc(e.school)}</div></div>`;
+      h += `<div class="cv-edu-entry"><div class="cv-exp-hdr"><span class="cv-exp-role">${esc(e.degree)}</span>${dates?`<span class="cv-exp-dates">${esc(dates)}</span>`:''}</div><div class="cv-exp-company">${esc(e.school)}</div>${pfEduExtras(e)}</div>`;
     });
   }
   const exps = d.experience.filter(e=>e.company||e.role);
@@ -2634,7 +2666,7 @@ function calcFillScore(d) {
   });
   const edus = d.education.filter(e => e.school || e.degree);
   score += Math.min(edus.length * 0.75, 1.5);
-  const skillCount = d.skills ? d.skills.split(',').filter(s => s.trim()).length : 0;
+  const skillCount = d.skills ? pfSplitSkills(d.skills).filter(s => s.trim()).length : 0;
   if (skillCount >= 5) score += 2;
   else if (skillCount >= 1) score += 1;
   return score;
@@ -2820,6 +2852,7 @@ function updatePreview() {
       (mainCol || preview).insertAdjacentHTML('beforeend', decoHtml);
     }
   }
+  pfApplySectionOrder(preview);
   pfFixAlign(preview, d);
   updateDecoratorList();
   updateJobSearch();
@@ -3287,7 +3320,98 @@ function pfToggleBreak(key, on) {
   document.querySelectorAll(`.pf-brk input[data-sec="${key}"]`).forEach(i => { i.checked = !!on; });
   scalePreview();
 }
-// "⋮" menu on each form section header: Start on new page
+// ── Section order ("⋮" menu → Move up / Move down) ──
+// Templates hard-code their section order, so the chosen order is applied to the rendered preview: each
+// section (the wrapper holding only its heading and content, or a bare heading plus the content up to the
+// next heading) is moved among the sections that share its column. The PDF and its text layer are taken
+// from the preview, so they follow. Nothing changes until a section is moved (pfSecOrder stays null).
+var pfSecOrder = _pfLoad('pf_cv_order', null);   // var: updatePreview may run before this line
+function pfSectionKey(el) {
+  let t = '';
+  for (const c of el.childNodes) if (c.nodeType === 3) t += c.nodeValue;
+  t = t.replace(/\s+/g, ' ').trim().replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '');
+  if (!t || t.length > 40) return null;
+  for (const k in PF_SECTION_HEADINGS) if (PF_SECTION_HEADINGS[k].test(t)) return k;
+  return null;
+}
+function pfSectionGroups(preview) {
+  const heads = [];
+  preview.querySelectorAll('*').forEach(el => {
+    if (el.closest('#carBadge')) return;
+    const key = pfSectionKey(el);
+    if (key) heads.push({ key, el });
+  });
+  const count = (x) => heads.reduce((n, h) => n + (x.contains(h.el) ? 1 : 0), 0);
+  const groups = [];
+  heads.forEach(h => {
+    let blk = h.el;
+    while (blk.parentElement && blk.parentElement !== preview && count(blk.parentElement) === 1) blk = blk.parentElement;
+    const nodes = [blk];
+    if (blk.textContent.replace(/\s+/g, '') === h.el.textContent.replace(/\s+/g, '')) {   // bare heading: take its content
+      for (let n = blk.nextSibling; n && !(n.nodeType === 1 && count(n)); n = n.nextSibling) nodes.push(n);
+    }
+    groups.push({ key: h.key, nodes, parent: blk.parentNode });
+  });
+  return groups;
+}
+// Movable units per column: each section, plus rows that hold sections side by side (e.g. Education | Skills
+// under the main column), which move as one unit among that column's sections.
+function pfSectionUnits(preview) {
+  const groups = pfSectionGroups(preview);
+  const units = groups.map(g => ({ keys: [g.key], nodes: g.nodes, parent: g.parent }));
+  new Set(groups.map(g => g.parent)).forEach(P => {
+    if (P === preview || !P.parentNode) return;
+    const kids = [...P.children];
+    const isRow = kids.length > 1 && kids.every(k => groups.some(g => k.contains(g.nodes[0])));
+    if (isRow && groups.some(g => g.parent === P.parentNode)) {
+      units.push({ keys: groups.filter(g => P.contains(g.nodes[0])).map(g => g.key), nodes: [P], parent: P.parentNode });
+    }
+  });
+  const pos = (a, b) => a.nodes[0].compareDocumentPosition(b.nodes[0]) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+  const cols = new Map();
+  units.forEach(u => { if (!cols.has(u.parent)) cols.set(u.parent, []); cols.get(u.parent).push(u); });
+  cols.forEach(us => us.sort(pos));
+  return cols;                                   // column element → its units, top to bottom
+}
+function pfApplySectionOrder(preview) {
+  if (!pfSecOrder || carouselMode || !preview) return;
+  const rank = (u) => Math.min(...u.keys.map(k => { const i = pfSecOrder.indexOf(k); return i < 0 ? 999 : i; }));
+  pfSectionUnits(preview).forEach(us => {
+    if (us.length < 2) return;
+    const sorted = us.slice().sort((a, b) => rank(a) - rank(b));
+    if (sorted.every((u, i) => u === us[i])) return;
+    const marks = us.map(u => { const m = document.createComment('pf-sec'); u.parent.insertBefore(m, u.nodes[0]); return m; });
+    us.forEach(u => u.nodes.forEach(n => n.remove()));
+    sorted.forEach((u, i) => { u.nodes.forEach(n => marks[i].parentNode.insertBefore(n, marks[i])); marks[i].remove(); });
+  });
+}
+function pfMoveSection(key, dir) {
+  const preview = document.getElementById('cv-preview');
+  const cols = preview && !carouselMode && !preview.querySelector('.cv-empty') ? pfSectionUnits(preview) : new Map();
+  let col = null, mine = null;                   // the outermost unit holding this section, and its column
+  cols.forEach(us => us.forEach(u => {
+    if (u.keys.includes(key) && (!mine || u.nodes[0].contains(mine.nodes[0]))) { mine = u; col = us; }
+  }));
+  if (!mine) { showToast('Add content to this section first, then move it.'); return; }
+  const other = col[col.indexOf(mine) + dir];
+  if (!other) { showToast(dir < 0 ? 'Already at the top of its column in this template' : 'Already at the bottom of its column in this template'); return; }
+  let order = (pfSecOrder || []).slice();
+  cols.forEach(us => us.forEach(u => u.keys.forEach(k => { if (!order.includes(k)) order.push(k); })));   // start from what the CV shows now
+  Object.keys(PF_SECTION_HEADINGS).forEach(k => { if (!order.includes(k)) order.push(k); });
+  order = order.filter(k => k !== key);
+  const idx = other.keys.map(k => order.indexOf(k));
+  order.splice(dir < 0 ? Math.min(...idx) : Math.max(...idx) + 1, 0, key);
+  pfSecOrder = order;
+  _pfSave('pf_cv_order', order);
+  updatePreview();
+}
+function pfResetSectionOrder() {
+  pfSecOrder = null;
+  _pfSave('pf_cv_order', null);
+  updatePreview();
+}
+
+// "⋮" menu on each form section header: Move up / Move down, Start on new page
 function pfInitBreakMenus() {
   Object.keys(PF_SECTION_HEADINGS).forEach(key => {
     const hdr = document.querySelector(`.cv-section-header[onclick="toggleSection('${key}')"]`);
@@ -3296,9 +3420,21 @@ function pfInitBreakMenus() {
     const wrap = document.createElement('span');
     wrap.className = 'pf-brk';
     wrap.innerHTML = `<button type="button" class="pf-brk-btn" aria-label="Section options" title="Section options">⋮</button>` +
-      `<span class="pf-brk-menu" role="menu"><label><input type="checkbox" data-sec="${key}"> Start on new page</label></span>`;
+      `<span class="pf-brk-menu" role="menu">` +
+      `<button type="button" class="pf-mv" data-mv="-1">↑ Move up</button>` +
+      `<button type="button" class="pf-mv" data-mv="1">↓ Move down</button>` +
+      `<button type="button" class="pf-mv pf-mv-reset">↺ Reset section order</button>` +
+      `<label><input type="checkbox" data-sec="${key}"> Start on new page</label></span>`;
     wrap.addEventListener('click', e => e.stopPropagation());
-    wrap.querySelector('.pf-brk-btn').addEventListener('click', () => wrap.classList.toggle('open'));
+    wrap.querySelector('.pf-brk-btn').addEventListener('click', () => {
+      wrap.querySelector('.pf-mv-reset').style.display = pfSecOrder ? '' : 'none';
+      wrap.classList.toggle('open');
+    });
+    wrap.querySelectorAll('.pf-mv[data-mv]').forEach(b => b.addEventListener('click', () => {
+      pfMoveSection(key, +b.dataset.mv);
+      wrap.querySelector('.pf-mv-reset').style.display = pfSecOrder ? '' : 'none';
+    }));
+    wrap.querySelector('.pf-mv-reset').addEventListener('click', () => { pfResetSectionOrder(); wrap.classList.remove('open'); });
     const cb = wrap.querySelector('input');
     cb.checked = pfPages.breaks.includes(key);
     cb.addEventListener('change', () => pfToggleBreak(key, cb.checked));
@@ -3337,12 +3473,14 @@ function addExp() {
       <div class="form-row"><label>Start Date</label><input class="exp-start" placeholder="Jan 2022" oninput="updatePreview()"></div>
       <div class="form-row"><label>End Date</label><input class="exp-end" placeholder="Present" oninput="updatePreview()"></div>
     </div>
+    <div class="pf-date-hint" style="font-size:11.5px;color:var(--text3);margin-top:4px;">Dates: month and year, e.g. Jan 2022 – or "Present" if you still work here.</div>
     <div class="form-row" style="margin-top:8px;">
       <label>Key Achievements / Responsibilities (one per line)</label>
       <textarea class="exp-bullets" style="min-height:90px;" placeholder="Led cross-functional team of 8 people&#10;Increased revenue by 35% YoY&#10;Launched 3 product campaigns..." oninput="updatePreview()"></textarea>
     </div>
     <div style="margin-top:8px;">
       <button type="button" onclick="aiGenBullets(this)" style="padding:8px 14px;background:white;color:var(--accent);border:1.5px solid var(--accent);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.2s;display:flex;align-items:center;gap:6px;margin-top:6px;" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='white'"><span>✨</span> Generate with AI</button>
+      <div class="pf-ai-note" style="font-size:11.5px;color:var(--text3);margin-top:6px;line-height:1.4;">AI drafts may include placeholder figures like [X]% — replace them with your real numbers.</div>
       <div class="cv-status" id="exp-status-${id}"></div>
     </div>`;
   document.getElementById('exp-list').appendChild(div);
@@ -3365,7 +3503,16 @@ function addEdu() {
       <div class="form-row"><label>School / University</label><input class="edu-school" placeholder="University of Sydney" oninput="updatePreview()"></div>
       <div class="form-row"><label>Start Year</label><input class="edu-start" placeholder="2018" oninput="updatePreview()"></div>
       <div class="form-row"><label>End Year</label><input class="edu-end" placeholder="2022" oninput="updatePreview()"></div>
-    </div>`;
+    </div>
+    <div class="pf-date-hint" style="font-size:11.5px;color:var(--text3);margin-top:4px;">Years: four digits, e.g. 2018 – 2022 (or "Present" / expected year if still studying).</div>
+    <details class="edu-more" style="margin-top:8px;">
+      <summary style="cursor:pointer;font-size:12.5px;color:var(--accent);font-weight:600;">+ GPA, coursework &amp; honours (optional)</summary>
+      <div class="form-grid" style="margin-top:8px;">
+        <div class="form-row"><label>GPA / Grade</label><input class="edu-gpa" placeholder="e.g. 3.7/4.0 or Distinction" oninput="updatePreview()"></div>
+        <div class="form-row"><label>Honours / Achievements</label><input class="edu-honours" placeholder="e.g. Dean's List" oninput="updatePreview()"></div>
+      </div>
+      <div class="form-row" style="margin-top:8px;"><label>Relevant Coursework</label><input class="edu-coursework" placeholder="e.g. Network Security, Data Structures, Statistics" oninput="updatePreview()"></div>
+    </details>`;
   document.getElementById('edu-list').appendChild(div);
   updatePreview();
 }
@@ -3387,37 +3534,140 @@ async function callAPI(type, text) {
   return data.result;
 }
 
+// ── AI honesty rules (summary, bullets, LinkedIn, cover letter) ──
+// The model may only use what the user typed: pfCvFacts() lists those facts, PF_AI_RULES goes with every
+// generator, pfAiWrite() retries once if the reply talks about the candidate in the third person, and
+// pfGuardFigures() turns any number that isn't in the user's data into a placeholder ([X]% / [N]).
+const PF_AI_RULES =
+  'FACT RULES (follow strictly):\n' +
+  '- Use ONLY the facts in "Candidate data". Do not add years of experience, employers, job titles, tools, technologies, certifications, standards, frameworks, degrees or achievements that are not listed there.\n' +
+  '- Never invent a number (percentages, counts, money, durations, team sizes, years). Use a figure only if that exact figure is in the candidate data. Where a figure would strengthen a line, write a bracketed placeholder instead, e.g. "reduced false positives by [X]%" or "managed [N] endpoints".\n' +
+  '- If the candidate data is thin, write a short, general, honest draft instead of filling the gaps with invented detail.\n';
+const PF_VOICE_IMPLIED = '- Voice: implied first person with no pronouns for the candidate (e.g. "Cybersecurity analyst with…", "Monitored…"). Never use he, she, they, his, her, their or the candidate\'s name.\n';
+const PF_VOICE_FIRST = '- Voice: first person ("I…", "my…"). Never refer to the candidate as he, she, they, his, her, their or by name.\n';
+const PF_THIRD_PERSON = /\b(he|she|his|her|hers|him|himself|herself)\b/i;
+const PF_NUM_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve',
+  'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'];
+
+// The candidate's own data as a plain list (no name, contact details or photo).
+function pfCvFacts(d) {
+  const lines = [];
+  const items = (t) => String(t || '').split('\n').map(b => b.replace(/^[•\-*]\s*/, '').trim()).filter(Boolean);
+  if (d.title) lines.push('Target / current role: ' + d.title);
+  if (d.summary) lines.push('Professional summary: ' + d.summary);
+  const exps = d.experience.filter(e => e.role || e.company);
+  if (exps.length) {
+    lines.push('Work experience:');
+    exps.forEach(e => {
+      const dates = [e.start, e.end].filter(Boolean).join(' – ');
+      lines.push('- ' + [e.role, e.company && 'at ' + e.company].filter(Boolean).join(' ') + (dates ? ' (' + dates + ')' : ''));
+      items(e.bullets).forEach(b => lines.push('    • ' + b));
+    });
+  }
+  const edus = d.education.filter(e => e.school || e.degree);
+  if (edus.length) {
+    lines.push('Education:');
+    edus.forEach(e => {
+      const dates = [e.start, e.end].filter(Boolean).join(' – ');
+      lines.push('- ' + [e.degree, e.school && 'at ' + e.school].filter(Boolean).join(' ') + (dates ? ' (' + dates + ')' : ''));
+      if (e.gpa) lines.push('    • GPA / grade: ' + e.gpa);
+      if (e.coursework) lines.push('    • Relevant coursework: ' + e.coursework);
+      if (e.honours) lines.push('    • Honours: ' + e.honours);
+    });
+  }
+  if (d.skills) lines.push('Skills: ' + d.skills);
+  if (d.certs) lines.push('Certifications: ' + d.certs);
+  return lines.join('\n');
+}
+
+const PF_STOP = new Set('a an the of to in on at for by with and or as is are was were be my our i me we this that'.split(' '));
+function pfNumTokens(text) {               // words and numbers in order ("four" counts as the number 4)
+  const re = /\d+(?:[.,]\d+)*|\p{L}+/gu, out = [];
+  let m;
+  while ((m = re.exec(text))) {
+    const t = m[0], word = t.toLowerCase(), wi = PF_NUM_WORDS.indexOf(word);
+    out.push({ t, at: m.index, word, num: /^\d/.test(t) ? t.replace(/,/g, '') : (wi >= 2 ? String(wi) : null) });
+  }
+  return out;
+}
+function pfNumContext(toks, i) {           // the nearest meaningful word on each side of a number
+  const ctx = new Set();
+  for (const dir of [-1, 1]) {
+    for (let j = i + dir; j >= 0 && j < toks.length; j += dir) {
+      if (toks[j].num) break;
+      if (PF_STOP.has(toks[j].word)) continue;
+      ctx.add(toks[j].word); break;
+    }
+  }
+  return ctx;
+}
+// A number in the AI's reply is kept only if the user's data has the same number next to the same words
+// (or it is a year the user entered); anything else becomes a placeholder the user fills in:
+// "team of 15 engineers" → "team of [N] engineers", "42% faster" → "[X]% faster", "eight years" → "[N] years".
+function pfGuardFigures(out, source) {
+  const st = pfNumTokens(String(source || '')), known = new Map();
+  st.forEach((k, i) => {
+    if (!k.num) return;
+    if (!known.has(k.num)) known.set(k.num, new Set());
+    pfNumContext(st, i).forEach(w => known.get(k.num).add(w));
+  });
+  const text = String(out || ''), ot = pfNumTokens(text);
+  let res = '', last = 0;
+  ot.forEach((k, i) => {
+    if (!k.num) return;
+    if (text.substr(k.at, 4) === '24/7' || (k.t === '7' && text.substr(k.at - 3, 4) === '24/7')) return;
+    const ctx = known.get(k.num);
+    if (ctx && (/^(19[5-9]\d|20[0-4]\d)$/.test(k.num) || [...pfNumContext(ot, i)].some(w => ctx.has(w)))) return;
+    res += text.slice(last, k.at) + (text[k.at + k.t.length] === '%' ? '[X]' : '[N]');
+    last = k.at + k.t.length;
+  });
+  return res + text.slice(last);
+}
+
+// One generator call: retry once on third-person wording, then guard the figures.
+async function pfAiWrite(type, instruction, source) {
+  let out = String(await callAPI(type, instruction) || '').trim();
+  if (PF_THIRD_PERSON.test(out)) {
+    const again = String(await callAPI(type, instruction + '\n\nIMPORTANT: your previous draft described the candidate as he/she. Rewrite it following the voice rule above — no he, she, his, her or him.') || '').trim();
+    if (again) out = again;
+  }
+  return pfGuardFigures(out, source);
+}
+const pfHasPlaceholder = (t) => /\[(X|N)\]/.test(t);
+
 // ── AI: Generate summary ──
 async function aiGenSummary() {
   const d = getFormData();
-  const roughInfo = [
-    d.name && 'Name: ' + d.name,
-    d.title && 'Target role: ' + d.title,
-    d.skills && 'Skills: ' + d.skills,
-    d.experience.filter(e=>e.role||e.company).map(e=>`${e.role} at ${e.company}`).join(', ')
-  ].filter(Boolean).join('\n');
-  if (!roughInfo) { showStatus('summary-status', 'Please fill in at least your name and target role first.', 'error'); return; }
+  // the summary being replaced is not a source of facts
+  const facts = pfCvFacts(Object.assign({}, d, { summary: '' }));
+  if (!d.title && !facts) { showStatus('summary-status', 'Please fill in at least your target role first.', 'error'); return; }
+  const thin = !d.skills && !d.experience.some(e => e.role || e.company || e.bullets) && !d.education.some(e => e.school || e.degree);
   const btn = document.getElementById('ai-summary-btn');
+  const btnHTML = btn.innerHTML;
   btn.disabled = true; btn.textContent = '...';
   showStatus('summary-status', 'Generating professional summary...', 'info');
   try {
     const instruction =
-      'Write ONE professional summary paragraph (3-4 sentences, 50-80 words).\n\n' +
+      (thin
+        ? 'Write ONE short professional summary (2 sentences, at most 40 words). Only a target role was entered, so state that role and a general readiness to contribute — claim no years of experience, tools, employers or achievements.\n\n'
+        : 'Write ONE professional summary paragraph (3-4 sentences, 50-80 words).\n\n') +
       'Rules:\n' +
       '- Output ONLY the paragraph — no labels like "Summary:" or "Professional Summary:"\n' +
-      '- Do NOT open by restating the person\'s name\n' +
+      '- Do NOT mention the person\'s name\n' +
       '- Avoid clichés: results-driven, proven track record, dynamic professional\n' +
-      '- Be specific to the job title, experience and skills provided — no invented filler\n' +
-      '- Confident but conversational tone, varied sentence structure\n\n' +
-      'Person\'s information:\n' + roughInfo;
-    const result = await callAPI('cv_build', instruction);
-    document.getElementById('f-summary').value = result.trim();
+      '- Confident but conversational tone, varied sentence structure\n' +
+      PF_AI_RULES + PF_VOICE_IMPLIED + '\n' +
+      'Candidate data:\n' + facts;
+    const result = await pfAiWrite('cv_build', instruction, facts);
+    document.getElementById('f-summary').value = result;
     updatePreview();
-    hideStatus('summary-status');
+    if (thin) showStatus('summary-status', 'Add your experience and skills for a more specific summary.', 'info');
+    else if (pfHasPlaceholder(result)) showStatus('summary-status', 'Replace the placeholders like [X] with your real figures.', 'info');
+    else hideStatus('summary-status');
   } catch(e) {
     showStatus('summary-status', e.message, 'error');
   } finally {
-    btn.disabled = false; btn.textContent = '✨ Generate';
+    btn.disabled = false; btn.innerHTML = btnHTML;
   }
 }
 
@@ -3441,20 +3691,32 @@ async function aiGenBullets(buttonEl) {
   const statusId = card.id ? card.id.replace('exp-', 'exp-status-') : '';
   if (statusId) showStatus(statusId, 'Generating bullet points...', 'info');
 
+  const start = (card.querySelector('.exp-start')?.value || '').trim();
+  const end = (card.querySelector('.exp-end')?.value || '').trim();
+  const dates = [start, end].filter(Boolean).join(' – ');
+  const facts = `Role: ${role || '(not given)'}\nCompany: ${company || '(not given)'}${dates ? '\nDates: ' + dates : ''}\n` +
+    (rough ? 'Duties / notes entered by the candidate:\n' + rough : 'Duties / notes entered by the candidate: (none)');
   const instruction =
-    'Write 3-5 polished CV bullet points for this role.\n\n' +
+    (rough
+      ? 'Rewrite the candidate\'s notes below as 3-5 polished CV bullet points for this role.\n\n'
+      : 'No duties were entered for this role. Write 3 short, generic bullet points describing typical responsibilities of this role. Use placeholders like [tool] or [N] for any specifics, and claim no results, numbers or achievements.\n\n') +
     'Rules:\n' +
-    '- Start each bullet with a strong action verb (e.g. Led, Designed, Delivered, Built, Managed, Grew)\n' +
-    '- Be specific to the role and company provided — no generic filler\n' +
-    '- Quantify where the notes suggest metrics (%, $, headcount, time saved, etc.)\n' +
-    '- Transform rough notes into professional, ATS-optimized language\n' +
-    '- Return ONLY the bullet points, one per line, no numbering or extra labels\n\n' +
-    `Role: ${role || 'Professional'}\nCompany: ${company || ''}\nRough notes: ${rough || role}`;
+    '- Start each bullet with a strong action verb (e.g. Led, Designed, Delivered, Built, Managed, Supported)\n' +
+    '- Every bullet must come from the notes — do not add duties, tools, systems or results that the notes do not mention\n' +
+    '- Keep any figures exactly as written in the notes; where a figure would help but is missing, use a placeholder such as [X]% or [N]\n' +
+    '- Transform rough notes into professional, ATS-friendly language\n' +
+    '- Return ONLY the bullet points, one per line, no numbering or extra labels\n' +
+    PF_AI_RULES + PF_VOICE_IMPLIED + '\n' +
+    'Candidate data:\n' + facts;
 
   try {
-    const result = await callAPI('cv_build', instruction);
-    if (bulletsTA) { bulletsTA.value = result.trim(); updatePreview(); }
-    if (statusId) hideStatus(statusId);
+    const result = await pfAiWrite('cv_build', instruction, facts);
+    if (bulletsTA) { bulletsTA.value = result; updatePreview(); }
+    if (statusId) {
+      if (!rough) showStatus(statusId, 'These are generic placeholders — add your actual duties for accurate bullets.', 'info');
+      else if (pfHasPlaceholder(result)) showStatus(statusId, 'Replace the placeholders like [X] with your real figures.', 'info');
+      else hideStatus(statusId);
+    }
     showToast('✓ Bullet points generated!');
   } catch(e) {
     if (statusId) showStatus(statusId, e.message, 'error');
@@ -3494,6 +3756,9 @@ function getCVText() {
       const dates = [e.start,e.end].filter(Boolean).join(' – ');
       lines.push(`${e.degree}${dates?' | '+dates:''}`);
       if (e.school) lines.push(e.school);
+      if (e.gpa) lines.push('GPA / Grade: ' + e.gpa);
+      if (e.coursework) lines.push('Relevant coursework: ' + e.coursework);
+      if (e.honours) lines.push('Honours: ' + e.honours);
       lines.push('');
     });
   }
@@ -3990,36 +4255,35 @@ async function generateCoverLetter() {
   const btn = document.getElementById('cover-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Writing...'; }
   showStatus('cover-status', 'AI is writing your cover letter...', 'info');
-  const cvSummary = [
-    d.name && 'Name: ' + d.name,
-    d.title && 'Current/Target Role: ' + d.title,
-    d.skills && 'Skills: ' + d.skills,
-    d.summary && 'Background: ' + d.summary,
-    d.experience.filter(e=>e.role||e.company).length && 'Experience: ' + d.experience.filter(e=>e.role||e.company).map(e=>`${e.role} at ${e.company}`).join(', ')
-  ].filter(Boolean).join('\n');
+  const facts = pfCvFacts(d);
   const prompt = `Write a ${clStyle.toLowerCase()} cover letter for this applicant.
 
-${cvSummary}
+Candidate data (from the applicant's CV — the ONLY facts you may state about the applicant):
+${facts || '(nothing entered yet)'}
 
 Applying for: ${jobTitle}
 Company: ${company}
 Hiring Manager: ${manager || 'Hiring Manager'}
-${jd ? '\nJob Description:\n' + jd : ''}
+${jd ? '\nJob description (what the employer is looking for — NOT facts about the applicant):\n' + jd : ''}
 
+${PF_AI_RULES}- Every company, role, date, number and achievement you mention must appear in the candidate data EXACTLY as written there. Do not change, round, inflate or combine figures, and never move an achievement to a different employer.
+- Do not claim experience, tools or qualifications from the job description unless the candidate data lists them.
+${PF_VOICE_FIRST}
 Instructions:
 - 3 paragraphs only, no more
 - Opening: compelling hook that expresses enthusiasm — never start with "I am writing to"
-- Middle: 2-3 specific achievements or skills matching the role with concrete examples
+- Middle: 2-3 achievements or skills from the candidate data that match the role
 - Closing: confident call to action for an interview
 - Tone: ${clStyle}
-- Write in first person, professional but human
+- Professional but human
 - Maximum 250 words
 - Return ONLY the letter body paragraphs — no salutation, no sign-off`;
   try {
-    const result = await callAPI('cover_letter', prompt);
+    const result = await pfAiWrite('cover_letter', prompt, [facts, jobTitle, company, manager].join('\n'));
     coverLetterText = result;
     updateCoverLetter();
-    hideStatus('cover-status');
+    if (pfHasPlaceholder(result)) showStatus('cover-status', 'Replace the placeholders like [X] with your real figures.', 'info');
+    else hideStatus('cover-status');
     showToast('✓ Cover letter generated!');
   } catch(e) {
     showStatus('cover-status', e.message, 'error');
@@ -4381,13 +4645,15 @@ function renderExtraSections() {
     });
   }
 
+  // opt-in: only when "Available upon request" is chosen or at least one reference is added
   const refInput = document.querySelector('input[name="references"]:checked');
-  if (refInput) {
+  const refs = refInput && refInput.value === 'custom' ? getReferencesData() : [];
+  if (refInput && (refInput.value === 'Available upon request' || refs.length)) {
     h += `<div class="cv-sec-title">References</div>`;
     if (refInput.value === 'Available upon request') {
       h += `<p style="font-size:13px;color:#6b6660;font-style:italic;">Available upon request</p>`;
     } else {
-      getReferencesData().forEach(ref => {
+      refs.forEach(ref => {
         h += `<div style="margin-bottom:10px;">
           <div style="font-weight:700;font-size:13px;">${esc(ref.name)}</div>
           ${ref.title || ref.company ? `<div style="font-size:12px;color:#2d6a4f;">${esc(ref.title)}${ref.title && ref.company ? ' — ' : ''}${esc(ref.company)}</div>` : ''}
@@ -4836,7 +5102,8 @@ function toPremium(d) {
     })),
     education: d.education.filter(e => e.school || e.degree).map(e => ({
       degree: e.degree, school: e.school,
-      endYear: [e.start, e.end].filter(Boolean).join('–')
+      endYear: [e.start, e.end].filter(Boolean).join('–'),
+      gpa: e.gpa, coursework: e.coursework, honours: e.honours
     }))
   };
 }
@@ -4854,7 +5121,7 @@ function renderPremiumExecutive(data) {
       ${data.phone ? `<div style="font-size:11px;margin-bottom:5px;opacity:.9;">${esc(data.phone)}</div>` : ''}
       ${data.location ? `<div style="font-size:11px;margin-bottom:5px;opacity:.9;">${esc(data.location)}</div>` : ''}
       ${data.linkedin ? `<div style="font-size:11px;margin-bottom:5px;opacity:.9;word-break:break-all;">${esc(data.linkedin)}</div>` : ''}
-      ${data.skills ? `<div style="margin-top:20px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;opacity:.65;margin-bottom:10px;">Skills</div>${data.skills.split(',').map(s => s.trim()).filter(Boolean).map(s => `<div style="margin-bottom:7px;"><div style="font-size:11px;margin-bottom:3px;opacity:.9;">${esc(s)}</div><div style="background:rgba(255,255,255,.2);border-radius:4px;height:4px;overflow:hidden;"><div style="height:100%;background:white;width:${75 + Math.round(Math.random() * 25)}%;border-radius:4px;"></div></div></div>`).join('')}</div>` : ''}
+      ${data.skills ? `<div style="margin-top:20px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;opacity:.65;margin-bottom:10px;">Skills</div>${pfSplitSkills(data.skills).map(s => s.trim()).filter(Boolean).map(s => `<div style="margin-bottom:7px;"><div style="font-size:11px;margin-bottom:3px;opacity:.9;">${esc(s)}</div><div style="background:rgba(255,255,255,.2);border-radius:4px;height:4px;overflow:hidden;"><div style="height:100%;background:white;width:${75 + Math.round(Math.random() * 25)}%;border-radius:4px;"></div></div></div>`).join('')}</div>` : ''}
       ${data.certifications ? `<div style="margin-top:20px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;opacity:.65;margin-bottom:7px;">Certifications</div><div style="font-size:11px;opacity:.9;line-height:1.7;">${esc(data.certifications)}</div></div>` : ''}
     </div>
     <div style="padding:34px 30px;box-sizing:border-box;">
@@ -4864,7 +5131,7 @@ function renderPremiumExecutive(data) {
       </div>
       ${data.summary ? `<div style="margin-bottom:20px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${accent};border-bottom:2px solid ${accent};padding-bottom:4px;margin-bottom:8px;">Profile</div><div style="font-size:12px;color:#374151;line-height:1.7;">${esc(data.summary)}</div></div>` : ''}
       ${data.experience.length ? `<div style="margin-bottom:20px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${accent};border-bottom:2px solid ${accent};padding-bottom:4px;margin-bottom:11px;">Experience</div>${data.experience.map(exp => `<div style="margin-bottom:13px;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13px;font-weight:700;color:#1a1814;">${esc(exp.title)}</span><span style="font-size:11px;color:#6b6660;">${[exp.startDate, exp.endDate].filter(Boolean).join(' – ')}</span></div><div style="font-size:12px;color:${accent};font-weight:600;margin-bottom:4px;">${esc(exp.company)}</div>${exp.bullets.length ? `<ul style="margin:0;padding-left:13px;">${exp.bullets.map(b => `<li style="font-size:12px;color:#374151;margin-bottom:3px;line-height:1.5;">${esc(b)}</li>`).join('')}</ul>` : ''}</div>`).join('')}</div>` : ''}
-      ${data.education.length ? `<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${accent};border-bottom:2px solid ${accent};padding-bottom:4px;margin-bottom:11px;">Education</div>${data.education.map(edu => `<div style="margin-bottom:8px;"><div style="font-size:13px;font-weight:700;color:#1a1814;">${esc(edu.degree)}</div><div style="display:flex;justify-content:space-between;"><span style="font-size:12px;color:#6b6660;">${esc(edu.school)}</span><span style="font-size:11px;color:#6b6660;">${esc(edu.endYear)}</span></div></div>`).join('')}</div>` : ''}
+      ${data.education.length ? `<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${accent};border-bottom:2px solid ${accent};padding-bottom:4px;margin-bottom:11px;">Education</div>${data.education.map(edu => `<div style="margin-bottom:8px;"><div style="font-size:13px;font-weight:700;color:#1a1814;">${esc(edu.degree)}</div><div style="display:flex;justify-content:space-between;"><span style="font-size:12px;color:#6b6660;">${esc(edu.school)}</span><span style="font-size:11px;color:#6b6660;">${esc(edu.endYear)}</span></div>${pfEduExtras(edu)}</div>`).join('')}</div>` : ''}
     </div>
   </div>`;
 }
@@ -4889,8 +5156,8 @@ function renderModernBlue(data) {
       ${data.summary ? `<div style="margin-bottom:18px;"><div style="font-size:11px;font-weight:700;color:${accent};text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;">Summary</div><div style="font-size:12px;color:#374151;line-height:1.7;border-left:3px solid ${accent};padding-left:11px;">${esc(data.summary)}</div></div>` : ''}
       ${data.experience.length ? `<div style="margin-bottom:18px;"><div style="font-size:11px;font-weight:700;color:${accent};text-transform:uppercase;letter-spacing:1.5px;margin-bottom:9px;">Experience</div>${data.experience.map(exp => `<div style="margin-bottom:12px;padding-left:11px;border-left:2px solid #e2e8f0;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13px;font-weight:700;color:#1a202c;">${esc(exp.title)}</span><span style="font-size:11px;color:#718096;background:#f7fafc;padding:2px 7px;border-radius:20px;">${[exp.startDate, exp.endDate].filter(Boolean).join(' – ')}</span></div><div style="font-size:12px;color:${accent};font-weight:600;margin:2px 0 5px;">${esc(exp.company)}</div>${exp.bullets.length ? `<ul style="margin:0;padding-left:12px;">${exp.bullets.map(b => `<li style="font-size:12px;color:#4a5568;margin-bottom:3px;line-height:1.5;">${esc(b)}</li>`).join('')}</ul>` : ''}</div>`).join('')}</div>` : ''}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-        ${data.education.length ? `<div><div style="font-size:11px;font-weight:700;color:${accent};text-transform:uppercase;letter-spacing:1.5px;margin-bottom:9px;">Education</div>${data.education.map(edu => `<div style="margin-bottom:8px;"><div style="font-size:12px;font-weight:700;color:#1a202c;">${esc(edu.degree)}</div><div style="font-size:11px;color:#718096;">${esc(edu.school)}${edu.endYear ? ' · ' + esc(edu.endYear) : ''}</div></div>`).join('')}</div>` : ''}
-        ${data.skills ? `<div><div style="font-size:11px;font-weight:700;color:${accent};text-transform:uppercase;letter-spacing:1.5px;margin-bottom:9px;">Skills</div><div style="display:flex;flex-wrap:wrap;gap:5px;">${data.skills.split(',').map(s => s.trim()).filter(Boolean).map(s => `<span style="font-size:11px;background:${accent}18;color:${accent};padding:3px 8px;border-radius:20px;font-weight:500;">${esc(s)}</span>`).join('')}</div></div>` : ''}
+        ${data.education.length ? `<div><div style="font-size:11px;font-weight:700;color:${accent};text-transform:uppercase;letter-spacing:1.5px;margin-bottom:9px;">Education</div>${data.education.map(edu => `<div style="margin-bottom:8px;"><div style="font-size:12px;font-weight:700;color:#1a202c;">${esc(edu.degree)}</div><div style="font-size:11px;color:#718096;">${esc(edu.school)}${edu.endYear ? ' · ' + esc(edu.endYear) : ''}</div>${pfEduExtras(edu)}</div>`).join('')}</div>` : ''}
+        ${data.skills ? `<div><div style="font-size:11px;font-weight:700;color:${accent};text-transform:uppercase;letter-spacing:1.5px;margin-bottom:9px;">Skills</div><div style="display:flex;flex-wrap:wrap;gap:5px;">${pfSplitSkills(data.skills).map(s => s.trim()).filter(Boolean).map(s => `<span style="font-size:11px;background:${accent}18;color:${accent};padding:3px 8px;border-radius:20px;font-weight:500;">${esc(s)}</span>`).join('')}</div></div>` : ''}
       </div>
     </div>
   </div>`;
@@ -4910,8 +5177,8 @@ function renderMinimalSerif(data) {
     </div>
     ${data.summary ? `<div style="margin-bottom:20px;font-size:12.5px;line-height:1.8;color:#333;font-style:italic;">${esc(data.summary)}</div>` : ''}
     ${data.experience.length ? `<div style="margin-bottom:20px;"><div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:${accent};margin-bottom:8px;">Experience</div>${data.experience.map(exp => `<div style="margin-bottom:14px;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13px;font-weight:700;">${esc(exp.title)}${exp.company ? ` — <em style="font-weight:400;color:#555;">${esc(exp.company)}</em>` : ''}</span><span style="font-size:11px;color:#888;">${[exp.startDate, exp.endDate].filter(Boolean).join(' – ')}</span></div>${exp.bullets.length ? `<ul style="margin:5px 0 0;padding-left:15px;">${exp.bullets.map(b => `<li style="font-size:12px;color:#333;line-height:1.6;margin-bottom:2px;">${esc(b)}</li>`).join('')}</ul>` : ''}</div>`).join('')}</div>` : ''}
-    ${data.education.length ? `<div style="margin-bottom:20px;"><div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:${accent};margin-bottom:8px;">Education</div>${data.education.map(edu => `<div style="margin-bottom:7px;font-size:12px;"><span style="font-weight:700;">${esc(edu.degree)}</span>${edu.school ? `, <em>${esc(edu.school)}</em>` : ''}${edu.endYear ? ` <span style="color:#888;">(${esc(edu.endYear)})</span>` : ''}</div>`).join('')}</div>` : ''}
-    ${data.skills ? `<div><div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:${accent};margin-bottom:8px;">Skills</div><div style="font-size:12px;color:#333;line-height:1.8;">${data.skills.split(',').map(s => s.trim()).filter(Boolean).map(s => esc(s)).join(' · ')}</div></div>` : ''}
+    ${data.education.length ? `<div style="margin-bottom:20px;"><div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:${accent};margin-bottom:8px;">Education</div>${data.education.map(edu => `<div style="margin-bottom:7px;font-size:12px;"><span style="font-weight:700;">${esc(edu.degree)}</span>${edu.school ? `, <em>${esc(edu.school)}</em>` : ''}${edu.endYear ? ` <span style="color:#888;">(${esc(edu.endYear)})</span>` : ''}</div>${pfEduExtras(edu)}`).join('')}</div>` : ''}
+    ${data.skills ? `<div><div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:${accent};margin-bottom:8px;">Skills</div><div style="font-size:12px;color:#333;line-height:1.8;">${pfSplitSkills(data.skills).map(s => s.trim()).filter(Boolean).map(s => esc(s)).join(' · ')}</div></div>` : ''}
   </div>`;
 }
 
@@ -4938,8 +5205,8 @@ function renderBoldTech(data) {
         ${data.experience.length ? `<div><div style="color:${accent};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;margin-bottom:9px;">/* Experience */</div>${data.experience.map(exp => `<div style="margin-bottom:13px;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:11px;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13px;font-weight:700;color:#f0f6fc;">${esc(exp.title)}</span><span style="font-size:11px;color:${accent};">${[exp.startDate, exp.endDate].filter(Boolean).join(' → ')}</span></div><div style="font-size:12px;color:#8b949e;margin:3px 0 6px;">${esc(exp.company)}</div>${exp.bullets.length ? `<ul style="margin:0;padding-left:13px;list-style:none;">${exp.bullets.map(b => `<li style="font-size:12px;color:#8b949e;margin-bottom:3px;line-height:1.5;">» ${esc(b)}</li>`).join('')}</ul>` : ''}</div>`).join('')}</div>` : ''}
       </div>
       <div>
-        ${data.skills ? `<div style="margin-bottom:16px;"><div style="color:${accent};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">// Skills</div><div style="display:flex;flex-wrap:wrap;gap:5px;">${data.skills.split(',').map(s => s.trim()).filter(Boolean).map(s => `<span style="font-size:11px;background:#161b22;border:1px solid #30363d;color:${accent};padding:3px 7px;border-radius:4px;">${esc(s)}</span>`).join('')}</div></div>` : ''}
-        ${data.education.length ? `<div style="margin-bottom:16px;"><div style="color:${accent};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">// Education</div>${data.education.map(edu => `<div style="margin-bottom:8px;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:9px;"><div style="font-size:12px;font-weight:700;color:#f0f6fc;">${esc(edu.degree)}</div><div style="font-size:11px;color:#8b949e;">${esc(edu.school)}</div>${edu.endYear ? `<div style="font-size:10px;color:${accent};">${esc(edu.endYear)}</div>` : ''}</div>`).join('')}</div>` : ''}
+        ${data.skills ? `<div style="margin-bottom:16px;"><div style="color:${accent};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">// Skills</div><div style="display:flex;flex-wrap:wrap;gap:5px;">${pfSplitSkills(data.skills).map(s => s.trim()).filter(Boolean).map(s => `<span style="font-size:11px;background:#161b22;border:1px solid #30363d;color:${accent};padding:3px 7px;border-radius:4px;">${esc(s)}</span>`).join('')}</div></div>` : ''}
+        ${data.education.length ? `<div style="margin-bottom:16px;"><div style="color:${accent};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">// Education</div>${data.education.map(edu => `<div style="margin-bottom:8px;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:9px;"><div style="font-size:12px;font-weight:700;color:#f0f6fc;">${esc(edu.degree)}</div><div style="font-size:11px;color:#8b949e;">${esc(edu.school)}</div>${pfEduExtras(edu)}${edu.endYear ? `<div style="font-size:10px;color:${accent};">${esc(edu.endYear)}</div>` : ''}</div>`).join('')}</div>` : ''}
         ${data.certifications ? `<div><div style="color:${accent};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">// Certifications</div><div style="font-size:11px;color:#8b949e;line-height:1.7;">${esc(data.certifications)}</div></div>` : ''}
       </div>
     </div>
@@ -4963,8 +5230,8 @@ function renderElegantGold(data) {
       ${data.summary ? `<div style="margin-bottom:20px;text-align:center;"><div style="font-size:9px;letter-spacing:4px;text-transform:uppercase;color:${accent};margin-bottom:8px;">Profile</div><div style="font-size:12.5px;line-height:1.8;color:#333;font-style:italic;max-width:480px;margin:0 auto;">${esc(data.summary)}</div><div style="width:34px;height:1px;background:${accent};margin:12px auto 0;"></div></div>` : ''}
       ${data.experience.length ? `<div style="margin-bottom:20px;"><div style="font-size:9px;letter-spacing:4px;text-transform:uppercase;color:${accent};margin-bottom:11px;text-align:center;">Experience</div>${data.experience.map(exp => `<div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid #e8e4dc;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13px;font-weight:700;color:#1c1c1c;">${esc(exp.title)}</span><span style="font-size:11px;color:${accent};font-style:italic;">${[exp.startDate, exp.endDate].filter(Boolean).join(' – ')}</span></div><div style="font-size:12px;color:#666;font-style:italic;margin:2px 0 5px;">${esc(exp.company)}</div>${exp.bullets.length ? `<ul style="margin:0;padding-left:13px;">${exp.bullets.map(b => `<li style="font-size:12px;color:#333;line-height:1.6;margin-bottom:2px;">${esc(b)}</li>`).join('')}</ul>` : ''}</div>`).join('')}</div>` : ''}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
-        ${data.education.length ? `<div><div style="font-size:9px;letter-spacing:4px;text-transform:uppercase;color:${accent};margin-bottom:8px;">Education</div>${data.education.map(edu => `<div style="margin-bottom:8px;"><div style="font-size:12px;font-weight:700;">${esc(edu.degree)}</div><div style="font-size:11px;color:#888;font-style:italic;">${esc(edu.school)}${edu.endYear ? ' · ' + esc(edu.endYear) : ''}</div></div>`).join('')}</div>` : ''}
-        ${data.skills ? `<div><div style="font-size:9px;letter-spacing:4px;text-transform:uppercase;color:${accent};margin-bottom:8px;">Skills</div><div style="font-size:12px;color:#333;line-height:1.8;">${data.skills.split(',').map(s => s.trim()).filter(Boolean).map(s => esc(s)).join(' · ')}</div></div>` : ''}
+        ${data.education.length ? `<div><div style="font-size:9px;letter-spacing:4px;text-transform:uppercase;color:${accent};margin-bottom:8px;">Education</div>${data.education.map(edu => `<div style="margin-bottom:8px;"><div style="font-size:12px;font-weight:700;">${esc(edu.degree)}</div><div style="font-size:11px;color:#888;font-style:italic;">${esc(edu.school)}${edu.endYear ? ' · ' + esc(edu.endYear) : ''}</div>${pfEduExtras(edu)}</div>`).join('')}</div>` : ''}
+        ${data.skills ? `<div><div style="font-size:9px;letter-spacing:4px;text-transform:uppercase;color:${accent};margin-bottom:8px;">Skills</div><div style="font-size:12px;color:#333;line-height:1.8;">${pfSplitSkills(data.skills).map(s => s.trim()).filter(Boolean).map(s => esc(s)).join(' · ')}</div></div>` : ''}
       </div>
     </div>
   </div>`;
@@ -4988,8 +5255,8 @@ function renderModernMinimal(data) {
     ${data.summary ? `<div style="margin-bottom:20px;"><div style="font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:2px;margin-bottom:6px;">About</div><div style="font-size:12.5px;color:#333;line-height:1.7;">${esc(data.summary)}</div></div>` : ''}
     ${data.experience.length ? `<div style="margin-bottom:20px;"><div style="font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:2px;margin-bottom:9px;">Experience</div>${data.experience.map(exp => `<div style="margin-bottom:13px;display:grid;grid-template-columns:88px 1fr;gap:13px;"><div style="font-size:11px;color:#999;padding-top:2px;text-align:right;">${[exp.startDate, exp.endDate].filter(Boolean).join('<br>')}</div><div><div style="font-size:13px;font-weight:700;color:#1a1a1a;">${esc(exp.title)}</div><div style="font-size:12px;color:${accent};font-weight:600;margin-bottom:4px;">${esc(exp.company)}</div>${exp.bullets.length ? `<ul style="margin:0;padding-left:12px;">${exp.bullets.map(b => `<li style="font-size:12px;color:#444;margin-bottom:3px;line-height:1.5;">${esc(b)}</li>`).join('')}</ul>` : ''}</div></div>`).join('')}</div>` : ''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
-      ${data.education.length ? `<div><div style="font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:2px;margin-bottom:9px;">Education</div>${data.education.map(edu => `<div style="margin-bottom:8px;"><div style="font-size:12px;font-weight:700;color:#1a1a1a;">${esc(edu.degree)}</div><div style="font-size:11px;color:#666;">${esc(edu.school)}${edu.endYear ? ' — ' + esc(edu.endYear) : ''}</div></div>`).join('')}</div>` : ''}
-      ${data.skills ? `<div><div style="font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:2px;margin-bottom:9px;">Skills</div><div style="display:flex;flex-wrap:wrap;gap:5px;">${data.skills.split(',').map(s => s.trim()).filter(Boolean).map(s => `<span style="font-size:11px;border:1px solid ${accent};color:${accent};padding:3px 7px;border-radius:20px;">${esc(s)}</span>`).join('')}</div></div>` : ''}
+      ${data.education.length ? `<div><div style="font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:2px;margin-bottom:9px;">Education</div>${data.education.map(edu => `<div style="margin-bottom:8px;"><div style="font-size:12px;font-weight:700;color:#1a1a1a;">${esc(edu.degree)}</div><div style="font-size:11px;color:#666;">${esc(edu.school)}${edu.endYear ? ' — ' + esc(edu.endYear) : ''}</div>${pfEduExtras(edu)}</div>`).join('')}</div>` : ''}
+      ${data.skills ? `<div><div style="font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:2px;margin-bottom:9px;">Skills</div><div style="display:flex;flex-wrap:wrap;gap:5px;">${pfSplitSkills(data.skills).map(s => s.trim()).filter(Boolean).map(s => `<span style="font-size:11px;border:1px solid ${accent};color:${accent};padding:3px 7px;border-radius:20px;">${esc(s)}</span>`).join('')}</div></div>` : ''}
     </div>
   </div>`;
 }
@@ -5014,8 +5281,8 @@ function renderVibrantPurple(data) {
       ${data.summary ? `<div style="margin-bottom:18px;"><div style="font-size:12px;font-weight:700;color:${accent};margin-bottom:6px;">About Me</div><div style="font-size:12.5px;color:#374151;line-height:1.7;">${esc(data.summary)}</div></div>` : ''}
       ${data.experience.length ? `<div style="margin-bottom:18px;"><div style="font-size:12px;font-weight:700;color:${accent};margin-bottom:9px;">Experience</div>${data.experience.map((exp, i) => `<div style="margin-bottom:13px;padding:13px;background:${i % 2 === 0 ? '#faf5ff' : '#f9f7ff'};border-radius:10px;border-left:4px solid ${accent};"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13px;font-weight:700;color:#1f2937;">${esc(exp.title)}</span><span style="font-size:11px;color:${accent};background:rgba(124,58,237,.1);padding:2px 7px;border-radius:20px;">${[exp.startDate, exp.endDate].filter(Boolean).join(' – ')}</span></div><div style="font-size:12px;color:#6b7280;font-weight:600;margin-bottom:5px;">${esc(exp.company)}</div>${exp.bullets.length ? `<ul style="margin:0;padding-left:12px;">${exp.bullets.map(b => `<li style="font-size:12px;color:#374151;margin-bottom:3px;line-height:1.5;">${esc(b)}</li>`).join('')}</ul>` : ''}</div>`).join('')}</div>` : ''}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-        ${data.education.length ? `<div><div style="font-size:12px;font-weight:700;color:${accent};margin-bottom:8px;">Education</div>${data.education.map(edu => `<div style="margin-bottom:8px;padding:10px;background:#faf5ff;border-radius:8px;"><div style="font-size:12px;font-weight:700;color:#1f2937;">${esc(edu.degree)}</div><div style="font-size:11px;color:#6b7280;">${esc(edu.school)}${edu.endYear ? ' · ' + esc(edu.endYear) : ''}</div></div>`).join('')}</div>` : ''}
-        ${data.skills ? `<div><div style="font-size:12px;font-weight:700;color:${accent};margin-bottom:8px;">Skills</div><div style="display:flex;flex-wrap:wrap;gap:5px;">${data.skills.split(',').map(s => s.trim()).filter(Boolean).map(s => `<span style="font-size:11px;background:linear-gradient(135deg,${accent},#a855f7);color:white;padding:3px 8px;border-radius:20px;">${esc(s)}</span>`).join('')}</div></div>` : ''}
+        ${data.education.length ? `<div><div style="font-size:12px;font-weight:700;color:${accent};margin-bottom:8px;">Education</div>${data.education.map(edu => `<div style="margin-bottom:8px;padding:10px;background:#faf5ff;border-radius:8px;"><div style="font-size:12px;font-weight:700;color:#1f2937;">${esc(edu.degree)}</div><div style="font-size:11px;color:#6b7280;">${esc(edu.school)}${edu.endYear ? ' · ' + esc(edu.endYear) : ''}</div>${pfEduExtras(edu)}</div>`).join('')}</div>` : ''}
+        ${data.skills ? `<div><div style="font-size:12px;font-weight:700;color:${accent};margin-bottom:8px;">Skills</div><div style="display:flex;flex-wrap:wrap;gap:5px;">${pfSplitSkills(data.skills).map(s => s.trim()).filter(Boolean).map(s => `<span style="font-size:11px;background:linear-gradient(135deg,${accent},#a855f7);color:white;padding:3px 8px;border-radius:20px;">${esc(s)}</span>`).join('')}</div></div>` : ''}
       </div>
     </div>
   </div>`;
@@ -5033,8 +5300,8 @@ function renderCreativeSplit(data) {
         ${photo}
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${accent};margin-bottom:9px;">Contact</div>
         ${[data.email, data.phone, data.location, data.linkedin].filter(Boolean).map(c => `<div style="font-size:11px;color:rgba(255,255,255,.7);margin-bottom:5px;line-height:1.4;word-break:break-word;">${esc(c)}</div>`).join('')}
-        ${data.skills ? `<div style="margin-top:20px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${accent};margin-bottom:9px;">Skills</div>${data.skills.split(',').map(s => s.trim()).filter(Boolean).map(s => `<div style="margin-bottom:6px;"><div style="font-size:11px;color:rgba(255,255,255,.85);margin-bottom:2px;">${esc(s)}</div><div style="height:3px;background:rgba(255,255,255,.15);border-radius:2px;overflow:hidden;"><div style="height:100%;background:${accent};width:${70 + Math.round(Math.random() * 30)}%;border-radius:2px;"></div></div></div>`).join('')}</div>` : ''}
-        ${data.education.length ? `<div style="margin-top:20px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${accent};margin-bottom:9px;">Education</div>${data.education.map(edu => `<div style="margin-bottom:10px;"><div style="font-size:12px;font-weight:700;color:white;">${esc(edu.degree)}</div><div style="font-size:11px;color:rgba(255,255,255,.6);">${esc(edu.school)}</div>${edu.endYear ? `<div style="font-size:10px;color:${accent};">${esc(edu.endYear)}</div>` : ''}</div>`).join('')}</div>` : ''}
+        ${data.skills ? `<div style="margin-top:20px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${accent};margin-bottom:9px;">Skills</div>${pfSplitSkills(data.skills).map(s => s.trim()).filter(Boolean).map(s => `<div style="margin-bottom:6px;"><div style="font-size:11px;color:rgba(255,255,255,.85);margin-bottom:2px;">${esc(s)}</div><div style="height:3px;background:rgba(255,255,255,.15);border-radius:2px;overflow:hidden;"><div style="height:100%;background:${accent};width:${70 + Math.round(Math.random() * 30)}%;border-radius:2px;"></div></div></div>`).join('')}</div>` : ''}
+        ${data.education.length ? `<div style="margin-top:20px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${accent};margin-bottom:9px;">Education</div>${data.education.map(edu => `<div style="margin-bottom:10px;"><div style="font-size:12px;font-weight:700;color:white;">${esc(edu.degree)}</div><div style="font-size:11px;color:rgba(255,255,255,.6);">${esc(edu.school)}</div>${pfEduExtras(edu)}${edu.endYear ? `<div style="font-size:10px;color:${accent};">${esc(edu.endYear)}</div>` : ''}</div>`).join('')}</div>` : ''}
       </div>
       <div style="padding:30px 30px;box-sizing:border-box;">
         <div style="margin-bottom:20px;">
@@ -5081,8 +5348,8 @@ function renderTimelineCV(data) {
       </div>
     </div>`:''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px;">
-      ${data.education&&data.education.length?`<div><div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${accent};margin-bottom:12px;">Education</div>${data.education.map(edu=>`<div style="margin-bottom:12px;"><div style="font-size:14px;font-weight:700;color:#1a1814;">${edu.degree||''}</div><div style="font-size:12px;color:${accent};">${edu.school||''}</div><div style="font-size:11px;color:#9e9890;">${edu.endYear||''}</div></div>`).join('')}</div>`:''}
-      ${data.skills?`<div><div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${accent};margin-bottom:12px;">Skills</div><div style="display:flex;flex-wrap:wrap;gap:6px;">${data.skills.split(',').map(s=>s.trim()).filter(s=>s).map(s=>`<span style="background:#f0fdf4;border:1px solid #86efac;color:#166534;padding:4px 10px;border-radius:16px;font-size:12px;">${s}</span>`).join('')}</div></div>`:''}
+      ${data.education&&data.education.length?`<div><div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${accent};margin-bottom:12px;">Education</div>${data.education.map(edu=>`<div style="margin-bottom:12px;"><div style="font-size:14px;font-weight:700;color:#1a1814;">${edu.degree||''}</div><div style="font-size:12px;color:${accent};">${edu.school||''}</div>${pfEduExtras(edu)}<div style="font-size:11px;color:#9e9890;">${edu.endYear||''}</div></div>`).join('')}</div>`:''}
+      ${data.skills?`<div><div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${accent};margin-bottom:12px;">Skills</div><div style="display:flex;flex-wrap:wrap;gap:6px;">${pfSplitSkills(data.skills).map(s=>s.trim()).filter(s=>s).map(s=>`<span style="background:#f0fdf4;border:1px solid #86efac;color:#166534;padding:4px 10px;border-radius:16px;font-size:12px;">${s}</span>`).join('')}</div></div>`:''}
     </div>
   </div>`;
 }
@@ -5091,7 +5358,7 @@ function renderTimelineCV(data) {
 function renderSkillBubbles(data) {
   const accent = window._cvAccentColor || '#1a1814';
   const font = window._cvFont || 'Helvetica Neue,Arial,sans-serif';
-  const skillList = data.skills ? data.skills.split(',').map(s=>s.trim()).filter(s=>s) : [];
+  const skillList = data.skills ? pfSplitSkills(data.skills).map(s=>s.trim()).filter(s=>s) : [];
   const bubbleColors = [{bg:'#dbeafe',c:'#1e40af'},{bg:'#dcfce7',c:'#166534'},{bg:'#fef3c7',c:'#92400e'},{bg:'#fce7f3',c:'#9d174d'},{bg:'#ede9fe',c:'#5b21b6'},{bg:'#ffedd5',c:'#9a3412'}];
   return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:#FAFAF8;overflow:hidden;position:relative;">
     <div style="background:${accent};padding:40px 48px;position:relative;overflow:hidden;">
@@ -5109,7 +5376,7 @@ function renderSkillBubbles(data) {
     <div style="padding:28px 48px 48px;background:#FAFAF8;">
       ${data.summary?`<div style="margin-bottom:24px;"><div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${accent};margin-bottom:8px;">About</div><p style="font-size:13.5px;color:#374151;line-height:1.8;margin:0;background:white;padding:16px;border-radius:10px;border:1px solid #e2ddd4;">${data.summary}</p></div>`:''}
       ${data.experience&&data.experience.length?`<div style="margin-bottom:24px;"><div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${accent};margin-bottom:12px;">Experience</div>${data.experience.map(exp=>`<div style="background:white;border-radius:10px;border:1px solid #e2ddd4;padding:16px 18px;margin-bottom:10px;"><div style="display:flex;justify-content:space-between;"><div><div style="font-size:14px;font-weight:700;color:#1a1814;">${exp.title||''}</div><div style="font-size:12.5px;color:${accent};">${exp.company||''}</div></div><div style="font-size:11px;color:#9e9890;white-space:nowrap;">${exp.startDate||''} ${exp.endDate?'– '+exp.endDate:'– Present'}</div></div>${exp.bullets&&exp.bullets.length?`<ul style="margin:8px 0 0;padding-left:16px;">${exp.bullets.map(b=>`<li style="font-size:12px;color:#374151;line-height:1.65;margin-bottom:3px;">${b}</li>`).join('')}</ul>`:''}</div>`).join('')}</div>`:''}
-      ${data.education&&data.education.length?`<div><div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${accent};margin-bottom:12px;">Education</div>${data.education.map(edu=>`<div style="background:white;border-radius:10px;border:1px solid #e2ddd4;padding:14px 18px;margin-bottom:8px;display:flex;justify-content:space-between;"><div><div style="font-size:13.5px;font-weight:700;color:#1a1814;">${edu.degree||''}</div><div style="font-size:12px;color:${accent};">${edu.school||''}</div></div><div style="font-size:11px;color:#9e9890;">${edu.endYear||''}</div></div>`).join('')}</div>`:''}
+      ${data.education&&data.education.length?`<div><div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${accent};margin-bottom:12px;">Education</div>${data.education.map(edu=>`<div style="background:white;border-radius:10px;border:1px solid #e2ddd4;padding:14px 18px;margin-bottom:8px;display:flex;justify-content:space-between;"><div><div style="font-size:13.5px;font-weight:700;color:#1a1814;">${edu.degree||''}</div><div style="font-size:12px;color:${accent};">${edu.school||''}</div>${pfEduExtras(edu)}</div><div style="font-size:11px;color:#9e9890;">${edu.endYear||''}</div></div>`).join('')}</div>`:''}
     </div>
   </div>`;
 }
@@ -5137,8 +5404,8 @@ function renderGradientHeader(data) {
       ${data.summary?`<div style="margin-bottom:24px;">${secTitle('Profile')}<p style="font-size:13.5px;color:#374151;line-height:1.8;margin:0;">${data.summary}</p></div>`:''}
       ${data.experience&&data.experience.length?`<div style="margin-bottom:24px;">${secTitle('Experience')}${data.experience.map(exp=>`<div style="margin-bottom:16px;padding-left:14px;border-left:2px solid #e2ddd4;"><div style="display:flex;justify-content:space-between;"><div><div style="font-size:14.5px;font-weight:700;color:#1a1814;">${exp.title||''}</div><div style="font-size:13px;color:${accent};">${exp.company||''}</div></div><div style="font-size:11.5px;color:#9e9890;white-space:nowrap;">${exp.startDate||''} ${exp.endDate?'– '+exp.endDate:'– Present'}</div></div>${exp.bullets&&exp.bullets.length?`<ul style="margin:6px 0 0;padding-left:16px;">${exp.bullets.map(b=>`<li style="font-size:12.5px;color:#374151;line-height:1.65;margin-bottom:3px;">${b}</li>`).join('')}</ul>`:''}</div>`).join('')}</div>`:''}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:28px;">
-        ${data.education&&data.education.length?`<div>${secTitle('Education')}${data.education.map(edu=>`<div style="margin-bottom:10px;"><div style="font-size:13.5px;font-weight:700;color:#1a1814;">${edu.degree||''}</div><div style="font-size:12px;color:${accent};">${edu.school||''}</div><div style="font-size:11px;color:#9e9890;">${edu.endYear||''}</div></div>`).join('')}</div>`:''}
-        ${data.skills?`<div>${secTitle('Skills')}<div style="display:flex;flex-wrap:wrap;gap:6px;">${data.skills.split(',').map(s=>s.trim()).filter(s=>s).map(s=>`<span style="background:#f0fdf4;border:1px solid #86efac;color:#166534;padding:4px 10px;border-radius:12px;font-size:12px;">${s}</span>`).join('')}</div></div>`:''}
+        ${data.education&&data.education.length?`<div>${secTitle('Education')}${data.education.map(edu=>`<div style="margin-bottom:10px;"><div style="font-size:13.5px;font-weight:700;color:#1a1814;">${edu.degree||''}</div><div style="font-size:12px;color:${accent};">${edu.school||''}</div>${pfEduExtras(edu)}<div style="font-size:11px;color:#9e9890;">${edu.endYear||''}</div></div>`).join('')}</div>`:''}
+        ${data.skills?`<div>${secTitle('Skills')}<div style="display:flex;flex-wrap:wrap;gap:6px;">${pfSplitSkills(data.skills).map(s=>s.trim()).filter(s=>s).map(s=>`<span style="background:#f0fdf4;border:1px solid #86efac;color:#166534;padding:4px 10px;border-radius:12px;font-size:12px;">${s}</span>`).join('')}</div></div>`:''}
       </div>
     </div>
   </div>`;
@@ -5159,8 +5426,8 @@ function renderTwoTone(data) {
         ${data.location?`<div style="font-size:11.5px;color:rgba(255,255,255,0.75);margin-bottom:6px;">📍 ${data.location}</div>`:''}
         ${data.linkedin?`<div style="font-size:11px;color:rgba(255,255,255,0.6);word-break:break-all;">🔗 ${data.linkedin}</div>`:''}
       </div>
-      ${data.skills?`<div style="margin-bottom:20px;"><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.4);margin-bottom:10px;font-weight:700;">Skills</div>${data.skills.split(',').map(s=>s.trim()).filter(s=>s).map(s=>`<div style="margin-bottom:8px;"><div style="font-size:11.5px;color:rgba(255,255,255,0.75);margin-bottom:4px;">${s}</div><div style="height:3px;background:rgba(255,255,255,0.1);border-radius:2px;"><div style="height:100%;width:${70+Math.round(Math.random()*25)}%;background:${accent};border-radius:2px;"></div></div></div>`).join('')}</div>`:''}
-      ${data.education&&data.education.length?`<div><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.4);margin-bottom:10px;font-weight:700;">Education</div>${data.education.map(edu=>`<div style="margin-bottom:10px;"><div style="font-size:12px;font-weight:700;color:white;line-height:1.3;">${edu.degree||''}</div><div style="font-size:11px;color:${accent};">${edu.school||''}</div><div style="font-size:10px;color:rgba(255,255,255,0.4);">${edu.endYear||''}</div></div>`).join('')}</div>`:''}
+      ${data.skills?`<div style="margin-bottom:20px;"><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.4);margin-bottom:10px;font-weight:700;">Skills</div>${pfSplitSkills(data.skills).map(s=>s.trim()).filter(s=>s).map(s=>`<div style="margin-bottom:8px;"><div style="font-size:11.5px;color:rgba(255,255,255,0.75);margin-bottom:4px;">${s}</div><div style="height:3px;background:rgba(255,255,255,0.1);border-radius:2px;"><div style="height:100%;width:${70+Math.round(Math.random()*25)}%;background:${accent};border-radius:2px;"></div></div></div>`).join('')}</div>`:''}
+      ${data.education&&data.education.length?`<div><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.4);margin-bottom:10px;font-weight:700;">Education</div>${data.education.map(edu=>`<div style="margin-bottom:10px;"><div style="font-size:12px;font-weight:700;color:white;line-height:1.3;">${edu.degree||''}</div><div style="font-size:11px;color:${accent};">${edu.school||''}</div>${pfEduExtras(edu)}<div style="font-size:10px;color:rgba(255,255,255,0.4);">${edu.endYear||''}</div></div>`).join('')}</div>`:''}
     </div>
     <div style="flex:1;padding:40px 36px;background:white;box-sizing:border-box;">
       ${data.summary?`<div style="margin-bottom:24px;"><div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${accent};border-bottom:2px solid ${accent};padding-bottom:6px;margin-bottom:10px;">Professional Summary</div><p style="font-size:13px;color:#374151;line-height:1.8;margin:0;text-align:justify;">${data.summary}</p></div>`:''}
@@ -5186,7 +5453,7 @@ function renderNewspaper(data) {
       </div>
       <div>
         ${cvPhotoData?`<div style="width:100%;aspect-ratio:1;overflow:hidden;border:2px solid #e2ddd4;margin-bottom:16px;border-radius:4px;"><img src="${cvPhotoData}" style="width:100%;height:100%;object-fit:cover;display:block;"></div>`:''}
-        ${data.education&&data.education.length?`<div style="margin-bottom:16px;"><div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:2px;border-bottom:2px solid #1a1814;padding-bottom:4px;margin-bottom:10px;">Education</div>${data.education.map(edu=>`<div style="margin-bottom:8px;"><div style="font-size:13px;font-weight:700;color:#1a1814;">${edu.degree||''}</div><div style="font-size:12px;color:#6b6660;font-style:italic;">${edu.school||''}</div><div style="font-size:11px;color:#9e9890;">${edu.endYear||''}</div></div>`).join('')}</div>`:''}
+        ${data.education&&data.education.length?`<div style="margin-bottom:16px;"><div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:2px;border-bottom:2px solid #1a1814;padding-bottom:4px;margin-bottom:10px;">Education</div>${data.education.map(edu=>`<div style="margin-bottom:8px;"><div style="font-size:13px;font-weight:700;color:#1a1814;">${edu.degree||''}</div><div style="font-size:12px;color:#6b6660;font-style:italic;">${edu.school||''}</div>${pfEduExtras(edu)}<div style="font-size:11px;color:#9e9890;">${edu.endYear||''}</div></div>`).join('')}</div>`:''}
         ${data.skills?`<div><div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:2px;border-bottom:2px solid #1a1814;padding-bottom:4px;margin-bottom:10px;">Skills</div><p style="font-size:12.5px;color:#374151;line-height:1.8;margin:0;">${data.skills}</p></div>`:''}
       </div>
     </div>
@@ -5215,8 +5482,8 @@ function renderCornerAccent(data) {
       ${data.summary?`<div style="margin-bottom:24px;"><div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${accent};margin-bottom:8px;">Summary</div><p style="font-size:13.5px;color:#374151;line-height:1.8;margin:0;">${data.summary}</p></div>`:''}
       ${data.experience&&data.experience.length?`<div style="margin-bottom:24px;"><div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${accent};margin-bottom:12px;">Experience</div>${data.experience.map(exp=>`<div style="margin-bottom:16px;display:grid;grid-template-columns:100px 1fr;gap:16px;"><div style="font-size:11px;color:#9e9890;padding-top:2px;text-align:right;">${exp.startDate||''}<br>${exp.endDate||'Present'}</div><div style="border-left:2px solid ${accent};padding-left:14px;"><div style="font-size:14px;font-weight:700;color:#1a1814;">${exp.title||''}</div><div style="font-size:12.5px;color:${accent};margin-bottom:4px;">${exp.company||''}</div>${exp.bullets&&exp.bullets.length?`<ul style="margin:4px 0 0;padding-left:14px;">${exp.bullets.map(b=>`<li style="font-size:12px;color:#374151;line-height:1.65;margin-bottom:2px;">${b}</li>`).join('')}</ul>`:''}</div></div>`).join('')}</div>`:''}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
-        ${data.education&&data.education.length?`<div><div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${accent};margin-bottom:10px;">Education</div>${data.education.map(edu=>`<div style="margin-bottom:8px;"><div style="font-size:13.5px;font-weight:700;color:#1a1814;">${edu.degree||''}</div><div style="font-size:12px;color:${accent};">${edu.school||''}</div><div style="font-size:11px;color:#9e9890;">${edu.endYear||''}</div></div>`).join('')}</div>`:''}
-        ${data.skills?`<div><div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${accent};margin-bottom:10px;">Skills</div><div style="display:flex;flex-wrap:wrap;gap:6px;">${data.skills.split(',').map(s=>s.trim()).filter(s=>s).map(s=>`<span style="background:#f7f5f0;border:1px solid #e2ddd4;color:#374151;padding:4px 10px;border-radius:16px;font-size:12px;">${s}</span>`).join('')}</div></div>`:''}
+        ${data.education&&data.education.length?`<div><div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${accent};margin-bottom:10px;">Education</div>${data.education.map(edu=>`<div style="margin-bottom:8px;"><div style="font-size:13.5px;font-weight:700;color:#1a1814;">${edu.degree||''}</div><div style="font-size:12px;color:${accent};">${edu.school||''}</div>${pfEduExtras(edu)}<div style="font-size:11px;color:#9e9890;">${edu.endYear||''}</div></div>`).join('')}</div>`:''}
+        ${data.skills?`<div><div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${accent};margin-bottom:10px;">Skills</div><div style="display:flex;flex-wrap:wrap;gap:6px;">${pfSplitSkills(data.skills).map(s=>s.trim()).filter(s=>s).map(s=>`<span style="background:#f7f5f0;border:1px solid #e2ddd4;color:#374151;padding:4px 10px;border-radius:16px;font-size:12px;">${s}</span>`).join('')}</div></div>`:''}
       </div>
     </div>
     <div style="position:absolute;bottom:0;left:0;right:0;height:6px;background:linear-gradient(to right,${accent},transparent);"></div>
@@ -5243,8 +5510,8 @@ function renderBorderFrame(data) {
       ${data.summary?`<div style="margin-bottom:20px;"><div style="font-size:11px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:${accent};text-align:center;margin-bottom:8px;">Profile</div><div style="height:1px;background:#e8e0c8;margin-bottom:10px;"></div><p style="font-size:13px;color:#4b4540;line-height:1.9;margin:0;text-align:justify;font-style:italic;">${data.summary}</p><div style="height:1px;background:#e8e0c8;margin-top:10px;"></div></div>`:''}
       ${data.experience&&data.experience.length?`<div style="margin-bottom:20px;"><div style="font-size:11px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:${accent};text-align:center;margin-bottom:8px;">Professional Experience</div><div style="height:1px;background:#e8e0c8;margin-bottom:12px;"></div>${data.experience.map(exp=>`<div style="margin-bottom:14px;display:flex;justify-content:space-between;"><div><div style="font-size:14px;font-weight:700;color:#1a1814;">${exp.title||''}</div><div style="font-size:12.5px;color:${accent};font-style:italic;">${exp.company||''}</div>${exp.bullets&&exp.bullets.length?`<ul style="margin:6px 0 0;padding-left:16px;">${exp.bullets.map(b=>`<li style="font-size:12px;color:#4b4540;line-height:1.7;margin-bottom:3px;">${b}</li>`).join('')}</ul>`:''}</div><div style="font-size:11px;color:#9e9890;white-space:nowrap;margin-left:12px;">${exp.startDate||''} ${exp.endDate?'– '+exp.endDate:'– Present'}</div></div>`).join('')}</div>`:''}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
-        ${data.education&&data.education.length?`<div><div style="font-size:11px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:${accent};text-align:center;margin-bottom:8px;">Education</div><div style="height:1px;background:#e8e0c8;margin-bottom:10px;"></div>${data.education.map(edu=>`<div style="margin-bottom:8px;"><div style="font-size:13.5px;font-weight:700;color:#1a1814;">${edu.degree||''}</div><div style="font-size:12px;color:${accent};font-style:italic;">${edu.school||''}</div><div style="font-size:11px;color:#9e9890;">${edu.endYear||''}</div></div>`).join('')}</div>`:''}
-        ${data.skills?`<div><div style="font-size:11px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:${accent};text-align:center;margin-bottom:8px;">Skills</div><div style="height:1px;background:#e8e0c8;margin-bottom:10px;"></div>${data.skills.split(',').map(s=>s.trim()).filter(s=>s).map(s=>`<div style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:#4b4540;padding:3px 0;border-bottom:1px dotted #e8e0c8;"><span style="color:${accent};">✦</span>${s}</div>`).join('')}</div>`:''}
+        ${data.education&&data.education.length?`<div><div style="font-size:11px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:${accent};text-align:center;margin-bottom:8px;">Education</div><div style="height:1px;background:#e8e0c8;margin-bottom:10px;"></div>${data.education.map(edu=>`<div style="margin-bottom:8px;"><div style="font-size:13.5px;font-weight:700;color:#1a1814;">${edu.degree||''}</div><div style="font-size:12px;color:${accent};font-style:italic;">${edu.school||''}</div>${pfEduExtras(edu)}<div style="font-size:11px;color:#9e9890;">${edu.endYear||''}</div></div>`).join('')}</div>`:''}
+        ${data.skills?`<div><div style="font-size:11px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:${accent};text-align:center;margin-bottom:8px;">Skills</div><div style="height:1px;background:#e8e0c8;margin-bottom:10px;"></div>${pfSplitSkills(data.skills).map(s=>s.trim()).filter(s=>s).map(s=>`<div style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:#4b4540;padding:3px 0;border-bottom:1px dotted #e8e0c8;"><span style="color:${accent};">✦</span>${s}</div>`).join('')}</div>`:''}
       </div>
     </div>
   </div>`;
@@ -5266,8 +5533,8 @@ function renderModernPhoto(data) {
         ${data.phone?`<div style="font-size:11.5px;color:#374151;margin-bottom:6px;">📞 ${data.phone}</div>`:''}
         ${data.location?`<div style="font-size:11.5px;color:#374151;margin-bottom:6px;">📍 ${data.location}</div>`:''}
       </div>
-      ${data.skills?`<div style="margin-bottom:20px;"><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#9e9890;margin-bottom:10px;font-weight:700;">Core Skills</div><div style="display:flex;flex-wrap:wrap;gap:5px;">${data.skills.split(',').map(s=>s.trim()).filter(s=>s).map(s=>`<span style="background:white;border:1px solid #d1fae5;color:#166534;padding:3px 8px;border-radius:10px;font-size:11px;">${s}</span>`).join('')}</div></div>`:''}
-      ${data.education&&data.education.length?`<div><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#9e9890;margin-bottom:10px;font-weight:700;">Education</div>${data.education.map(edu=>`<div style="margin-bottom:10px;"><div style="font-size:12.5px;font-weight:700;color:#1a1814;line-height:1.3;">${edu.degree||''}</div><div style="font-size:11.5px;color:${accent};">${edu.school||''}</div><div style="font-size:11px;color:#9e9890;">${edu.endYear||''}</div></div>`).join('')}</div>`:''}
+      ${data.skills?`<div style="margin-bottom:20px;"><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#9e9890;margin-bottom:10px;font-weight:700;">Core Skills</div><div style="display:flex;flex-wrap:wrap;gap:5px;">${pfSplitSkills(data.skills).map(s=>s.trim()).filter(s=>s).map(s=>`<span style="background:white;border:1px solid #d1fae5;color:#166534;padding:3px 8px;border-radius:10px;font-size:11px;">${s}</span>`).join('')}</div></div>`:''}
+      ${data.education&&data.education.length?`<div><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#9e9890;margin-bottom:10px;font-weight:700;">Education</div>${data.education.map(edu=>`<div style="margin-bottom:10px;"><div style="font-size:12.5px;font-weight:700;color:#1a1814;line-height:1.3;">${edu.degree||''}</div><div style="font-size:11.5px;color:${accent};">${edu.school||''}</div>${pfEduExtras(edu)}<div style="font-size:11px;color:#9e9890;">${edu.endYear||''}</div></div>`).join('')}</div>`:''}
     </div>
     <div style="flex:1;order:1;padding:40px 36px;box-sizing:border-box;">
       ${data.summary?`<div style="margin-bottom:24px;">${hdr('About Me')}<p style="font-size:13.5px;color:#374151;line-height:1.8;margin:0;text-align:justify;">${data.summary}</p></div>`:''}
@@ -5280,7 +5547,7 @@ function renderModernPhoto(data) {
 function renderColorSidebar(data) {
   const accent = window._cvAccentColor || '#1a1814';
   const font = window._cvFont || 'Calibri,serif';
-  const skills = (data.skills || '').split(',').map(s => s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s => s.trim()).filter(Boolean);
   const exp = data.experience || [];
   const edu = data.education || [];
   const photo = data.photoData || cvPhotoData;
@@ -5302,7 +5569,7 @@ function renderColorSidebar(data) {
       </div>` : ''}
       ${edu.length ? `<div>
         <div style="font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.5);margin-bottom:10px;">Education</div>
-        ${edu.map(e => `<div style="margin-bottom:10px;"><div style="font-size:12px;font-weight:700;color:white;line-height:1.3;">${esc(e.degree||'')}</div><div style="font-size:11px;color:rgba(255,255,255,0.65);">${esc(e.school||'')}</div><div style="font-size:10px;color:rgba(255,255,255,0.45);">${esc(e.endYear||'')}</div></div>`).join('')}
+        ${edu.map(e => `<div style="margin-bottom:10px;"><div style="font-size:12px;font-weight:700;color:white;line-height:1.3;">${esc(e.degree||'')}</div><div style="font-size:11px;color:rgba(255,255,255,0.65);">${esc(e.school||'')}</div>${pfEduExtras(e)}<div style="font-size:10px;color:rgba(255,255,255,0.45);">${esc(e.endYear||'')}</div></div>`).join('')}
       </div>` : ''}
       ${data.languages && data.languages.length ? `<div>
         <div style="font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.5);margin-bottom:8px;">Languages</div>
@@ -5329,7 +5596,7 @@ function renderColorSidebar(data) {
 function renderTopStrip(data) {
   const accent = window._cvAccentColor || '#1a1814';
   const font = window._cvFont || 'Helvetica Neue,Arial,sans-serif';
-  const skills = (data.skills || '').split(',').map(s => s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s => s.trim()).filter(Boolean);
   const exp = data.experience || [];
   const edu = data.education || [];
   const photo = data.photoData || cvPhotoData;
@@ -5361,7 +5628,7 @@ function renderTopStrip(data) {
       </div>
       <div>
         ${skills.length ? `<div style="margin-bottom:22px;"><div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${accent};margin-bottom:10px;">Skills</div><div style="display:flex;flex-wrap:wrap;gap:5px;">${skills.map(s=>`<span style="background:${accent}12;color:${accent};border:1px solid ${accent}30;padding:4px 10px;border-radius:12px;font-size:12px;">${esc(s)}</span>`).join('')}</div></div>` : ''}
-        ${edu.length ? `<div style="margin-bottom:22px;"><div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${accent};margin-bottom:10px;">Education</div>${edu.map(e=>`<div style="margin-bottom:10px;"><div style="font-size:13.5px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</div><div style="font-size:12px;color:${accent};">${esc(e.school||'')}</div><div style="font-size:11px;color:#9e9890;">${esc(e.endYear||'')}</div></div>`).join('')}</div>` : ''}
+        ${edu.length ? `<div style="margin-bottom:22px;"><div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${accent};margin-bottom:10px;">Education</div>${edu.map(e=>`<div style="margin-bottom:10px;"><div style="font-size:13.5px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</div><div style="font-size:12px;color:${accent};">${esc(e.school||'')}</div>${pfEduExtras(e)}<div style="font-size:11px;color:#9e9890;">${esc(e.endYear||'')}</div></div>`).join('')}</div>` : ''}
         ${data.certifications ? `<div style="margin-bottom:22px;"><div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${accent};margin-bottom:8px;">Certifications</div><p style="font-size:12.5px;color:#374151;line-height:1.7;margin:0;">${esc(data.certifications)}</p></div>` : ''}
         ${data.languages&&data.languages.length ? `<div><div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${accent};margin-bottom:8px;">Languages</div>${data.languages.map(l=>`<div style="font-size:12.5px;color:#374151;margin-bottom:4px;">${esc(l.language||'')}${l.level?`<span style="color:#9e9890;"> — ${esc(l.level)}</span>`:''}</div>`).join('')}</div>` : ''}
       </div>
@@ -5373,7 +5640,7 @@ function renderTopStrip(data) {
 function renderPhotoLeft(data) {
   const accent = window._cvAccentColor || '#1a1814';
   const font = window._cvFont || 'Calibri,serif';
-  const skills = (data.skills || '').split(',').map(s => s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s => s.trim()).filter(Boolean);
   const exp = data.experience || [];
   const edu = data.education || [];
   const photo = data.photoData || cvPhotoData;
@@ -5399,7 +5666,7 @@ function renderPhotoLeft(data) {
         </div>`).join('')}
       </div>` : ''}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:26px;">
-        ${edu.length ? `<div><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;"><div style="width:4px;height:16px;background:${accent};border-radius:2px;"></div><div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#1a1814;">Education</div></div>${edu.map(e=>`<div style="margin-bottom:8px;"><div style="font-size:13px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</div><div style="font-size:12px;color:${accent};">${esc(e.school||'')}</div><div style="font-size:11px;color:#9e9890;">${esc(e.endYear||'')}</div></div>`).join('')}</div>` : ''}
+        ${edu.length ? `<div><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;"><div style="width:4px;height:16px;background:${accent};border-radius:2px;"></div><div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#1a1814;">Education</div></div>${edu.map(e=>`<div style="margin-bottom:8px;"><div style="font-size:13px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</div><div style="font-size:12px;color:${accent};">${esc(e.school||'')}</div>${pfEduExtras(e)}<div style="font-size:11px;color:#9e9890;">${esc(e.endYear||'')}</div></div>`).join('')}</div>` : ''}
         ${skills.length ? `<div><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;"><div style="width:4px;height:16px;background:${accent};border-radius:2px;"></div><div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#1a1814;">Skills</div></div><div style="display:flex;flex-wrap:wrap;gap:5px;">${skills.map(s=>`<span style="background:${accent}12;color:${accent};border:1px solid ${accent}25;padding:3px 9px;border-radius:10px;font-size:11.5px;">${esc(s)}</span>`).join('')}</div></div>` : ''}
       </div>
     </div>
@@ -5411,7 +5678,7 @@ function renderMidnight(data) {
   const accent = window._cvAccentColor || '#0d2137';
   const font = window._cvFont || 'Calibri, Arial, sans-serif';
   const photo = data.photoData || cvPhotoData;
-  const skills = (data.skills || '').split(',').map(s => s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s => s.trim()).filter(Boolean);
   const sw = [90,82,78,95,70,85,75,88,72,80,92,68];
   const exp = data.experience || []; const edu = data.education || [];
   const langs = data.languages || []; const certs = data.certifications || '';
@@ -5441,7 +5708,7 @@ function renderMidnight(data) {
     <div style="padding:30px 26px 24px;box-sizing:border-box;overflow:hidden;">
       ${data.summary?`${mSec('Profile')}<div style="font-size:12.5px;color:#374151;line-height:1.75;">${esc(data.summary)}</div>`:''}
       ${exp.length?`${mSec('Work Experience')}${exp.map(e=>`<div style="margin-bottom:13px;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13px;font-weight:700;color:#1a1814;">${esc(e.title||'')}</span><span style="font-size:11px;color:#9e9890;white-space:nowrap;">${[e.startDate,e.endDate].filter(Boolean).join(' – ')}</span></div><div style="font-size:12px;color:${accent};font-weight:600;margin-bottom:3px;">${esc(e.company||'')}</div>${e.bullets&&e.bullets.length?`<ul style="margin:0;padding-left:13px;">${e.bullets.map(b=>`<li style="font-size:12px;color:#374151;line-height:1.5;margin-bottom:2px;">${esc(b)}</li>`).join('')}</ul>`:''}</div>`).join('')}`:''}
-      ${edu.length?`${mSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</span><span style="font-size:11px;color:#9e9890;">${esc(e.endYear||'')}</span></div><div style="font-size:12px;color:${accent};font-weight:600;">${esc(e.school||'')}</div></div>`).join('')}`:''}
+      ${edu.length?`${mSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</span><span style="font-size:11px;color:#9e9890;">${esc(e.endYear||'')}</span></div><div style="font-size:12px;color:${accent};font-weight:600;">${esc(e.school||'')}</div>${pfEduExtras(e)}</div>`).join('')}`:''}
     </div>
   </div>`;
 }
@@ -5451,7 +5718,7 @@ function renderBlush(data) {
   const accent = window._cvAccentColor || '#c9748a';
   const font = window._cvFont || 'Georgia, serif';
   const photo = data.photoData || cvPhotoData;
-  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s=>s.trim()).filter(Boolean);
   const exp = data.experience||[]; const edu = data.education||[];
   const langs = data.languages||[]; const certs = data.certifications||'';
   const div = `<div style="border-top:1px solid ${accent}35;margin:13px 0;"></div>`;
@@ -5470,7 +5737,7 @@ function renderBlush(data) {
       ${exp.length?`<div style="margin-bottom:16px;">${bSec('Experience')}${exp.map(e=>`<div style="margin-bottom:13px;padding-left:13px;border-left:2px solid ${accent}30;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;"><span style="font-size:13.5px;font-weight:700;color:#1a1814;">${esc(e.title||'')}</span><span style="font-size:11px;color:#9e9890;font-style:italic;">${[e.startDate,e.endDate].filter(Boolean).join(' – ')}</span></div><div style="font-size:12px;color:${accent};margin-bottom:4px;">${esc(e.company||'')}</div>${e.bullets&&e.bullets.length?`<ul style="margin:0;padding-left:12px;">${e.bullets.map(b=>`<li style="font-size:12px;color:#555;line-height:1.6;margin-bottom:2px;">${esc(b)}</li>`).join('')}</ul>`:''}</div>`).join('')}</div>`:''}
       ${div}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px;">
-        ${edu.length?`<div>${bSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;"><div style="font-size:13px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</div><div style="font-size:11.5px;color:#777;font-style:italic;">${esc(e.school||'')}${e.endYear?' · '+esc(e.endYear):''}</div></div>`).join('')}</div>`:''}
+        ${edu.length?`<div>${bSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;"><div style="font-size:13px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</div><div style="font-size:11.5px;color:#777;font-style:italic;">${esc(e.school||'')}${e.endYear?' · '+esc(e.endYear):''}</div>${pfEduExtras(e)}</div>`).join('')}</div>`:''}
         <div>
           ${skills.length?`<div style="margin-bottom:13px;">${bSec('Skills')}<div style="display:flex;flex-wrap:wrap;gap:5px;">${skills.map(s=>`<span style="background:${accent}1a;color:${accent};border:1px solid ${accent}30;border-radius:20px;padding:3px 10px;font-size:11px;">${esc(s)}</span>`).join('')}</div></div>`:''}
           ${langs.length?`<div style="margin-bottom:12px;">${bSec('Languages')}${langs.map(l=>`<div style="font-size:11.5px;color:#555;margin-bottom:4px;">${esc(l.language)}${l.level?` — <em>${esc(l.level)}</em>`:''}</div>`).join('')}</div>`:''}
@@ -5486,7 +5753,7 @@ function renderMonogram(data) {
   const accent = window._cvAccentColor || '#1a1814';
   const font = window._cvFont || 'Calibri, Arial, sans-serif';
   const photo = data.photoData || cvPhotoData;
-  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s=>s.trim()).filter(Boolean);
   const exp = data.experience||[]; const edu = data.education||[];
   const langs = data.languages||[]; const certs = data.certifications||'';
   const initials = (data.name||'YN').split(' ').map(w=>w.charAt(0)).slice(0,2).join('');
@@ -5503,7 +5770,7 @@ function renderMonogram(data) {
     ${data.summary?`${mSec('Professional Summary')}<div style="font-size:12.5px;color:#374151;line-height:1.78;padding-left:12px;">${esc(data.summary)}</div>`:''}
     ${exp.length?`${mSec('Work Experience')}${exp.map(e=>`<div style="margin-bottom:13px;padding-left:12px;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13.5px;font-weight:700;color:#1a1814;">${esc(e.title||'')}</span><span style="font-size:11px;color:#9e9890;white-space:nowrap;">${[e.startDate,e.endDate].filter(Boolean).join(' – ')}</span></div><div style="font-size:12px;color:${accent};font-weight:600;margin-bottom:3px;">${esc(e.company||'')}</div>${e.bullets&&e.bullets.length?`<ul style="margin:0;padding-left:13px;">${e.bullets.map(b=>`<li style="font-size:12px;color:#374151;line-height:1.55;margin-bottom:2px;">${esc(b)}</li>`).join('')}</ul>`:''}</div>`).join('')}`:''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:4px;">
-      ${edu.length?`<div>${mSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;padding-left:12px;"><div style="font-size:13px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</div><div style="font-size:11.5px;color:${accent};">${esc(e.school||'')}</div><div style="font-size:11px;color:#9e9890;">${esc(e.endYear||'')}</div></div>`).join('')}</div>`:''}
+      ${edu.length?`<div>${mSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;padding-left:12px;"><div style="font-size:13px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</div><div style="font-size:11.5px;color:${accent};">${esc(e.school||'')}</div>${pfEduExtras(e)}<div style="font-size:11px;color:#9e9890;">${esc(e.endYear||'')}</div></div>`).join('')}</div>`:''}
       <div>
         ${skills.length?`${mSec('Skills')}<div style="padding-left:12px;display:flex;flex-wrap:wrap;gap:5px;margin-bottom:11px;">${skills.map(s=>`<span style="background:${accent}10;color:${accent};border:1px solid ${accent}25;border-radius:4px;padding:3px 9px;font-size:11px;font-weight:600;">${esc(s)}</span>`).join('')}</div>`:''}
         ${langs.length?`${mSec('Languages')}${langs.map(l=>`<div style="padding-left:12px;font-size:11.5px;color:#444;margin-bottom:4px;">${esc(l.language)}${l.level?` <span style="color:#9e9890;">· ${esc(l.level)}</span>`:''}</div>`).join('')}`:''}
@@ -5518,7 +5785,7 @@ function renderSwiss(data) {
   const accent = window._cvAccentColor || '#cc0000';
   const font = window._cvFont || 'Arial, Helvetica, sans-serif';
   const photo = data.photoData || cvPhotoData;
-  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s=>s.trim()).filter(Boolean);
   const exp = data.experience||[]; const edu = data.education||[];
   const langs = data.languages||[]; const certs = data.certifications||'';
   const swSec = t => `<div style="display:flex;align-items:center;gap:11px;margin:20px 0 9px;"><div style="width:26px;height:2px;background:${accent};flex-shrink:0;"></div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:3px;color:#1a1814;">${t}</div></div>`;
@@ -5536,7 +5803,7 @@ function renderSwiss(data) {
     </div>
     ${data.summary?`${swSec('Profile')}<div style="font-size:12.5px;color:#374151;line-height:1.8;">${esc(data.summary)}</div>`:''}
     ${exp.length?`${swSec('Experience')}${exp.map(e=>`<div style="margin-bottom:13px;display:grid;grid-template-columns:125px 1fr;gap:15px;"><div style="font-size:11px;color:#9e9890;padding-top:2px;text-align:right;line-height:1.6;">${[e.startDate,e.endDate].filter(Boolean).join('<br>')}</div><div><div style="font-size:13.5px;font-weight:700;color:#1a1814;">${esc(e.title||'')}</div><div style="font-size:12px;color:#6b6660;margin-bottom:3px;">${esc(e.company||'')}</div>${e.bullets&&e.bullets.length?`<ul style="margin:0;padding-left:13px;">${e.bullets.map(b=>`<li style="font-size:12px;color:#374151;line-height:1.55;margin-bottom:2px;">${esc(b)}</li>`).join('')}</ul>`:''}</div></div>`).join('')}`:''}
-    ${edu.length?`${swSec('Education')}${edu.map(e=>`<div style="display:grid;grid-template-columns:125px 1fr;gap:15px;margin-bottom:9px;"><div style="font-size:11px;color:#9e9890;text-align:right;">${esc(e.endYear||'')}</div><div><div style="font-size:13px;font-weight:700;">${esc(e.degree||'')}</div><div style="font-size:11.5px;color:#6b6660;">${esc(e.school||'')}</div></div></div>`).join('')}`:''}
+    ${edu.length?`${swSec('Education')}${edu.map(e=>`<div style="display:grid;grid-template-columns:125px 1fr;gap:15px;margin-bottom:9px;"><div style="font-size:11px;color:#9e9890;text-align:right;">${esc(e.endYear||'')}</div><div><div style="font-size:13px;font-weight:700;">${esc(e.degree||'')}</div><div style="font-size:11.5px;color:#6b6660;">${esc(e.school||'')}</div>${pfEduExtras(e)}</div></div>`).join('')}`:''}
     ${skills.length?`${swSec('Skills')}<div style="font-size:12px;color:#374151;line-height:2;">${skills.map(s=>esc(s)).join(' &nbsp;·&nbsp; ')}</div>`:''}
     ${langs.length?`${swSec('Languages')}<div style="display:flex;flex-wrap:wrap;gap:16px;">${langs.map(l=>`<span style="font-size:12px;color:#374151;">${esc(l.language)}${l.level?` <span style="color:#9e9890;">(${esc(l.level)})</span>`:''}</span>`).join('')}</div>`:''}
     ${certs?`${swSec('Certifications')}<div style="font-size:12px;color:#374151;line-height:1.7;">${esc(certs).replace(/\n/g,'<br>')}</div>`:''}
@@ -5548,7 +5815,7 @@ function renderSlatePremium(data) {
   const accent = window._cvAccentColor || '#37474f';
   const font = window._cvFont || 'Calibri, Arial, sans-serif';
   const photo = data.photoData || cvPhotoData;
-  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s=>s.trim()).filter(Boolean);
   const exp = data.experience||[]; const edu = data.education||[];
   const langs = data.languages||[]; const certs = data.certifications||'';
   const slSec = t => `<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${accent};border-bottom:1.5px solid ${accent}38;padding-bottom:4px;margin:16px 0 9px;">${t}</div>`;
@@ -5567,7 +5834,7 @@ function renderSlatePremium(data) {
         ${exp.length?`${slSec('Work Experience')}${exp.map(e=>`<div style="margin-bottom:13px;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13.5px;font-weight:700;color:#1a1814;">${esc(e.title||'')}</span><span style="font-size:11px;color:#9e9890;white-space:nowrap;">${[e.startDate,e.endDate].filter(Boolean).join(' – ')}</span></div><div style="font-size:12px;color:${accent};font-weight:600;margin-bottom:3px;">${esc(e.company||'')}</div>${e.bullets&&e.bullets.length?`<ul style="margin:0;padding-left:13px;">${e.bullets.map(b=>`<li style="font-size:12px;color:#374151;line-height:1.55;margin-bottom:2px;">${esc(b)}</li>`).join('')}</ul>`:''}</div>`).join('')}`:''}
       </div>
       <div>
-        ${edu.length?`${slSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;"><div style="font-size:12.5px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</div><div style="font-size:11.5px;color:${accent};">${esc(e.school||'')}</div><div style="font-size:11px;color:#9e9890;">${esc(e.endYear||'')}</div></div>`).join('')}`:''}
+        ${edu.length?`${slSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;"><div style="font-size:12.5px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</div><div style="font-size:11.5px;color:${accent};">${esc(e.school||'')}</div>${pfEduExtras(e)}<div style="font-size:11px;color:#9e9890;">${esc(e.endYear||'')}</div></div>`).join('')}`:''}
         ${skills.length?`${slSec('Skills')}<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px;">${skills.map(s=>`<span style="background:${accent}10;color:${accent};border:1px solid ${accent}25;border-radius:4px;padding:3px 8px;font-size:11px;font-weight:600;">${esc(s)}</span>`).join('')}</div>`:''}
         ${langs.length?`${slSec('Languages')}${langs.map(l=>`<div style="font-size:11.5px;color:#444;margin-bottom:4px;">${esc(l.language)}${l.level?` <span style="color:#9e9890;">· ${esc(l.level)}</span>`:''}</div>`).join('')}`:''}
         ${certs?`${slSec('Certifications')}<div style="font-size:11px;color:#374151;line-height:1.7;">${esc(certs).replace(/\n/g,'<br>')}</div>`:''}
@@ -5581,7 +5848,7 @@ function renderTerra(data) {
   const accent = window._cvAccentColor || '#b5541c';
   const font = window._cvFont || 'Georgia, serif';
   const photo = data.photoData || cvPhotoData;
-  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s=>s.trim()).filter(Boolean);
   const exp = data.experience||[]; const edu = data.education||[];
   const langs = data.languages||[]; const certs = data.certifications||'';
   const tCard = c => `<div style="background:#fdf8f4;border:1px solid ${accent}20;border-radius:10px;padding:14px 18px;margin-bottom:12px;">${c}</div>`;
@@ -5601,7 +5868,7 @@ function renderTerra(data) {
         ${exp.length?`${tSec('Work Experience')}${exp.map(e=>tCard(`<div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;margin-bottom:2px;"><span style="font-size:13.5px;font-weight:700;color:#1a1814;">${esc(e.title||'')}</span><span style="font-size:11px;color:#9e9890;white-space:nowrap;">${[e.startDate,e.endDate].filter(Boolean).join(' – ')}</span></div><div style="font-size:12px;color:${accent};font-weight:600;margin-bottom:4px;">${esc(e.company||'')}</div>${e.bullets&&e.bullets.length?`<ul style="margin:0;padding-left:13px;">${e.bullets.map(b=>`<li style="font-size:12px;color:#444;line-height:1.55;margin-bottom:2px;">${esc(b)}</li>`).join('')}</ul>`:''}`)).join('')}`:''}
       </div>
       <div>
-        ${edu.length?tCard(`${tSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;"><div style="font-size:12.5px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</div><div style="font-size:11.5px;color:${accent};">${esc(e.school||'')}</div><div style="font-size:11px;color:#9e9890;">${esc(e.endYear||'')}</div></div>`).join('')}`):''}
+        ${edu.length?tCard(`${tSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;"><div style="font-size:12.5px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</div><div style="font-size:11.5px;color:${accent};">${esc(e.school||'')}</div>${pfEduExtras(e)}<div style="font-size:11px;color:#9e9890;">${esc(e.endYear||'')}</div></div>`).join('')}`):''}
         ${skills.length?tCard(`${tSec('Skills')}<div style="display:flex;flex-wrap:wrap;gap:5px;">${skills.map(s=>`<span style="background:${accent}16;color:${accent};border-radius:5px;padding:3px 9px;font-size:11px;">${esc(s)}</span>`).join('')}</div>`):''}
         ${langs.length?tCard(`${tSec('Languages')}${langs.map(l=>`<div style="font-size:11.5px;color:#444;margin-bottom:4px;">${esc(l.language)}${l.level?` · <em style="color:#9e9890;">${esc(l.level)}</em>`:''}</div>`).join('')}`):''}
         ${certs?tCard(`${tSec('Certifications')}<div style="font-size:11px;color:#444;line-height:1.7;">${esc(certs).replace(/\n/g,'<br>')}</div>`):''}
@@ -5615,7 +5882,7 @@ function renderMetro(data) {
   const accent = window._cvAccentColor || '#e63946';
   const font = window._cvFont || 'Arial, Helvetica, sans-serif';
   const photo = data.photoData || cvPhotoData;
-  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s=>s.trim()).filter(Boolean);
   const exp = data.experience||[]; const edu = data.education||[];
   const langs = data.languages||[]; const certs = data.certifications||'';
   const mSec = t => `<div style="display:inline-flex;align-items:center;background:${accent};padding:4px 14px 4px 10px;clip-path:polygon(0 0,100% 0,calc(100% - 7px) 100%,0 100%);margin:18px 0 11px;"><div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:white;">${t}</div></div>`;
@@ -5637,7 +5904,7 @@ function renderMetro(data) {
       </div>
       <div>
         ${skills.length?`${mSec('Skills')}<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px;">${skills.map(s=>`<span style="background:${accent}12;color:#1a1814;border:1.5px solid ${accent}28;border-radius:3px;padding:4px 8px;font-size:11px;font-weight:600;">${esc(s)}</span>`).join('')}</div>`:''}
-        ${edu.length?`${mSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;"><div style="font-size:12.5px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</div><div style="font-size:11.5px;color:${accent};">${esc(e.school||'')}</div><div style="font-size:11px;color:#9e9890;">${esc(e.endYear||'')}</div></div>`).join('')}`:''}
+        ${edu.length?`${mSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;"><div style="font-size:12.5px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</div><div style="font-size:11.5px;color:${accent};">${esc(e.school||'')}</div>${pfEduExtras(e)}<div style="font-size:11px;color:#9e9890;">${esc(e.endYear||'')}</div></div>`).join('')}`:''}
         ${langs.length?`${mSec('Languages')}${langs.map(l=>`<div style="font-size:11.5px;color:#444;margin-bottom:4px;">${esc(l.language)}${l.level?` <span style="color:#9e9890;">· ${esc(l.level)}</span>`:''}</div>`).join('')}`:''}
         ${certs?`${mSec('Certs')}<div style="font-size:11px;color:#374151;line-height:1.7;">${esc(certs).replace(/\n/g,'<br>')}</div>`:''}
       </div>
@@ -5650,7 +5917,7 @@ function renderIvory(data) {
   const accent = window._cvAccentColor || '#8b7355';
   const font = window._cvFont || 'Georgia, "Times New Roman", serif';
   const photo = data.photoData || cvPhotoData;
-  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s=>s.trim()).filter(Boolean);
   const exp = data.experience||[]; const edu = data.education||[];
   const langs = data.languages||[]; const certs = data.certifications||'';
   const hl = `<div style="border-top:0.5px solid #d4cfc8;margin:14px 0;"></div>`;
@@ -5667,7 +5934,7 @@ function renderIvory(data) {
     ${data.summary?`${iSec('Profile')}<div style="font-size:12.5px;line-height:1.85;color:#444;text-align:justify;font-style:italic;">${esc(data.summary)}</div>`:''}
     ${exp.length?`${iSec('Experience')}${exp.map(e=>`<div style="margin-bottom:15px;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;"><span style="font-size:13.5px;font-weight:700;color:#1a1814;">${esc(e.title||'')}${e.company?` — <span style="font-style:italic;font-weight:400;font-size:13px;color:#6b6660;">${esc(e.company)}</span>`:''}</span><span style="font-size:11px;color:#9e9890;font-style:italic;">${[e.startDate,e.endDate].filter(Boolean).join(' – ')}</span></div>${e.bullets&&e.bullets.length?`<ul style="margin:4px 0 0;padding-left:15px;">${e.bullets.map(b=>`<li style="font-size:12px;color:#444;line-height:1.65;margin-bottom:2px;">${esc(b)}</li>`).join('')}</ul>`:''}</div>`).join('')}`:''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:26px;">
-      ${edu.length?`<div>${iSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;text-align:center;"><div style="font-size:13px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</div><div style="font-size:11.5px;color:${accent};font-style:italic;">${esc(e.school||'')}${e.endYear?' · '+esc(e.endYear):''}</div></div>`).join('')}</div>`:''}
+      ${edu.length?`<div>${iSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;text-align:center;"><div style="font-size:13px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</div><div style="font-size:11.5px;color:${accent};font-style:italic;">${esc(e.school||'')}${e.endYear?' · '+esc(e.endYear):''}</div>${pfEduExtras(e)}</div>`).join('')}</div>`:''}
       <div>
         ${skills.length?`${iSec('Skills')}<div style="font-size:11.5px;color:#444;line-height:2;text-align:center;">${skills.map(s=>esc(s)).join(' · ')}</div>`:''}
         ${langs.length?`${iSec('Languages')}<div style="text-align:center;">${langs.map(l=>`<div style="font-size:11.5px;color:#444;margin-bottom:3px;">${esc(l.language)}${l.level?` <em style="color:#9e9890;">(${esc(l.level)})</em>`:''}</div>`).join('')}</div>`:''}
@@ -5683,7 +5950,7 @@ function renderCircuit(data) {
   const accent = window._cvAccentColor || '#00b894';
   const font = window._cvFont || '"Courier New", Courier, monospace';
   const photo = data.photoData || cvPhotoData;
-  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s=>s.trim()).filter(Boolean);
   const exp = data.experience||[]; const edu = data.education||[];
   const langs = data.languages||[]; const certs = data.certifications||'';
   const cSec = t => `<div style="display:flex;align-items:center;gap:7px;margin:18px 0 9px;"><span style="font-size:11px;font-weight:700;color:${accent};">//</span><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#1a1814;">${t}</span><div style="flex:1;height:1px;background:#e2ddd4;"></div></div>`;
@@ -5702,7 +5969,7 @@ function renderCircuit(data) {
       <div>
         ${data.summary?`${cSec('About')}<div style="font-size:12px;color:#374151;line-height:1.78;border-left:2px solid ${accent};padding-left:9px;">${esc(data.summary)}</div>`:''}
         ${exp.length?`${cSec('Experience')}${exp.map(e=>`<div style="margin-bottom:12px;background:#fafafa;border:1px solid #e8e8e8;border-radius:6px;padding:11px 13px;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13px;font-weight:700;color:#1a1814;">${esc(e.title||'')}</span><span style="font-size:10.5px;color:${accent};background:${accent}10;padding:2px 7px;border-radius:3px;">${[e.startDate,e.endDate].filter(Boolean).join(' → ')}</span></div><div style="font-size:11.5px;color:#6b6660;margin-bottom:5px;">${esc(e.company||'')}</div>${e.bullets&&e.bullets.length?`<ul style="margin:0;padding-left:13px;list-style:none;">${e.bullets.map(b=>`<li style="font-size:11.5px;color:#374151;line-height:1.55;margin-bottom:2px;">» ${esc(b)}</li>`).join('')}</ul>`:''}</div>`).join('')}`:''}
-        ${edu.length?`${cSec('Education')}${edu.map(e=>`<div style="margin-bottom:8px;font-size:12px;"><span style="font-weight:700;color:#1a1814;">${esc(e.degree||'')}</span> <span style="color:#6b6660;">@ ${esc(e.school||'')}</span>${e.endYear?` <span style="color:${accent};">[${esc(e.endYear)}]</span>`:''}</div>`).join('')}`:''}
+        ${edu.length?`${cSec('Education')}${edu.map(e=>`<div style="margin-bottom:8px;font-size:12px;"><span style="font-weight:700;color:#1a1814;">${esc(e.degree||'')}</span> <span style="color:#6b6660;">@ ${esc(e.school||'')}</span>${e.endYear?` <span style="color:${accent};">[${esc(e.endYear)}]</span>`:''}</div>${pfEduExtras(e)}`).join('')}`:''}
       </div>
       <div>
         ${skills.length?`${cSec('Stack')}<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:11px;">${skills.map(s=>`<span style="font-size:10.5px;background:${accent}10;color:${accent};border:1px solid ${accent}28;padding:3px 7px;border-radius:4px;">\`${esc(s)}\`</span>`).join('')}</div>`:''}
@@ -5718,7 +5985,7 @@ function renderAurora(data) {
   const accent = window._cvAccentColor || '#6c63ff';
   const font = window._cvFont || 'Calibri, Arial, sans-serif';
   const photo = data.photoData || cvPhotoData;
-  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s=>s.trim()).filter(Boolean);
   const exp = data.experience||[]; const edu = data.education||[];
   const langs = data.languages||[]; const certs = data.certifications||'';
   const h = accent.replace('#','');
@@ -5743,7 +6010,7 @@ function renderAurora(data) {
         ${exp.length?`${aSec('Experience')}${exp.map(e=>`<div style="margin-bottom:13px;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13.5px;font-weight:700;color:#1a1814;">${esc(e.title||'')}</span><span style="font-size:11px;color:#9e9890;white-space:nowrap;">${[e.startDate,e.endDate].filter(Boolean).join(' – ')}</span></div><div style="font-size:12px;color:${accent};font-weight:600;margin-bottom:3px;">${esc(e.company||'')}</div>${e.bullets&&e.bullets.length?`<ul style="margin:0;padding-left:13px;">${e.bullets.map(b=>`<li style="font-size:12px;color:#374151;line-height:1.55;margin-bottom:2px;">${esc(b)}</li>`).join('')}</ul>`:''}</div>`).join('')}`:''}
       </div>
       <div>
-        ${edu.length?`${aSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;"><div style="font-size:12.5px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</div><div style="font-size:11.5px;color:${accent};">${esc(e.school||'')}</div><div style="font-size:11px;color:#9e9890;">${esc(e.endYear||'')}</div></div>`).join('')}`:''}
+        ${edu.length?`${aSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;"><div style="font-size:12.5px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</div><div style="font-size:11.5px;color:${accent};">${esc(e.school||'')}</div>${pfEduExtras(e)}<div style="font-size:11px;color:#9e9890;">${esc(e.endYear||'')}</div></div>`).join('')}`:''}
         ${skills.length?`${aSec('Skills')}<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px;">${skills.map(s=>`<span style="background:${accent}12;color:${accent};border:1px solid ${accent}25;border-radius:20px;padding:3px 9px;font-size:11px;font-weight:600;">${esc(s)}</span>`).join('')}</div>`:''}
         ${langs.length?`${aSec('Languages')}${langs.map(l=>`<div style="font-size:11.5px;color:#444;margin-bottom:4px;">${esc(l.language)}${l.level?` <span style="color:#9e9890;">· ${esc(l.level)}</span>`:''}</div>`).join('')}`:''}
         ${certs?`${aSec('Certifications')}<div style="font-size:11px;color:#374151;line-height:1.7;">${esc(certs).replace(/\n/g,'<br>')}</div>`:''}
@@ -5757,7 +6024,7 @@ function renderLedger(data) {
   const accent = window._cvAccentColor || '#1a237e';
   const font = window._cvFont || '"Times New Roman", Georgia, serif';
   const photo = data.photoData || cvPhotoData;
-  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s=>s.trim()).filter(Boolean);
   const exp = data.experience||[]; const edu = data.education||[];
   const langs = data.languages||[]; const certs = data.certifications||'';
   const lSec = t => `<div style="border-top:2.5px solid #1a1814;border-bottom:0.5px solid #1a1814;padding:3px 0 2px;margin:16px 0 10px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:3px;color:#1a1814;">${t}</div></div>`;
@@ -5781,7 +6048,7 @@ function renderLedger(data) {
         ${exp.length?`${lSec('Work Experience')}${exp.map(e=>`<div style="margin-bottom:13px;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;"><span style="font-size:13.5px;font-weight:700;">${esc(e.title||'')}</span><span style="font-size:11px;color:#888;font-style:italic;">${[e.startDate,e.endDate].filter(Boolean).join(' – ')}</span></div><div style="font-size:12px;color:${accent};margin-bottom:4px;font-style:italic;">${esc(e.company||'')}</div>${e.bullets&&e.bullets.length?`<ul style="margin:0;padding-left:14px;">${e.bullets.map(b=>`<li style="font-size:12px;color:#333;line-height:1.65;margin-bottom:2px;text-align:justify;">${esc(b)}</li>`).join('')}</ul>`:''}</div>`).join('')}`:''}
       </div>
       <div>
-        ${edu.length?`${lSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;"><div style="font-size:12.5px;font-weight:700;">${esc(e.degree||'')}</div><div style="font-size:11.5px;color:${accent};font-style:italic;">${esc(e.school||'')}</div><div style="font-size:11px;color:#888;">${esc(e.endYear||'')}</div></div>`).join('')}`:''}
+        ${edu.length?`${lSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;"><div style="font-size:12.5px;font-weight:700;">${esc(e.degree||'')}</div><div style="font-size:11.5px;color:${accent};font-style:italic;">${esc(e.school||'')}</div>${pfEduExtras(e)}<div style="font-size:11px;color:#888;">${esc(e.endYear||'')}</div></div>`).join('')}`:''}
         ${skills.length?`${lSec('Skills')}<div style="font-size:12px;color:#333;line-height:1.9;">${skills.map(s=>esc(s)).join(' · ')}</div>`:''}
         ${langs.length?`${lSec('Languages')}${langs.map(l=>`<div style="font-size:11.5px;color:#333;margin-bottom:3px;">${esc(l.language)}${l.level?` <em style="color:#888;">(${esc(l.level)})</em>`:''}</div>`).join('')}`:''}
         ${certs?`${lSec('Certifications')}<div style="font-size:11px;color:#333;line-height:1.7;">${esc(certs).replace(/\n/g,'<br>')}</div>`:''}
@@ -5795,7 +6062,7 @@ function renderPrism(data) {
   const accent = window._cvAccentColor || '#7c3aed';
   const font = window._cvFont || 'Calibri, Arial, sans-serif';
   const photo = data.photoData || cvPhotoData;
-  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s=>s.trim()).filter(Boolean);
   const exp = data.experience||[]; const edu = data.education||[];
   const langs = data.languages||[]; const certs = data.certifications||'';
   let pIdx=0;
@@ -5818,7 +6085,7 @@ function renderPrism(data) {
         ${exp.length?`${pSec('Experience')}${exp.map(e=>`<div style="margin-bottom:13px;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13.5px;font-weight:700;color:#1a1814;">${esc(e.title||'')}</span><span style="font-size:11px;color:#9e9890;white-space:nowrap;">${[e.startDate,e.endDate].filter(Boolean).join(' – ')}</span></div><div style="font-size:12px;color:${accent};font-weight:600;margin-bottom:3px;">${esc(e.company||'')}</div>${e.bullets&&e.bullets.length?`<ul style="margin:0;padding-left:13px;">${e.bullets.map(b=>`<li style="font-size:12px;color:#374151;line-height:1.55;margin-bottom:2px;">${esc(b)}</li>`).join('')}</ul>`:''}</div>`).join('')}`:''}
       </div>
       <div>
-        ${edu.length?`${pSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;"><div style="font-size:12.5px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</div><div style="font-size:11.5px;color:${accent};">${esc(e.school||'')}</div><div style="font-size:11px;color:#9e9890;">${esc(e.endYear||'')}</div></div>`).join('')}`:''}
+        ${edu.length?`${pSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;"><div style="font-size:12.5px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</div><div style="font-size:11.5px;color:${accent};">${esc(e.school||'')}</div>${pfEduExtras(e)}<div style="font-size:11px;color:#9e9890;">${esc(e.endYear||'')}</div></div>`).join('')}`:''}
         ${skills.length?`${pSec('Skills')}<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px;">${skills.map(s=>`<span style="background:${accent}12;color:${accent};border:1px solid ${accent}25;border-radius:4px;padding:3px 8px;font-size:11px;font-weight:600;">${esc(s)}</span>`).join('')}</div>`:''}
         ${langs.length?`${pSec('Languages')}${langs.map(l=>`<div style="font-size:11.5px;color:#444;margin-bottom:4px;">${esc(l.language)}${l.level?` <span style="color:#9e9890;">· ${esc(l.level)}</span>`:''}</div>`).join('')}`:''}
         ${certs?`${pSec('Certifications')}<div style="font-size:11px;color:#374151;line-height:1.7;">${esc(certs).replace(/\n/g,'<br>')}</div>`:''}
@@ -5832,7 +6099,7 @@ function renderHaven(data) {
   const accent = window._cvAccentColor || '#0ea5e9';
   const font = window._cvFont || 'Calibri, Arial, sans-serif';
   const photo = data.photoData || cvPhotoData;
-  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s=>s.trim()).filter(Boolean);
   const exp = data.experience||[]; const edu = data.education||[];
   const langs = data.languages||[]; const certs = data.certifications||'';
   const hCard = c => `<div style="background:${accent}0b;border:1px solid ${accent}20;border-radius:12px;padding:15px 17px;margin-bottom:11px;">${c}</div>`;
@@ -5853,7 +6120,7 @@ function renderHaven(data) {
       </div>
       <div>
         ${skills.length?hCard(`${hSec('Skills')}<div style="display:flex;flex-wrap:wrap;gap:5px;">${skills.map(s=>`<span style="background:${accent}16;color:${accent};border-radius:20px;padding:4px 10px;font-size:11px;font-weight:600;">${esc(s)}</span>`).join('')}</div>`):''}
-        ${edu.length?hCard(`${hSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;"><div style="font-size:12.5px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</div><div style="font-size:11.5px;color:${accent};">${esc(e.school||'')}</div><div style="font-size:11px;color:#9e9890;">${esc(e.endYear||'')}</div></div>`).join('')}`):''}
+        ${edu.length?hCard(`${hSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;"><div style="font-size:12.5px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</div><div style="font-size:11.5px;color:${accent};">${esc(e.school||'')}</div>${pfEduExtras(e)}<div style="font-size:11px;color:#9e9890;">${esc(e.endYear||'')}</div></div>`).join('')}`):''}
         ${langs.length?hCard(`${hSec('Languages')}${langs.map(l=>`<div style="font-size:11.5px;color:#444;margin-bottom:4px;">${esc(l.language)}${l.level?` <span style="color:#9e9890;">· ${esc(l.level)}</span>`:''}</div>`).join('')}`):''}
         ${certs?hCard(`${hSec('Certifications')}<div style="font-size:11px;color:#374151;line-height:1.7;">${esc(certs).replace(/\n/g,'<br>')}</div>`):''}
       </div>
@@ -5866,7 +6133,7 @@ function renderVertex(data) {
   const accent = window._cvAccentColor || '#1a1814';
   const font = window._cvFont || 'Calibri, Arial, sans-serif';
   const photo = data.photoData || cvPhotoData;
-  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s=>s.trim()).filter(Boolean);
   const exp = data.experience||[]; const edu = data.education||[];
   const langs = data.languages||[]; const certs = data.certifications||'';
   const vSecM = t => `<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${accent};border-bottom:2px solid ${accent};padding-bottom:4px;margin:16px 0 9px;">${t}</div>`;
@@ -5884,7 +6151,7 @@ function renderVertex(data) {
     <div style="background:${accent};padding:30px 18px 26px;box-sizing:border-box;color:white;overflow:hidden;">
       ${photo?`<div style="margin-bottom:16px;"><img src="${photo}" style="width:94px;height:94px;border-radius:50%;object-fit:cover;border:3px solid rgba(255,255,255,0.28);display:block;margin:0 auto;"></div>`:''}
       ${data.linkedin?`<div style="font-size:10px;color:rgba(255,255,255,0.65);margin-bottom:14px;word-break:break-all;text-align:center;">${esc(data.linkedin)}</div>`:''}
-      ${edu.length?`${vSecS('Education')}${edu.map(e=>`<div style="margin-bottom:10px;"><div style="font-size:11.5px;font-weight:700;color:white;">${esc(e.degree||'')}</div><div style="font-size:10.5px;color:rgba(255,255,255,0.68);">${esc(e.school||'')}</div><div style="font-size:10px;color:rgba(255,255,255,0.45);">${esc(e.endYear||'')}</div></div>`).join('')}`:''}
+      ${edu.length?`${vSecS('Education')}${edu.map(e=>`<div style="margin-bottom:10px;"><div style="font-size:11.5px;font-weight:700;color:white;">${esc(e.degree||'')}</div><div style="font-size:10.5px;color:rgba(255,255,255,0.68);">${esc(e.school||'')}</div>${pfEduExtras(e)}<div style="font-size:10px;color:rgba(255,255,255,0.45);">${esc(e.endYear||'')}</div></div>`).join('')}`:''}
       ${skills.length?`${vSecS('Skills')}${skills.map(s=>`<div style="background:rgba(255,255,255,0.1);border-radius:4px;padding:4px 9px;font-size:10.5px;color:rgba(255,255,255,0.88);margin-bottom:4px;">${esc(s)}</div>`).join('')}`:''}
       ${langs.length?`${vSecS('Languages')}${langs.map(l=>`<div style="font-size:10.5px;color:rgba(255,255,255,0.78);margin-bottom:4px;">${esc(l.language)}${l.level?` · <em>${esc(l.level)}</em>`:''}</div>`).join('')}`:''}
       ${certs?`${vSecS('Certifications')}<div style="font-size:10.5px;color:rgba(255,255,255,0.7);line-height:1.7;">${esc(certs).replace(/\n/g,'<br>')}</div>`:''}
@@ -5897,7 +6164,7 @@ function renderStandardPlus(data) {
   const accent = window._cvAccentColor || '#1a1814';
   const font = window._cvFont || 'Calibri, Arial, sans-serif';
   const photo = data.photoData || cvPhotoData;
-  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s=>s.trim()).filter(Boolean);
   const exp = data.experience||[]; const edu = data.education||[];
   const langs = data.languages||[]; const certs = data.certifications||'';
   const sSec = t => `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:${accent};border-bottom:2px solid ${accent};padding-bottom:3px;margin:16px 0 9px;">${t}</div>`;
@@ -5913,7 +6180,7 @@ function renderStandardPlus(data) {
     </div>
     ${data.summary?`${sSec('Professional Summary')}<div style="font-size:13px;color:#374151;line-height:1.75;">${esc(data.summary)}</div>`:''}
     ${exp.length?`${sSec('Work Experience')}${exp.map(e=>`<div style="margin-bottom:13px;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13.5px;font-weight:700;color:#1a1814;">${esc(e.title||'')}</span><span style="font-size:12px;color:#555;">${[e.startDate,e.endDate].filter(Boolean).join(' – ')}</span></div><div style="font-size:13px;color:#555;margin-bottom:4px;">${esc(e.company||'')}</div>${e.bullets&&e.bullets.length?`<ul style="margin:0;padding-left:15px;">${e.bullets.map(b=>`<li style="font-size:12.5px;color:#374151;line-height:1.6;margin-bottom:3px;">${esc(b)}</li>`).join('')}</ul>`:''}</div>`).join('')}`:''}
-    ${edu.length?`${sSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><div><span style="font-size:13.5px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</span><span style="font-size:12.5px;color:#555;"> — ${esc(e.school||'')}</span></div><span style="font-size:12px;color:#888;">${esc(e.endYear||'')}</span></div>`).join('')}`:''}
+    ${edu.length?`${sSec('Education')}${edu.map(e=>`<div style="margin-bottom:9px;display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><div><span style="font-size:13.5px;font-weight:700;color:#1a1814;">${esc(e.degree||'')}</span><span style="font-size:12.5px;color:#555;"> — ${esc(e.school||'')}</span></div>${pfEduExtras(e)}<span style="font-size:12px;color:#888;">${esc(e.endYear||'')}</span></div>`).join('')}`:''}
     ${skills.length?`${sSec('Skills')}<div style="font-size:13px;color:#374151;line-height:1.8;">${skills.map(s=>esc(s)).join(' · ')}</div>`:''}
     ${langs.length?`${sSec('Languages')}<div style="display:flex;flex-wrap:wrap;gap:18px;">${langs.map(l=>`<span style="font-size:13px;color:#374151;">${esc(l.language)}${l.level?` (${esc(l.level)})`:''}</span>`).join('')}</div>`:''}
     ${certs?`${sSec('Certifications')}<div style="font-size:13px;color:#374151;line-height:1.75;">${esc(certs).replace(/\n/g,'<br>')}</div>`:''}
@@ -6873,27 +7140,24 @@ function applyTailoredSummary() {
 
 // ── Feature 4: LinkedIn Summary Generator ──
 async function generateLinkedIn() {
-  const name = (document.getElementById('f-name') || {}).value || '';
-  const title = (document.getElementById('f-jobtitle') || {}).value || '';
-  const summary = (document.getElementById('f-summary') || {}).value || '';
-  const skills = (document.getElementById('f-skills') || {}).value || '';
-  if (!name || !title) { showToast('Add your name and job title first'); return; }
+  const d = getFormData();
+  if (!d.name || !d.title) { showToast('Add your name and job title first'); return; }
   showToast('⏳ Generating LinkedIn summary...');
   try {
-    const response = await fetch('/api/process', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        type: 'cv_build',
-        text: `Write a compelling LinkedIn "About" section (300-400 words) for:\nName: ${name}\nTitle: ${title}\nSummary: ${summary || 'professional'}\nSkills: ${skills || 'various skills'}\n\nWrite in first person. Sound human and engaging. End with what opportunities they are open to. No hashtags.`,
-        prompt: 'Write LinkedIn About section. First person, engaging, 300-400 words.'
-      })
-    });
-    const data = await response.json();
+    const facts = pfCvFacts(d);
+    const thin = !d.summary && !d.skills && !d.experience.some(e => e.role || e.company || e.bullets);
+    const instruction =
+      `Write a LinkedIn "About" section (${thin ? '60-100' : '150-300'} words) based only on the candidate data below.\n\n` +
+      'Rules:\n' +
+      '- Sound human and engaging; end with the kind of opportunities the candidate is open to (in line with the target role)\n' +
+      '- No hashtags, no emojis, no headings\n' +
+      PF_AI_RULES + PF_VOICE_FIRST + '\n' +
+      'Candidate data:\n' + facts;
+    const text = await pfAiWrite('cv_build', instruction, facts);
     const result = document.getElementById('linkedinResult');
-    if (result && data.result) {
+    if (result && text) {
       result.style.display = 'block';
-      result.innerHTML = `<div style="font-weight:600;margin-bottom:6px;color:#0077b5;">🔗 LinkedIn About Section:</div><p id="linkedinText" style="margin:0 0 8px;line-height:1.7;">${data.result.replace(/\n/g,'<br>')}</p><button onclick="navigator.clipboard.writeText(document.getElementById('linkedinText').innerText);this.textContent='✓ Copied!';setTimeout(()=>this.textContent='📋 Copy',1500)" style="padding:5px 12px;background:#0077b5;color:white;border:none;border-radius:6px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;">📋 Copy</button>`;
+      result.innerHTML = `<div style="font-weight:600;margin-bottom:6px;color:#0077b5;">🔗 LinkedIn About Section:</div><p id="linkedinText" style="margin:0 0 8px;line-height:1.7;">${esc(text).replace(/\n/g,'<br>')}</p><button onclick="navigator.clipboard.writeText(document.getElementById('linkedinText').innerText);this.textContent='✓ Copied!';setTimeout(()=>this.textContent='📋 Copy',1500)" style="padding:5px 12px;background:#0077b5;color:white;border:none;border-radius:6px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;">📋 Copy</button>`;
     }
     showToast('✓ LinkedIn summary generated!');
   } catch(err) { showToast('❌ Error: ' + err.message); }
