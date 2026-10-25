@@ -1052,6 +1052,8 @@ test.describe('no blank pages; extra sections in the content column', () => {
     'terracotta', 'bold', 'academic', 'elegant', 'purple', 'warm', 'professional', 'gradient'];
   test('older templates: References sits in the same padded column as Work Experience (Classic, Modern and all the others)', async ({ page }) => {
     await openBuilder(page);
+    // References are opt-in: choose "Available upon request"
+    await page.evaluate(() => { const r = document.querySelector('input[name="references"][value="Available upon request"]') as HTMLInputElement; r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); });
     const off: string[] = [];
     for (const tpl of EXTRA_TPLS) {
       await fillCv(page, tpl);

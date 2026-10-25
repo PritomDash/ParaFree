@@ -1436,7 +1436,10 @@ html.pf-embed .cv-main { padding-top: 12px !important; padding-bottom: 16px !imp
           <div id="section-references" style="padding:16px;border-top:1px solid var(--border);display:none;">
             <div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;">
               <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;font-size:14px;">
-                <input type="radio" name="references" value="Available upon request" checked onchange="toggleRefSection(this)"> Available upon request
+                <input type="radio" name="references" value="none" checked onchange="toggleRefSection(this)"> Don't include
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;font-size:14px;">
+                <input type="radio" name="references" value="Available upon request" onchange="toggleRefSection(this)"> Available upon request
               </label>
               <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;font-size:14px;">
                 <input type="radio" name="references" value="custom" onchange="toggleRefSection(this)"> Add references
@@ -4640,13 +4643,15 @@ function renderExtraSections() {
     });
   }
 
+  // opt-in: only when "Available upon request" is chosen or at least one reference is added
   const refInput = document.querySelector('input[name="references"]:checked');
-  if (refInput) {
+  const refs = refInput && refInput.value === 'custom' ? getReferencesData() : [];
+  if (refInput && (refInput.value === 'Available upon request' || refs.length)) {
     h += `<div class="cv-sec-title">References</div>`;
     if (refInput.value === 'Available upon request') {
       h += `<p style="font-size:13px;color:#6b6660;font-style:italic;">Available upon request</p>`;
     } else {
-      getReferencesData().forEach(ref => {
+      refs.forEach(ref => {
         h += `<div style="margin-bottom:10px;">
           <div style="font-weight:700;font-size:13px;">${esc(ref.name)}</div>
           ${ref.title || ref.company ? `<div style="font-size:12px;color:#2d6a4f;">${esc(ref.title)}${ref.title && ref.company ? ' — ' : ''}${esc(ref.company)}</div>` : ''}
