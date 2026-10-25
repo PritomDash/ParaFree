@@ -2149,6 +2149,21 @@ function getFormData() {
 }
 
 // ── Render helpers ──
+// Skills are comma-separated, but a comma inside brackets belongs to the skill:
+// "SIEM (Splunk, Sentinel), Python" → ["SIEM (Splunk, Sentinel)", "Python"].
+function pfSplitSkills(text) {
+  const out = [];
+  let depth = 0, cur = '';
+  for (const ch of String(text || '')) {
+    if ('([{'.includes(ch)) depth++;
+    else if (')]}'.includes(ch)) depth = Math.max(0, depth - 1);
+    if (ch === ',' && depth === 0) { out.push(cur); cur = ''; continue; }
+    cur += ch;
+  }
+  out.push(cur);
+  return out.map(s => s.trim()).filter(Boolean);
+}
+
 function renderBullets(bulletsText, cls) {
   if (!bulletsText) return '';
   const items = bulletsText.split('\n').filter(b => b.trim());
@@ -2218,7 +2233,7 @@ function renderClassic(d) {
   }
   if (d.skills) {
     h += secTitle('Skills');
-    const pills = d.skills.split(',').map(s => s.trim()).filter(Boolean)
+    const pills = pfSplitSkills(d.skills).map(s => s.trim()).filter(Boolean)
       .map(s => `<span style="display:inline-block;background:${accentFaint};color:${accent};border:1px solid ${accentBorder};border-radius:20px;padding:3px 11px;font-size:11px;font-weight:600;">${esc(s)}</span>`).join('');
     h += `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:4px;">${pills}</div>`;
   }
@@ -2238,7 +2253,7 @@ function renderModern(d) {
     sidebar += `<div class="cv-sidebar-sec"><div class="cv-sidebar-hdr">Contact</div>${contact.map(c=>`<div class="cv-contact-item">${esc(c)}</div>`).join('')}</div>`;
   }
   if (d.skills) {
-    const pills = d.skills.split(',').map(s=>`<span class="cv-skill-pill">${esc(s.trim())}</span>`).join('');
+    const pills = pfSplitSkills(d.skills).map(s=>`<span class="cv-skill-pill">${esc(s.trim())}</span>`).join('');
     sidebar += `<div class="cv-sidebar-sec"><div class="cv-sidebar-hdr">Skills</div>${pills}</div>`;
   }
   if (d.certs) {
@@ -2280,7 +2295,7 @@ function renderProfessional(d) {
     sidebar += `<div class="cv-sidebar-sec"><div class="cv-sidebar-hdr">Contact</div>${contact.map(c=>`<div class="cv-contact-item">${esc(c)}</div>`).join('')}</div>`;
   }
   if (d.skills) {
-    const pills = d.skills.split(',').map(s=>`<span class="cv-skill-pill">${esc(s.trim())}</span>`).join('');
+    const pills = pfSplitSkills(d.skills).map(s=>`<span class="cv-skill-pill">${esc(s.trim())}</span>`).join('');
     sidebar += `<div class="cv-sidebar-sec"><div class="cv-sidebar-hdr">Skills</div>${pills}</div>`;
   }
   if (d.certs) {
@@ -2347,7 +2362,7 @@ function renderGradient(d) {
     });
   }
   if (d.skills) {
-    const skillList = d.skills.split(',').map(s => s.trim()).filter(Boolean);
+    const skillList = pfSplitSkills(d.skills).map(s => s.trim()).filter(Boolean);
     const skillWidth = s => 65 + (s.split('').reduce((a,c) => a + c.charCodeAt(0), 0) % 30);
     h += `<div class="cv-sec-title">Skills</div><div class="cv-skill-bars">${
       skillList.map(s => `<div class="cv-skill-bar-wrap">
@@ -2455,7 +2470,7 @@ function renderCreative(d) {
   let sidebar = '';
   if (contact.length) sidebar += `<div class="cv-sidebar-hdr">Contact</div>${contact.map(c=>`<div class="cv-contact-item">${esc(c)}</div>`).join('')}`;
   if (d.skills) {
-    const pills = d.skills.split(',').map(s=>`<span class="cv-skill-pill">${esc(s.trim())}</span>`).join('');
+    const pills = pfSplitSkills(d.skills).map(s=>`<span class="cv-skill-pill">${esc(s.trim())}</span>`).join('');
     sidebar += `<div class="cv-sidebar-hdr">Skills</div><div>${pills}</div>`;
   }
   if (d.certs) sidebar += `<div class="cv-sidebar-hdr">Certifications</div><div style="font-size:10px;color:#1a1814;">${esc(d.certs)}</div>`;
@@ -2533,7 +2548,7 @@ function renderTech(d) {
   h += `<hr class="cv-divider">`;
   if (d.summary) h += `<div class="cv-sec-title">Overview</div><div class="cv-sec-body">${esc(d.summary)}</div>`;
   if (d.skills) {
-    const tags = d.skills.split(',').map(s=>`<span class="cv-skill-tag">${esc(s.trim())}</span>`).join('');
+    const tags = pfSplitSkills(d.skills).map(s=>`<span class="cv-skill-tag">${esc(s.trim())}</span>`).join('');
     h += `<div class="cv-sec-title">Technical Skills</div><div class="cv-skills-grid">${tags}</div>`;
   }
   const exps = d.experience.filter(e=>e.company||e.role);
@@ -2636,7 +2651,7 @@ function calcFillScore(d) {
   });
   const edus = d.education.filter(e => e.school || e.degree);
   score += Math.min(edus.length * 0.75, 1.5);
-  const skillCount = d.skills ? d.skills.split(',').filter(s => s.trim()).length : 0;
+  const skillCount = d.skills ? pfSplitSkills(d.skills).filter(s => s.trim()).length : 0;
   if (skillCount >= 5) score += 2;
   else if (skillCount >= 1) score += 1;
   return score;
@@ -4968,7 +4983,7 @@ function renderPremiumExecutive(data) {
       ${data.phone ? `<div style="font-size:11px;margin-bottom:5px;opacity:.9;">${esc(data.phone)}</div>` : ''}
       ${data.location ? `<div style="font-size:11px;margin-bottom:5px;opacity:.9;">${esc(data.location)}</div>` : ''}
       ${data.linkedin ? `<div style="font-size:11px;margin-bottom:5px;opacity:.9;word-break:break-all;">${esc(data.linkedin)}</div>` : ''}
-      ${data.skills ? `<div style="margin-top:20px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;opacity:.65;margin-bottom:10px;">Skills</div>${data.skills.split(',').map(s => s.trim()).filter(Boolean).map(s => `<div style="margin-bottom:7px;"><div style="font-size:11px;margin-bottom:3px;opacity:.9;">${esc(s)}</div><div style="background:rgba(255,255,255,.2);border-radius:4px;height:4px;overflow:hidden;"><div style="height:100%;background:white;width:${75 + Math.round(Math.random() * 25)}%;border-radius:4px;"></div></div></div>`).join('')}</div>` : ''}
+      ${data.skills ? `<div style="margin-top:20px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;opacity:.65;margin-bottom:10px;">Skills</div>${pfSplitSkills(data.skills).map(s => s.trim()).filter(Boolean).map(s => `<div style="margin-bottom:7px;"><div style="font-size:11px;margin-bottom:3px;opacity:.9;">${esc(s)}</div><div style="background:rgba(255,255,255,.2);border-radius:4px;height:4px;overflow:hidden;"><div style="height:100%;background:white;width:${75 + Math.round(Math.random() * 25)}%;border-radius:4px;"></div></div></div>`).join('')}</div>` : ''}
       ${data.certifications ? `<div style="margin-top:20px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;opacity:.65;margin-bottom:7px;">Certifications</div><div style="font-size:11px;opacity:.9;line-height:1.7;">${esc(data.certifications)}</div></div>` : ''}
     </div>
     <div style="padding:34px 30px;box-sizing:border-box;">
@@ -5004,7 +5019,7 @@ function renderModernBlue(data) {
       ${data.experience.length ? `<div style="margin-bottom:18px;"><div style="font-size:11px;font-weight:700;color:${accent};text-transform:uppercase;letter-spacing:1.5px;margin-bottom:9px;">Experience</div>${data.experience.map(exp => `<div style="margin-bottom:12px;padding-left:11px;border-left:2px solid #e2e8f0;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13px;font-weight:700;color:#1a202c;">${esc(exp.title)}</span><span style="font-size:11px;color:#718096;background:#f7fafc;padding:2px 7px;border-radius:20px;">${[exp.startDate, exp.endDate].filter(Boolean).join(' – ')}</span></div><div style="font-size:12px;color:${accent};font-weight:600;margin:2px 0 5px;">${esc(exp.company)}</div>${exp.bullets.length ? `<ul style="margin:0;padding-left:12px;">${exp.bullets.map(b => `<li style="font-size:12px;color:#4a5568;margin-bottom:3px;line-height:1.5;">${esc(b)}</li>`).join('')}</ul>` : ''}</div>`).join('')}</div>` : ''}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
         ${data.education.length ? `<div><div style="font-size:11px;font-weight:700;color:${accent};text-transform:uppercase;letter-spacing:1.5px;margin-bottom:9px;">Education</div>${data.education.map(edu => `<div style="margin-bottom:8px;"><div style="font-size:12px;font-weight:700;color:#1a202c;">${esc(edu.degree)}</div><div style="font-size:11px;color:#718096;">${esc(edu.school)}${edu.endYear ? ' · ' + esc(edu.endYear) : ''}</div></div>`).join('')}</div>` : ''}
-        ${data.skills ? `<div><div style="font-size:11px;font-weight:700;color:${accent};text-transform:uppercase;letter-spacing:1.5px;margin-bottom:9px;">Skills</div><div style="display:flex;flex-wrap:wrap;gap:5px;">${data.skills.split(',').map(s => s.trim()).filter(Boolean).map(s => `<span style="font-size:11px;background:${accent}18;color:${accent};padding:3px 8px;border-radius:20px;font-weight:500;">${esc(s)}</span>`).join('')}</div></div>` : ''}
+        ${data.skills ? `<div><div style="font-size:11px;font-weight:700;color:${accent};text-transform:uppercase;letter-spacing:1.5px;margin-bottom:9px;">Skills</div><div style="display:flex;flex-wrap:wrap;gap:5px;">${pfSplitSkills(data.skills).map(s => s.trim()).filter(Boolean).map(s => `<span style="font-size:11px;background:${accent}18;color:${accent};padding:3px 8px;border-radius:20px;font-weight:500;">${esc(s)}</span>`).join('')}</div></div>` : ''}
       </div>
     </div>
   </div>`;
@@ -5025,7 +5040,7 @@ function renderMinimalSerif(data) {
     ${data.summary ? `<div style="margin-bottom:20px;font-size:12.5px;line-height:1.8;color:#333;font-style:italic;">${esc(data.summary)}</div>` : ''}
     ${data.experience.length ? `<div style="margin-bottom:20px;"><div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:${accent};margin-bottom:8px;">Experience</div>${data.experience.map(exp => `<div style="margin-bottom:14px;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13px;font-weight:700;">${esc(exp.title)}${exp.company ? ` — <em style="font-weight:400;color:#555;">${esc(exp.company)}</em>` : ''}</span><span style="font-size:11px;color:#888;">${[exp.startDate, exp.endDate].filter(Boolean).join(' – ')}</span></div>${exp.bullets.length ? `<ul style="margin:5px 0 0;padding-left:15px;">${exp.bullets.map(b => `<li style="font-size:12px;color:#333;line-height:1.6;margin-bottom:2px;">${esc(b)}</li>`).join('')}</ul>` : ''}</div>`).join('')}</div>` : ''}
     ${data.education.length ? `<div style="margin-bottom:20px;"><div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:${accent};margin-bottom:8px;">Education</div>${data.education.map(edu => `<div style="margin-bottom:7px;font-size:12px;"><span style="font-weight:700;">${esc(edu.degree)}</span>${edu.school ? `, <em>${esc(edu.school)}</em>` : ''}${edu.endYear ? ` <span style="color:#888;">(${esc(edu.endYear)})</span>` : ''}</div>`).join('')}</div>` : ''}
-    ${data.skills ? `<div><div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:${accent};margin-bottom:8px;">Skills</div><div style="font-size:12px;color:#333;line-height:1.8;">${data.skills.split(',').map(s => s.trim()).filter(Boolean).map(s => esc(s)).join(' · ')}</div></div>` : ''}
+    ${data.skills ? `<div><div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:${accent};margin-bottom:8px;">Skills</div><div style="font-size:12px;color:#333;line-height:1.8;">${pfSplitSkills(data.skills).map(s => s.trim()).filter(Boolean).map(s => esc(s)).join(' · ')}</div></div>` : ''}
   </div>`;
 }
 
@@ -5052,7 +5067,7 @@ function renderBoldTech(data) {
         ${data.experience.length ? `<div><div style="color:${accent};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;margin-bottom:9px;">/* Experience */</div>${data.experience.map(exp => `<div style="margin-bottom:13px;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:11px;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13px;font-weight:700;color:#f0f6fc;">${esc(exp.title)}</span><span style="font-size:11px;color:${accent};">${[exp.startDate, exp.endDate].filter(Boolean).join(' → ')}</span></div><div style="font-size:12px;color:#8b949e;margin:3px 0 6px;">${esc(exp.company)}</div>${exp.bullets.length ? `<ul style="margin:0;padding-left:13px;list-style:none;">${exp.bullets.map(b => `<li style="font-size:12px;color:#8b949e;margin-bottom:3px;line-height:1.5;">» ${esc(b)}</li>`).join('')}</ul>` : ''}</div>`).join('')}</div>` : ''}
       </div>
       <div>
-        ${data.skills ? `<div style="margin-bottom:16px;"><div style="color:${accent};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">// Skills</div><div style="display:flex;flex-wrap:wrap;gap:5px;">${data.skills.split(',').map(s => s.trim()).filter(Boolean).map(s => `<span style="font-size:11px;background:#161b22;border:1px solid #30363d;color:${accent};padding:3px 7px;border-radius:4px;">${esc(s)}</span>`).join('')}</div></div>` : ''}
+        ${data.skills ? `<div style="margin-bottom:16px;"><div style="color:${accent};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">// Skills</div><div style="display:flex;flex-wrap:wrap;gap:5px;">${pfSplitSkills(data.skills).map(s => s.trim()).filter(Boolean).map(s => `<span style="font-size:11px;background:#161b22;border:1px solid #30363d;color:${accent};padding:3px 7px;border-radius:4px;">${esc(s)}</span>`).join('')}</div></div>` : ''}
         ${data.education.length ? `<div style="margin-bottom:16px;"><div style="color:${accent};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">// Education</div>${data.education.map(edu => `<div style="margin-bottom:8px;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:9px;"><div style="font-size:12px;font-weight:700;color:#f0f6fc;">${esc(edu.degree)}</div><div style="font-size:11px;color:#8b949e;">${esc(edu.school)}</div>${edu.endYear ? `<div style="font-size:10px;color:${accent};">${esc(edu.endYear)}</div>` : ''}</div>`).join('')}</div>` : ''}
         ${data.certifications ? `<div><div style="color:${accent};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">// Certifications</div><div style="font-size:11px;color:#8b949e;line-height:1.7;">${esc(data.certifications)}</div></div>` : ''}
       </div>
@@ -5078,7 +5093,7 @@ function renderElegantGold(data) {
       ${data.experience.length ? `<div style="margin-bottom:20px;"><div style="font-size:9px;letter-spacing:4px;text-transform:uppercase;color:${accent};margin-bottom:11px;text-align:center;">Experience</div>${data.experience.map(exp => `<div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid #e8e4dc;"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13px;font-weight:700;color:#1c1c1c;">${esc(exp.title)}</span><span style="font-size:11px;color:${accent};font-style:italic;">${[exp.startDate, exp.endDate].filter(Boolean).join(' – ')}</span></div><div style="font-size:12px;color:#666;font-style:italic;margin:2px 0 5px;">${esc(exp.company)}</div>${exp.bullets.length ? `<ul style="margin:0;padding-left:13px;">${exp.bullets.map(b => `<li style="font-size:12px;color:#333;line-height:1.6;margin-bottom:2px;">${esc(b)}</li>`).join('')}</ul>` : ''}</div>`).join('')}</div>` : ''}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
         ${data.education.length ? `<div><div style="font-size:9px;letter-spacing:4px;text-transform:uppercase;color:${accent};margin-bottom:8px;">Education</div>${data.education.map(edu => `<div style="margin-bottom:8px;"><div style="font-size:12px;font-weight:700;">${esc(edu.degree)}</div><div style="font-size:11px;color:#888;font-style:italic;">${esc(edu.school)}${edu.endYear ? ' · ' + esc(edu.endYear) : ''}</div></div>`).join('')}</div>` : ''}
-        ${data.skills ? `<div><div style="font-size:9px;letter-spacing:4px;text-transform:uppercase;color:${accent};margin-bottom:8px;">Skills</div><div style="font-size:12px;color:#333;line-height:1.8;">${data.skills.split(',').map(s => s.trim()).filter(Boolean).map(s => esc(s)).join(' · ')}</div></div>` : ''}
+        ${data.skills ? `<div><div style="font-size:9px;letter-spacing:4px;text-transform:uppercase;color:${accent};margin-bottom:8px;">Skills</div><div style="font-size:12px;color:#333;line-height:1.8;">${pfSplitSkills(data.skills).map(s => s.trim()).filter(Boolean).map(s => esc(s)).join(' · ')}</div></div>` : ''}
       </div>
     </div>
   </div>`;
@@ -5103,7 +5118,7 @@ function renderModernMinimal(data) {
     ${data.experience.length ? `<div style="margin-bottom:20px;"><div style="font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:2px;margin-bottom:9px;">Experience</div>${data.experience.map(exp => `<div style="margin-bottom:13px;display:grid;grid-template-columns:88px 1fr;gap:13px;"><div style="font-size:11px;color:#999;padding-top:2px;text-align:right;">${[exp.startDate, exp.endDate].filter(Boolean).join('<br>')}</div><div><div style="font-size:13px;font-weight:700;color:#1a1a1a;">${esc(exp.title)}</div><div style="font-size:12px;color:${accent};font-weight:600;margin-bottom:4px;">${esc(exp.company)}</div>${exp.bullets.length ? `<ul style="margin:0;padding-left:12px;">${exp.bullets.map(b => `<li style="font-size:12px;color:#444;margin-bottom:3px;line-height:1.5;">${esc(b)}</li>`).join('')}</ul>` : ''}</div></div>`).join('')}</div>` : ''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
       ${data.education.length ? `<div><div style="font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:2px;margin-bottom:9px;">Education</div>${data.education.map(edu => `<div style="margin-bottom:8px;"><div style="font-size:12px;font-weight:700;color:#1a1a1a;">${esc(edu.degree)}</div><div style="font-size:11px;color:#666;">${esc(edu.school)}${edu.endYear ? ' — ' + esc(edu.endYear) : ''}</div></div>`).join('')}</div>` : ''}
-      ${data.skills ? `<div><div style="font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:2px;margin-bottom:9px;">Skills</div><div style="display:flex;flex-wrap:wrap;gap:5px;">${data.skills.split(',').map(s => s.trim()).filter(Boolean).map(s => `<span style="font-size:11px;border:1px solid ${accent};color:${accent};padding:3px 7px;border-radius:20px;">${esc(s)}</span>`).join('')}</div></div>` : ''}
+      ${data.skills ? `<div><div style="font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:2px;margin-bottom:9px;">Skills</div><div style="display:flex;flex-wrap:wrap;gap:5px;">${pfSplitSkills(data.skills).map(s => s.trim()).filter(Boolean).map(s => `<span style="font-size:11px;border:1px solid ${accent};color:${accent};padding:3px 7px;border-radius:20px;">${esc(s)}</span>`).join('')}</div></div>` : ''}
     </div>
   </div>`;
 }
@@ -5129,7 +5144,7 @@ function renderVibrantPurple(data) {
       ${data.experience.length ? `<div style="margin-bottom:18px;"><div style="font-size:12px;font-weight:700;color:${accent};margin-bottom:9px;">Experience</div>${data.experience.map((exp, i) => `<div style="margin-bottom:13px;padding:13px;background:${i % 2 === 0 ? '#faf5ff' : '#f9f7ff'};border-radius:10px;border-left:4px solid ${accent};"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;"><span style="font-size:13px;font-weight:700;color:#1f2937;">${esc(exp.title)}</span><span style="font-size:11px;color:${accent};background:rgba(124,58,237,.1);padding:2px 7px;border-radius:20px;">${[exp.startDate, exp.endDate].filter(Boolean).join(' – ')}</span></div><div style="font-size:12px;color:#6b7280;font-weight:600;margin-bottom:5px;">${esc(exp.company)}</div>${exp.bullets.length ? `<ul style="margin:0;padding-left:12px;">${exp.bullets.map(b => `<li style="font-size:12px;color:#374151;margin-bottom:3px;line-height:1.5;">${esc(b)}</li>`).join('')}</ul>` : ''}</div>`).join('')}</div>` : ''}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
         ${data.education.length ? `<div><div style="font-size:12px;font-weight:700;color:${accent};margin-bottom:8px;">Education</div>${data.education.map(edu => `<div style="margin-bottom:8px;padding:10px;background:#faf5ff;border-radius:8px;"><div style="font-size:12px;font-weight:700;color:#1f2937;">${esc(edu.degree)}</div><div style="font-size:11px;color:#6b7280;">${esc(edu.school)}${edu.endYear ? ' · ' + esc(edu.endYear) : ''}</div></div>`).join('')}</div>` : ''}
-        ${data.skills ? `<div><div style="font-size:12px;font-weight:700;color:${accent};margin-bottom:8px;">Skills</div><div style="display:flex;flex-wrap:wrap;gap:5px;">${data.skills.split(',').map(s => s.trim()).filter(Boolean).map(s => `<span style="font-size:11px;background:linear-gradient(135deg,${accent},#a855f7);color:white;padding:3px 8px;border-radius:20px;">${esc(s)}</span>`).join('')}</div></div>` : ''}
+        ${data.skills ? `<div><div style="font-size:12px;font-weight:700;color:${accent};margin-bottom:8px;">Skills</div><div style="display:flex;flex-wrap:wrap;gap:5px;">${pfSplitSkills(data.skills).map(s => s.trim()).filter(Boolean).map(s => `<span style="font-size:11px;background:linear-gradient(135deg,${accent},#a855f7);color:white;padding:3px 8px;border-radius:20px;">${esc(s)}</span>`).join('')}</div></div>` : ''}
       </div>
     </div>
   </div>`;
@@ -5147,7 +5162,7 @@ function renderCreativeSplit(data) {
         ${photo}
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${accent};margin-bottom:9px;">Contact</div>
         ${[data.email, data.phone, data.location, data.linkedin].filter(Boolean).map(c => `<div style="font-size:11px;color:rgba(255,255,255,.7);margin-bottom:5px;line-height:1.4;word-break:break-word;">${esc(c)}</div>`).join('')}
-        ${data.skills ? `<div style="margin-top:20px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${accent};margin-bottom:9px;">Skills</div>${data.skills.split(',').map(s => s.trim()).filter(Boolean).map(s => `<div style="margin-bottom:6px;"><div style="font-size:11px;color:rgba(255,255,255,.85);margin-bottom:2px;">${esc(s)}</div><div style="height:3px;background:rgba(255,255,255,.15);border-radius:2px;overflow:hidden;"><div style="height:100%;background:${accent};width:${70 + Math.round(Math.random() * 30)}%;border-radius:2px;"></div></div></div>`).join('')}</div>` : ''}
+        ${data.skills ? `<div style="margin-top:20px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${accent};margin-bottom:9px;">Skills</div>${pfSplitSkills(data.skills).map(s => s.trim()).filter(Boolean).map(s => `<div style="margin-bottom:6px;"><div style="font-size:11px;color:rgba(255,255,255,.85);margin-bottom:2px;">${esc(s)}</div><div style="height:3px;background:rgba(255,255,255,.15);border-radius:2px;overflow:hidden;"><div style="height:100%;background:${accent};width:${70 + Math.round(Math.random() * 30)}%;border-radius:2px;"></div></div></div>`).join('')}</div>` : ''}
         ${data.education.length ? `<div style="margin-top:20px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${accent};margin-bottom:9px;">Education</div>${data.education.map(edu => `<div style="margin-bottom:10px;"><div style="font-size:12px;font-weight:700;color:white;">${esc(edu.degree)}</div><div style="font-size:11px;color:rgba(255,255,255,.6);">${esc(edu.school)}</div>${edu.endYear ? `<div style="font-size:10px;color:${accent};">${esc(edu.endYear)}</div>` : ''}</div>`).join('')}</div>` : ''}
       </div>
       <div style="padding:30px 30px;box-sizing:border-box;">
@@ -5196,7 +5211,7 @@ function renderTimelineCV(data) {
     </div>`:''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px;">
       ${data.education&&data.education.length?`<div><div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${accent};margin-bottom:12px;">Education</div>${data.education.map(edu=>`<div style="margin-bottom:12px;"><div style="font-size:14px;font-weight:700;color:#1a1814;">${edu.degree||''}</div><div style="font-size:12px;color:${accent};">${edu.school||''}</div><div style="font-size:11px;color:#9e9890;">${edu.endYear||''}</div></div>`).join('')}</div>`:''}
-      ${data.skills?`<div><div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${accent};margin-bottom:12px;">Skills</div><div style="display:flex;flex-wrap:wrap;gap:6px;">${data.skills.split(',').map(s=>s.trim()).filter(s=>s).map(s=>`<span style="background:#f0fdf4;border:1px solid #86efac;color:#166534;padding:4px 10px;border-radius:16px;font-size:12px;">${s}</span>`).join('')}</div></div>`:''}
+      ${data.skills?`<div><div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${accent};margin-bottom:12px;">Skills</div><div style="display:flex;flex-wrap:wrap;gap:6px;">${pfSplitSkills(data.skills).map(s=>s.trim()).filter(s=>s).map(s=>`<span style="background:#f0fdf4;border:1px solid #86efac;color:#166534;padding:4px 10px;border-radius:16px;font-size:12px;">${s}</span>`).join('')}</div></div>`:''}
     </div>
   </div>`;
 }
@@ -5205,7 +5220,7 @@ function renderTimelineCV(data) {
 function renderSkillBubbles(data) {
   const accent = window._cvAccentColor || '#1a1814';
   const font = window._cvFont || 'Helvetica Neue,Arial,sans-serif';
-  const skillList = data.skills ? data.skills.split(',').map(s=>s.trim()).filter(s=>s) : [];
+  const skillList = data.skills ? pfSplitSkills(data.skills).map(s=>s.trim()).filter(s=>s) : [];
   const bubbleColors = [{bg:'#dbeafe',c:'#1e40af'},{bg:'#dcfce7',c:'#166534'},{bg:'#fef3c7',c:'#92400e'},{bg:'#fce7f3',c:'#9d174d'},{bg:'#ede9fe',c:'#5b21b6'},{bg:'#ffedd5',c:'#9a3412'}];
   return `<div style="font-family:${font};width:794px;min-height:1056px;height:1056px;background:#FAFAF8;overflow:hidden;position:relative;">
     <div style="background:${accent};padding:40px 48px;position:relative;overflow:hidden;">
@@ -5252,7 +5267,7 @@ function renderGradientHeader(data) {
       ${data.experience&&data.experience.length?`<div style="margin-bottom:24px;">${secTitle('Experience')}${data.experience.map(exp=>`<div style="margin-bottom:16px;padding-left:14px;border-left:2px solid #e2ddd4;"><div style="display:flex;justify-content:space-between;"><div><div style="font-size:14.5px;font-weight:700;color:#1a1814;">${exp.title||''}</div><div style="font-size:13px;color:${accent};">${exp.company||''}</div></div><div style="font-size:11.5px;color:#9e9890;white-space:nowrap;">${exp.startDate||''} ${exp.endDate?'– '+exp.endDate:'– Present'}</div></div>${exp.bullets&&exp.bullets.length?`<ul style="margin:6px 0 0;padding-left:16px;">${exp.bullets.map(b=>`<li style="font-size:12.5px;color:#374151;line-height:1.65;margin-bottom:3px;">${b}</li>`).join('')}</ul>`:''}</div>`).join('')}</div>`:''}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:28px;">
         ${data.education&&data.education.length?`<div>${secTitle('Education')}${data.education.map(edu=>`<div style="margin-bottom:10px;"><div style="font-size:13.5px;font-weight:700;color:#1a1814;">${edu.degree||''}</div><div style="font-size:12px;color:${accent};">${edu.school||''}</div><div style="font-size:11px;color:#9e9890;">${edu.endYear||''}</div></div>`).join('')}</div>`:''}
-        ${data.skills?`<div>${secTitle('Skills')}<div style="display:flex;flex-wrap:wrap;gap:6px;">${data.skills.split(',').map(s=>s.trim()).filter(s=>s).map(s=>`<span style="background:#f0fdf4;border:1px solid #86efac;color:#166534;padding:4px 10px;border-radius:12px;font-size:12px;">${s}</span>`).join('')}</div></div>`:''}
+        ${data.skills?`<div>${secTitle('Skills')}<div style="display:flex;flex-wrap:wrap;gap:6px;">${pfSplitSkills(data.skills).map(s=>s.trim()).filter(s=>s).map(s=>`<span style="background:#f0fdf4;border:1px solid #86efac;color:#166534;padding:4px 10px;border-radius:12px;font-size:12px;">${s}</span>`).join('')}</div></div>`:''}
       </div>
     </div>
   </div>`;
@@ -5273,7 +5288,7 @@ function renderTwoTone(data) {
         ${data.location?`<div style="font-size:11.5px;color:rgba(255,255,255,0.75);margin-bottom:6px;">📍 ${data.location}</div>`:''}
         ${data.linkedin?`<div style="font-size:11px;color:rgba(255,255,255,0.6);word-break:break-all;">🔗 ${data.linkedin}</div>`:''}
       </div>
-      ${data.skills?`<div style="margin-bottom:20px;"><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.4);margin-bottom:10px;font-weight:700;">Skills</div>${data.skills.split(',').map(s=>s.trim()).filter(s=>s).map(s=>`<div style="margin-bottom:8px;"><div style="font-size:11.5px;color:rgba(255,255,255,0.75);margin-bottom:4px;">${s}</div><div style="height:3px;background:rgba(255,255,255,0.1);border-radius:2px;"><div style="height:100%;width:${70+Math.round(Math.random()*25)}%;background:${accent};border-radius:2px;"></div></div></div>`).join('')}</div>`:''}
+      ${data.skills?`<div style="margin-bottom:20px;"><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.4);margin-bottom:10px;font-weight:700;">Skills</div>${pfSplitSkills(data.skills).map(s=>s.trim()).filter(s=>s).map(s=>`<div style="margin-bottom:8px;"><div style="font-size:11.5px;color:rgba(255,255,255,0.75);margin-bottom:4px;">${s}</div><div style="height:3px;background:rgba(255,255,255,0.1);border-radius:2px;"><div style="height:100%;width:${70+Math.round(Math.random()*25)}%;background:${accent};border-radius:2px;"></div></div></div>`).join('')}</div>`:''}
       ${data.education&&data.education.length?`<div><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.4);margin-bottom:10px;font-weight:700;">Education</div>${data.education.map(edu=>`<div style="margin-bottom:10px;"><div style="font-size:12px;font-weight:700;color:white;line-height:1.3;">${edu.degree||''}</div><div style="font-size:11px;color:${accent};">${edu.school||''}</div><div style="font-size:10px;color:rgba(255,255,255,0.4);">${edu.endYear||''}</div></div>`).join('')}</div>`:''}
     </div>
     <div style="flex:1;padding:40px 36px;background:white;box-sizing:border-box;">
@@ -5330,7 +5345,7 @@ function renderCornerAccent(data) {
       ${data.experience&&data.experience.length?`<div style="margin-bottom:24px;"><div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${accent};margin-bottom:12px;">Experience</div>${data.experience.map(exp=>`<div style="margin-bottom:16px;display:grid;grid-template-columns:100px 1fr;gap:16px;"><div style="font-size:11px;color:#9e9890;padding-top:2px;text-align:right;">${exp.startDate||''}<br>${exp.endDate||'Present'}</div><div style="border-left:2px solid ${accent};padding-left:14px;"><div style="font-size:14px;font-weight:700;color:#1a1814;">${exp.title||''}</div><div style="font-size:12.5px;color:${accent};margin-bottom:4px;">${exp.company||''}</div>${exp.bullets&&exp.bullets.length?`<ul style="margin:4px 0 0;padding-left:14px;">${exp.bullets.map(b=>`<li style="font-size:12px;color:#374151;line-height:1.65;margin-bottom:2px;">${b}</li>`).join('')}</ul>`:''}</div></div>`).join('')}</div>`:''}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
         ${data.education&&data.education.length?`<div><div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${accent};margin-bottom:10px;">Education</div>${data.education.map(edu=>`<div style="margin-bottom:8px;"><div style="font-size:13.5px;font-weight:700;color:#1a1814;">${edu.degree||''}</div><div style="font-size:12px;color:${accent};">${edu.school||''}</div><div style="font-size:11px;color:#9e9890;">${edu.endYear||''}</div></div>`).join('')}</div>`:''}
-        ${data.skills?`<div><div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${accent};margin-bottom:10px;">Skills</div><div style="display:flex;flex-wrap:wrap;gap:6px;">${data.skills.split(',').map(s=>s.trim()).filter(s=>s).map(s=>`<span style="background:#f7f5f0;border:1px solid #e2ddd4;color:#374151;padding:4px 10px;border-radius:16px;font-size:12px;">${s}</span>`).join('')}</div></div>`:''}
+        ${data.skills?`<div><div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${accent};margin-bottom:10px;">Skills</div><div style="display:flex;flex-wrap:wrap;gap:6px;">${pfSplitSkills(data.skills).map(s=>s.trim()).filter(s=>s).map(s=>`<span style="background:#f7f5f0;border:1px solid #e2ddd4;color:#374151;padding:4px 10px;border-radius:16px;font-size:12px;">${s}</span>`).join('')}</div></div>`:''}
       </div>
     </div>
     <div style="position:absolute;bottom:0;left:0;right:0;height:6px;background:linear-gradient(to right,${accent},transparent);"></div>
@@ -5358,7 +5373,7 @@ function renderBorderFrame(data) {
       ${data.experience&&data.experience.length?`<div style="margin-bottom:20px;"><div style="font-size:11px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:${accent};text-align:center;margin-bottom:8px;">Professional Experience</div><div style="height:1px;background:#e8e0c8;margin-bottom:12px;"></div>${data.experience.map(exp=>`<div style="margin-bottom:14px;display:flex;justify-content:space-between;"><div><div style="font-size:14px;font-weight:700;color:#1a1814;">${exp.title||''}</div><div style="font-size:12.5px;color:${accent};font-style:italic;">${exp.company||''}</div>${exp.bullets&&exp.bullets.length?`<ul style="margin:6px 0 0;padding-left:16px;">${exp.bullets.map(b=>`<li style="font-size:12px;color:#4b4540;line-height:1.7;margin-bottom:3px;">${b}</li>`).join('')}</ul>`:''}</div><div style="font-size:11px;color:#9e9890;white-space:nowrap;margin-left:12px;">${exp.startDate||''} ${exp.endDate?'– '+exp.endDate:'– Present'}</div></div>`).join('')}</div>`:''}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
         ${data.education&&data.education.length?`<div><div style="font-size:11px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:${accent};text-align:center;margin-bottom:8px;">Education</div><div style="height:1px;background:#e8e0c8;margin-bottom:10px;"></div>${data.education.map(edu=>`<div style="margin-bottom:8px;"><div style="font-size:13.5px;font-weight:700;color:#1a1814;">${edu.degree||''}</div><div style="font-size:12px;color:${accent};font-style:italic;">${edu.school||''}</div><div style="font-size:11px;color:#9e9890;">${edu.endYear||''}</div></div>`).join('')}</div>`:''}
-        ${data.skills?`<div><div style="font-size:11px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:${accent};text-align:center;margin-bottom:8px;">Skills</div><div style="height:1px;background:#e8e0c8;margin-bottom:10px;"></div>${data.skills.split(',').map(s=>s.trim()).filter(s=>s).map(s=>`<div style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:#4b4540;padding:3px 0;border-bottom:1px dotted #e8e0c8;"><span style="color:${accent};">✦</span>${s}</div>`).join('')}</div>`:''}
+        ${data.skills?`<div><div style="font-size:11px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:${accent};text-align:center;margin-bottom:8px;">Skills</div><div style="height:1px;background:#e8e0c8;margin-bottom:10px;"></div>${pfSplitSkills(data.skills).map(s=>s.trim()).filter(s=>s).map(s=>`<div style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:#4b4540;padding:3px 0;border-bottom:1px dotted #e8e0c8;"><span style="color:${accent};">✦</span>${s}</div>`).join('')}</div>`:''}
       </div>
     </div>
   </div>`;
@@ -5380,7 +5395,7 @@ function renderModernPhoto(data) {
         ${data.phone?`<div style="font-size:11.5px;color:#374151;margin-bottom:6px;">📞 ${data.phone}</div>`:''}
         ${data.location?`<div style="font-size:11.5px;color:#374151;margin-bottom:6px;">📍 ${data.location}</div>`:''}
       </div>
-      ${data.skills?`<div style="margin-bottom:20px;"><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#9e9890;margin-bottom:10px;font-weight:700;">Core Skills</div><div style="display:flex;flex-wrap:wrap;gap:5px;">${data.skills.split(',').map(s=>s.trim()).filter(s=>s).map(s=>`<span style="background:white;border:1px solid #d1fae5;color:#166534;padding:3px 8px;border-radius:10px;font-size:11px;">${s}</span>`).join('')}</div></div>`:''}
+      ${data.skills?`<div style="margin-bottom:20px;"><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#9e9890;margin-bottom:10px;font-weight:700;">Core Skills</div><div style="display:flex;flex-wrap:wrap;gap:5px;">${pfSplitSkills(data.skills).map(s=>s.trim()).filter(s=>s).map(s=>`<span style="background:white;border:1px solid #d1fae5;color:#166534;padding:3px 8px;border-radius:10px;font-size:11px;">${s}</span>`).join('')}</div></div>`:''}
       ${data.education&&data.education.length?`<div><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#9e9890;margin-bottom:10px;font-weight:700;">Education</div>${data.education.map(edu=>`<div style="margin-bottom:10px;"><div style="font-size:12.5px;font-weight:700;color:#1a1814;line-height:1.3;">${edu.degree||''}</div><div style="font-size:11.5px;color:${accent};">${edu.school||''}</div><div style="font-size:11px;color:#9e9890;">${edu.endYear||''}</div></div>`).join('')}</div>`:''}
     </div>
     <div style="flex:1;order:1;padding:40px 36px;box-sizing:border-box;">
@@ -5394,7 +5409,7 @@ function renderModernPhoto(data) {
 function renderColorSidebar(data) {
   const accent = window._cvAccentColor || '#1a1814';
   const font = window._cvFont || 'Calibri,serif';
-  const skills = (data.skills || '').split(',').map(s => s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s => s.trim()).filter(Boolean);
   const exp = data.experience || [];
   const edu = data.education || [];
   const photo = data.photoData || cvPhotoData;
@@ -5443,7 +5458,7 @@ function renderColorSidebar(data) {
 function renderTopStrip(data) {
   const accent = window._cvAccentColor || '#1a1814';
   const font = window._cvFont || 'Helvetica Neue,Arial,sans-serif';
-  const skills = (data.skills || '').split(',').map(s => s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s => s.trim()).filter(Boolean);
   const exp = data.experience || [];
   const edu = data.education || [];
   const photo = data.photoData || cvPhotoData;
@@ -5487,7 +5502,7 @@ function renderTopStrip(data) {
 function renderPhotoLeft(data) {
   const accent = window._cvAccentColor || '#1a1814';
   const font = window._cvFont || 'Calibri,serif';
-  const skills = (data.skills || '').split(',').map(s => s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s => s.trim()).filter(Boolean);
   const exp = data.experience || [];
   const edu = data.education || [];
   const photo = data.photoData || cvPhotoData;
@@ -5525,7 +5540,7 @@ function renderMidnight(data) {
   const accent = window._cvAccentColor || '#0d2137';
   const font = window._cvFont || 'Calibri, Arial, sans-serif';
   const photo = data.photoData || cvPhotoData;
-  const skills = (data.skills || '').split(',').map(s => s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s => s.trim()).filter(Boolean);
   const sw = [90,82,78,95,70,85,75,88,72,80,92,68];
   const exp = data.experience || []; const edu = data.education || [];
   const langs = data.languages || []; const certs = data.certifications || '';
@@ -5565,7 +5580,7 @@ function renderBlush(data) {
   const accent = window._cvAccentColor || '#c9748a';
   const font = window._cvFont || 'Georgia, serif';
   const photo = data.photoData || cvPhotoData;
-  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s=>s.trim()).filter(Boolean);
   const exp = data.experience||[]; const edu = data.education||[];
   const langs = data.languages||[]; const certs = data.certifications||'';
   const div = `<div style="border-top:1px solid ${accent}35;margin:13px 0;"></div>`;
@@ -5600,7 +5615,7 @@ function renderMonogram(data) {
   const accent = window._cvAccentColor || '#1a1814';
   const font = window._cvFont || 'Calibri, Arial, sans-serif';
   const photo = data.photoData || cvPhotoData;
-  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s=>s.trim()).filter(Boolean);
   const exp = data.experience||[]; const edu = data.education||[];
   const langs = data.languages||[]; const certs = data.certifications||'';
   const initials = (data.name||'YN').split(' ').map(w=>w.charAt(0)).slice(0,2).join('');
@@ -5632,7 +5647,7 @@ function renderSwiss(data) {
   const accent = window._cvAccentColor || '#cc0000';
   const font = window._cvFont || 'Arial, Helvetica, sans-serif';
   const photo = data.photoData || cvPhotoData;
-  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s=>s.trim()).filter(Boolean);
   const exp = data.experience||[]; const edu = data.education||[];
   const langs = data.languages||[]; const certs = data.certifications||'';
   const swSec = t => `<div style="display:flex;align-items:center;gap:11px;margin:20px 0 9px;"><div style="width:26px;height:2px;background:${accent};flex-shrink:0;"></div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:3px;color:#1a1814;">${t}</div></div>`;
@@ -5662,7 +5677,7 @@ function renderSlatePremium(data) {
   const accent = window._cvAccentColor || '#37474f';
   const font = window._cvFont || 'Calibri, Arial, sans-serif';
   const photo = data.photoData || cvPhotoData;
-  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s=>s.trim()).filter(Boolean);
   const exp = data.experience||[]; const edu = data.education||[];
   const langs = data.languages||[]; const certs = data.certifications||'';
   const slSec = t => `<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${accent};border-bottom:1.5px solid ${accent}38;padding-bottom:4px;margin:16px 0 9px;">${t}</div>`;
@@ -5695,7 +5710,7 @@ function renderTerra(data) {
   const accent = window._cvAccentColor || '#b5541c';
   const font = window._cvFont || 'Georgia, serif';
   const photo = data.photoData || cvPhotoData;
-  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s=>s.trim()).filter(Boolean);
   const exp = data.experience||[]; const edu = data.education||[];
   const langs = data.languages||[]; const certs = data.certifications||'';
   const tCard = c => `<div style="background:#fdf8f4;border:1px solid ${accent}20;border-radius:10px;padding:14px 18px;margin-bottom:12px;">${c}</div>`;
@@ -5729,7 +5744,7 @@ function renderMetro(data) {
   const accent = window._cvAccentColor || '#e63946';
   const font = window._cvFont || 'Arial, Helvetica, sans-serif';
   const photo = data.photoData || cvPhotoData;
-  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s=>s.trim()).filter(Boolean);
   const exp = data.experience||[]; const edu = data.education||[];
   const langs = data.languages||[]; const certs = data.certifications||'';
   const mSec = t => `<div style="display:inline-flex;align-items:center;background:${accent};padding:4px 14px 4px 10px;clip-path:polygon(0 0,100% 0,calc(100% - 7px) 100%,0 100%);margin:18px 0 11px;"><div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:white;">${t}</div></div>`;
@@ -5764,7 +5779,7 @@ function renderIvory(data) {
   const accent = window._cvAccentColor || '#8b7355';
   const font = window._cvFont || 'Georgia, "Times New Roman", serif';
   const photo = data.photoData || cvPhotoData;
-  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s=>s.trim()).filter(Boolean);
   const exp = data.experience||[]; const edu = data.education||[];
   const langs = data.languages||[]; const certs = data.certifications||'';
   const hl = `<div style="border-top:0.5px solid #d4cfc8;margin:14px 0;"></div>`;
@@ -5797,7 +5812,7 @@ function renderCircuit(data) {
   const accent = window._cvAccentColor || '#00b894';
   const font = window._cvFont || '"Courier New", Courier, monospace';
   const photo = data.photoData || cvPhotoData;
-  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s=>s.trim()).filter(Boolean);
   const exp = data.experience||[]; const edu = data.education||[];
   const langs = data.languages||[]; const certs = data.certifications||'';
   const cSec = t => `<div style="display:flex;align-items:center;gap:7px;margin:18px 0 9px;"><span style="font-size:11px;font-weight:700;color:${accent};">//</span><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#1a1814;">${t}</span><div style="flex:1;height:1px;background:#e2ddd4;"></div></div>`;
@@ -5832,7 +5847,7 @@ function renderAurora(data) {
   const accent = window._cvAccentColor || '#6c63ff';
   const font = window._cvFont || 'Calibri, Arial, sans-serif';
   const photo = data.photoData || cvPhotoData;
-  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s=>s.trim()).filter(Boolean);
   const exp = data.experience||[]; const edu = data.education||[];
   const langs = data.languages||[]; const certs = data.certifications||'';
   const h = accent.replace('#','');
@@ -5871,7 +5886,7 @@ function renderLedger(data) {
   const accent = window._cvAccentColor || '#1a237e';
   const font = window._cvFont || '"Times New Roman", Georgia, serif';
   const photo = data.photoData || cvPhotoData;
-  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s=>s.trim()).filter(Boolean);
   const exp = data.experience||[]; const edu = data.education||[];
   const langs = data.languages||[]; const certs = data.certifications||'';
   const lSec = t => `<div style="border-top:2.5px solid #1a1814;border-bottom:0.5px solid #1a1814;padding:3px 0 2px;margin:16px 0 10px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:3px;color:#1a1814;">${t}</div></div>`;
@@ -5909,7 +5924,7 @@ function renderPrism(data) {
   const accent = window._cvAccentColor || '#7c3aed';
   const font = window._cvFont || 'Calibri, Arial, sans-serif';
   const photo = data.photoData || cvPhotoData;
-  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s=>s.trim()).filter(Boolean);
   const exp = data.experience||[]; const edu = data.education||[];
   const langs = data.languages||[]; const certs = data.certifications||'';
   let pIdx=0;
@@ -5946,7 +5961,7 @@ function renderHaven(data) {
   const accent = window._cvAccentColor || '#0ea5e9';
   const font = window._cvFont || 'Calibri, Arial, sans-serif';
   const photo = data.photoData || cvPhotoData;
-  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s=>s.trim()).filter(Boolean);
   const exp = data.experience||[]; const edu = data.education||[];
   const langs = data.languages||[]; const certs = data.certifications||'';
   const hCard = c => `<div style="background:${accent}0b;border:1px solid ${accent}20;border-radius:12px;padding:15px 17px;margin-bottom:11px;">${c}</div>`;
@@ -5980,7 +5995,7 @@ function renderVertex(data) {
   const accent = window._cvAccentColor || '#1a1814';
   const font = window._cvFont || 'Calibri, Arial, sans-serif';
   const photo = data.photoData || cvPhotoData;
-  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s=>s.trim()).filter(Boolean);
   const exp = data.experience||[]; const edu = data.education||[];
   const langs = data.languages||[]; const certs = data.certifications||'';
   const vSecM = t => `<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${accent};border-bottom:2px solid ${accent};padding-bottom:4px;margin:16px 0 9px;">${t}</div>`;
@@ -6011,7 +6026,7 @@ function renderStandardPlus(data) {
   const accent = window._cvAccentColor || '#1a1814';
   const font = window._cvFont || 'Calibri, Arial, sans-serif';
   const photo = data.photoData || cvPhotoData;
-  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const skills = pfSplitSkills(data.skills).map(s=>s.trim()).filter(Boolean);
   const exp = data.experience||[]; const edu = data.education||[];
   const langs = data.languages||[]; const certs = data.certifications||'';
   const sSec = t => `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:${accent};border-bottom:2px solid ${accent};padding-bottom:3px;margin:16px 0 9px;">${t}</div>`;
