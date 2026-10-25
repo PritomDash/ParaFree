@@ -273,7 +273,8 @@ test.describe('structured data, titles, previews, freshness', () => {
       const old = before(f);
       if (old) {
         expect(s.match(/<title>([\s\S]*?)<\/title>/)?.[1], f).toBe(old.match(/<title>([\s\S]*?)<\/title>/)?.[1]);
-        expect(s.match(/<h1[^>]*>([\s\S]*?)<\/h1>/)?.[1], f).toBe(old.match(/<h1[^>]*>([\s\S]*?)<\/h1>/)?.[1]);
+        const h1 = (x: string) => x.match(/<h1[^>]*>([\s\S]*?)<\/h1>/)?.[1]?.replace(/\sstyle="[^"]*"/g, '');   // text + tags (styles may change)
+        expect(h1(s), f).toBe(h1(old));
       }
     }
     for (const t of TASK_PAGES) {

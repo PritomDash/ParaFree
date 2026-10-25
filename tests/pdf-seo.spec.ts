@@ -305,7 +305,9 @@ test.describe('site-wide SEO', () => {
 
   test('homepage: title, H1 and meta description unchanged; JSON-LD lists the PDF tools; guide cards link to the guides', () => {
     const now = read('index.html'), before = execSync('git show main:index.html', { cwd: ROOT, maxBuffer: 64 << 20 }).toString();
-    const pick = (s: string) => ({ title: (s.match(/<title>[\s\S]*?<\/title>/) || [])[0], h1: (s.match(/<h1[\s\S]*?<\/h1>/) || [])[0], desc: (s.match(/<meta name="description"[^>]*>/) || [])[0] });
+    // H1: same tags and text (inline styles may change — home-ux-fixes slimmed the hero and lightened its green)
+    const noStyle = (h: string | undefined) => h && h.replace(/\sstyle="[^"]*"/g, '');
+    const pick = (s: string) => ({ title: (s.match(/<title>[\s\S]*?<\/title>/) || [])[0], h1: noStyle((s.match(/<h1[\s\S]*?<\/h1>/) || [])[0]), desc: (s.match(/<meta name="description"[^>]*>/) || [])[0] });
     expect(pick(now)).toEqual(pick(before));
     const ld = ldBlocks(now).flatMap((b) => flat(JSON.parse(b)));
     expect(ld.find((x) => x['@type'] === 'Organization')).toBeTruthy();

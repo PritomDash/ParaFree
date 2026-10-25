@@ -339,33 +339,30 @@ test.describe('Paraphrase this document hand-off', () => {
 
 // ─────────────────────────────────────────────────────────────
 test.describe('hero CTA buttons (overlap fix)', () => {
-  // short desktop screens are where the buttons used to be cut off under the stats band
+  // home-ux-fixes: the hero is slim and the paraphraser comes first; its "Build Your CV" button moved below the tool
+  // (#heroMore, directly above the stats band). It must still be fully visible, clickable and clear of the band.
   for (const [w, h] of [[1528, 730], [1280, 720], [1024, 700], [768, 900], [390, 844], [360, 780]]) {
-    test(`${w}×${h}: CTA buttons fully visible, clickable, clear of the stats band and the scroll hint`, async ({ page }) => {
+    test(`${w}×${h}: CTA button fully visible, clickable, clear of the stats band`, async ({ page }) => {
       await page.setViewportSize({ width: w, height: h });
       await setup(page);
       await page.goto('/');
       await page.waitForLoadState('load');
-      const buttons = page.locator('#mainHero .cta-buttons a');
-      await expect(buttons).toHaveCount(2);
-      for (let i = 0; i < 2; i++) {
-        const btn = buttons.nth(i);
-        await btn.scrollIntoViewIfNeeded();
-        const r = await btn.evaluate((el) => {
-          const box = (e: Element | null) => { if (!e) return null; const b = e.getBoundingClientRect(); return { top: b.top, bottom: b.bottom, left: b.left, right: b.right }; };
-          const b = el.getBoundingClientRect();
-          const hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
-          const ind = document.getElementById('heroScrollIndicator')!;
-          return { btn: box(el), stats: box(document.getElementById('statsStrip')), hero: box(document.getElementById('mainHero')),
-            ind: getComputedStyle(ind).display === 'none' ? null : box(ind), hitIsButton: !!hit && (hit === el || el.contains(hit)) };
-        });
-        const overlap = (a: any, b: any) => a && b && a.top < b.bottom && b.top < a.bottom && a.left < b.right && b.left < a.right;
-        expect(overlap(r.btn, r.stats), `button ${i} vs stats band`).toBeFalsy();
-        expect(r.btn.bottom, 'not clipped by the hero').toBeLessThanOrEqual(r.hero.bottom);
-        expect(r.stats.top - r.btn.bottom, 'clear space above the stats band').toBeGreaterThanOrEqual(24);
-        expect(overlap(r.btn, r.ind), `button ${i} vs "Explore Tools"`).toBeFalsy();
-        expect(r.hitIsButton, `elementFromPoint at button ${i} centre`).toBe(true);
-      }
+      await expect(page.locator('#mainHero .cta-buttons a, #heroScrollIndicator')).toHaveCount(0);
+      const buttons = page.locator('#heroMore .cta-buttons a');
+      await expect(buttons).toHaveCount(1);
+      const btn = buttons.first();
+      await btn.scrollIntoViewIfNeeded();
+      const r = await btn.evaluate((el) => {
+        const box = (e: Element | null) => { if (!e) return null; const b = e.getBoundingClientRect(); return { top: b.top, bottom: b.bottom, left: b.left, right: b.right }; };
+        const b = el.getBoundingClientRect();
+        const hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+        return { btn: box(el), stats: box(document.getElementById('statsStrip')), block: box(document.getElementById('heroMore')), hitIsButton: !!hit && (hit === el || el.contains(hit)) };
+      });
+      const overlap = (a: any, b: any) => a && b && a.top < b.bottom && b.top < a.bottom && a.left < b.right && b.left < a.right;
+      expect(overlap(r.btn, r.stats), 'button vs stats band').toBeFalsy();
+      expect(r.btn.bottom, 'not clipped by its block').toBeLessThanOrEqual(r.block.bottom);
+      expect(r.stats.top - r.btn.bottom, 'clear space above the stats band').toBeGreaterThanOrEqual(24);
+      expect(r.hitIsButton, 'elementFromPoint at the button centre').toBe(true);
     });
   }
 });
