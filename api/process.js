@@ -848,14 +848,14 @@ const PROMPTS = {
   casual:       `You are a professional paraphrasing assistant.\n\nCRITICAL RULES:\n1. OUTPUT: Plain text ONLY. Zero markdown. No #, **, *, __, backticks, ---, === ever.\n2. HEADINGS: Use [H1]text[/H1], [H2]text[/H2], [H3]text[/H3]\n3. BOLD TEXT: Use [BOLD]text[/BOLD]\n4. BULLETS: Use only the • symbol\n5. TABLES: Use [TABLE]\\nHeader1 | Header2\\nVal1 | Val2\\n[/TABLE]\n6. PRESERVE: names, dates, numbers, addresses, amounts, proper nouns — do not change these\n7. REWRITE in casual conversational tone with contractions and natural expressions\n8. HUMAN STYLE: write like texting a smart friend — use "it's," "that's," "you'd," short punchy sentences mixed with longer ones, natural connectors like "honestly," "basically," "actually"\n\nNow rewrite the following text in a casual conversational tone, following ALL rules above exactly:`,
   summarize:    "Summarize the following text. Your summary MUST be significantly shorter than the input — maximum 30% of the original word count. Use concise bullet points for the key ideas, then one short conclusion sentence. Be brief and to the point. Never exceed 30% of input word count. Return only the summary, nothing else:",
   grammar:      "Check and correct the following text for grammar, spelling, and punctuation errors.\n\nRespond in this exact format:\nCORRECTED TEXT:\n[Write the fully corrected text here]\n\nERRORS FOUND:\n[List each error: Original → Corrected (reason)]\n\nIf no errors found write: No errors found! Your text looks great.\n\nText to check:",
-  cv_build:     "You are a professional resume writer. Read the instructions below carefully and follow them exactly. Output ONLY what is requested — no labels, no preamble, no markdown, no extra commentary:",
+  cv_build:     "You are a professional resume writer. Read the instructions below carefully and follow them exactly. Output ONLY what is requested — no labels, no preamble, no markdown, no extra commentary. Never invent facts: use only the candidate details given (no added years of experience, employers, tools, certifications, frameworks or achievements) and never make up a number — where a figure would help, write a bracketed placeholder such as [X]% or [N]. Never describe the candidate in the third person (no he/she/they/his/her/their):",
   cv_extract:   `Extract all information from the CV text below and return ONLY a valid JSON object. No text before or after. No markdown. No code blocks. Just the raw JSON.
 
 JSON structure to populate (use empty string or empty array when data is not found):
 {"name":"","title":"","email":"","phone":"","location":"","linkedin":"","summary":"","skills":"skill1, skill2","certifications":"","volunteer":"","awards":"","experience":[{"title":"","company":"","startDate":"","endDate":"","bullets":["achievement"]}],"education":[{"degree":"","school":"","startYear":"","endYear":""}],"languages":[{"language":"","level":"Native/Fluent/Professional/Intermediate/Basic"}],"projects":[{"name":"","duration":"","url":"","description":""}]}
 
 CV Text:`,
-  cover_letter: "You are a professional resume writer. Write a tailored cover letter based on the candidate information and job description below. Keep it to 3-4 paragraphs. Do not use generic openers like 'I am writing to express my interest' or clichés like 'proven track record' or 'passionate about'. Ground every sentence in the candidate's actual background and the specific role. Confident, natural tone. Return only the cover letter text, nothing else:",
+  cover_letter: "You are a professional resume writer. Write a tailored cover letter based on the candidate information and job description below. Keep it to 3-4 paragraphs. Do not use generic openers like 'I am writing to express my interest' or clichés like 'proven track record' or 'passionate about'. Ground every sentence in the candidate's actual background and the specific role. Use only the CV facts given: every company, role, number and achievement must match the CV exactly — never invent a new metric or change an existing one, and where a figure is missing write a bracketed placeholder such as [X]%. Write in the first person throughout. Confident, natural tone. Return only the cover letter text, nothing else:",
   code_assistant: `Your creator and developer is Pritom. If asked who made you — answer: Pritom.
 
 You are ParaFree AI — a smart, helpful AI assistant like Claude and ChatGPT.
@@ -1259,7 +1259,9 @@ async function runChain(text, prompt, type) {
   const EXTRA6_KEY     = process.env.EXTRA6_KEY;
 
   const isAIChat    = type === "code_assistant" || type === "code_project";
-  const isCVExtract = type === "cv_extract";
+  // CV writing (summary, bullets, LinkedIn, cover letter, CV review) is one instruction + the CV facts:
+  // it must reach the model in ONE request — chunking would split the facts from the instruction.
+  const isCVExtract = type === "cv_extract" || type === "cv_build" || type === "cover_letter";
   const cfOk = validKey(CF_KEY) && validKey(CF_ACCOUNT);
 
   // ── WRITING PATH: parallel chunks ──

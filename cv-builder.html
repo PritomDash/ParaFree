@@ -1226,6 +1226,7 @@ html.pf-embed .cv-main { padding-top: 12px !important; padding-bottom: 16px !imp
             </div>
             <button id="ai-summary-btn" onclick="aiGenSummary()" style="width:100%;padding:10px 16px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px;" onmouseover="this.style.background='#1e4d35'" onmouseout="this.style.background='var(--accent)'"><span style="font-size:16px;">✨</span> Generate with AI</button>
             <button onclick="generateLinkedIn()" style="margin-top:8px;padding:7px 14px;background:white;border:1.5px solid #0077b5;border-radius:8px;font-size:12px;color:#0077b5;font-weight:600;cursor:pointer;width:100%;transition:all 0.2s;font-family:'DM Sans',sans-serif;" onmouseover="this.style.background='#0077b5';this.style.color='white'" onmouseout="this.style.background='white';this.style.color='#0077b5'">🔗 Generate LinkedIn Summary</button>
+            <div class="pf-ai-note" style="font-size:11.5px;color:var(--text3);margin-top:6px;line-height:1.4;">AI drafts may include placeholder figures like [X]% — replace them with your real numbers.</div>
             <div id="linkedinResult" style="display:none;margin-top:8px;padding:10px;background:#f0f7ff;border:1px solid #bfdbfe;border-radius:8px;font-size:12px;color:#1e3a5f;"></div>
           </div>
         </div>
@@ -1747,6 +1748,7 @@ English — Native | Bengali — Fluent" style="width:100%;border:1.5px solid va
           </div>
           <!-- Generate button -->
           <button onclick="generateCoverLetter()" id="cover-btn" onmouseover="this.style.background='#1e4d35'" onmouseout="this.style.background='var(--accent)'" style="width:100%;padding:12px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif;transition:background 0.2s;">✨ Generate Cover Letter</button>
+          <div class="pf-ai-note" style="font-size:11.5px;color:var(--text3);margin-top:6px;line-height:1.4;">AI drafts may include placeholder figures like [X]% — replace them with your real numbers.</div>
           <div class="cv-status" id="cover-status" style="margin-top:8px;"></div>
         </div>
 
@@ -3343,6 +3345,7 @@ function addExp() {
     </div>
     <div style="margin-top:8px;">
       <button type="button" onclick="aiGenBullets(this)" style="padding:8px 14px;background:white;color:var(--accent);border:1.5px solid var(--accent);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.2s;display:flex;align-items:center;gap:6px;margin-top:6px;" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='white'"><span>✨</span> Generate with AI</button>
+      <div class="pf-ai-note" style="font-size:11.5px;color:var(--text3);margin-top:6px;line-height:1.4;">AI drafts may include placeholder figures like [X]% — replace them with your real numbers.</div>
       <div class="cv-status" id="exp-status-${id}"></div>
     </div>`;
   document.getElementById('exp-list').appendChild(div);
@@ -3387,37 +3390,137 @@ async function callAPI(type, text) {
   return data.result;
 }
 
+// ── AI honesty rules (summary, bullets, LinkedIn, cover letter) ──
+// The model may only use what the user typed: pfCvFacts() lists those facts, PF_AI_RULES goes with every
+// generator, pfAiWrite() retries once if the reply talks about the candidate in the third person, and
+// pfGuardFigures() turns any number that isn't in the user's data into a placeholder ([X]% / [N]).
+const PF_AI_RULES =
+  'FACT RULES (follow strictly):\n' +
+  '- Use ONLY the facts in "Candidate data". Do not add years of experience, employers, job titles, tools, technologies, certifications, standards, frameworks, degrees or achievements that are not listed there.\n' +
+  '- Never invent a number (percentages, counts, money, durations, team sizes, years). Use a figure only if that exact figure is in the candidate data. Where a figure would strengthen a line, write a bracketed placeholder instead, e.g. "reduced false positives by [X]%" or "managed [N] endpoints".\n' +
+  '- If the candidate data is thin, write a short, general, honest draft instead of filling the gaps with invented detail.\n';
+const PF_VOICE_IMPLIED = '- Voice: implied first person with no pronouns for the candidate (e.g. "Cybersecurity analyst with…", "Monitored…"). Never use he, she, they, his, her, their or the candidate\'s name.\n';
+const PF_VOICE_FIRST = '- Voice: first person ("I…", "my…"). Never refer to the candidate as he, she, they, his, her, their or by name.\n';
+const PF_THIRD_PERSON = /\b(he|she|his|her|hers|him|himself|herself)\b/i;
+const PF_NUM_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve',
+  'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'];
+
+// The candidate's own data as a plain list (no name, contact details or photo).
+function pfCvFacts(d) {
+  const lines = [];
+  const items = (t) => String(t || '').split('\n').map(b => b.replace(/^[•\-*]\s*/, '').trim()).filter(Boolean);
+  if (d.title) lines.push('Target / current role: ' + d.title);
+  if (d.summary) lines.push('Professional summary: ' + d.summary);
+  const exps = d.experience.filter(e => e.role || e.company);
+  if (exps.length) {
+    lines.push('Work experience:');
+    exps.forEach(e => {
+      const dates = [e.start, e.end].filter(Boolean).join(' – ');
+      lines.push('- ' + [e.role, e.company && 'at ' + e.company].filter(Boolean).join(' ') + (dates ? ' (' + dates + ')' : ''));
+      items(e.bullets).forEach(b => lines.push('    • ' + b));
+    });
+  }
+  const edus = d.education.filter(e => e.school || e.degree);
+  if (edus.length) {
+    lines.push('Education:');
+    edus.forEach(e => {
+      const dates = [e.start, e.end].filter(Boolean).join(' – ');
+      lines.push('- ' + [e.degree, e.school && 'at ' + e.school].filter(Boolean).join(' ') + (dates ? ' (' + dates + ')' : ''));
+    });
+  }
+  if (d.skills) lines.push('Skills: ' + d.skills);
+  if (d.certs) lines.push('Certifications: ' + d.certs);
+  return lines.join('\n');
+}
+
+const PF_STOP = new Set('a an the of to in on at for by with and or as is are was were be my our i me we this that'.split(' '));
+function pfNumTokens(text) {               // words and numbers in order ("four" counts as the number 4)
+  const re = /\d+(?:[.,]\d+)*|\p{L}+/gu, out = [];
+  let m;
+  while ((m = re.exec(text))) {
+    const t = m[0], word = t.toLowerCase(), wi = PF_NUM_WORDS.indexOf(word);
+    out.push({ t, at: m.index, word, num: /^\d/.test(t) ? t.replace(/,/g, '') : (wi >= 2 ? String(wi) : null) });
+  }
+  return out;
+}
+function pfNumContext(toks, i) {           // the nearest meaningful word on each side of a number
+  const ctx = new Set();
+  for (const dir of [-1, 1]) {
+    for (let j = i + dir; j >= 0 && j < toks.length; j += dir) {
+      if (toks[j].num) break;
+      if (PF_STOP.has(toks[j].word)) continue;
+      ctx.add(toks[j].word); break;
+    }
+  }
+  return ctx;
+}
+// A number in the AI's reply is kept only if the user's data has the same number next to the same words
+// (or it is a year the user entered); anything else becomes a placeholder the user fills in:
+// "team of 15 engineers" → "team of [N] engineers", "42% faster" → "[X]% faster", "eight years" → "[N] years".
+function pfGuardFigures(out, source) {
+  const st = pfNumTokens(String(source || '')), known = new Map();
+  st.forEach((k, i) => {
+    if (!k.num) return;
+    if (!known.has(k.num)) known.set(k.num, new Set());
+    pfNumContext(st, i).forEach(w => known.get(k.num).add(w));
+  });
+  const text = String(out || ''), ot = pfNumTokens(text);
+  let res = '', last = 0;
+  ot.forEach((k, i) => {
+    if (!k.num) return;
+    if (text.substr(k.at, 4) === '24/7' || (k.t === '7' && text.substr(k.at - 3, 4) === '24/7')) return;
+    const ctx = known.get(k.num);
+    if (ctx && (/^(19[5-9]\d|20[0-4]\d)$/.test(k.num) || [...pfNumContext(ot, i)].some(w => ctx.has(w)))) return;
+    res += text.slice(last, k.at) + (text[k.at + k.t.length] === '%' ? '[X]' : '[N]');
+    last = k.at + k.t.length;
+  });
+  return res + text.slice(last);
+}
+
+// One generator call: retry once on third-person wording, then guard the figures.
+async function pfAiWrite(type, instruction, source) {
+  let out = String(await callAPI(type, instruction) || '').trim();
+  if (PF_THIRD_PERSON.test(out)) {
+    const again = String(await callAPI(type, instruction + '\n\nIMPORTANT: your previous draft described the candidate as he/she. Rewrite it following the voice rule above — no he, she, his, her or him.') || '').trim();
+    if (again) out = again;
+  }
+  return pfGuardFigures(out, source);
+}
+const pfHasPlaceholder = (t) => /\[(X|N)\]/.test(t);
+
 // ── AI: Generate summary ──
 async function aiGenSummary() {
   const d = getFormData();
-  const roughInfo = [
-    d.name && 'Name: ' + d.name,
-    d.title && 'Target role: ' + d.title,
-    d.skills && 'Skills: ' + d.skills,
-    d.experience.filter(e=>e.role||e.company).map(e=>`${e.role} at ${e.company}`).join(', ')
-  ].filter(Boolean).join('\n');
-  if (!roughInfo) { showStatus('summary-status', 'Please fill in at least your name and target role first.', 'error'); return; }
+  // the summary being replaced is not a source of facts
+  const facts = pfCvFacts(Object.assign({}, d, { summary: '' }));
+  if (!d.title && !facts) { showStatus('summary-status', 'Please fill in at least your target role first.', 'error'); return; }
+  const thin = !d.skills && !d.experience.some(e => e.role || e.company || e.bullets) && !d.education.some(e => e.school || e.degree);
   const btn = document.getElementById('ai-summary-btn');
+  const btnHTML = btn.innerHTML;
   btn.disabled = true; btn.textContent = '...';
   showStatus('summary-status', 'Generating professional summary...', 'info');
   try {
     const instruction =
-      'Write ONE professional summary paragraph (3-4 sentences, 50-80 words).\n\n' +
+      (thin
+        ? 'Write ONE short professional summary (2 sentences, at most 40 words). Only a target role was entered, so state that role and a general readiness to contribute — claim no years of experience, tools, employers or achievements.\n\n'
+        : 'Write ONE professional summary paragraph (3-4 sentences, 50-80 words).\n\n') +
       'Rules:\n' +
       '- Output ONLY the paragraph — no labels like "Summary:" or "Professional Summary:"\n' +
-      '- Do NOT open by restating the person\'s name\n' +
+      '- Do NOT mention the person\'s name\n' +
       '- Avoid clichés: results-driven, proven track record, dynamic professional\n' +
-      '- Be specific to the job title, experience and skills provided — no invented filler\n' +
-      '- Confident but conversational tone, varied sentence structure\n\n' +
-      'Person\'s information:\n' + roughInfo;
-    const result = await callAPI('cv_build', instruction);
-    document.getElementById('f-summary').value = result.trim();
+      '- Confident but conversational tone, varied sentence structure\n' +
+      PF_AI_RULES + PF_VOICE_IMPLIED + '\n' +
+      'Candidate data:\n' + facts;
+    const result = await pfAiWrite('cv_build', instruction, facts);
+    document.getElementById('f-summary').value = result;
     updatePreview();
-    hideStatus('summary-status');
+    if (thin) showStatus('summary-status', 'Add your experience and skills for a more specific summary.', 'info');
+    else if (pfHasPlaceholder(result)) showStatus('summary-status', 'Replace the placeholders like [X] with your real figures.', 'info');
+    else hideStatus('summary-status');
   } catch(e) {
     showStatus('summary-status', e.message, 'error');
   } finally {
-    btn.disabled = false; btn.textContent = '✨ Generate';
+    btn.disabled = false; btn.innerHTML = btnHTML;
   }
 }
 
@@ -3441,20 +3544,32 @@ async function aiGenBullets(buttonEl) {
   const statusId = card.id ? card.id.replace('exp-', 'exp-status-') : '';
   if (statusId) showStatus(statusId, 'Generating bullet points...', 'info');
 
+  const start = (card.querySelector('.exp-start')?.value || '').trim();
+  const end = (card.querySelector('.exp-end')?.value || '').trim();
+  const dates = [start, end].filter(Boolean).join(' – ');
+  const facts = `Role: ${role || '(not given)'}\nCompany: ${company || '(not given)'}${dates ? '\nDates: ' + dates : ''}\n` +
+    (rough ? 'Duties / notes entered by the candidate:\n' + rough : 'Duties / notes entered by the candidate: (none)');
   const instruction =
-    'Write 3-5 polished CV bullet points for this role.\n\n' +
+    (rough
+      ? 'Rewrite the candidate\'s notes below as 3-5 polished CV bullet points for this role.\n\n'
+      : 'No duties were entered for this role. Write 3 short, generic bullet points describing typical responsibilities of this role. Use placeholders like [tool] or [N] for any specifics, and claim no results, numbers or achievements.\n\n') +
     'Rules:\n' +
-    '- Start each bullet with a strong action verb (e.g. Led, Designed, Delivered, Built, Managed, Grew)\n' +
-    '- Be specific to the role and company provided — no generic filler\n' +
-    '- Quantify where the notes suggest metrics (%, $, headcount, time saved, etc.)\n' +
-    '- Transform rough notes into professional, ATS-optimized language\n' +
-    '- Return ONLY the bullet points, one per line, no numbering or extra labels\n\n' +
-    `Role: ${role || 'Professional'}\nCompany: ${company || ''}\nRough notes: ${rough || role}`;
+    '- Start each bullet with a strong action verb (e.g. Led, Designed, Delivered, Built, Managed, Supported)\n' +
+    '- Every bullet must come from the notes — do not add duties, tools, systems or results that the notes do not mention\n' +
+    '- Keep any figures exactly as written in the notes; where a figure would help but is missing, use a placeholder such as [X]% or [N]\n' +
+    '- Transform rough notes into professional, ATS-friendly language\n' +
+    '- Return ONLY the bullet points, one per line, no numbering or extra labels\n' +
+    PF_AI_RULES + PF_VOICE_IMPLIED + '\n' +
+    'Candidate data:\n' + facts;
 
   try {
-    const result = await callAPI('cv_build', instruction);
-    if (bulletsTA) { bulletsTA.value = result.trim(); updatePreview(); }
-    if (statusId) hideStatus(statusId);
+    const result = await pfAiWrite('cv_build', instruction, facts);
+    if (bulletsTA) { bulletsTA.value = result; updatePreview(); }
+    if (statusId) {
+      if (!rough) showStatus(statusId, 'These are generic placeholders — add your actual duties for accurate bullets.', 'info');
+      else if (pfHasPlaceholder(result)) showStatus(statusId, 'Replace the placeholders like [X] with your real figures.', 'info');
+      else hideStatus(statusId);
+    }
     showToast('✓ Bullet points generated!');
   } catch(e) {
     if (statusId) showStatus(statusId, e.message, 'error');
@@ -3990,36 +4105,35 @@ async function generateCoverLetter() {
   const btn = document.getElementById('cover-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Writing...'; }
   showStatus('cover-status', 'AI is writing your cover letter...', 'info');
-  const cvSummary = [
-    d.name && 'Name: ' + d.name,
-    d.title && 'Current/Target Role: ' + d.title,
-    d.skills && 'Skills: ' + d.skills,
-    d.summary && 'Background: ' + d.summary,
-    d.experience.filter(e=>e.role||e.company).length && 'Experience: ' + d.experience.filter(e=>e.role||e.company).map(e=>`${e.role} at ${e.company}`).join(', ')
-  ].filter(Boolean).join('\n');
+  const facts = pfCvFacts(d);
   const prompt = `Write a ${clStyle.toLowerCase()} cover letter for this applicant.
 
-${cvSummary}
+Candidate data (from the applicant's CV — the ONLY facts you may state about the applicant):
+${facts || '(nothing entered yet)'}
 
 Applying for: ${jobTitle}
 Company: ${company}
 Hiring Manager: ${manager || 'Hiring Manager'}
-${jd ? '\nJob Description:\n' + jd : ''}
+${jd ? '\nJob description (what the employer is looking for — NOT facts about the applicant):\n' + jd : ''}
 
+${PF_AI_RULES}- Every company, role, date, number and achievement you mention must appear in the candidate data EXACTLY as written there. Do not change, round, inflate or combine figures, and never move an achievement to a different employer.
+- Do not claim experience, tools or qualifications from the job description unless the candidate data lists them.
+${PF_VOICE_FIRST}
 Instructions:
 - 3 paragraphs only, no more
 - Opening: compelling hook that expresses enthusiasm — never start with "I am writing to"
-- Middle: 2-3 specific achievements or skills matching the role with concrete examples
+- Middle: 2-3 achievements or skills from the candidate data that match the role
 - Closing: confident call to action for an interview
 - Tone: ${clStyle}
-- Write in first person, professional but human
+- Professional but human
 - Maximum 250 words
 - Return ONLY the letter body paragraphs — no salutation, no sign-off`;
   try {
-    const result = await callAPI('cover_letter', prompt);
+    const result = await pfAiWrite('cover_letter', prompt, [facts, jobTitle, company, manager].join('\n'));
     coverLetterText = result;
     updateCoverLetter();
-    hideStatus('cover-status');
+    if (pfHasPlaceholder(result)) showStatus('cover-status', 'Replace the placeholders like [X] with your real figures.', 'info');
+    else hideStatus('cover-status');
     showToast('✓ Cover letter generated!');
   } catch(e) {
     showStatus('cover-status', e.message, 'error');
@@ -6873,27 +6987,24 @@ function applyTailoredSummary() {
 
 // ── Feature 4: LinkedIn Summary Generator ──
 async function generateLinkedIn() {
-  const name = (document.getElementById('f-name') || {}).value || '';
-  const title = (document.getElementById('f-jobtitle') || {}).value || '';
-  const summary = (document.getElementById('f-summary') || {}).value || '';
-  const skills = (document.getElementById('f-skills') || {}).value || '';
-  if (!name || !title) { showToast('Add your name and job title first'); return; }
+  const d = getFormData();
+  if (!d.name || !d.title) { showToast('Add your name and job title first'); return; }
   showToast('⏳ Generating LinkedIn summary...');
   try {
-    const response = await fetch('/api/process', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        type: 'cv_build',
-        text: `Write a compelling LinkedIn "About" section (300-400 words) for:\nName: ${name}\nTitle: ${title}\nSummary: ${summary || 'professional'}\nSkills: ${skills || 'various skills'}\n\nWrite in first person. Sound human and engaging. End with what opportunities they are open to. No hashtags.`,
-        prompt: 'Write LinkedIn About section. First person, engaging, 300-400 words.'
-      })
-    });
-    const data = await response.json();
+    const facts = pfCvFacts(d);
+    const thin = !d.summary && !d.skills && !d.experience.some(e => e.role || e.company || e.bullets);
+    const instruction =
+      `Write a LinkedIn "About" section (${thin ? '60-100' : '150-300'} words) based only on the candidate data below.\n\n` +
+      'Rules:\n' +
+      '- Sound human and engaging; end with the kind of opportunities the candidate is open to (in line with the target role)\n' +
+      '- No hashtags, no emojis, no headings\n' +
+      PF_AI_RULES + PF_VOICE_FIRST + '\n' +
+      'Candidate data:\n' + facts;
+    const text = await pfAiWrite('cv_build', instruction, facts);
     const result = document.getElementById('linkedinResult');
-    if (result && data.result) {
+    if (result && text) {
       result.style.display = 'block';
-      result.innerHTML = `<div style="font-weight:600;margin-bottom:6px;color:#0077b5;">🔗 LinkedIn About Section:</div><p id="linkedinText" style="margin:0 0 8px;line-height:1.7;">${data.result.replace(/\n/g,'<br>')}</p><button onclick="navigator.clipboard.writeText(document.getElementById('linkedinText').innerText);this.textContent='✓ Copied!';setTimeout(()=>this.textContent='📋 Copy',1500)" style="padding:5px 12px;background:#0077b5;color:white;border:none;border-radius:6px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;">📋 Copy</button>`;
+      result.innerHTML = `<div style="font-weight:600;margin-bottom:6px;color:#0077b5;">🔗 LinkedIn About Section:</div><p id="linkedinText" style="margin:0 0 8px;line-height:1.7;">${esc(text).replace(/\n/g,'<br>')}</p><button onclick="navigator.clipboard.writeText(document.getElementById('linkedinText').innerText);this.textContent='✓ Copied!';setTimeout(()=>this.textContent='📋 Copy',1500)" style="padding:5px 12px;background:#0077b5;color:white;border:none;border-radius:6px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;">📋 Copy</button>`;
     }
     showToast('✓ LinkedIn summary generated!');
   } catch(err) { showToast('❌ Error: ' + err.message); }
