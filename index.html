@@ -231,7 +231,7 @@ if (/[?&]embed=paraphraser(&|$)/.test(location.search)) {
       "name": "Does ParaFree work for students?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Absolutely. ParaFree was built with students in mind — paraphrase essays and assignments, humanize AI-generated text, build a professional CV, check grammar, and summarize research articles. No account needed. Used by students in 50+ countries."
+        "text": "Absolutely. ParaFree was built with students in mind — paraphrase essays and assignments, humanize AI-generated text, build a professional CV, check grammar, and summarize research articles. No account needed. Used by students in 160+ countries."
       }
     },
     {
@@ -295,7 +295,7 @@ if (/[?&]embed=paraphraser(&|$)/.test(location.search)) {
       "name": "How does ParaFree stay free?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "ParaFree uses free-tier API credits from multiple AI providers in a smart fallback chain — Gemini, Groq, Cloudflare Workers AI, Mistral, NVIDIA NIM, OVHcloud AI, GLM, DeepSeek, SambaNova, and OpenRouter. Each provider offers a daily free tier. When one provider reaches its daily limit, the next handles the request automatically. Because load is spread across many providers simultaneously, the combined capacity is enough to keep every tool free for all users. The starting provider is randomized per request so no single provider carries the full load. This architecture — not advertising or data sales — is what keeps ParaFree free forever."
+        "text": "ParaFree uses free-tier API credits from several AI providers — multiple AI engines with automatic fallback. Each provider offers a daily free tier. When one provider reaches its daily limit, the next handles the request automatically. Because load is spread across many providers simultaneously, the combined capacity is enough to keep every tool free for all users. The starting provider is randomized per request so no single provider carries the full load. This architecture — not advertising or data sales — is what keeps ParaFree free forever."
       }
     },
     {
@@ -1433,7 +1433,13 @@ const PHOTOS = {
     #mainHero { height: auto !important; min-height: 0 !important; align-items: flex-start !important; padding-bottom: 32px; }
     /* Compact hero text */
     .hero-title { font-size: 28px !important; line-height: 1.2 !important; letter-spacing: -0.5px !important; margin-bottom: 12px !important; }
-    .hero-content { padding: 96px 16px 24px !important; }
+    /* slim hero on phones: the paraphraser starts on the first screen */
+    #mainHero .hero-content > div:first-child { margin-bottom: 10px !important; padding: 5px 12px !important; }
+    #mainHero .hero-content > div:first-child span { font-size: 11px !important; }
+    #mainHero .hero-title > span { font-size: 15px !important; margin-bottom: 2px !important; }
+    #pfHeroRating { font-size: 13px !important; margin-bottom: 4px !important; }
+    #pfHeroLine { font-size: 13px !important; }
+    .hero-content { padding: 76px 16px 12px !important; }
     .hero-content > p { font-size: 14px !important; line-height: 1.55 !important; margin-bottom: 20px !important; }
     /* CTA buttons smaller on mobile */
     .cta-buttons a { padding: 12px 22px !important; font-size: 15px !important; }
@@ -1465,7 +1471,7 @@ const PHOTOS = {
 </style>
 <style>/* donate link: hide desktop nav entry where the nav gets crowded (still in mobile menu + footer) */@media (max-width:1023px){nav .donate-nav{display:none !important}}</style>
 <style>/* An extra tab (PDF Tools / CV Builder) is open: the text tools' sections are hidden (they keep their state) */
-body.pf-alt-active #langBar,body.pf-alt-active #humanizerInfo,body.pf-alt-active #paraphraseModes,body.pf-alt-active #humanizeModes,body.pf-alt-active .status-bar,body.pf-alt-active .tool-container,body.pf-alt-active #donateNote,body.pf-alt-active #previewNote,body.pf-alt-active #humanScoreBadge,body.pf-alt-active #tryAgainNote,body.pf-alt-active #grammarErrorsPanel,body.pf-alt-active .paraphrase-wrap,body.pf-alt-active #aiWrap,body.pf-alt-active #aiPromoBanner,body.pf-alt-active #shareBar,body.pf-alt-active #pfaiBanner,body.pf-alt-active #scorePanel{display:none!important}
+body.pf-alt-active #langBar,body.pf-alt-active #humanizerInfo,body.pf-alt-active #paraphraseModes,body.pf-alt-active #humanizeModes,body.pf-alt-active .status-bar,body.pf-alt-active .tool-container,body.pf-alt-active #donateNote,body.pf-alt-active #previewNote,body.pf-alt-active #humanScoreBadge,body.pf-alt-active #tryAgainNote,body.pf-alt-active #grammarErrorsPanel,body.pf-alt-active .paraphrase-wrap,body.pf-alt-active #aiWrap,body.pf-alt-active #shareBar,body.pf-alt-active #scorePanel{display:none!important}
 @media (max-width:900px){nav .pf-nav-pdf{display:none !important}}
 /* CV Builder tab: the homepage's floating buttons would sit on the builder's own toolbar */
 body.pf-cv-open #pf-scroll-top,body.pf-cv-open #pf-feedback-card{display:none!important}
@@ -1475,7 +1481,7 @@ body.pf-cv-open #pf-scroll-top,body.pf-cv-open #pf-feedback-card{display:none!im
 /* Hero (≥769px): it was a fixed 100vh box with overflow:hidden, so on screens shorter than the content the
    CTA buttons were cut off under the stats band and "Explore Tools" sat on top of them. Grow with the content
    instead (still at least one screen tall) and keep the scroll hint below the buttons. */
-@media (min-width:769px){#mainHero{height:auto!important;min-height:max(100vh,720px)!important}#mainHero .hero-content{padding-bottom:112px!important}}
+@media (min-width:769px){#mainHero{height:auto!important;min-height:0!important}}
 .pf-fl{display:flex;justify-content:center;gap:4px 16px;flex-wrap:wrap;margin-bottom:16px;padding:10px 0;border-top:1px solid rgba(255,255,255,.06)}.pf-fl a{color:#52b788;text-decoration:none;font-size:13px;font-weight:600}.pf-fl span{color:#555;font-size:13px}.pf-fl .t{color:#888;width:100%;margin-bottom:6px}</style>
 </head>
 <body>
@@ -1508,7 +1514,7 @@ body.pf-cv-open #pf-scroll-top,body.pf-cv-open #pf-feedback-card{display:none!im
     <a href="/blog.html" class="nav-link" style="color:rgba(255,255,255,0.85);font-size:14px;font-weight:500;text-decoration:none;padding:8px 12px;transition:color 0.2s;">Blog</a>
     <a href="/faq.html" class="nav-link" style="color:rgba(255,255,255,0.85);font-size:14px;font-weight:500;text-decoration:none;padding:8px 12px;transition:color 0.2s;">FAQ</a>
     <a href="https://ko-fi.com/parafree" target="_blank" rel="noopener" class="nav-link donate-nav" style="color:rgba(255,255,255,0.85);font-size:14px;font-weight:500;text-decoration:none;padding:8px 12px;transition:color 0.2s;" onclick="if(typeof gtag==='function')gtag('event','donate_click',{placement:'header'})">☕ Support</a>
-    <a href="/cv-builder.html" id="navCta" style="padding:10px 22px;background:#ffffff;border-radius:10px;color:#1a3a2a;font-weight:800;font-size:14px;text-decoration:none;box-shadow:0 2px 12px rgba(0,0,0,0.15);transition:all 0.2s;">Try Free →</a>
+    <a href="#tools" id="navCta" style="padding:10px 22px;background:#ffffff;border-radius:10px;color:#1a3a2a;font-weight:800;font-size:14px;text-decoration:none;box-shadow:0 2px 12px rgba(0,0,0,0.15);transition:all 0.2s;">Open Tool →</a>
   </div>
   <button id="menuToggle" aria-label="Open menu" onclick="toggleMenu()" style="display:none;background:none;border:none;cursor:pointer;padding:8px;flex-direction:column;gap:5px;align-items:center;justify-content:center;min-width:44px;min-height:44px;">
     <span style="display:block;width:22px;height:2px;background:rgba(255,255,255,0.85);border-radius:2px;"></span>
@@ -1553,54 +1559,17 @@ body.pf-cv-open #pf-scroll-top,body.pf-cv-open #pf-feedback-card{display:none!im
 })();
 </script>
 
-<!-- FULL-SCREEN HERO -->
-<div id="mainHero" style="position:relative;height:100vh;min-height:720px;display:flex;align-items:flex-start;overflow:hidden;">
+<!-- HERO (slim: the paraphraser starts right below it; the rest of the intro is below the tool, #heroMore) -->
+<div id="mainHero" style="position:relative;display:flex;align-items:flex-start;overflow:hidden;">
   <img src="https://images.unsplash.com/photo-1455390582262-044cdead277a?w=1400&q=80" alt="Writing and AI" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;" loading="eager" fetchpriority="high">
   <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(10,28,20,0.92) 0%,rgba(26,58,42,0.88) 50%,rgba(45,106,79,0.82) 100%);"></div>
-  <div class="hero-content" style="position:relative;z-index:1;max-width:800px;padding:100px 40px 60px;margin:0 auto;text-align:center;width:100%;">
-    <div style="display:inline-flex;align-items:center;justify-content:center;gap:8px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);border-radius:24px;padding:8px 20px;margin-bottom:28px;max-width:100%;box-sizing:border-box;">
+  <div class="hero-content" style="position:relative;z-index:1;max-width:800px;padding:92px 40px 26px;margin:0 auto;text-align:center;width:100%;">
+    <div style="display:inline-flex;align-items:center;justify-content:center;gap:8px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);border-radius:24px;padding:6px 18px;margin-bottom:16px;max-width:100%;box-sizing:border-box;">
       <span style="color:rgba(255,255,255,0.95);font-size:clamp(11px,3.5vw,14px);font-weight:600;text-align:center;">100% Free Forever · No Signup · No Watermark · No Word Limit</span>
     </div>
-    <h1 class="hero-title" style="font-size:clamp(38px,6vw,62px);font-weight:900;color:#ffffff;margin-bottom:20px;line-height:1.05;letter-spacing:-2.5px;font-family:'Syne',sans-serif;"><span style="font-size:clamp(18px,2.8vw,28px);font-weight:700;letter-spacing:0.5px;display:block;margin-bottom:10px;color:rgba(255,255,255,0.75);">ParaFree</span>Paraphrase Documents<br><span style="color:#52b788;">Without Losing Formatting</span></h1>
-    <p id="pfHeroRating" style="margin:-6px 0 22px;color:rgba(255,255,255,0.85);font-size:15px;font-weight:600;"><span style="color:#f5c518;" aria-hidden="true">★</span> <span class="pf-rating-text">4.7 · 21 user ratings</span></p>
-    <p style="font-size:20px;color:rgba(255,255,255,0.85);margin-bottom:40px;line-height:1.7;max-width:580px;margin-left:auto;margin-right:auto;">Upload Word, PDF or <a href="/paraphrase-powerpoint.html" style="color:#52b788;text-decoration:underline;text-underline-offset:3px;">PowerPoint files</a>. We paraphrase only the text — your colors, fonts, tables and design stay exactly the same. <strong style="color:#52b788;">100% free forever.</strong> No word limit, no signup, no watermark.</p>
-    <div class="cta-buttons" style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-bottom:40px;">
-      <a href="#tools" style="padding:18px 44px;background:#ffffff;color:#1a3a2a;border-radius:14px;font-weight:900;font-size:18px;text-decoration:none;box-shadow:0 8px 32px rgba(0,0,0,0.2);font-family:'Syne',sans-serif;">Start Writing Free →</a>
-      <a href="/cv-builder.html" style="padding:18px 44px;background:rgba(255,255,255,0.12);color:#ffffff;border-radius:14px;font-weight:700;font-size:18px;text-decoration:none;border:2px solid rgba(255,255,255,0.3);backdrop-filter:blur(8px);">Build Your CV</a>
-    </div>
-    <div id="heroTrust" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
-      <div style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:7px 16px;color:rgba(255,255,255,0.9);font-size:13px;font-weight:500;">✓ Keeps Original Formatting</div>
-      <div style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:7px 16px;color:rgba(255,255,255,0.9);font-size:13px;font-weight:500;">✓ Word, PDF &amp; PowerPoint</div>
-      <div style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:7px 16px;color:rgba(255,255,255,0.9);font-size:13px;font-weight:500;">✓ No Word Limit</div>
-      <div style="background:rgba(82,183,136,0.25);border:1px solid rgba(82,183,136,0.5);border-radius:20px;padding:7px 16px;color:#52b788;font-size:13px;font-weight:700;">✓ Free Forever — No Paywall</div>
-    </div>
-    <p style="font-size:13px;text-align:center;margin-top:14px;"><a href="/best-free-paraphrasing-tool.html" style="color:rgba(255,255,255,0.65);font-weight:500;text-decoration:none;">See how ParaFree compares to 7 popular paraphrasers →</a></p>
-  </div>
-  <div id="heroScrollIndicator" style="position:absolute;bottom:32px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.5);font-size:12px;text-align:center;line-height:1.6;">
-    <div style="animation:heroScrollBounce 2s infinite;">↓</div>
-    <div>Explore Tools</div>
-  </div>
-</div>
-
-<!-- STATS STRIP -->
-<div id="statsStrip" style="background:linear-gradient(135deg,#1a3a2a,#2d6a4f);padding:28px 40px;">
-  <div class="stats-strip-inner" style="max-width:900px;margin:0 auto;display:flex;justify-content:space-around;flex-wrap:wrap;gap:20px;">
-    <div style="text-align:center;">
-      <div style="font-size:32px;font-weight:900;color:#52b788;font-family:'Syne',sans-serif;">50K+</div>
-      <div style="font-size:14px;color:rgba(255,255,255,0.75);margin-top:4px;">Documents Paraphrased</div>
-    </div>
-    <div style="text-align:center;">
-      <div style="font-size:32px;font-weight:900;color:#52b788;font-family:'Syne',sans-serif;">8+</div>
-      <div style="font-size:14px;color:rgba(255,255,255,0.75);margin-top:4px;">Countries</div>
-    </div>
-    <div style="text-align:center;">
-      <div style="font-size:32px;font-weight:900;color:#52b788;font-family:'Syne',sans-serif;">18</div>
-      <div style="font-size:14px;color:rgba(255,255,255,0.75);margin-top:4px;">Languages Supported</div>
-    </div>
-    <div style="text-align:center;">
-      <div style="font-size:32px;font-weight:900;color:#52b788;font-family:'Syne',sans-serif;">100%</div>
-      <div style="font-size:14px;color:rgba(255,255,255,0.75);margin-top:4px;">Free — No Paywall, Ever</div>
-    </div>
+    <h1 class="hero-title" style="font-size:clamp(30px,4.6vw,46px);font-weight:900;color:#ffffff;margin-bottom:10px;line-height:1.08;letter-spacing:-1.5px;font-family:'Syne',sans-serif;"><span style="font-size:clamp(16px,2.2vw,22px);font-weight:700;letter-spacing:0.5px;display:block;margin-bottom:6px;color:rgba(255,255,255,0.75);">ParaFree</span>Paraphrase Documents<br><span style="color:#d8f3dc;">Without Losing Formatting</span></h1>
+    <p id="pfHeroRating" style="margin:0 0 8px;color:rgba(255,255,255,0.85);font-size:15px;font-weight:600;"><span style="color:#f5c518;" aria-hidden="true">★</span> <span class="pf-rating-text">4.7 · 21 user ratings</span></p>
+    <p id="pfHeroLine" style="font-size:16px;color:rgba(255,255,255,0.85);margin:0 auto;line-height:1.55;max-width:600px;">Paste your text below, or upload Word, PDF or <a href="/paraphrase-powerpoint.html" style="color:#d8f3dc;text-decoration:underline;text-underline-offset:3px;">PowerPoint files</a>.</p>
   </div>
 </div>
 
@@ -1609,32 +1578,15 @@ body.pf-cv-open #pf-scroll-top,body.pf-cv-open #pf-feedback-card{display:none!im
   <div class="tool-tabs" style="flex-wrap:wrap;">
     <button class="tool-tab active" id="tab-paraphrase" onclick="switchTool('paraphrase')" aria-label="Free AI Paraphraser - No Word Limit" title="Free AI Paraphraser — Paraphrase essays, articles and text with no word limit, no signup">✦ Paraphraser</button>
     <button class="tool-tab" id="tab-humanize" onclick="switchTool('humanize')" aria-label="Free AI Humanizer - Natural Human Text" title="Free AI Humanizer — Make ChatGPT and AI text sound naturally human">◈ AI Humanizer</button>
-    <button class="tool-tab" id="tab-summarize" onclick="switchTool('summarize')" aria-label="Free AI Text Summarizer - No Word Limit" title="Free Text Summarizer — Summarize any article, essay or document instantly, 18 languages">∑ Summarizer <span class="tab-new">NEW</span></button>
-    <button class="tool-tab" id="tab-grammar" onclick="switchTool('grammar')" aria-label="Free Grammar Checker Online - Fix All Grammar Errors" title="Free Grammar Checker — Fix grammar, spelling and punctuation errors instantly, no Grammarly needed">✓ Grammar <span class="tab-new">NEW</span></button>
-    <button class="tool-tab" id="tab-detect" onclick="switchTool('detect')" aria-label="Free AI Content Detector - Check If Text Is AI-Written" title="Free AI Detector — Check if text was written by ChatGPT, Claude or other AI, free GPTZero alternative">🔍 AI Detector <span class="tab-new">NEW</span></button>
-    <button class="tool-tab" id="tab-ai" onclick="switchTool('ai')" aria-label="ParaFree AI - Free AI Assistant for PPT, Docs, Websites" title="ParaFree AI — Create presentations, documents, websites and code for free" style="position:relative;">✨ ParaFree AI <span class="tab-new" style="background:#e63946;">NEW</span></button>
+    <button class="tool-tab" id="tab-summarize" onclick="switchTool('summarize')" aria-label="Free AI Text Summarizer - No Word Limit" title="Free Text Summarizer — Summarize any article, essay or document instantly, 18 languages">∑ Summarizer</button>
+    <button class="tool-tab" id="tab-grammar" onclick="switchTool('grammar')" aria-label="Free Grammar Checker Online - Fix All Grammar Errors" title="Free Grammar Checker — Fix grammar, spelling and punctuation errors instantly, no Grammarly needed">✓ Grammar</button>
+    <button class="tool-tab" id="tab-detect" onclick="switchTool('detect')" aria-label="Free AI Content Detector - Check If Text Is AI-Written" title="Free AI Detector — Check if text was written by ChatGPT, Claude or other AI, free GPTZero alternative">🔍 AI Detector</button>
+    <button class="tool-tab" id="tab-ai" onclick="switchTool('ai')" aria-label="ParaFree AI - Free AI Assistant for PPT, Docs, Websites" title="ParaFree AI — Create presentations, documents, websites and code for free" style="position:relative;">✨ ParaFree AI</button>
     <button class="tool-tab" id="tab-pdf" onclick="pfOpenPdfTools()" aria-label="Free PDF Tools - PDF to Word, Word to PDF, JPG to PDF, Compress and Merge" title="Free PDF Tools — PDF to Word, Word to PDF, JPG to PDF, compress and merge PDFs in your browser">📄 PDF Tools <span class="tab-new">NEW</span></button>
     <button class="tool-tab" id="tab-cv" onclick="pfOpenCvTab()" aria-label="Free CV Builder - 54 templates, no signup" title="Free CV Builder — 54 templates, AI writing, cover letter, free PDF download">📄 CV Builder</button>
   </div>
 </div>
 
-<!-- CV BUILDER + AI NOTICE BAR -->
-<div id="promoBar" style="max-width:1100px; margin:6px auto 0; padding:0 16px; display:flex; gap:10px; flex-wrap:wrap;">
-  <div style="flex:1;min-width:200px;background:#e8f8ef; border:1px solid #b7e4c7; border-radius:10px; padding:10px 16px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-family:'DM Sans',sans-serif;">
-    <span style="font-size:13px; color:#2d6a4f;">📄 <strong>Free CV Builder</strong> — 54 templates, cover letter, AI writing. No signup, no watermark.</span>
-    <a href="/best-free-cv-builder.html" style="color:#52b788;font-size:12px;text-decoration:none;display:block;margin-top:2px;">See why we beat paid CV builders →</a>
-    <a href="/cv-builder.html" style="font-size:13px; font-weight:700; color:#2d6a4f; background:white; border:1px solid #b7e4c7; border-radius:20px; padding:3px 12px; text-decoration:none; white-space:nowrap; margin-left:auto;">Build CV Free →</a>
-  </div>
-  <div style="flex:1;min-width:200px;background:linear-gradient(135deg,rgba(45,106,79,0.07),rgba(82,183,136,0.12)); border:1px solid rgba(45,106,79,0.2); border-radius:10px; padding:10px 16px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-family:'DM Sans',sans-serif;">
-    <span style="font-size:13px; color:var(--accent);">✨ <strong>ParaFree AI</strong> — create PPT, Word docs, PDFs, websites and more.</span>
-    <button onclick="switchTool('ai')" style="font-size:13px; font-weight:700; color:white; background:var(--accent); border:none; border-radius:20px; padding:4px 14px; cursor:pointer; white-space:nowrap; margin-left:auto;">Try AI Free →</button>
-  </div>
-</div>
-
-<!-- PDF TOOLS: pointer under the promo strip; the PDF tab's panel (filled on first open by lib/pdf-tools home.js) -->
-<div id="pfPdfPromo" style="max-width:1100px; margin:6px auto 0; padding:0 16px; font-family:'DM Sans',sans-serif;">
-  <a href="#pdf-to-word" style="display:inline-block; font-size:13px; font-weight:600; color:#2d6a4f; text-decoration:none;">📄 New: free PDF tools — PDF to Word, compress, merge →</a>
-</div>
 <div id="pfHomePdf" class="pf-home-pdf" hidden></div>
 <div id="pfHomeCv" hidden style="max-width:1100px;margin:0 auto 16px;padding:0 16px;font-family:'DM Sans',sans-serif;">
   <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 16px;margin:4px 0 10px;"><span style="font:700 15px Syne,sans-serif;color:#1a1814;">Free CV Builder — 54 templates, no signup, no watermark</span><a href="/cv-builder.html" target="_blank" rel="noopener" style="font-size:13px;font-weight:700;color:#2d6a4f;text-decoration:none;">Open full CV Builder ↗</a></div>
@@ -1643,7 +1595,7 @@ body.pf-cv-open #pf-scroll-top,body.pf-cv-open #pf-feedback-card{display:none!im
 <script>/* Extra tabs (PDF Tools, CV Builder): the text tools are only hidden while one is open (body.pf-alt-active)
    and shown again on any tool switch. PDF Tools: the shell shows at once; lib/pdf-tools home.js then loads only the
    active tool (files versioned with ?v=, long-cached) and is prefetched when the page is idle. CV Builder is static. */
-(function(){var V=window.PFV='f5158bf3cd',T=['pdf-to-word','word-to-pdf','jpg-to-pdf','compress-pdf','merge-pdf','pdf-to-jpg'],N=['📄 PDF to Word','📝 Word to PDF','🖼 JPG to PDF','🗜 Compress PDF','➕ Merge PDF','🖼 PDF to JPG'],
+(function(){var V=window.PFV='e997645256',T=['pdf-to-word','word-to-pdf','jpg-to-pdf','compress-pdf','merge-pdf','pdf-to-jpg'],N=['📄 PDF to Word','📝 Word to PDF','🖼 JPG to PDF','🗜 Compress PDF','➕ Merge PDF','🖼 PDF to JPG'],
 L=null,P=null,A=null,d=document,PANEL={pdf:'pfHomePdf',cv:'pfHomeCv'};
 function u(n,x){return '/lib/pdf-tools/'+n+(x||'.js')+'?v='+V}
 function js(src){return new Promise(function(r,j){var s=d.createElement('script');s.src=src;s.onload=r;s.onerror=j;d.head.appendChild(s)})}
@@ -1673,7 +1625,7 @@ d.addEventListener('click',function(e){var t=e.target&&e.target.closest&&e.targe
 function h(){var t=location.hash.slice(1),x=d.getElementById('tools');if(T.indexOf(t)>=0)window.pfOpenPdfTools(t);else if(t==='cv-builder')window.pfOpenCvTab();else return;if(x)x.scrollIntoView()}
 addEventListener('hashchange',h);var h0=location.hash.slice(1);if(T.indexOf(h0)>=0||h0==='cv-builder')d.addEventListener('DOMContentLoaded',h);
 if(/[?&]handoff=pdf(&|$)/.test(location.search))addEventListener('load',function(){var s=d.createElement('script');s.src=u('handoff');s.onload=function(){window.PFHandoff.receive()};
-s.onerror=function(){var n=d.createElement('p');n.textContent='Download the Word file and upload it here';n.style.cssText='max-width:1100px;margin:6px auto 0;padding:0 16px;font-size:13px;color:#8a4b12';var a=d.getElementById('promoBar');a.parentNode.insertBefore(n,a.nextSibling)};d.head.appendChild(s)});
+s.onerror=function(){var n=d.createElement('p');n.textContent='Download the Word file and upload it here';n.style.cssText='max-width:1100px;margin:6px auto 0;padding:0 16px;font-size:13px;color:#8a4b12';var a=d.getElementById('langBar');a.parentNode.insertBefore(n,a)};d.head.appendChild(s)});
 /* idle prefetch (3 s after load, low priority, skipped with Save-Data or on 2G) so the first click is near-instant */
 addEventListener('load',function(){setTimeout(function(){var c=navigator.connection;if(window.PF_EMBED||c&&(c.saveData||/2g/.test(c.effectiveType||'')))return;
 (window.requestIdleCallback||function(f){setTimeout(f,1)})(function(){[u('home'),u('home','.css'),u('panels'),u('pdf-events'),u('loader'),u('common'),u('pdf-to-word')].forEach(function(x){var l=d.createElement('link');l.rel='prefetch';l.href=x;d.head.appendChild(l)})},{timeout:5000})},3000)})})();
@@ -1746,8 +1698,6 @@ document.addEventListener('DOMContentLoaded', function() {
     <div class="humanizer-tags">
       <span class="humanizer-tag">✓ Reduce AI Patterns</span>
       <span class="humanizer-tag">✓ Improve Naturalness</span>
-      <span class="humanizer-tag">✓ No word limit</span>
-      <span class="humanizer-tag">✓ Free forever</span>
     </div>
   </div>
 </div>
@@ -2014,34 +1964,6 @@ document.addEventListener('DOMContentLoaded', function() {
   </div><!-- /aiChatLayout -->
 </div><!-- /aiWrap -->
 
-<!-- AI PROMO BANNER (shown after first result) -->
-<div id="aiPromoBanner" style="display:none; max-width:1100px; margin:0 auto 12px; padding:0 16px;">
-  <div style="background:linear-gradient(135deg,#1a3a2a 0%,#2d6a4f 100%);border-radius:14px;padding:18px 20px 18px 22px;position:relative;overflow:hidden;">
-    <div style="position:absolute;top:0;right:0;width:220px;height:100%;background:radial-gradient(circle at 80% 50%,rgba(82,183,136,0.18) 0%,transparent 70%);pointer-events:none;"></div>
-    <button onclick="dismissAIBanner()" title="Dismiss" style="position:absolute;top:10px;right:12px;background:rgba(255,255,255,0.12);border:none;color:rgba(255,255,255,0.7);width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0;">×</button>
-    <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
-      <div style="flex:1;min-width:220px;">
-        <div style="color:#52b788;font-size:11px;font-weight:700;letter-spacing:0.08em;margin-bottom:5px;text-transform:uppercase;">✦ ParaFree AI</div>
-        <div style="color:#ffffff;font-size:17px;font-weight:700;margin:0 0 6px;line-height:1.3;">Your paraphraser has a powerful sibling</div>
-        <div style="color:#a8d5be;font-size:13px;margin:0 0 14px;line-height:1.55;">Build websites, make PPT slides, write Word docs, debug code, do research — all free, no signup needed.</div>
-        <a href="/code.html" style="display:inline-flex;align-items:center;gap:6px;background:#52b788;color:#fff;text-decoration:none;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:600;letter-spacing:0.01em;transition:background .15s;">Try ParaFree AI →</a>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:7px;flex-shrink:0;">
-        <div style="display:flex;gap:7px;flex-wrap:wrap;">
-          <span style="background:rgba(255,255,255,0.1);color:#d8f3dc;border:1px solid rgba(255,255,255,0.15);border-radius:20px;padding:4px 11px;font-size:12px;font-weight:500;">⚡ Live websites</span>
-          <span style="background:rgba(255,255,255,0.1);color:#d8f3dc;border:1px solid rgba(255,255,255,0.15);border-radius:20px;padding:4px 11px;font-size:12px;font-weight:500;">📊 PPT slides</span>
-          <span style="background:rgba(255,255,255,0.1);color:#d8f3dc;border:1px solid rgba(255,255,255,0.15);border-radius:20px;padding:4px 11px;font-size:12px;font-weight:500;">📄 Word docs</span>
-        </div>
-        <div style="display:flex;gap:7px;flex-wrap:wrap;">
-          <span style="background:rgba(255,255,255,0.1);color:#d8f3dc;border:1px solid rgba(255,255,255,0.15);border-radius:20px;padding:4px 11px;font-size:12px;font-weight:500;">💻 Code & debug</span>
-          <span style="background:rgba(255,255,255,0.1);color:#d8f3dc;border:1px solid rgba(255,255,255,0.15);border-radius:20px;padding:4px 11px;font-size:12px;font-weight:500;">🔍 Research</span>
-          <span style="background:rgba(255,255,255,0.1);color:#d8f3dc;border:1px solid rgba(255,255,255,0.15);border-radius:20px;padding:4px 11px;font-size:12px;font-weight:500;">💬 Free AI chat</span>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- SHARE BUTTONS (shown after result) -->
 <div id="shareBar" style="display:none; max-width:1100px; margin:0 auto 12px; padding:0 16px;">
   <div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px 18px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
@@ -2050,22 +1972,6 @@ document.addEventListener('DOMContentLoaded', function() {
     <button onclick="shareTW()" style="background:#1da1f2; color:white; border:none; border-radius:20px; padding:6px 16px; font-size:13px; cursor:pointer; font-weight:500;">🐦 Twitter</button>
     <button onclick="shareFB()" style="background:#1877f2; color:white; border:none; border-radius:20px; padding:6px 16px; font-size:13px; cursor:pointer; font-weight:500;">📘 Facebook</button>
     <button onclick="copyLink()" style="background:var(--surface2); color:var(--text); border:1px solid var(--border); border-radius:20px; padding:6px 16px; font-size:13px; cursor:pointer;">🔗 Copy Link</button>
-  </div>
-</div>
-
-<!-- PARAFREE AI AWARENESS BANNER (3s delay, localStorage dismissed) -->
-<div id="pfaiBanner" style="display:none; max-width:1100px; margin:0 auto 12px; padding:0 16px;">
-  <div style="background:linear-gradient(135deg,rgba(45,106,79,0.06),rgba(82,183,136,0.1));border:1px solid rgba(45,106,79,0.2);border-radius:var(--radius);padding:18px 20px;position:relative;">
-    <button onclick="document.getElementById('pfaiBanner').style.display='none';localStorage.setItem('pfai_dismissed','1')" style="position:absolute;top:10px;right:12px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px;">×</button>
-    <strong style="font-family:'Syne',sans-serif;font-size:14px;color:var(--accent);">✨ Did you know?</strong>
-    <p style="margin:4px 0 12px;font-size:13px;color:var(--text2);">ParaFree AI can create presentations, documents, websites and more — just by describing what you need.</p>
-    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
-      <span style="background:white;border:1px solid var(--border);border-radius:16px;padding:4px 12px;font-size:12px;color:var(--text);">📊 "Create a 10-slide presentation"</span>
-      <span style="background:white;border:1px solid var(--border);border-radius:16px;padding:4px 12px;font-size:12px;color:var(--text);">📄 "Write a business proposal"</span>
-      <span style="background:white;border:1px solid var(--border);border-radius:16px;padding:4px 12px;font-size:12px;color:var(--text);">💻 "Build a calculator app"</span>
-      <span style="background:white;border:1px solid var(--border);border-radius:16px;padding:4px 12px;font-size:12px;color:var(--text);">📈 "Generate a PDF report"</span>
-    </div>
-    <button onclick="switchTool('ai');document.getElementById('pfaiBanner').style.display='none';" style="background:var(--accent);color:white;border:none;border-radius:8px;padding:9px 20px;font-size:13px;font-family:'Syne',sans-serif;font-weight:700;cursor:pointer;" onmouseover="this.style.background='#1e4d35'" onmouseout="this.style.background='var(--accent)'">Try ParaFree AI ✨</button>
   </div>
 </div>
 
@@ -2124,16 +2030,64 @@ document.addEventListener('DOMContentLoaded', function() {
 <!-- API STATUS -->
 <div class="api-status">
   <div class="api-status-inner">
-    <span style="font-weight:500; color: var(--text);">AI Engines:</span>
-    <div class="api-item" id="api-gemini"><div class="api-dot" id="dot-gemini"></div>Gemini</div>
-    <div class="api-item" id="api-groq"><div class="api-dot" id="dot-groq"></div>Groq</div>
-    <div class="api-item" id="api-cerebras"><div class="api-dot" id="dot-cerebras"></div>Cerebras</div>
-    <div class="api-item" id="api-openrouter"><div class="api-dot" id="dot-openrouter"></div>OpenRouter</div>
-    <div class="api-item" id="api-mistral"><div class="api-dot" id="dot-mistral"></div>Mistral</div>
-    <div class="api-item" id="api-cloudflare"><div class="api-dot" id="dot-cloudflare"></div>Cloudflare</div>
+    <div class="api-item" id="api-engines"><div class="api-dot"></div>Multiple AI engines with automatic fallback</div>
     <span style="margin-left:auto; color: var(--text3);" id="activeApiLabel">Ready</span>
   </div>
 </div>
+
+<!-- INTRO (moved below the tool from the hero): what the paraphraser does, trust points, CV link, comparison -->
+<div id="heroMore" style="background:linear-gradient(135deg,#1a3a2a,#2d6a4f);padding:30px 24px 6px;margin-top:28px;text-align:center;font-family:'DM Sans',sans-serif;">
+  <p style="font-size:17px;color:rgba(255,255,255,0.88);margin:0 auto 18px;line-height:1.7;max-width:620px;">Upload Word, PDF or PowerPoint files. We paraphrase only the text — your colors, fonts, tables and design stay exactly the same.</p>
+  <div id="heroTrust" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+    <div style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:7px 16px;color:rgba(255,255,255,0.9);font-size:13px;font-weight:500;">✓ Keeps Original Formatting</div>
+    <div style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:7px 16px;color:rgba(255,255,255,0.9);font-size:13px;font-weight:500;">✓ Word, PDF &amp; PowerPoint</div>
+  </div>
+  <div class="cta-buttons" style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin:20px 0 4px;">
+    <a href="/cv-builder.html" style="padding:13px 34px;background:rgba(255,255,255,0.12);color:#ffffff;border-radius:12px;font-weight:700;font-size:16px;text-decoration:none;border:2px solid rgba(255,255,255,0.3);">Build Your CV</a>
+  </div>
+  <p style="font-size:13px;text-align:center;margin:12px 0 0;"><a href="/best-free-paraphrasing-tool.html" style="color:rgba(255,255,255,0.75);font-weight:500;text-decoration:none;">See how ParaFree compares to 7 popular paraphrasers →</a></p>
+</div>
+
+<!-- STATS STRIP -->
+<div id="statsStrip" style="background:linear-gradient(135deg,#1a3a2a,#2d6a4f);padding:28px 40px;">
+  <div class="stats-strip-inner" style="max-width:900px;margin:0 auto;display:flex;justify-content:space-around;flex-wrap:wrap;gap:20px;">
+    <div style="text-align:center;">
+      <div style="font-size:32px;font-weight:900;color:#52b788;font-family:'Syne',sans-serif;">50K+</div>
+      <div style="font-size:14px;color:rgba(255,255,255,0.75);margin-top:4px;">Documents Paraphrased</div>
+    </div>
+    <div style="text-align:center;">
+      <div style="font-size:32px;font-weight:900;color:#52b788;font-family:'Syne',sans-serif;">160+</div>
+      <div style="font-size:14px;color:rgba(255,255,255,0.75);margin-top:4px;">Countries</div>
+    </div>
+    <div style="text-align:center;">
+      <div style="font-size:32px;font-weight:900;color:#52b788;font-family:'Syne',sans-serif;">18</div>
+      <div style="font-size:14px;color:rgba(255,255,255,0.75);margin-top:4px;">Languages Supported</div>
+    </div>
+    <div style="text-align:center;">
+      <div style="font-size:32px;font-weight:900;color:#52b788;font-family:'Syne',sans-serif;">100%</div>
+      <div style="font-size:14px;color:rgba(255,255,255,0.75);margin-top:4px;">Free — No Paywall, Ever</div>
+    </div>
+  </div>
+</div>
+
+<!-- CV BUILDER + PARAFREE AI (the one ParaFree AI promo) — below the tool -->
+<div id="promoBar" style="max-width:1100px; margin:6px auto 0; padding:0 16px; display:flex; gap:10px; flex-wrap:wrap;">
+  <div style="flex:1;min-width:200px;background:#e8f8ef; border:1px solid #b7e4c7; border-radius:10px; padding:10px 16px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-family:'DM Sans',sans-serif;">
+    <span style="font-size:13px; color:#2d6a4f;">📄 <strong>Free CV Builder</strong> — 54 templates, cover letter, AI writing.</span>
+    <a href="/best-free-cv-builder.html" style="color:#52b788;font-size:12px;text-decoration:none;display:block;margin-top:2px;">See why we beat paid CV builders →</a>
+    <a href="/cv-builder.html" style="font-size:13px; font-weight:700; color:#2d6a4f; background:white; border:1px solid #b7e4c7; border-radius:20px; padding:3px 12px; text-decoration:none; white-space:nowrap; margin-left:auto;">Build CV Free →</a>
+  </div>
+  <div style="flex:1;min-width:200px;background:linear-gradient(135deg,rgba(45,106,79,0.07),rgba(82,183,136,0.12)); border:1px solid rgba(45,106,79,0.2); border-radius:10px; padding:10px 16px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-family:'DM Sans',sans-serif;">
+    <span style="font-size:13px; color:var(--accent);">✨ <strong>ParaFree AI</strong> — create PPT, Word docs, PDFs, websites and more.</span>
+    <button onclick="switchTool('ai')" style="font-size:13px; font-weight:700; color:white; background:var(--accent); border:none; border-radius:20px; padding:4px 14px; cursor:pointer; white-space:nowrap; margin-left:auto;">Try AI Free →</button>
+  </div>
+</div>
+
+<!-- PDF TOOLS: pointer under the promo strip (the PDF tab's panel #pfHomePdf stays under the tool tabs) -->
+<div id="pfPdfPromo" style="max-width:1100px; margin:6px auto 0; padding:0 16px; font-family:'DM Sans',sans-serif;">
+  <a href="#pdf-to-word" style="display:inline-block; font-size:13px; font-weight:600; color:#2d6a4f; text-decoration:none;">📄 New: free PDF tools — PDF to Word, compress, merge →</a>
+</div>
+<div style="height:8px"></div>
 
 <!-- FEATURES -->
 <div class="features">
@@ -2150,7 +2104,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <div class="feature-card">
     <div class="feature-icon">⚡</div>
     <h3>Multiple AI Engines</h3>
-    <p>Auto-switches between Gemini, Groq, Mistral & more so you always get results.</p>
+    <p>Multiple AI engines with automatic fallback, so you always get results.</p>
   </div>
   <div class="feature-card">
     <div class="feature-icon">✦</div>
@@ -2206,7 +2160,7 @@ document.addEventListener('DOMContentLoaded', function() {
     <div>
       <div style="display:inline-block; background:rgba(255,255,255,0.13); color:#d8f3dc; font-size:12px; font-weight:700; padding:3px 10px; border-radius:20px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:14px;">ParaFree AI</div>
       <h2 style="font-family:'Syne',sans-serif; font-size:26px; font-weight:800; color:#fff; margin-bottom:12px; line-height:1.3;">Chat, Code, Research — Free AI Assistant, No Signup</h2>
-      <p style="color:rgba(255,255,255,0.8); margin-bottom:20px; font-size:15px; line-height:1.7;">Chat with AI about anything — coding help, research, file uploads and live preview. Free, unlimited, no signup.</p>
+      <p style="color:rgba(255,255,255,0.8); margin-bottom:20px; font-size:15px; line-height:1.7;">Chat with AI about anything — coding help, research, file uploads and live preview.</p>
       <ul style="color:rgba(255,255,255,0.8); list-style:none; padding:0; display:flex; flex-direction:column; gap:8px; margin-bottom:24px;">
         <li style="display:flex;align-items:center;gap:8px;font-size:14px;"><span style="color:#52b788;font-weight:700;">✓</span> General AI chat — ask anything, get real answers</li>
         <li style="display:flex;align-items:center;gap:8px;font-size:14px;"><span style="color:#52b788;font-weight:700;">✓</span> Debug, explain and generate code in any language</li>
@@ -2326,7 +2280,7 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
     <div class="faq-item">
       <div class="faq-q">Does ParaFree work for students?</div>
-      <div class="faq-a">Absolutely. ParaFree was built with students in mind — paraphrase essays and assignments, humanize AI-generated text, build a professional CV, check grammar, and summarize research articles. No account needed. Used by students in 50+ countries.</div>
+      <div class="faq-a">Absolutely. ParaFree was built with students in mind — paraphrase essays and assignments, humanize AI-generated text, build a professional CV, check grammar, and summarize research articles. No account needed. Used by students in 160+ countries.</div>
     </div>
     <div class="faq-item">
       <div class="faq-q">What languages does ParaFree support?</div>
@@ -2551,7 +2505,7 @@ document.addEventListener('DOMContentLoaded', function() {
       <div style="padding:28px 24px;border:1.5px solid #e2ddd4;border-radius:16px;text-align:left;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
         <div style="font-size:32px;margin-bottom:14px;">🤖</div>
         <h3 style="font-size:17px;font-weight:800;color:#1a1814;margin-bottom:8px;font-family:'Syne',sans-serif;">Multiple AI Engines</h3>
-        <p style="font-size:14px;color:#6b6660;line-height:1.7;margin:0;">Powered by Gemini, Groq, Mistral and more with automatic fallback.</p>
+        <p style="font-size:14px;color:#6b6660;line-height:1.7;margin:0;">Multiple AI engines with automatic fallback.</p>
       </div>
       <div style="padding:28px 24px;border:1.5px solid #e2ddd4;border-radius:16px;text-align:left;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
         <div style="font-size:32px;margin-bottom:14px;">🆓</div>
@@ -2779,7 +2733,7 @@ document.addEventListener('DOMContentLoaded', function() {
     <p style="color:var(--text2); line-height:1.8; margin-bottom:16px; font-size:14px;">Our free AI humanizer tool transforms ChatGPT, Claude, Gemini and other AI-generated text into natural, human-sounding content. The humanizer rewrites AI text with varied sentence structure, natural transitions, and organic flow — making it sound like a real person wrote it. No word limit, no signup, completely free.</p>
 
     <h2 style="font-family:'Syne',sans-serif; font-size:22px; font-weight:700; margin-bottom:16px; margin-top:24px; color:var(--text);">Best Free Paraphrasing Tool for Students in Australia</h2>
-    <p style="color:var(--text2); line-height:1.8; margin-bottom:16px; font-size:14px;">Australian university students love ParaFree because it's the only truly free paraphrasing tool with no word limit. Perfect for rewriting essays, assignments, research papers and study notes. Works on any device — laptop, tablet or phone. No account needed. Just paste your text and get instant results powered by multiple AI engines including Gemini, Groq, and Mistral.</p>
+    <p style="color:var(--text2); line-height:1.8; margin-bottom:16px; font-size:14px;">Australian university students love ParaFree because it's a truly free paraphrasing tool with no word limit. Perfect for rewriting essays, assignments, research papers and study notes. Works on any device — laptop, tablet or phone. No account needed. Just paste your text and get instant results powered by multiple AI engines with automatic fallback.</p>
 
     <h2 style="font-family:'Syne',sans-serif; font-size:22px; font-weight:700; margin-bottom:16px; margin-top:24px; color:var(--text);">Why ParaFree is Better Than Quillbot Free</h2>
     <p style="color:var(--text2); line-height:1.8; font-size:14px;">Quillbot's free plan limits you to 125 words per paraphrase and charges $20/month for unlimited access. ParaFree gives you unlimited paraphrasing AND a free AI humanizer tool — both completely free, forever. No subscription, no word limit, no frustration. ParaFree uses multiple AI engines in a smart fallback chain so you always get results even during peak hours. It's the perfect free Quillbot alternative with no limits.</p>
@@ -2907,7 +2861,7 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
       </div>
       <p style="margin-bottom:14px;">All file paraphrasing is handled entirely in your browser and through our secure API. Your files are never stored on our servers — they're processed in memory and immediately discarded after your download is ready. No file size limits beyond what your browser can handle (typically up to 50MB).</p>
-      <p>For the best paraphrasing quality on documents, ParaFree processes text paragraph by paragraph using a chain of multiple AI engines — Gemini, Groq, Mistral, and others — automatically switching to the next engine if one is busy or unavailable. This ensures you always get a result, even during peak hours when individual AI APIs may be rate-limited.</p>
+      <p>For the best paraphrasing quality on documents, ParaFree processes text paragraph by paragraph using multiple AI engines with automatic fallback, automatically switching to the next engine if one is busy or unavailable. This ensures you always get a result, even during peak hours when individual AI APIs may be rate-limited.</p>
     </div>
   </details>
 
@@ -2918,7 +2872,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <div style="padding:80px 40px;background:linear-gradient(135deg,#0f1f17 0%,#1a3a2a 50%,#2d6a4f 100%);text-align:center;">
   <div style="max-width:600px;margin:0 auto;">
     <h2 style="font-size:clamp(32px,5vw,46px);font-weight:900;color:#ffffff;margin-bottom:16px;line-height:1.1;letter-spacing:-1.5px;font-family:'Syne',sans-serif;">Start Writing Better<br>Right Now</h2>
-    <p style="font-size:18px;color:rgba(255,255,255,0.8);margin-bottom:40px;line-height:1.7;">Join students and professionals from 50+ countries using ParaFree free. No signup. No limits. Ever.</p>
+    <p style="font-size:18px;color:rgba(255,255,255,0.8);margin-bottom:40px;line-height:1.7;">Join students and professionals from 160+ countries using ParaFree.</p>
     <div class="cta-buttons" style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;">
       <a href="#tools" style="padding:18px 44px;background:#ffffff;color:#1a3a2a;border-radius:14px;font-weight:900;font-size:18px;text-decoration:none;box-shadow:0 8px 32px rgba(0,0,0,0.2);font-family:'Syne',sans-serif;">Start Free Now</a>
       <a href="/cv-builder.html" style="padding:18px 44px;background:rgba(255,255,255,0.12);color:#ffffff;border-radius:14px;font-weight:700;font-size:18px;text-decoration:none;border:2px solid rgba(255,255,255,0.3);">Build Your CV</a>
@@ -3006,7 +2960,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <div style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:8px;"><img src="/favicon.svg" alt="ParaFree" height="20" style="height:20px;width:auto;"><span style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;color:#ccc;">ParaFree</span></div>
 <div style="display:flex;align-items:center;justify-content:center;gap:20px;margin:8px 0 10px;"><a href="https://www.facebook.com/profile.php?id=61591705310162" target="_blank" rel="noopener noreferrer" aria-label="ParaFree on Facebook" style="color:#888;display:flex;align-items:center;transition:color 0.15s;" onmouseover="this.style.color='#52b788'" onmouseout="this.style.color='#888'"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></a><a href="https://www.instagram.com/parafree.ai" target="_blank" rel="noopener noreferrer" aria-label="ParaFree on Instagram" style="color:#888;display:flex;align-items:center;transition:color 0.15s;" onmouseover="this.style.color='#52b788'" onmouseout="this.style.color='#888'"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg></a><a href="https://threads.net/@parafree" target="_blank" rel="noopener noreferrer" aria-label="ParaFree on Threads" style="color:#888;display:flex;align-items:center;transition:color 0.15s;" onmouseover="this.style.color='#52b788'" onmouseout="this.style.color='#888'"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.186 24h-.007c-3.581-.024-6.334-1.205-8.184-3.509C2.35 18.44 1.5 15.586 1.472 12.01v-.017c.03-3.579.879-6.43 2.525-8.482C5.848 1.205 8.6.024 12.18 0h.014c2.746.02 5.043.725 6.826 2.098 1.677 1.29 2.858 3.13 3.509 5.467l-2.04.569c-1.104-3.96-3.898-5.984-8.304-6.015-2.91.022-5.11.936-6.54 2.717C4.307 6.504 3.616 8.914 3.589 12c.027 3.086.718 5.496 2.057 7.164 1.43 1.783 3.631 2.698 6.54 2.717 2.623-.02 4.358-.631 5.8-2.045 1.647-1.613 1.618-3.593 1.09-4.798-.31-.71-.873-1.3-1.634-1.75-.192 1.352-.622 2.446-1.284 3.272-.886 1.102-2.14 1.704-3.73 1.79-1.202.065-2.361-.218-3.259-.801-1.063-.689-1.685-1.749-1.752-2.979-.065-1.19.408-2.285 1.33-3.082.88-.76 2.119-1.207 3.583-1.291a13.853 13.853 0 0 1 3.02.142c-.126-.742-.375-1.332-.75-1.757-.513-.583-1.289-.878-2.309-.88h-.028c-.783 0-1.88.199-2.498 1.208l-1.742-1.073c.957-1.542 2.591-2.393 4.517-2.293 3.796.168 5.257 2.762 5.257 6.432 0 .662-.083 1.313-.237 1.948-.02.082-.046.163-.073.244.007.012.012.025.019.037.463.823.701 1.83.651 2.938-.1 2.31-1.35 4.02-3.51 4.811-1.28.473-2.668.652-4.038.624zM9.5 14.658c.062 1.123.718 1.769 1.845 1.83.96.054 1.818-.234 2.384-.947.46-.57.707-1.368.743-2.376a11.616 11.616 0 0 0-2.516-.059c-1.423.091-2.436.617-2.456 1.552z"/></svg></a></div>
   <p style="margin:0; font-size:13px; color:#999;">© 2026 ParaFree · Free AI Writing Suite · No limits, no signup, always free</p>
-  <p style="margin-top:8px; font-size:12px; color:#888;">Used by students in 50+ countries — always free</p>
+  <p style="margin-top:8px; font-size:12px; color:#888;">Used by students in 160+ countries — always free</p>
 </footer>
 
 <!-- MODAL OVERLAY -->
@@ -3021,7 +2975,7 @@ document.addEventListener('DOMContentLoaded', function() {
       <h3 style="font-size:16px; margin:20px 0 8px;">1. Information We Collect</h3>
       <p style="color:#444; line-height:1.7;">ParaFree does not collect or store any personal information. Text you enter for paraphrasing is sent directly to AI providers and is never stored on our servers. We do not require registration or login.</p>
       <h3 style="font-size:16px; margin:20px 0 8px;">2. Third Party AI Services</h3>
-      <p style="color:#444; line-height:1.7;">We use the following AI services to process paraphrasing requests: Google Gemini, Groq, Cerebras, OpenRouter, Mistral AI, and Cloudflare AI. Each provider has their own privacy policy. Your text is processed by these services according to their terms.</p>
+      <p style="color:#444; line-height:1.7;">We use third-party AI services (multiple AI engines with automatic fallback) to process paraphrasing requests. Each provider has their own privacy policy. Your text is processed by these services according to their terms.</p>
       <h3 style="font-size:16px; margin:20px 0 8px;">3. Advertising</h3>
       <p style="color:#444; line-height:1.7;">We use Google AdSense to display advertisements. Google may use cookies and similar technologies to show relevant ads based on your visits to this and other websites. You can opt out of personalized advertising by visiting <a href="https://www.google.com/settings/ads" style="color:#2d6a4f;">Google Ad Settings</a>.</p>
       <h3 style="font-size:16px; margin:20px 0 8px;">4. Cookies</h3>
@@ -3061,7 +3015,7 @@ document.addEventListener('DOMContentLoaded', function() {
       <p style="color:#444; line-height:1.7; margin-bottom:16px;">ParaFree was built with one simple mission: give students, writers, and professionals a completely free paraphrasing tool with no frustrating word limits.</p>
       <p style="color:#444; line-height:1.7; margin-bottom:16px;">Most paraphrasing tools limit free users to 125–500 words and push you to buy subscriptions. We think that's unfair. Good writing tools should be accessible to everyone.</p>
       <h3 style="font-size:16px; margin:20px 0 8px;">How It Works</h3>
-      <p style="color:#444; line-height:1.7; margin-bottom:16px;">ParaFree uses a chain of multiple AI engines — Gemini, Groq, OpenRouter, Mistral, and Cloudflare AI — with automatic fallback. When one engine reaches its daily limit, the next one automatically takes over. This means you almost always get results, completely free.</p>
+      <p style="color:#444; line-height:1.7; margin-bottom:16px;">ParaFree uses multiple AI engines with automatic fallback. When one engine reaches its daily limit, the next one automatically takes over. This means you almost always get results, completely free.</p>
       <h3 style="font-size:16px; margin:20px 0 8px;">Our Promise</h3>
       <p style="color:#444; line-height:1.7; margin-bottom:16px;">✅ Always free — no subscription ever<br>✅ No word limits<br>✅ No signup or account required<br>✅ Your text is never stored<br>✅ Works on any device</p>
       <h3 style="font-size:16px; margin:20px 0 8px;">Contact</h3>
@@ -3404,7 +3358,6 @@ function showDownloadBtn() {
   const previewNote = document.getElementById("previewNote");
   if (previewNote) previewNote.style.display = "block";
   document.getElementById("shareBar").style.display = "block";
-  showAIBanner();
 }
 
 // ════════════════════════════════════════════
@@ -3412,15 +3365,6 @@ function showDownloadBtn() {
 // ════════════════════════════════════════════
 const SHARE_URL = "https://parafree.app";
 const SHARE_MSG = "🆓 Free paraphrasing tool with NO word limit + AI Humanizer, Summarizer & Grammar Checker! No signup needed 👉 " + SHARE_URL;
-
-function showAIBanner() {
-  if (sessionStorage.getItem('pfAIBannerDismissed')) return;
-  document.getElementById('aiPromoBanner').style.display = 'block';
-}
-function dismissAIBanner() {
-  document.getElementById('aiPromoBanner').style.display = 'none';
-  sessionStorage.setItem('pfAIBannerDismissed', '1');
-}
 
 function shareWA() { window.open("https://wa.me/?text=" + encodeURIComponent(SHARE_MSG), '_blank'); }
 function shareTW() { window.open("https://twitter.com/intent/tweet?text=" + encodeURIComponent(SHARE_MSG), '_blank'); }
@@ -3591,7 +3535,6 @@ function detectAI() {
     else showStatus("✅ Text appears mostly human-written (" + humanScore + "% human)", "success");
 
     document.getElementById("shareBar").style.display = "block";
-    showAIBanner();
     gaToolUsed('detect', countWords(text));
   }, 800);
 }
@@ -3850,8 +3793,7 @@ async function runAPIChain(text, prompt, mode, language, toolType, protectCtx) {
       return null;
     }
     if (data.usedApi && !apiLabelLocked) {
-      const label = data.usedApi.charAt(0).toUpperCase() + data.usedApi.slice(1);
-      document.getElementById("activeApiLabel").textContent = "Used: " + label;
+      document.getElementById("activeApiLabel").textContent = "Done";   // engine names are not shown
       apiLabelLocked = true;
     }
     return _guarded(data.result);
@@ -3961,7 +3903,6 @@ function switchTool(tool) {
     hideStatus();
     document.getElementById('scorePanel').classList.remove('show');
     document.getElementById('shareBar').style.display = 'none';
-    document.getElementById('aiPromoBanner').style.display = 'none';
     if (tool === 'paraphrase') {
       const dlBtn = document.getElementById('downloadBtn');
       dlBtn.style.display = 'flex'; dlBtn.classList.add('btn-dl-dimmed');
@@ -5269,7 +5210,7 @@ const BLOG_POSTS = {
       </div>
 
       <h2 style="font-family:'Syne',sans-serif; font-size:20px; font-weight:700; margin:28px 0 12px;">Quality Comparison</h2>
-      <p style="color:var(--text2); margin-bottom:16px;">Quillbot has been around since 2017 and has excellent paraphrase quality — no question. But ParaFree uses the latest AI models including Google Gemini and Meta Llama, which produce very high quality rewrites that sound natural and flow well.</p>
+      <p style="color:var(--text2); margin-bottom:16px;">Quillbot has been around since 2017 and has excellent paraphrase quality — no question. But ParaFree uses multiple modern AI models with automatic fallback, which produce high quality rewrites that sound natural and flow well.</p>
       <p style="color:var(--text2); margin-bottom:16px;">For most everyday use cases — essays, emails, assignments — ParaFree's quality is comparable to Quillbot and in many cases better because it uses multiple AI engines and picks the best result.</p>
 
       <h2 style="font-family:'Syne',sans-serif; font-size:20px; font-weight:700; margin:28px 0 12px;">Verdict: Which Should You Use?</h2>
@@ -7233,13 +7174,6 @@ function homeClearChat() {
   homeHidePreview();
 }
 
-// Show pfaiBanner after 3s if not dismissed
-setTimeout(() => {
-  if (!localStorage.getItem('pfai_dismissed')) {
-    const b = document.getElementById('pfaiBanner');
-    if (b) b.style.display = 'block';
-  }
-}, 3000);
 
 </script>
 
@@ -7254,16 +7188,6 @@ function toggleMenu(){var m=document.getElementById('mobileMenu');if(!m)return;m
 if (window.innerWidth <= 768) {
   document.querySelectorAll('details.seo-section[open]').forEach(function(d){d.removeAttribute('open');});
 }
-// Move stats + promos below tool on mobile so paraphraser is reachable instantly
-(function(){
-  if (window.innerWidth > 768) return;
-  var anchor = document.getElementById('aiWrap') || document.getElementById('detectWrap');
-  var stats = document.getElementById('statsStrip');
-  var promos = document.getElementById('promoBar');
-  if (!anchor) return;
-  if (stats) anchor.insertAdjacentElement('afterend', stats);
-  if (promos) (stats || anchor).insertAdjacentElement('afterend', promos);
-})();
 </script>
 
 <!-- ═══════════════════════════════════════════
