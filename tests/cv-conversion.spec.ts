@@ -58,6 +58,10 @@ const noDownload = (page: Page, ms = 2500) => page.waitForEvent('download', { ti
 const LONG = Array.from({ length: 4 }, (_, i) => `Led project ${i + 1}, coordinating a cross-functional team, reporting weekly to stakeholders and improving delivery times across several regions.`).join(' ');
 async function overflowOnePage(page: Page, typeName = true) {
   if (typeName) await page.fill('#f-name', 'Olivia Overflow');
+  await page.evaluate(() => {                                        // References are opt-in; this CV size includes that line
+    const r = document.querySelector('input[name="references"][value="Available upon request"]') as HTMLInputElement;
+    r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true }));
+  });
   for (let n = 1; n < 12; n++) {                                     // (the summary section is collapsed: set it like an import would)
     const st = await page.evaluate((text) => {
       const el = document.getElementById('f-summary') as HTMLTextAreaElement;

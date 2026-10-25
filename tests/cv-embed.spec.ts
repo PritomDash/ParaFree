@@ -348,6 +348,11 @@ test.describe('template bar + bottom sheet', () => {
 });
 
 // ─────────────────────────────────────────────────────────────
+// References are opt-in (not shown by default): choose "Available upon request"
+const optInReferences = (f: Page | Frame) => f.evaluate(() => {
+  const r = document.querySelector('input[name="references"][value="Available upon request"]') as HTMLInputElement;
+  r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true }));
+});
 async function fillCv(f: Page | Frame, template: string) {
   await f.evaluate((tpl) => {
     const w = window as any;
@@ -846,6 +851,7 @@ test.describe('page count: chosen by the user', () => {
 
   test('overflow bar counts the lines over the page', async ({ page }) => {
     await openBuilder(page);
+    await optInReferences(page);                    // (the "slightly over" CV size includes the References line)
     await fillBigCv(page, 'classic', 3, 5, false);
     const { lines } = await previewLines(page);
     const rows: number[] = [];
@@ -859,6 +865,7 @@ test.describe('page count: chosen by the user', () => {
 
   test('"Fit to 1 page" makes a slightly-over CV fit, never below 9.5pt; Undo puts it back', async ({ page }) => {
     await openBuilder(page);
+    await optInReferences(page);                    // (the "slightly over" CV size includes the References line)
     await fillBigCv(page, 'classic', 3, 5, false);
     const before = await page.evaluate(() => parseFloat(getComputedStyle(document.querySelector('#cv-preview li')!).fontSize));
     await bar(page).locator('button', { hasText: 'Fit to 1 page' }).click();
@@ -1052,8 +1059,7 @@ test.describe('no blank pages; extra sections in the content column', () => {
     'terracotta', 'bold', 'academic', 'elegant', 'purple', 'warm', 'professional', 'gradient'];
   test('older templates: References sits in the same padded column as Work Experience (Classic, Modern and all the others)', async ({ page }) => {
     await openBuilder(page);
-    // References are opt-in: choose "Available upon request"
-    await page.evaluate(() => { const r = document.querySelector('input[name="references"][value="Available upon request"]') as HTMLInputElement; r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); });
+    await optInReferences(page);
     const off: string[] = [];
     for (const tpl of EXTRA_TPLS) {
       await fillCv(page, tpl);
@@ -1072,6 +1078,7 @@ test.describe('no blank pages; extra sections in the content column', () => {
 
   test('Classic and Modern: References heading left edge equals Work Experience — in the PDF too', async ({ page }) => {
     await openBuilder(page);
+    await optInReferences(page);
     for (const tpl of ['classic', 'modern']) {
       await fillCv(page, tpl);
       const [exp, ref] = await page.evaluate(() => {
