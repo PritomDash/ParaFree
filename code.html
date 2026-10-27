@@ -2209,8 +2209,7 @@ function addAIMessage(content, usedApi) {
   const div = document.createElement('div');
   div.className = 'msg ai-msg';
   const rendered = renderMarkdown(content);
-  const apiTag = usedApi
-    ? `<span style="font-size:10px;color:var(--text3);margin-left:6px;">via ${escapeHtml(usedApi)}</span>` : '';
+  const apiTag = '';   // the provider/model name is not shown to users ("Multiple AI engines with automatic fallback")
   div.innerHTML =
     `<img src="/favicon.svg" alt="ParaFree AI" class="msg-avatar ai-avatar">
     <div class="msg-bubble-wrap">

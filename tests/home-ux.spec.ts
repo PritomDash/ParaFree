@@ -112,7 +112,9 @@ test.describe('1. tool first', () => {
     const before = BEFORE(), now = NOW();
     const heads = (s: string) => [...s.matchAll(/<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/g)].map((m) => textOf(m[2]).trim()).filter(Boolean);
     const hrefs = (s: string) => new Set([...s.matchAll(/href="([^"]+)"/g)].map((m) => m[1]));
-    const missingHeads = heads(before).filter((h) => !heads(now).includes(h));
+    // headings renamed on purpose since (old → new): honest humanizer wording (fix/tool-polish)
+    const RENAMED: Record<string, string> = { 'Beat AI Detection': 'Make AI Text Read Naturally' };
+    const missingHeads = heads(before).filter((h) => !heads(now).includes(h) && !(RENAMED[h] && heads(now).includes(RENAMED[h])));
     expect(missingHeads).toEqual([]);
     const missingLinks = [...hrefs(before)].filter((h) => !hrefs(now).has(h));
     expect(missingLinks).toEqual([]);

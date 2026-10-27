@@ -974,6 +974,7 @@ const PHOTOS = {
   .det-metric-pct { font-weight: 700; }
   .det-metric-bar { height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
   .det-metric-fill { height: 100%; border-radius: 4px; width: 0; transition: width 1s ease; }
+  .det-legend { font-size: 12px; color: var(--text3); margin: -4px 0 12px; line-height: 1.5; }
   .det-disclaimer { font-size: 12px; color: var(--text3); background: var(--surface2); padding: 10px 14px; border-radius: 8px; line-height: 1.5; }
   .det-context { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: 10px; margin-bottom: 14px; font-size: 13px; line-height: 1.5; }
   .det-context-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
@@ -1728,7 +1729,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <div class="humanizer-banner">
     <div>
       <h3>◈ AI Humanizer — Make AI Text Sound Natural</h3>
-      <p>Paste ChatGPT, Claude or any AI text → we rewrite it to sound 100% human</p>
+      <p>Paste ChatGPT, Claude or any AI text → we rewrite it to read more naturally</p>
     </div>
     <div class="humanizer-tags">
       <span class="humanizer-tag">✓ Reduce AI Patterns</span>
@@ -1869,10 +1870,10 @@ document.addEventListener('DOMContentLoaded', function() {
   </div>
 </div>
 
-<!-- HUMAN SCORE BADGE (shown after paraphrase, computed locally) -->
+<!-- NATURALNESS METER (shown after a result, computed locally: a readability heuristic, not an AI-detection result) -->
 <div id="humanScoreBadge" style="display:none;max-width:1100px;margin:0 auto 8px;padding:0 16px;">
   <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(135deg,#f7f5f0,#ffffff);border:1px solid var(--border);border-radius:14px;font-family:'DM Sans',sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
-    <span style="font-size:13px;font-weight:600;color:var(--text2);white-space:nowrap;">Readability check:</span>
+    <span style="font-size:13px;font-weight:600;color:var(--text2);white-space:nowrap;" title="A readability estimate from sentence variety and common AI phrasing — not an AI-detector result">Naturalness (estimate):</span>
     <div style="flex:1;height:8px;border-radius:6px;background:#e2ddd4;overflow:hidden;min-width:80px;">
       <div id="humanScoreBar" style="height:100%;width:0%;border-radius:6px;background:linear-gradient(90deg,#2d6a4f,#40916c);transition:width 0.6s ease;"></div>
     </div>
@@ -1884,7 +1885,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <div id="tryAgainNote" style="display:none;max-width:1100px;margin:0 auto 10px;padding:0 16px;">
   <div style="display:flex;align-items:center;gap:8px;padding:9px 14px;background:#f7f5f0;border:1px solid var(--border);border-radius:14px;font-size:12.5px;color:var(--text2);font-family:'DM Sans',sans-serif;line-height:1.5;">
     <span style="font-size:14px;">💡</span>
-    <span>Large documents may occasionally come out partial — just hit paraphrase again and it'll complete.</span>
+    <span>Large documents may occasionally come out partial — just run it again and it'll complete.</span>
   </div>
 </div>
 
@@ -2287,7 +2288,7 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
     <div class="faq-item">
       <div class="faq-q">How does humanized text perform with AI detectors?</div>
-      <div class="faq-a">Our humanizer significantly reduces AI detection scores by rewriting text with natural human patterns, varied sentence structure, and organic flow. Results vary — we always recommend reviewing and adding your own personal touches after humanizing.</div>
+      <div class="faq-a">The humanizer rewrites text with more varied sentence structure and fewer typical AI phrases, so it reads more naturally. It does not guarantee any particular result with AI detectors — results vary by detector, so always review the text and add your own personal touches.</div>
     </div>
     <div class="faq-item">
       <div class="faq-q">Is ParaFree really free with no word limit?</div>
@@ -2466,7 +2467,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.88) 0%,rgba(0,0,0,0.1) 50%);"></div>
             <div style="position:absolute;bottom:0;left:0;right:0;padding:14px;">
               <div style="background:#7c3aed;color:white;display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;margin-bottom:4px;">AI HUMANIZER</div>
-              <h3 style="color:white;font-size:14px;font-weight:800;margin-bottom:4px;">Beat AI Detection</h3>
+              <h3 style="color:white;font-size:14px;font-weight:800;margin-bottom:4px;">Make AI Text Read Naturally</h3>
               <a href="#tools" style="color:#c4b5fd;font-size:12px;font-weight:700;text-decoration:none;">Try Free →</a>
             </div>
           </div>
@@ -3371,7 +3372,7 @@ function showHumanScore(text) {
     if (note) note.style.display = 'block';
     bar.style.width = '0%';
     requestAnimationFrame(() => requestAnimationFrame(() => { bar.style.width = humanScore + '%'; }));
-    txt.textContent = humanScore + '% Human';
+    txt.textContent = humanScore + ' / 100';
   } catch(e) { /* never break paraphrase */ }
 }
 
@@ -3652,11 +3653,13 @@ function calculateMetrics(text) {
     structPct = pVar < 50 ? 80 : pVar < 100 ? 50 : 25;
   }
 
-  const col = v => v >= 65 ? '#e63946' : v >= 35 ? '#f4a261' : '#2d6a4f';
+  // Colour = how AI-like the signal looks (green natural, amber mixed, red AI-like). For three metrics a higher value is
+  // more AI-like; for vocabulary richness a higher value is more natural, so its colour is taken from 100 − value.
+  const col = aiLike => aiLike >= 65 ? '#e63946' : aiLike >= 35 ? '#f4a261' : '#2d6a4f';
   return [
     { label: 'AI Phrases Detected', value: phrasesPct,    color: col(phrasesPct) },
     { label: 'Sentence Uniformity', value: uniformityPct, color: col(uniformityPct) },
-    { label: 'Vocabulary Richness', value: vocabPct,      color: col(vocabPct) },
+    { label: 'Vocabulary Richness', value: vocabPct,      color: col(100 - vocabPct) },
     { label: 'Structural Patterns', value: structPct,     color: col(structPct) },
   ];
 }
@@ -3710,6 +3713,7 @@ function renderDetectorResult(aiScore, humanScore, metrics) {
       </div>
       <div class="det-verdict ${verdictClass}">${verdictIcon} ${verdictText}</div>
       <div class="det-metrics">${metricRows}</div>
+      <div class="det-legend">Colours: <span style="color:#2d6a4f">● natural</span> <span style="color:#f4a261">● mixed</span> <span style="color:#e63946">● AI-like</span> — for vocabulary richness, higher is more natural.</div>
       ${aiScore >= 70
         ? `<div class="det-context high"><span class="det-context-icon">🤖</span><div><strong>Strong AI patterns detected.</strong> This text has clear machine-writing signatures that detectors look for. <a href="#" onclick="switchTool('humanize');return false;">Run it through our Humanizer</a> to make it sound more natural before submitting.</div></div>`
         : aiScore >= 40
@@ -3924,6 +3928,8 @@ function switchTool(tool) {
   if (mainContainer) mainContainer.style.display = isAI ? 'none' : '';
   const grammarPanel = document.getElementById('grammarErrorsPanel');
   if (grammarPanel && isAI) grammarPanel.style.display = 'none';
+  // Result notes of the text tools (readability meter, preview note, partial-output tip) never carry over to another tool
+  ['humanScoreBadge', 'previewNote', 'tryAgainNote'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
 
   // Show/hide mode bars
   document.getElementById('paraphraseModes').style.display = (!isAI && tool === 'paraphrase') ? 'flex' : 'none';
@@ -3935,7 +3941,7 @@ function switchTool(tool) {
     // Update panel labels and placeholders
     const labels = {
       paraphrase: ['Your Text', 'Paraphrased Text', 'Paste or type your text here... No word limit!'],
-      humanize:   ['AI Text Input', 'Humanized Output', 'Paste your AI-generated text here (ChatGPT, Claude, Gemini...) — we\'ll make it sound human!'],
+      humanize:   ['AI Text Input', 'Humanized Output', 'Paste your AI-generated text here (ChatGPT, Claude, Gemini...) — we\'ll rewrite it to read more naturally.'],
       summarize:  ['Text to Summarize', 'Summary', 'Paste any long text, article or essay to summarize... No word limit!'],
       grammar:    ['Text to Check', 'Grammar Results', 'Paste your text here to check for grammar errors...'],
       detect:     ['Text to Analyze', 'AI Detection Result', 'Paste any text to check if it was written by AI...']
@@ -4968,13 +4974,13 @@ function showScorePanel(beforeAI, afterHuman) {
 
   let title, desc, badges;
   if (afterHuman >= 85) {
-    title = "🎉 Excellent Humanization!";
-    desc = "AI content reduced significantly. Your text now reads as " + afterHuman + "% human — very likely to pass AI detectors.";
-    badges = '<span class="score-badge great">✓ Highly Natural</span><span class="score-badge great">✓ Human-like Flow</span><span class="score-badge great">✓ Highly Human</span>';
+    title = "🎉 Reads Much More Naturally";
+    desc = "Fewer AI-style patterns: naturalness estimate " + afterHuman + " / 100. This is an estimate, not a guarantee of any AI-detector result — read it through and add your own touches.";
+    badges = '<span class="score-badge great">✓ Highly Natural</span><span class="score-badge great">✓ Varied Sentences</span><span class="score-badge great">✓ Fewer AI Phrases</span>';
   } else if (afterHuman >= 70) {
-    title = "✅ Good Humanization!";
-    desc = "Text is " + afterHuman + "% human. Consider running again for even better results.";
-    badges = '<span class="score-badge good">✓ Mostly Human</span><span class="score-badge good">✓ Low AI Score</span><span class="score-badge warn">⚡ Run Again For Best Results</span>';
+    title = "✅ Reads More Naturally";
+    desc = "Naturalness estimate " + afterHuman + " / 100. Run it again or try another style for a smoother result.";
+    badges = '<span class="score-badge good">✓ Mostly Natural</span><span class="score-badge good">✓ Fewer AI Phrases</span><span class="score-badge warn">⚡ Run Again For Smoother Text</span>';
   } else {
     title = "⚡ Partially Humanized";
     desc = "Some AI patterns remain. Try running the humanizer again or switch to a different style for better results.";
@@ -6917,7 +6923,7 @@ function homeAddAIMessage(content, usedApi) {
     <div style="max-width:88%;padding:0;background:transparent;border:none;">
       <div style="font-size:15px;line-height:1.75;color:var(--text);font-family:'DM Sans',sans-serif;">${rendered}</div>
       <div style="display:flex;gap:12px;align-items:center;margin-top:6px;">
-        <span style="font-size:11px;color:var(--text3);">${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}${usedApi?` · via ${usedApi}`:''}</span>
+        <span style="font-size:11px;color:var(--text3);">${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span>
         <button class="home-copy-btn" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;padding:0;transition:color 0.2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text3)'">Copy</button>
       </div>
     </div>`;
