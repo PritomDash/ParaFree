@@ -265,6 +265,7 @@ const CF_MODEL     = "@cf/meta/llama-3.1-8b-instruct";   // callCloudflare defau
 const { createModelDiscovery } = require("./_model-discovery");
 const ratings = require("./_ratings");
 const usage = require("./_usage");
+const studypack = require("./_studypack");
 const discovery = createModelDiscovery({ fetchWithTimeout, getRedis: () => redis });
 
 // ── PROVIDER CHAIN ──
@@ -1229,7 +1230,8 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0,
 //   Tier 4 cloudflare (one entry per key+model)
 // The Groq / Gemini keys rotate per chunk (writing) or per request (chat/CV). Disabled providers:
 // DISABLED_PROVIDERS. Rate-limited providers sit out their cooldown (PROVIDER COOLDOWN).
-async function runChain(text, prompt, type) {
+// opts.accept(result) (Study Pack): a result it rejects counts as that provider failing; 'stop' ends the chain.
+async function runChain(text, prompt, type, opts = {}) {
   const deadline       = Date.now() + REQUEST_BUDGET;
   await discovery.ensure();   // model lists: never waits more than ~1 s (cold instance only)
   const GROQ_KEY       = process.env.GROQ_KEY;
@@ -1261,7 +1263,9 @@ async function runChain(text, prompt, type) {
   const isAIChat    = type === "code_assistant" || type === "code_project";
   // CV writing (summary, bullets, LinkedIn, cover letter, CV review) is one instruction + the CV facts:
   // it must reach the model in ONE request — chunking would split the facts from the instruction.
-  const isCVExtract = type === "cv_extract" || type === "cv_build" || type === "cover_letter";
+  // Study Pack: one instruction + the (TextRank-filtered) material → one JSON answer, never chunked
+  const isCVExtract = type === "cv_extract" || type === "cv_build" || type === "cover_letter" || type === "studypack";
+  const outTokens = type === "studypack" ? 4096 : undefined;   // notes + flashcards + quiz in one answer
   const cfOk = validKey(CF_KEY) && validKey(CF_ACCOUNT);
 
   // ── WRITING PATH: parallel chunks ──
@@ -1342,12 +1346,12 @@ async function runChain(text, prompt, type) {
   // are unchanged otherwise — callGroqModel never sends reasoning_effort.
   candidates.push(...slotEntries({ GROQ_KEY, GROQ_KEY_2, GROQ_KEY_3, GROQ_KEY_4, GEMINI_KEY, GEMINI_KEY_2, NVIDIA_KEY, CF_KEY, CF_ACCOUNT }, {
     groq:       (key) => (m, ms) => callGroqModel(text, prompt, key, m, ms),
-    gemini:     (key) => (m, ms) => callGemini(text, prompt, key, undefined, ms, m),
-    nvidia:     (m, ms) => callNvidiaModel(text, prompt, NVIDIA_KEY, undefined, ms, m),
-    cloudflare: (m, ms) => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT, undefined, ms, m),
+    gemini:     (key) => (m, ms) => callGemini(text, prompt, key, outTokens, ms, m),
+    nvidia:     (m, ms) => callNvidiaModel(text, prompt, NVIDIA_KEY, outTokens, ms, m),
+    cloudflare: (m, ms) => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT, outTokens, ms, m),
   }));
-  addC("ovhcloud",   (ms) => callOVHcloud(text, prompt, undefined, ms),                    true);
-  addC("llm7",       (ms) => callLLM7(text, prompt, undefined, ms),                        true);
+  addC("ovhcloud",   (ms) => callOVHcloud(text, prompt, outTokens, ms),                    true);
+  addC("llm7",       (ms) => callLLM7(text, prompt, outTokens, ms),                        true);
   if (isAIChat) {
     // ── DISABLED (listed in DISABLED_PROVIDERS — filtered out by orderChain) ──
     addC("deepseek-coder", () => callOpenRouterModel(text, prompt, OPENROUTER_KEY, "deepseek/deepseek-coder-v2-instruct:free"), validKey(OPENROUTER_KEY));
@@ -1363,6 +1367,8 @@ async function runChain(text, prompt, type) {
   const chatOffset = requestCounter;
   requestCounter = (requestCounter + 1) % 100000;
   candidates = orderChain(candidates, chatOffset);
+  // Study Pack: Gemini first, then the rest of the chain in its usual order (a capped Gemini model is skipped by its cooldown)
+  if (type === "studypack") candidates = [...candidates.filter(c => c.name.startsWith("gemini")), ...candidates.filter(c => !c.name.startsWith("gemini"))];
   console.log(`[ParaFree] Chain (${isCVExtract ? 'CV' : 'AI'}): ${candidates.map(c => c.name).join(' → ') || 'EMPTY'}`);
 
   if (candidates.length === 0) {
@@ -1399,6 +1405,13 @@ async function runChain(text, prompt, type) {
       const t0 = Date.now();
       try {
         const result = await c.fn(ms);
+        const verdict = result && result.trim().length > 5 && opts.accept ? opts.accept(result) : true;
+        if (verdict !== true && result && result.trim().length > 5) {
+          console.warn(`[ParaFree] ⚠️ ${c.name} answer rejected (invalid study pack JSON)${verdict === 'stop' ? ' — giving up' : ' — next'}`);
+          apiStatuses[c.name] = "invalid";
+          if (verdict === 'stop') return { success: false, error: "invalid_output", apiStatuses };
+          continue;
+        }
         if (result && result.trim().length > 5) {
           console.log(`[ParaFree] ✅ ${isCVExtract ? 'CV' : 'AI'} request handled by ${c.name}${attempt > 0 ? ' (retry)' : ''}`);
           discovery.noteSuccess(c.name, c.pk, c.patternIndex, c.model);
@@ -1740,6 +1753,21 @@ module.exports = async function handler(req, res) {
       } catch (e) {
         return res.status(500).json({ error: "Failed to read usage" });
       }
+    }
+
+    // Study Pack (studypack.html): the prompt is built server-side from {text, mode, inputType}
+    if (body && typeof body.type === "string" && body.type.startsWith("studypack")) {
+      const r = await studypack.handle(body, {
+        env: process.env, redis, ip,
+        rateLimit: (t) => {
+          const rate = checkRateLimit(ip, t);
+          return { allowed: rate.allowed, message: rate.allowed ? "" : "Too many requests — please wait a little and try again." };
+        },
+        runText: (t, p, accept) => runChain(t, p, "studypack", { accept }),
+        // Whisper keys and Gemini media models share the chain's cooldowns ("groq-2/whisper-large-v3-turbo", "gemini/<model>")
+        cooldown: { isCooling: isCoolingDown, start: (n, msg) => startCooldown(n, msg), detail: errDetail },
+      });
+      return res.status(r.status).json(r.body);
     }
 
     // Validate input early so we have `text` for duplicate detection

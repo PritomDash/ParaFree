@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Flashcard, Quiz &amp; Notes Maker — from Notes, PDFs or Lectures | ParaFree</title>
+<meta name="description" content="Make flashcards, a multiple-choice quiz and key-point notes from your notes, PDFs, slides or a YouTube lecture with AI — free, no sign-up. Paste text or upload a PDF, Word or PowerPoint file.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://parafree.app/flashcard-quiz-maker.html">
+<meta property="og:title" content="AI Flashcard, Quiz &amp; Notes Maker | ParaFree">
+<meta property="og:description" content="Turn your notes, PDFs, slides, or a YouTube lecture into flashcards, a quiz, and key-point notes — free, no sign-up.">
+<meta property="og:url" content="https://parafree.app/flashcard-quiz-maker.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="ParaFree">
+<meta property="og:image" content="https://parafree.app/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="AI Flashcard, Quiz &amp; Notes Maker | ParaFree">
+<meta name="twitter:description" content="Flashcards, a quiz and key-point notes from your notes, PDFs, slides or a YouTube lecture — free, no sign-up.">
+<meta name="twitter:image" content="https://parafree.app/og-image.png">
+<meta name="twitter:site" content="@parafree">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-0QEEGS0DZQ"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  // ?embed=1 (inside the homepage "Flashcards & Quiz" tab): the homepage already sent the page view
+  if (/[?&]embed=1(&|$)/.test(location.search)) gtag('config', 'G-0QEEGS0DZQ', { send_page_view: false });
+  else gtag('config', 'G-0QEEGS0DZQ');
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "ParaFree AI Flashcard, Quiz & Notes Maker",
+  "url": "https://parafree.app/flashcard-quiz-maker.html",
+  "description": "Turns study material — pasted notes, PDF, Word or PowerPoint files, YouTube lectures or lecture recordings — into flashcards, a multiple-choice quiz and key-point notes in one step. Free, no sign-up.",
+  "applicationCategory": "EducationalApplication",
+  "operatingSystem": "Any (runs in a web browser)",
+  "browserRequirements": "Requires JavaScript",
+  "isAccessibleForFree": true,
+  "featureList": ["Key-point notes", "Flashcards", "Multiple-choice quiz", "PDF, Word and PowerPoint upload", "YouTube lectures", "Audio and video recordings"],
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "publisher": { "@type": "Organization", "name": "ParaFree", "url": "https://parafree.app/" }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {"@type": "Question", "name": "What do I get?", "acceptedAnswer": {"@type": "Answer", "text": "Key-point notes, flashcards and a multiple-choice quiz with explanations, all made in one step from the material you give it. You can switch between the three tabs without waiting for anything new."}},
+    {"@type": "Question", "name": "Which files can I use?", "acceptedAnswer": {"@type": "Answer", "text": "You can paste text, or upload a PDF, Word (.docx) or PowerPoint (.pptx) file. The text is read in your browser. You can also paste a YouTube video’s transcript, or upload an audio or video recording of a lecture."}},
+    {"@type": "Question", "name": "How do I use a YouTube video?", "acceptedAnswer": {"@type": "Answer", "text": "Paste its transcript: on the YouTube video, click the ⋯ (More) → Show transcript, copy the text, and paste it into the YouTube tab. This works for any video that has captions. With only a link, we try to read the captions from your browser first, but YouTube usually blocks this. There is also an experimental option where the AI works from the video link; it may not work for all videos or when the AI is busy, and it uses one of the day’s audio/video packs."}},
+    {"@type": "Question", "name": "Is my material stored?", "acceptedAnswer": {"@type": "Answer", "text": "No. Text is sent to an AI provider to write your flashcards, quiz and notes, and is not saved by ParaFree. Audio and video are sent to our AI provider to be transcribed, and your flashcards, quiz and notes are made from the transcript; ParaFree does not save the recording or the transcript. If the backup route is used, the file is uploaded to the AI provider so it can listen to it, then deleted once your pack is made."}},
+    {"@type": "Question", "name": "Can I trust the answers?", "acceptedAnswer": {"@type": "Answer", "text": "The AI is told to use only what is in your material, but it can still make mistakes. Check anything important against your notes or textbook before an exam."}}
+  ]
+}
+</script>
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#2d6a4f">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/pdf-tools.css">
+<style>
+.sp-wrap{max-width:1100px;margin:0 auto 24px;padding:0 16px;font-family:'DM Sans',sans-serif;color:var(--text)}
+.sp-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 2px 12px rgba(0,0,0,.04);overflow:hidden}
+.sp-ins,.sp-tabs{display:flex;flex-wrap:wrap;gap:6px;padding:10px;border-bottom:1px solid var(--border);background:var(--surface2)}
+.sp-in,.sp-tab{background:#fff;border:1px solid var(--border);border-radius:8px;padding:9px 14px;min-height:42px;font:600 13px Syne,sans-serif;color:var(--text2);cursor:pointer}
+.sp-in.active,.sp-tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.sp-tab b{font-weight:700;opacity:.8;margin-left:4px}
+.sp-body{padding:16px}
+.sp-body textarea{width:100%;min-height:220px;border:1px solid var(--border);border-radius:10px;padding:12px 14px;font:15px/1.6 'DM Sans',sans-serif;color:var(--text);background:#fff;resize:vertical;box-sizing:border-box}
+.sp-body input[type=url]{width:100%;border:1px solid var(--border);border-radius:10px;padding:11px 14px;font:15px 'DM Sans',sans-serif;box-sizing:border-box}
+.sp-meta{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:12.5px;color:var(--text3);margin-top:6px}
+.sp-pick{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1.5px dashed var(--accent2);border-radius:10px;padding:14px 18px;cursor:pointer;font-weight:600;color:var(--accent)}
+.sp-pick input{display:none}
+.sp-note{font-size:13px;color:var(--text2);margin:10px 0 0;line-height:1.6}
+.sp-controls{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-top:1px solid var(--border);background:var(--surface2)}
+.sp-modes{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;color:var(--text2)}
+.sp-modes label{display:inline-flex;align-items:center;gap:5px;background:#fff;border:1px solid var(--border);border-radius:20px;padding:6px 12px;cursor:pointer}
+.sp-modes input:checked+span{color:var(--accent);font-weight:700}
+#spGo{background:var(--accent);color:#fff;border:none;border-radius:12px;padding:13px 28px;font:700 15px Syne,sans-serif;cursor:pointer}
+#spGo:disabled{opacity:.6;cursor:wait}
+.sp-cta-short{display:none}
+@media (max-width:379px){.sp-cta-long{display:none}.sp-cta-short{display:inline}#spGo{padding:13px 12px;font-size:14px}}  /* the long label wraps on small phones */
+.sp-status{margin:12px 0 0;padding:10px 14px;border-radius:10px;font-size:13.5px;line-height:1.5}
+.sp-info{background:#eef6f1;color:#1e4d35}.sp-error{background:#fdecee;color:#9b1c25}
+.sp-tr{font-size:12.5px;color:var(--text2);margin:8px 0 0}
+#spProgress{margin-top:12px}#spProgress div{height:8px;background:#e2ddd4;border-radius:6px;overflow:hidden}#spProgress span{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+#spProgressLabel{font-size:12.5px;color:var(--text2);margin:6px 0 0}
+.sp-help{margin-top:12px;background:#fff8ec;border:1px solid #f3d9a8;border-radius:12px;padding:14px 16px;font-size:14px;line-height:1.6;color:#5c3d0a}
+.sp-help ol{margin:8px 0 10px 18px;padding:0}
+.sp-help .sp-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.sp-yt-how{background:#eef7f1;border:1px solid #b7e4c7;border-radius:12px;padding:12px 14px;margin:0 0 14px;font-size:14px;line-height:1.6;color:var(--text)}
+.sp-yt-how p{margin:4px 0 0}
+.sp-yt-ai{margin-top:14px;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
+.sp-yt-ai .sp-btn{border-style:dashed;font-weight:500;text-align:left}
+.sp-yt-ai .sp-note{margin:0}
+.sp-yt-ai[hidden]{display:none}
+.sp-yt-flash{animation:spFlash 1.2s ease 2}@keyframes spFlash{50%{box-shadow:0 0 0 4px #b7e4c7}}
+.sp-btn{background:#fff;border:1.5px solid var(--accent);color:var(--accent);border-radius:10px;padding:8px 14px;font:600 13px 'DM Sans',sans-serif;cursor:pointer}
+.sp-btn.pri{background:var(--accent);color:#fff}
+#spOut{margin-top:20px}
+.sp-view{padding:18px 20px}
+#spNotes{margin:0;padding-left:22px;line-height:1.7;font-size:15px}#spNotes li{margin-bottom:8px}
+.sp-flash{display:flex;flex-direction:column;align-items:center;gap:12px}
+#spCard{width:100%;max-width:560px;min-height:200px;border-radius:16px;border:1px solid var(--border);background:linear-gradient(135deg,#f0fdf4,#fff);display:flex;align-items:center;justify-content:center;text-align:center;padding:28px;box-sizing:border-box;cursor:pointer;font-size:18px;line-height:1.5}
+#spCard:focus-visible{outline:3px solid var(--accent2)}
+#spCard .back{display:none;color:var(--accent);font-weight:600}#spCard.flipped .front{display:none}#spCard.flipped .back{display:block}
+.sp-cardnav{display:flex;gap:10px;align-items:center;font-size:14px;color:var(--text2)}
+.sp-q{border:1px solid var(--border);border-radius:12px;padding:12px 16px 10px;margin:0 0 12px}
+.sp-q legend{font-weight:700;padding:0 6px;font-size:15px}
+.sp-opt{display:flex;gap:8px;align-items:flex-start;padding:7px 10px;border-radius:8px;cursor:pointer;font-size:14.5px}
+.sp-right{background:#e3f6ea;color:#14532d}.sp-wrong{background:#fdecee;color:#9b1c25}.sp-dim{opacity:.6}
+.sp-expl{margin:6px 0 4px;font-size:13.5px}.sp-ok{color:#14532d}.sp-bad{color:#9b1c25}
+#spScore{font-weight:700;color:var(--accent);margin:4px 0 0}
+.sp-outbar{display:flex;justify-content:flex-end;gap:8px;padding:10px 16px;border-top:1px solid var(--border);background:var(--surface2)}
+.sp-honest{font-size:12.5px;color:var(--text3);margin:10px 0 0}
+@media (max-width:600px){.sp-controls{flex-direction:column;align-items:stretch}#spGo{width:100%}}
+</style>
+</head>
+<body>
+<!-- EMBED MODE (?embed=1): the homepage "Flashcards & Quiz" tab shows this same page in an iframe, so the tool has ONE
+     implementation. Only then: no site header/hero/FAQ/footer, noindex (canonical stays this page), and the page's
+     height is posted to the homepage so the frame has no inner scrollbar. Without ?embed=1 nothing below applies. -->
+<style>
+html.pf-embed body{background:transparent}
+html.pf-embed #mobileMenu,html.pf-embed #mainNav,html.pf-embed .pf-hero,html.pf-embed .pf-content,html.pf-embed .pf-footer,html.pf-embed #pf-scroll-top{display:none!important}
+html.pf-embed body{margin:0;min-height:0!important}   /* else the body is as tall as the frame, and the frame could never shrink */
+html.pf-embed .sp-wrap{max-width:none!important;margin:0!important;padding:4px 0 8px!important}
+</style>
+<script>
+(function () {
+  if (!/[?&]embed=1(&|$)/.test(location.search)) return;
+  var d = document.documentElement, O = location.origin;
+  d.classList.add('pf-embed');
+  var robots = document.querySelector('meta[name="robots"]');
+  if (robots) robots.content = 'noindex, follow';                 // canonical: /flashcard-quiz-maker.html
+  if (window.parent === window) return;
+  try { if (typeof gtag === 'function') gtag('set', { embed_page: parent.location.pathname }); } catch (e) {}
+  var timer = 0, last = 0;
+  function size() {
+    timer = 0;
+    var b = document.body; if (!b) return;
+    var h = Math.ceil(b.getBoundingClientRect().height + (parseFloat(getComputedStyle(b).marginTop) || 0) + (parseFloat(getComputedStyle(b).marginBottom) || 0));
+    if (h === last) return;
+    last = h;
+    parent.postMessage({ type: 'pf-fq-size', height: h }, O);
+  }
+  function soon() { if (!timer) timer = setTimeout(size, 60); }
+  window.addEventListener('load', soon);
+  document.addEventListener('DOMContentLoaded', function () {
+    if (window.ResizeObserver) new ResizeObserver(soon).observe(document.body);
+    soon();
+  });
+})();
+</script>
+
+<!-- NAV (same links as the homepage) -->
+<div id="mobileMenu" onclick="if(event.target===this)toggleMenu()">
+  <div class="pf-menu-inner">
+    <button class="pf-menu-close" onclick="toggleMenu()" aria-label="Close menu">×</button>
+    <a href="/">Home</a>
+    <a href="/flashcard-quiz-maker.html">📚 Flashcards &amp; Quiz</a>
+    <a href="/cv-builder.html">CV Builder</a>
+    <a href="/pdf-tools.html">📄 PDF Tools</a>
+    <a href="/code.html">✨ ParaFree AI</a>
+    <a href="/blog.html">Blog</a>
+    <a href="/about.html">About</a>
+    <a href="/faq.html">FAQ</a>
+    <a href="/contact.html">Contact</a>
+    <a href="/privacy.html">Privacy</a>
+    <a href="https://ko-fi.com/parafree" target="_blank" rel="noopener" onclick="if(typeof gtag==='function')gtag('event','donate_click',{placement:'header'})">☕ Support ParaFree</a>
+  </div>
+</div>
+<nav id="mainNav">
+  <a href="/" style="display:flex;align-items:center;text-decoration:none;">
+    <img src="/logo-dark.svg" alt="ParaFree" height="34" style="height:34px;width:auto;" id="navLogo">
+  </a>
+  <div id="homeNavLinks">
+    <a href="/" class="nav-link">Paraphraser</a>
+    <a href="/flashcard-quiz-maker.html" class="nav-link">Flashcards &amp; Quiz</a>
+    <a href="/cv-builder.html" class="nav-link">CV Builder</a>
+    <a href="/pdf-tools.html" class="nav-link">PDF Tools</a>
+    <a href="/code.html" class="nav-link">ParaFree AI</a>
+    <a href="/blog.html" class="nav-link">Blog</a>
+    <a href="#spTool" id="navCta">Open Tool →</a>
+  </div>
+  <button id="menuToggle" aria-label="Open menu" onclick="toggleMenu()"><span></span><span></span><span></span></button>
+</nav>
+
+<!-- HERO -->
+<header class="pf-hero">
+  <div class="pf-hero-inner">
+    <div class="pf-hero-badge">Free · No Sign-up</div>
+    <h1>AI Flashcard, Quiz &amp; Notes Maker</h1>
+    <p>Turn your notes, PDFs, slides, or a YouTube lecture into flashcards, a quiz, and key-point notes — free, no sign-up.</p>
+  </div>
+</header>
+
+<main class="sp-wrap" id="spTool">
+  <div class="sp-card">
+    <div class="sp-ins" role="tablist" aria-label="Your material">
+      <button type="button" class="sp-in active" data-input="paste" role="tab" aria-selected="true">✍️ Paste text</button>
+      <button type="button" class="sp-in" data-input="file" role="tab" aria-selected="false">📄 PDF / Word / Slides</button>
+      <button type="button" class="sp-in" data-input="youtube" role="tab" aria-selected="false">▶️ YouTube</button>
+      <button type="button" class="sp-in" data-input="media" role="tab" aria-selected="false">🎧 Audio / Video</button>
+    </div>
+    <div class="sp-body">
+      <div id="spIn-paste">
+        <label for="spText" class="pf-note" style="display:block;margin:0 0 8px;">Paste your notes, a chapter, an article or a lecture transcript:</label>
+        <textarea id="spText" placeholder="Paste your study material here…"></textarea>
+        <div class="sp-meta"><span id="spWords">0 words</span><span>Long texts are trimmed to their most important sentences first (TextRank), in your browser.</span></div>
+      </div>
+      <div id="spIn-file" hidden>
+        <label class="sp-pick"><input type="file" id="spFile" accept=".pdf,.docx,.pptx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation">📄 Choose a PDF, Word or PowerPoint file</label>
+        <p id="spFileName" class="sp-note"></p>
+        <p class="sp-note">The text is read in your browser; only the text (trimmed to the key sentences) is sent to the AI. Scanned PDFs need <a href="/pdf-to-word.html">PDF to Word with OCR</a> first.</p>
+      </div>
+      <div id="spIn-youtube" hidden>
+        <div class="sp-yt-how">
+          <strong>Paste the video’s transcript</strong> — free, and works for any video that has captions.
+          <p id="spYtHow">On the YouTube video, click the ⋯ (More) → Show transcript, copy the text, and paste it here.</p>
+        </div>
+        <label for="spYtText" class="pf-note" style="display:block;margin:0 0 8px;">Transcript:</label>
+        <textarea id="spYtText" placeholder="Paste the transcript here…"></textarea>
+        <label for="spYtUrl" class="pf-note" style="display:block;margin:14px 0 8px;">Video link (optional):</label>
+        <input type="url" id="spYtUrl" placeholder="https://www.youtube.com/watch?v=…">
+        <p class="sp-note">With only a link, we first try to read the captions from your browser. YouTube usually blocks this — if it does, paste the transcript above.</p>
+        <div class="sp-yt-ai" id="spYtAiBox" hidden>
+          <button type="button" class="sp-btn" id="spYtAi">Try AI on the video (experimental — may not work for all videos or when AI is busy)</button>
+          <span id="spYtAiNote" class="sp-note"></span>
+        </div>
+      </div>
+      <div id="spIn-media" hidden>
+        <label class="sp-pick" id="spMediaPick"><input type="file" id="spMedia" accept="audio/*,video/*">🎧 Choose an audio or video recording</label>
+        <p id="spMediaName" class="sp-note"></p>
+        <p id="spMediaNote" class="sp-note"></p>
+        <p id="spBigNote" class="sp-help" hidden role="status">Large non-MP3 files are processed in your browser and need a lot of memory — this works best on desktop, or convert to MP3 first.</p>
+      </div>
+
+      </div>
+      <p id="spStatus" class="sp-status" hidden role="status" aria-live="polite"></p>
+      <div id="spProgress" hidden><div><span></span></div><p id="spProgressLabel"></p></div>
+      <p id="spTrStat" class="sp-tr" hidden></p>
+    </div>
+    <div class="sp-controls">
+      <div class="sp-modes" role="radiogroup" aria-label="Size">
+        <span>Size:</span>
+        <label><input type="radio" name="spMode" value="quick"><span>Quick</span></label>
+        <label><input type="radio" name="spMode" value="standard" checked><span>Standard</span></label>
+        <label><input type="radio" name="spMode" value="exam"><span>Exam prep</span></label>
+      </div>
+      <button type="button" id="spGo"><span class="sp-cta-long">✦ Make flashcards, a quiz &amp; notes</span><span class="sp-cta-short">✦ Make my flashcards &amp; quiz</span></button>
+    </div>
+  </div>
+
+  <section id="spOut" class="sp-card" hidden aria-label="Your flashcards, quiz and notes">
+    <div class="sp-tabs" role="tablist">
+      <button type="button" class="sp-tab active" data-view="notes" role="tab" aria-selected="true">📝 Notes<b id="spCountNotes"></b></button>
+      <button type="button" class="sp-tab" data-view="cards" role="tab" aria-selected="false">🃏 Flashcards<b id="spCountCards"></b></button>
+      <button type="button" class="sp-tab" data-view="quiz" role="tab" aria-selected="false">❓ Quiz<b id="spCountQuiz"></b></button>
+    </div>
+    <div id="spView-notes" class="sp-view"><ol id="spNotes"></ol></div>
+    <div id="spView-cards" class="sp-view" hidden>
+      <div class="sp-flash">
+        <div id="spCard" role="button" tabindex="0"><span class="front" id="spCardFront"></span><span class="back" id="spCardBack"></span></div>
+        <div class="sp-cardnav"><button type="button" class="sp-btn" id="spPrev">← Previous</button><span id="spCardPos"></span><button type="button" class="sp-btn" id="spNext">Next →</button></div>
+        <p class="sp-note" style="margin:0">Select the card to flip it.</p>
+      </div>
+    </div>
+    <div id="spView-quiz" class="sp-view" hidden><div id="spQuiz"></div><p id="spScore"></p></div>
+    <div class="sp-outbar"><button type="button" class="sp-btn" id="spCopy">⎘ Copy all</button><button type="button" class="sp-btn" id="spDownload">⬇ Download .txt</button></div>
+  </section>
+  <p class="sp-honest">AI can make mistakes — check anything important against your notes or textbook.</p>
+</main>
+
+<div class="pf-content">
+  <section class="pf-section">
+    <h2>How it works</h2>
+    <p>Give it your material — pasted notes, a PDF, a Word document, lecture slides, a YouTube lecture or a recording. Files are read in your browser, and long texts are trimmed to their most important sentences before anything is sent. The AI then writes everything in one go: a list of key points, a set of flashcards and a multiple-choice quiz with explanations. Switch between the three tabs as you revise.</p>
+  </section>
+  <section class="pf-section">
+    <h2>Three sizes</h2>
+    <p><strong>Quick</strong> gives a short summary, a few cards and a five-question quiz. <strong>Standard</strong> is a good default for a lecture or chapter. <strong>Exam prep</strong> makes more cards and a longer quiz.</p>
+  </section>
+
+  <section class="faq" id="faq">
+    <h2>Frequently asked questions</h2>
+    <div class="faq-item"><p class="faq-q">What do I get?</p><p class="faq-a">Key-point notes, flashcards and a multiple-choice quiz with explanations, all made in one step from the material you give it. You can switch between the three tabs without waiting for anything new.</p></div>
+    <div class="faq-item"><p class="faq-q">Which files can I use?</p><p class="faq-a">You can paste text, or upload a PDF, Word (.docx) or PowerPoint (.pptx) file. The text is read in your browser. You can also paste a YouTube video’s transcript, or upload an audio or video recording of a lecture.</p></div>
+    <div class="faq-item"><p class="faq-q">How do I use a YouTube video?</p><p class="faq-a">Paste its transcript: on the YouTube video, click the ⋯ (More) → Show transcript, copy the text, and paste it into the YouTube tab. This works for any video that has captions. With only a link, we try to read the captions from your browser first, but YouTube usually blocks this. There is also an experimental option where the AI works from the video link; it may not work for all videos or when the AI is busy, and it uses one of the day’s audio/video packs.</p></div>
+    <div class="faq-item"><p class="faq-q">Is my material stored?</p><p class="faq-a">No. Text is sent to an AI provider to write your flashcards, quiz and notes, and is not saved by ParaFree. Audio and video are sent to our AI provider to be transcribed, and your flashcards, quiz and notes are made from the transcript; ParaFree does not save the recording or the transcript. If the backup route is used, the file is uploaded to the AI provider so it can listen to it, then deleted once your pack is made.</p></div>
+    <div class="faq-item"><p class="faq-q">Can I trust the answers?</p><p class="faq-a">The AI is told to use only what is in your material, but it can still make mistakes. Check anything important against your notes or textbook before an exam.</p></div>
+  </section>
+</div>
+
+<!-- FOOTER (same links as the homepage) -->
+<footer class="pf-footer">
+  <div class="pf-footer-links">
+    <a href="/">Home</a>
+    <a href="/flashcard-quiz-maker.html">Flashcards &amp; Quiz</a>
+    <a href="/about.html">About</a>
+    <a href="/blog.html">Blog</a>
+    <a href="/cv-builder.html">CV Builder</a>
+    <a href="/code.html">ParaFree AI</a>
+    <a href="/pdf-tools.html">PDF Tools</a>
+    <a href="/faq.html">FAQ</a>
+    <a href="/contact.html">Contact</a>
+    <a href="/privacy.html">Privacy</a>
+    <a href="/terms.html">Terms</a>
+    <a href="https://ko-fi.com/parafree" target="_blank" rel="noopener" onclick="if(typeof gtag==='function')gtag('event','donate_click',{placement:'footer'})">☕ Support ParaFree</a>
+  </div>
+  <div class="pf-footer-brand"><img src="/favicon.svg" alt="ParaFree" height="20" style="height:20px;width:auto;"><span>ParaFree</span></div>
+  <p>© 2026 ParaFree · Free AI Writing Suite · No limits, no signup, always free</p>
+</footer>
+
+<script src="/lib/studypack/textrank.js"></script>
+<script src="/lib/studypack/app.js"></script>
+</body>
+</html>

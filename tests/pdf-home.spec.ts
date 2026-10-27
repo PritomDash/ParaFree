@@ -26,7 +26,9 @@ const MIME: Record<string, string> = {
 const BASELINE_INDEX_BYTES = 473317;
 // The budget is for the PDF tools: the landing-embeds bootstrap (?embed=paraphraser, see embed-original.ts) is not counted.
 // Nor is the seo-push "Working with PDFs?" line by the paraphraser's upload button (a link line, not PDF-tool code).
-const pdfRoundSize = () => Buffer.byteLength(indexWithoutEmbed().replace(/\n      <span class="pf-pdf-hint"[^\n]*<\/span>/, ''), 'utf8');
+// Nor are the Flashcards & Quiz lines (its own tab, panel, iframe loader, banner card and their styles).
+const pdfRoundSize = () => Buffer.byteLength(indexWithoutEmbed().replace(/\n      <span class="pf-pdf-hint"[^\n]*<\/span>/, '')
+  .split('\n').filter((l) => !/pf-fq|tab-fq|pfHomeFq|pfFq|pfOpenFqTab|fqFrame|\bFQ\b|Flashcards &(amp;)? Quiz/.test(l)).join('\n'), 'utf8');
 // the PDF tools' own libraries — none of these may load with the homepage
 const PDF_TOOL_LIBS = /cdn\.jsdelivr\.net\/npm\/(pdf-lib@|pdfjs-dist@|docx@|docx-preview@|jszip@|jspdf@|tesseract\.js|@tesseract\.js-data|@expo-google-fonts)|\/lib\/pdf-tools\/|\/pdf-tools\.(css|html)/;
 
@@ -109,7 +111,7 @@ test.describe('homepage load', () => {
     for (const p of local) expect(p, p).not.toMatch(/pdf-tools/);
     // the existing tab row keeps its order; PDF Tools is last
     expect(await page.locator('.tool-tabs .tool-tab').evaluateAll((els) => els.map((e) => e.id)))
-      .toEqual(['tab-paraphrase', 'tab-humanize', 'tab-summarize', 'tab-grammar', 'tab-detect', 'tab-ai', 'tab-pdf', 'tab-cv']);
+      .toEqual(['tab-paraphrase', 'tab-humanize', 'tab-summarize', 'tab-grammar', 'tab-detect', 'tab-ai', 'tab-pdf', 'tab-fq', 'tab-cv']);   // + Flashcards & Quiz (study-pack round)
     expect(net.errors).toEqual([]);
   });
 

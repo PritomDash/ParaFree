@@ -251,6 +251,9 @@ const T12_FAIL = Object.fromEntries([...GROQS, 'gemini', 'gemini-2'].map(k => [k
   // ── 7. Daily usage counter (counts only) ──
   console.log('\n── 7. Usage counter ──');
   for (const k of [...store.keys()]) if (k.startsWith('pf_usage:')) store.delete(k);
+  // the four calls below move the fake clock ~4 h: start at 01:00 UTC so they all count on the same UTC day
+  // (they used to straddle midnight when the suite ran after ~05:00 UTC)
+  { const now = Date.now(), dayStart = now - (now % 86400000); advance(dayStart + 86400000 + 3600000 - now); }
   reset({ ...T12_FAIL, [NV_L]: 'ok' });
   await call({ text: SECRET_TEXT, mode: 'standard' });
   reset({ ...T12_FAIL, cloudflare: 'ok' });

@@ -193,7 +193,7 @@ test.describe('2–6. stats, providers, promos, buttons, polish', () => {
     expect(net.errors).toEqual([]);
   });
 
-  test('6. headline green meets AA (large text) on the hero; NEW only on PDF Tools; nav "Open Tool →" goes to the tool', async ({ page }) => {
+  test('6. headline green meets AA (large text) on the hero; NEW only on PDF Tools + Flashcards & Quiz; nav "Open Tool →" goes to the tool', async ({ page }) => {
     const net = await setup(page);
     await open(page);
     const color = await page.locator('#mainHero h1 span').last().evaluate((e) => getComputedStyle(e).color);
@@ -205,7 +205,7 @@ test.describe('2–6. stats, providers, promos, buttons, polish', () => {
     for (const [c, a] of [[[10, 28, 20], 0.92], [[26, 58, 42], 0.88], [[45, 106, 79], 0.82]] as [number[], number][])
       expect(ratio([216, 243, 220], over(c, a))).toBeGreaterThanOrEqual(3);
     expect(ratio([216, 243, 220], over([26, 58, 42], 0.88))).toBeGreaterThanOrEqual(4.5);   // behind the centred headline
-    expect(await page.locator('.tool-tabs .tab-new').evaluateAll((els) => els.map((e) => e.closest('.tool-tab')!.id))).toEqual(['tab-pdf']);
+    expect(await page.locator('.tool-tabs .tab-new').evaluateAll((els) => els.map((e) => e.closest('.tool-tab')!.id))).toEqual(['tab-pdf', 'tab-fq']);   // the two newest tools
     await expect(page.locator('#navCta')).toHaveText('Open Tool →');
     await expect(page.locator('#navCta')).toHaveAttribute('href', '#tools');
     await page.locator('#navCta').click();
@@ -315,4 +315,52 @@ test.describe('still working', () => {
     expect(fs.readFileSync((await dl.path())!, 'utf8')).toContain('wolf leaps');
     expect(net.errors).toEqual([]);
   });
+});
+
+// ─────────────────────────────────────────────────────────────
+test.describe('7. Flashcards & Quiz card', () => {
+  test('one gradient banner with the tool cards — under the main cards, above PDF Tools; badge + NEW, title, honest copy, CTA', async ({ page }) => {
+    const net = await setup(page);
+    await open(page);
+    const cards = page.locator('a[href="/flashcard-quiz-maker.html"].pf-studypack-card');
+    await expect(cards).toHaveCount(1);                                           // the old plain bottom card is gone
+    const card = cards.first();
+    await expect(card.locator('.pf-fq-badge')).toHaveText('STUDY TOOL');
+    await expect(card.locator('.pf-fq-new')).toHaveText('NEW');
+    await expect(card.locator('.pf-fq-title')).toHaveText('Flashcards & Quiz');
+    await expect(card.locator('.pf-fq-desc')).toHaveText('Turn notes, PDFs, slides, or a YouTube lecture into key points, flashcards, and a quiz — free, no sign-up.');
+    await expect(card.locator('.pf-fq-cta')).toHaveText('Make flashcards & a quiz →');
+    expect(await card.evaluate((e) => getComputedStyle(e).backgroundImage)).toContain('linear-gradient');
+    expect(await card.innerText()).not.toMatch(/\b(the best|best free|number one|the only|only free)\b|#1\b/i);
+    // DOM order: services grid → Flashcards & Quiz → PDF Tools, and nothing of the tools section after PDF Tools
+    const order = await page.evaluate(() => {
+      const grid = document.querySelector('.services-grid')!, fq = document.querySelector('.pf-fq-card')!, pdf = document.querySelector('.pf-pdf-card')!;
+      const after = (a: Element, b: Element) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+      return { gridThenFq: after(grid, fq), fqThenPdf: after(fq, pdf), pdfIsLast: pdf.nextElementSibling === null, sameParent: fq.parentElement === pdf.parentElement };
+    });
+    expect(order).toEqual({ gridThenFq: true, fqThenPdf: true, pdfIsLast: true, sameParent: true });
+    expect(net.errors).toEqual([]);
+  });
+
+  for (const w of [320, 360, 768, 1024, 1280]) {
+    test(`${w}px: tool cards reflow, Flashcards & Quiz full width above PDF Tools, no horizontal scroll`, async ({ page }) => {
+      const net = await setup(page);
+      await open(page, w, 900);
+      const r = await page.evaluate(() => {
+        const R = (s: string) => document.querySelector(s)!.getBoundingClientRect();
+        const grid = R('.services-grid'), fq = R('.pf-fq-card'), pdf = R('.pf-pdf-card');
+        const card = document.querySelector('.pf-fq-card')!;
+        const sticking = [...card.querySelectorAll('*')].filter((e) => (e as HTMLElement).offsetParent && e.getBoundingClientRect().right > fq.right + 0.5).length;
+        return { sw: document.documentElement.scrollWidth, fqW: Math.round(fq.width), pdfW: Math.round(pdf.width), gridW: Math.round(grid.width),
+          stacked: grid.bottom <= fq.top && fq.bottom <= pdf.top, sticking,
+          art: getComputedStyle(document.querySelector('.pf-fq-art')!).display };
+      });
+      expect(r.sw, 'no horizontal scroll').toBeLessThanOrEqual(w);
+      expect([r.fqW, r.pdfW]).toEqual([r.gridW, r.gridW]);                        // full width of the tools grid, like PDF Tools
+      expect(r.stacked).toBe(true);
+      expect(r.sticking, 'nothing sticks out of the card').toBe(0);
+      expect(r.art).toBe(w <= 640 ? 'none' : 'block');                             // decorative cards only where there is room
+      expect(net.errors).toEqual([]);
+    });
+  }
 });
