@@ -380,7 +380,7 @@ const YT_RE = /^https:\/\/(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?(?:[^#]*&)?v=
 // ctx: { env, redis, ip, fetch, rateLimit(text) → {allowed, message}, runText(text, prompt, accept) → chain result,
 //        cooldown: { isCooling(name), start(name, msg), detail(res, body) } — the text chain's cooldown store }
 const BUSY_AUDIO = 'The audio service is busy right now. Please try again in a few minutes, or paste a transcript instead.';
-const INVALID = 'The AI answer could not be turned into a study pack. Please try again.';
+const INVALID = 'The AI answer could not be turned into flashcards, a quiz and notes. Please try again.';
 async function handle(body, ctx) {
   const { env, redis, ip } = ctx, fetchFn = ctx.fetch || fetch, cd = ctx.cooldown || LOCAL_CD;
   const type = body.type, mode = modeOf(body.mode);
@@ -419,10 +419,10 @@ async function handle(body, ctx) {
   // start an audio / video job, or YouTube via AI: switch → rate limit → checks → daily cap (one slot per job)
   if (type === 'studypack_audio_start' || type === 'studypack_youtube') {
     const a = await audioConfig(env, redis);
-    if (!a.enabled) return fail(403, 'audio_disabled', 'Audio and video study packs are switched off right now. Paste the text or a transcript instead.');
+    if (!a.enabled) return fail(403, 'audio_disabled', 'Audio and video uploads are switched off right now. Paste the text or a transcript instead.');
     const rate = ctx.rateLimit(type + ':' + (body.name || body.url || ''));
     if (!rate.allowed) return fail(429, 'rate_limited', rate.message);
-    const capFail = () => fail(429, 'audio_cap', `You’ve used today’s ${a.cap} audio/video study packs. Paste text or a transcript instead, or come back tomorrow.`, { cap: a.cap });
+    const capFail = () => fail(429, 'audio_cap', `You’ve used today’s ${a.cap} audio/video packs. Paste text or a transcript instead, or come back tomorrow.`, { cap: a.cap });
     const keyIndex = env.GEMINI_KEY ? 1 : 2;
 
     if (type === 'studypack_youtube') {
@@ -550,7 +550,7 @@ async function handle(body, ctx) {
     return r.error === 'invalid_output' ? fail(502, 'invalid_output', INVALID) : fail(503, 'ai_unavailable', BUSY_AUDIO);
   }
 
-  return fail(400, 'bad_request', 'Unknown study pack request.');
+  return fail(400, 'bad_request', 'Unknown request.');
 }
 
 module.exports = {

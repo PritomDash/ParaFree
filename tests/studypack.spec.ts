@@ -1,4 +1,4 @@
-// AI Flashcard, Quiz & Notes Maker page (flashcard-quiz-maker.html; internal name "studypack"): every input type routes to the right path and ends in ONE study-pack call;
+// AI Flashcard, Quiz & Notes Maker page (flashcard-quiz-maker.html; internal name "studypack"): every input type routes to the right path and ends in ONE AI call;
 // the three tabs (Notes / Flashcards / Quiz) come from that one answer; YouTube without captions offers paste /
 // AI-on-the-video (and a clear message when the AI can't watch it); audio goes to Groq Whisper first — split into
 // pieces in the browser (MP3 at frame boundaries, other formats re-encoded as 16 kHz mono WAV), one request per
@@ -112,10 +112,13 @@ test.describe('text inputs → TextRank → ONE call', () => {
   test('paste: TextRank trims the text, one call returns notes + flashcards + quiz; tabs switch without new calls', async ({ page }) => {
     const net = await setup(page);
     await open(page);
+    const cta = async () => (await page.locator('#spGo').innerText()).trim();     // the label a user sees
+    expect(await cta()).toBe('✦ Make flashcards, a quiz & notes');
     await page.locator('#spText').fill(LONG);
     await page.locator('input[name="spMode"][value="exam"]').check();
     await page.locator('#spGo').click();
     await expectPack(page);
+    expect(await cta()).toBe('✦ Make flashcards, a quiz & notes');                     // label restored after the run
     const sent = packCalls(net.calls);
     expect(sent.length).toBe(1);
     expect(sent[0]).toEqual({ type: 'studypack', text: sent[0].text, mode: 'exam', inputType: 'text' });   // no prompt field
@@ -146,6 +149,7 @@ test.describe('text inputs → TextRank → ONE call', () => {
     expect(packCalls(net.calls).length).toBe(1);                                   // switching tabs never calls the AI
     // download .txt with all three parts
     const [dl] = await Promise.all([page.waitForEvent('download'), page.locator('#spDownload').click()]);
+    expect(dl.suggestedFilename()).toBe('flashcards-quiz-notes.txt');
     const txt = fs.readFileSync((await dl.path())!, 'utf8');
     expect(txt).toContain('KEY POINTS');
     expect(txt).toContain('Q: Where does photosynthesis happen?');
@@ -206,7 +210,7 @@ test.describe('YouTube', () => {
     await page.locator('#spGo').click();
     await expect(page.locator('#spYtHelp')).toBeVisible();
     await expect(page.locator('#spYtHelp')).toContainText('We couldn’t read this video’s captions from your browser.');
-    await expect(page.locator('#spYtAiNote')).toHaveText('Uses one of today’s 5 audio/video study packs.');
+    await expect(page.locator('#spYtAiNote')).toHaveText('Uses one of today’s 5 audio/video packs.');
     expect(net.yt.length).toBe(4);                                              // en, en-US, en-GB, auto-captions
     expect(packCalls(net.calls)).toEqual([]);                                   // nothing sent yet
     await page.locator('#spYtAi').click();
@@ -281,7 +285,7 @@ test.describe('audio / video', () => {
     const net = await setup(page, { api: whisperApi() });
     await open(page);
     await page.locator('.sp-in[data-input="media"]').click();
-    await expect(page.locator('#spMediaNote')).toContainText('Up to 50 MB and 60 minutes · 5 audio/video study packs per day. The recording is sent to our AI provider to be transcribed');
+    await expect(page.locator('#spMediaNote')).toContainText('Up to 50 MB and 60 minutes · 5 audio/video packs per day. The recording is sent to our AI provider to be transcribed');
     await pick(page, audioFile(3000));
     await expectPack(page);
     const c = packCalls(net.calls);
@@ -390,10 +394,10 @@ test.describe('audio / video', () => {
 
   test('daily cap reached → the server message is shown, nothing else is sent', async ({ page }) => {
     const net = await setup(page, { api: (b) => b.type === 'studypack_audio_start'
-      ? { status: 429, body: { success: false, error: 'audio_cap', message: 'You’ve used today’s 5 audio/video study packs. Paste text or a transcript instead, or come back tomorrow.' } } : undefined });
+      ? { status: 429, body: { success: false, error: 'audio_cap', message: 'You’ve used today’s 5 audio/video packs. Paste text or a transcript instead, or come back tomorrow.' } } : undefined });
     await open(page);
     await pick(page, audioFile(3000));
-    await expect(page.locator('#spStatus')).toContainText('You’ve used today’s 5 audio/video study packs.');
+    await expect(page.locator('#spStatus')).toContainText('You’ve used today’s 5 audio/video packs.');
     await expect(page.locator('#spOut')).toBeHidden();
     expect(packCalls(net.calls).map((x) => x.type)).toEqual(['studypack_audio_start']);
   });
@@ -402,7 +406,7 @@ test.describe('audio / video', () => {
     const net = await setup(page, { config: Object.assign({}, CONFIG, { enabled: false }) });
     await open(page);
     await page.locator('.sp-in[data-input="media"]').click();
-    await expect(page.locator('#spMediaNote')).toHaveText('Audio and video study packs are switched off right now — paste the text or a transcript instead.');
+    await expect(page.locator('#spMediaNote')).toHaveText('Audio and video uploads are switched off right now — paste the text or a transcript instead.');
     await expect(page.locator('#spMediaPick')).toBeHidden();
     await page.locator('#spGo').click();
     await expect(page.locator('#spStatus')).toContainText('Choose an audio or video file first.');
@@ -473,12 +477,31 @@ test.describe('audio / video', () => {
 test.describe('errors and pages', () => {
   test('unusable AI answer (server 502) → clear message, no partial pack on screen', async ({ page }) => {
     const net = await setup(page, { api: (b) => b.type === 'studypack'
-      ? { status: 502, body: { success: false, error: 'invalid_output', message: 'The AI answer could not be turned into a study pack. Please try again.' } } : undefined });
+      ? { status: 502, body: { success: false, error: 'invalid_output', message: 'The AI answer could not be turned into flashcards, a quiz and notes. Please try again.' } } : undefined });
     await open(page);
     await page.locator('#spText').fill(LONG);
     await page.locator('#spGo').click();
-    await expect(page.locator('#spStatus')).toHaveText('The AI answer could not be turned into a study pack. Please try again.');
+    await expect(page.locator('#spStatus')).toHaveText('The AI answer could not be turned into flashcards, a quiz and notes. Please try again.');
     await expect(page.locator('#spOut')).toBeHidden();
+    expect(net.errors).toEqual([]);
+  });
+
+  test('main button: long label on wider screens, "Make my flashcards & quiz" on small phones — one line, no overflow', async ({ page }) => {
+    const net = await setup(page);
+    await open(page);
+    const look = () => page.locator('#spGo').evaluate((g) => {
+      const cs = getComputedStyle(g), h = g.getBoundingClientRect().height - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+      return { label: g.innerText.trim(), lines: Math.round(h / (parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2)), overflow: g.scrollWidth > g.clientWidth };
+    });
+    for (const [w, label] of [[1280, '✦ Make flashcards, a quiz & notes'], [390, '✦ Make flashcards, a quiz & notes'], [360, '✦ Make my flashcards & quiz'], [320, '✦ Make my flashcards & quiz']] as [number, string][]) {
+      await page.setViewportSize({ width: w, height: 800 });
+      expect(await look(), 'width ' + w).toEqual({ label, lines: 1, overflow: false });
+    }
+    await page.locator('.sp-in[data-input="youtube"]').click();
+    await page.locator('#spYtUrl').fill('https://youtu.be/dQw4w9WgXcQ');
+    await page.locator('#spGo').click();
+    await page.locator('#spYtPaste').click();
+    await expect(page.locator('#spStatus')).toHaveText('Paste the transcript here, then select “Make my flashcards & quiz”.');
     expect(net.errors).toEqual([]);
   });
 
@@ -499,7 +522,7 @@ test.describe('errors and pages', () => {
     expect([app.name, app.url]).toEqual(['ParaFree AI Flashcard, Quiz & Notes Maker', URL_]);
     const visible = await page.locator('.faq-item').evaluateAll((els) => els.map((e) => [e.querySelector('.faq-q')!.textContent, e.querySelector('.faq-a')!.textContent]));
     expect(faq.mainEntity.map((q: any) => [q.name, q.acceptedAnswer.text])).toEqual(visible);
-    expect(visible.map((v) => v[1]).join(' ')).toContain('to be transcribed, and the study pack is made from the transcript; ParaFree does not save the recording or the transcript.');
+    expect(visible.map((v) => v[1]).join(' ')).toContain('to be transcribed, and your flashcards, quiz and notes are made from the transcript; ParaFree does not save the recording or the transcript.');
     await expect(page.locator('#homeNavLinks a[href="/flashcard-quiz-maker.html"]')).toHaveText('Flashcards & Quiz');
     await expect(page.locator('#mobileMenu a[href="/flashcard-quiz-maker.html"]')).toHaveText('📚 Flashcards & Quiz');
     await expect(page.locator('footer a[href="/flashcard-quiz-maker.html"]')).toHaveText('Flashcards & Quiz');
@@ -507,6 +530,10 @@ test.describe('errors and pages', () => {
     expect(html).not.toMatch(/\b(the best|best free|number one|the only|only free)\b|#1\b/i);   // honest copy: no superlatives
     expect(html).not.toContain('studypack.html');
     expect(html).not.toMatch(/>\s*(📚 )?Study Pack\s*</);
+    expect(visible.map((v) => v[0])).toContain('What do I get?');
+    expect(await page.evaluate(() => document.body.innerText)).not.toMatch(/study.?packs?/i);
+    expect(JSON.stringify(ld)).not.toMatch(/study.?packs?/i);
+    expect(await page.locator('[aria-label]').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')).join(' '))).not.toMatch(/study.?pack/i);
     await page.goto('/');
     const card = page.locator('a.pf-studypack-card');
     await expect(card).toHaveAttribute('href', '/flashcard-quiz-maker.html');

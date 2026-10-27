@@ -241,7 +241,7 @@ const resetProbe = () => { SP._probeCache.clear(); for (const k of [...store.key
   assert('cap (override 2): jobs 1–2 allowed, job 3 → 429 audio_cap', starts[0].status === 200 && starts[1].status === 200 && starts[2].status === 429 && starts[2].payload.error === 'audio_cap', starts.map((s) => s.status).join(','));
   answers = { gemini: GOOD };
   r = await call({ type: 'studypack', text: MATERIAL }, ip);
-  assert('the audio cap does not block text study packs', r.status === 200);
+  assert('the audio cap does not block text packs', r.status === 200);
   const keys = [...store.keys()].filter((k) => k.startsWith('studypack:audio:'));
   assert('cap counter key stores a hash, not the IP', keys.length >= 1 && keys.every((k) => !k.includes('203.0.113.7')), keys.join(','));
   store.delete('studypack:cfg');

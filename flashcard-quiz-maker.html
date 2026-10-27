@@ -50,10 +50,10 @@
   "@context": "https://schema.org",
   "@type": "FAQPage",
   "mainEntity": [
-    {"@type": "Question", "name": "What does the study pack include?", "acceptedAnswer": {"@type": "Answer", "text": "Key-point notes, flashcards and a multiple-choice quiz with explanations, all made in one step from the material you give it. You can switch between the three tabs without waiting for anything new."}},
+    {"@type": "Question", "name": "What do I get?", "acceptedAnswer": {"@type": "Answer", "text": "Key-point notes, flashcards and a multiple-choice quiz with explanations, all made in one step from the material you give it. You can switch between the three tabs without waiting for anything new."}},
     {"@type": "Question", "name": "Which files can I use?", "acceptedAnswer": {"@type": "Answer", "text": "You can paste text, or upload a PDF, Word (.docx) or PowerPoint (.pptx) file. The text is read in your browser. You can also use a YouTube link, or an audio or video recording of a lecture."}},
     {"@type": "Question", "name": "Why does it say it couldn't read a YouTube video's captions?", "acceptedAnswer": {"@type": "Answer", "text": "YouTube often blocks other websites from reading captions directly. When that happens you can paste the transcript (on YouTube, open the description and choose Show transcript), or let the AI work from the video link instead."}},
-    {"@type": "Question", "name": "Is my material stored?", "acceptedAnswer": {"@type": "Answer", "text": "No. Text is sent to an AI provider to write the study pack and is not saved by ParaFree. Audio and video are sent to our AI provider to be transcribed, and the study pack is made from the transcript; ParaFree does not save the recording or the transcript. If the backup route is used, the file is uploaded to the AI provider so it can listen to it, then deleted once the study pack is made."}},
+    {"@type": "Question", "name": "Is my material stored?", "acceptedAnswer": {"@type": "Answer", "text": "No. Text is sent to an AI provider to write your flashcards, quiz and notes, and is not saved by ParaFree. Audio and video are sent to our AI provider to be transcribed, and your flashcards, quiz and notes are made from the transcript; ParaFree does not save the recording or the transcript. If the backup route is used, the file is uploaded to the AI provider so it can listen to it, then deleted once your pack is made."}},
     {"@type": "Question", "name": "Can I trust the answers?", "acceptedAnswer": {"@type": "Answer", "text": "The AI is told to use only what is in your material, but it can still make mistakes. Check anything important against your notes or textbook before an exam."}}
   ]
 }
@@ -86,6 +86,8 @@
 .sp-modes input:checked+span{color:var(--accent);font-weight:700}
 #spGo{background:var(--accent);color:#fff;border:none;border-radius:12px;padding:13px 28px;font:700 15px Syne,sans-serif;cursor:pointer}
 #spGo:disabled{opacity:.6;cursor:wait}
+.sp-cta-short{display:none}
+@media (max-width:379px){.sp-cta-long{display:none}.sp-cta-short{display:inline}#spGo{padding:13px 12px;font-size:14px}}  /* the long label wraps on small phones */
 .sp-status{margin:12px 0 0;padding:10px 14px;border-radius:10px;font-size:13.5px;line-height:1.5}
 .sp-info{background:#eef6f1;color:#1e4d35}.sp-error{background:#fdecee;color:#9b1c25}
 .sp-tr{font-size:12.5px;color:var(--text2);margin:8px 0 0}
@@ -214,11 +216,11 @@
         <label><input type="radio" name="spMode" value="standard" checked><span>Standard</span></label>
         <label><input type="radio" name="spMode" value="exam"><span>Exam prep</span></label>
       </div>
-      <button type="button" id="spGo">✦ Make my study pack</button>
+      <button type="button" id="spGo"><span class="sp-cta-long">✦ Make flashcards, a quiz &amp; notes</span><span class="sp-cta-short">✦ Make my flashcards &amp; quiz</span></button>
     </div>
   </div>
 
-  <section id="spOut" class="sp-card" hidden aria-label="Your study pack">
+  <section id="spOut" class="sp-card" hidden aria-label="Your flashcards, quiz and notes">
     <div class="sp-tabs" role="tablist">
       <button type="button" class="sp-tab active" data-view="notes" role="tab" aria-selected="true">📝 Notes<b id="spCountNotes"></b></button>
       <button type="button" class="sp-tab" data-view="cards" role="tab" aria-selected="false">🃏 Flashcards<b id="spCountCards"></b></button>
@@ -250,10 +252,10 @@
 
   <section class="faq" id="faq">
     <h2>Frequently asked questions</h2>
-    <div class="faq-item"><p class="faq-q">What does the study pack include?</p><p class="faq-a">Key-point notes, flashcards and a multiple-choice quiz with explanations, all made in one step from the material you give it. You can switch between the three tabs without waiting for anything new.</p></div>
+    <div class="faq-item"><p class="faq-q">What do I get?</p><p class="faq-a">Key-point notes, flashcards and a multiple-choice quiz with explanations, all made in one step from the material you give it. You can switch between the three tabs without waiting for anything new.</p></div>
     <div class="faq-item"><p class="faq-q">Which files can I use?</p><p class="faq-a">You can paste text, or upload a PDF, Word (.docx) or PowerPoint (.pptx) file. The text is read in your browser. You can also use a YouTube link, or an audio or video recording of a lecture.</p></div>
     <div class="faq-item"><p class="faq-q">Why does it say it couldn't read a YouTube video's captions?</p><p class="faq-a">YouTube often blocks other websites from reading captions directly. When that happens you can paste the transcript (on YouTube, open the description and choose Show transcript), or let the AI work from the video link instead.</p></div>
-    <div class="faq-item"><p class="faq-q">Is my material stored?</p><p class="faq-a">No. Text is sent to an AI provider to write the study pack and is not saved by ParaFree. Audio and video are sent to our AI provider to be transcribed, and the study pack is made from the transcript; ParaFree does not save the recording or the transcript. If the backup route is used, the file is uploaded to the AI provider so it can listen to it, then deleted once the study pack is made.</p></div>
+    <div class="faq-item"><p class="faq-q">Is my material stored?</p><p class="faq-a">No. Text is sent to an AI provider to write your flashcards, quiz and notes, and is not saved by ParaFree. Audio and video are sent to our AI provider to be transcribed, and your flashcards, quiz and notes are made from the transcript; ParaFree does not save the recording or the transcript. If the backup route is used, the file is uploaded to the AI provider so it can listen to it, then deleted once your pack is made.</p></div>
     <div class="faq-item"><p class="faq-q">Can I trust the answers?</p><p class="faq-a">The AI is told to use only what is in your material, but it can still make mistakes. Check anything important against your notes or textbook before an exam.</p></div>
   </section>
 </div>
