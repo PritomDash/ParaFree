@@ -112,8 +112,10 @@ test.describe('1. tool first', () => {
     const before = BEFORE(), now = NOW();
     const heads = (s: string) => [...s.matchAll(/<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/g)].map((m) => textOf(m[2]).trim()).filter(Boolean);
     const hrefs = (s: string) => new Set([...s.matchAll(/href="([^"]+)"/g)].map((m) => m[1]));
-    // headings renamed on purpose since (old → new): honest humanizer wording (fix/tool-polish)
-    const RENAMED: Record<string, string> = { 'Beat AI Detection': 'Make AI Text Read Naturally' };
+    // headings renamed on purpose since (old → new): honest humanizer wording (fix/tool-polish, fix/humanizer-consistency)
+    const RENAMED: Record<string, string> = { 'Beat AI Detection': 'Make AI Text Read Naturally',
+      'Why AI Detectors Flag Your Text': 'Why AI Text Can Sound Robotic',                       // fix/humanizer-consistency
+      'ParaFree AI Humanizer vs Paid Alternatives': 'What the ParaFree AI Humanizer Offers' };
     const missingHeads = heads(before).filter((h) => !heads(now).includes(h) && !(RENAMED[h] && heads(now).includes(RENAMED[h])));
     expect(missingHeads).toEqual([]);
     const missingLinks = [...hrefs(before)].filter((h) => !hrefs(now).has(h));

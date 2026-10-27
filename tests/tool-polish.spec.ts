@@ -200,3 +200,44 @@ test.describe('5. AI Detector metric colours', () => {
     expect(net.errors).toEqual([]);
   });
 });
+
+// ─────────────────────────────────────────────────────────────
+// fix/humanizer-consistency: the humanizer guide's comparison table names no competitor and makes no detection-evasion
+// claim; the remaining "sound naturally human" wording is gone (homepage, about, QuillBot-alternative page).
+test.describe('6. humanizer consistency', () => {
+  test('humanizer guide: a ParaFree-only facts table — no competitor names or prices, detector results "not guaranteed"', async ({ page }) => {
+    const net = await setup(page);
+    await open(page);
+    await page.evaluate(() => (window as any).showBlog('b2'));
+    const post = page.locator('#blogContent');
+    await expect(post).toBeVisible();
+    await expect(post.locator('h2', { hasText: 'What the ParaFree AI Humanizer Offers' })).toHaveCount(1);
+    const rows = await post.locator('table').last().locator('tr').evaluateAll((trs) => trs.map((tr) => [...tr.children].map((c) => c.textContent!.trim())));
+    expect(rows).toEqual([
+      ['Price', 'Free'],
+      ['Sign-up', 'Not needed'],
+      ['Word limit', 'No word limit'],
+      ['Writing styles', 'Natural, Student, Professional, Casual'],
+      ['AI-detector results', 'Not guaranteed — results vary by detector, so always review the text'],
+    ]);
+    const text = await post.innerText();
+    expect(text).not.toMatch(/Undetectable|HIX|Bypass|\$\d|vs Paid Alternatives|naturally human|real person|Why AI Detectors Flag|AI detection score/i);
+    await expect(post.locator('h2', { hasText: 'Why AI Text Can Sound Robotic' })).toHaveCount(1);
+    expect(text).toContain('it is not a way to hide that AI was used');
+    expect(net.errors).toEqual([]);
+  });
+
+  test('no "sound naturally human" / "Natural Human Text" wording left on the homepage, About or the QuillBot-alternative page', async ({ page }) => {
+    for (const f of ['index.html', 'about.html', 'quillbot-alternative.html']) {
+      const html = fs.readFileSync(path.join(ROOT, f), 'utf8');
+      expect(html, f).not.toMatch(/naturally human|Natural Human Text|human-sounding|Undetectable\.ai|HIX Bypass/i);
+    }
+    await setup(page);
+    await open(page);
+    await expect(page.locator('#tab-humanize')).toHaveAttribute('title', 'Free AI Humanizer — Make ChatGPT and AI text read more naturally');
+    await expect(page.locator('#tab-humanize')).toHaveAttribute('aria-label', 'Free AI Humanizer - Make AI Text Read More Naturally');
+    const ld = await page.evaluate(() => [...document.querySelectorAll('script[type="application/ld+json"]')].map((s) => s.textContent).join(' '));
+    expect(ld).not.toMatch(/naturally human|Natural Human|human-sounding/i);
+    expect(ld).toContain('AI Humanizer - Make AI Text Read More Naturally');
+  });
+});
