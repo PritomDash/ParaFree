@@ -51,8 +51,8 @@
   "@type": "FAQPage",
   "mainEntity": [
     {"@type": "Question", "name": "What do I get?", "acceptedAnswer": {"@type": "Answer", "text": "Key-point notes, flashcards and a multiple-choice quiz with explanations, all made in one step from the material you give it. You can switch between the three tabs without waiting for anything new."}},
-    {"@type": "Question", "name": "Which files can I use?", "acceptedAnswer": {"@type": "Answer", "text": "You can paste text, or upload a PDF, Word (.docx) or PowerPoint (.pptx) file. The text is read in your browser. You can also use a YouTube link, or an audio or video recording of a lecture."}},
-    {"@type": "Question", "name": "Why does it say it couldn't read a YouTube video's captions?", "acceptedAnswer": {"@type": "Answer", "text": "YouTube often blocks other websites from reading captions directly. When that happens you can paste the transcript (on YouTube, open the description and choose Show transcript), or let the AI work from the video link instead."}},
+    {"@type": "Question", "name": "Which files can I use?", "acceptedAnswer": {"@type": "Answer", "text": "You can paste text, or upload a PDF, Word (.docx) or PowerPoint (.pptx) file. The text is read in your browser. You can also paste a YouTube video’s transcript, or upload an audio or video recording of a lecture."}},
+    {"@type": "Question", "name": "How do I use a YouTube video?", "acceptedAnswer": {"@type": "Answer", "text": "Paste its transcript: on the YouTube video, click the ⋯ (More) → Show transcript, copy the text, and paste it into the YouTube tab. This works for any video that has captions. With only a link, we try to read the captions from your browser first, but YouTube usually blocks this. There is also an experimental option where the AI works from the video link; it may not work for all videos or when the AI is busy, and it uses one of the day’s audio/video packs."}},
     {"@type": "Question", "name": "Is my material stored?", "acceptedAnswer": {"@type": "Answer", "text": "No. Text is sent to an AI provider to write your flashcards, quiz and notes, and is not saved by ParaFree. Audio and video are sent to our AI provider to be transcribed, and your flashcards, quiz and notes are made from the transcript; ParaFree does not save the recording or the transcript. If the backup route is used, the file is uploaded to the AI provider so it can listen to it, then deleted once your pack is made."}},
     {"@type": "Question", "name": "Can I trust the answers?", "acceptedAnswer": {"@type": "Answer", "text": "The AI is told to use only what is in your material, but it can still make mistakes. Check anything important against your notes or textbook before an exam."}}
   ]
@@ -96,6 +96,13 @@
 .sp-help{margin-top:12px;background:#fff8ec;border:1px solid #f3d9a8;border-radius:12px;padding:14px 16px;font-size:14px;line-height:1.6;color:#5c3d0a}
 .sp-help ol{margin:8px 0 10px 18px;padding:0}
 .sp-help .sp-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.sp-yt-how{background:#eef7f1;border:1px solid #b7e4c7;border-radius:12px;padding:12px 14px;margin:0 0 14px;font-size:14px;line-height:1.6;color:var(--text)}
+.sp-yt-how p{margin:4px 0 0}
+.sp-yt-ai{margin-top:14px;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
+.sp-yt-ai .sp-btn{border-style:dashed;font-weight:500;text-align:left}
+.sp-yt-ai .sp-note{margin:0}
+.sp-yt-ai[hidden]{display:none}
+.sp-yt-flash{animation:spFlash 1.2s ease 2}@keyframes spFlash{50%{box-shadow:0 0 0 4px #b7e4c7}}
 .sp-btn{background:#fff;border:1.5px solid var(--accent);color:var(--accent);border-radius:10px;padding:8px 14px;font:600 13px 'DM Sans',sans-serif;cursor:pointer}
 .sp-btn.pri{background:var(--accent);color:#fff}
 #spOut{margin-top:20px}
@@ -181,9 +188,19 @@
         <p class="sp-note">The text is read in your browser; only the text (trimmed to the key sentences) is sent to the AI. Scanned PDFs need <a href="/pdf-to-word.html">PDF to Word with OCR</a> first.</p>
       </div>
       <div id="spIn-youtube" hidden>
-        <label for="spYtUrl" class="pf-note" style="display:block;margin:0 0 8px;">YouTube video link:</label>
+        <div class="sp-yt-how">
+          <strong>Paste the video’s transcript</strong> — free, and works for any video that has captions.
+          <p id="spYtHow">On the YouTube video, click the ⋯ (More) → Show transcript, copy the text, and paste it here.</p>
+        </div>
+        <label for="spYtText" class="pf-note" style="display:block;margin:0 0 8px;">Transcript:</label>
+        <textarea id="spYtText" placeholder="Paste the transcript here…"></textarea>
+        <label for="spYtUrl" class="pf-note" style="display:block;margin:14px 0 8px;">Video link (optional):</label>
         <input type="url" id="spYtUrl" placeholder="https://www.youtube.com/watch?v=…">
-        <p class="sp-note">We try to read the video’s captions from your browser. YouTube often blocks this — if so, you’ll get two easy alternatives.</p>
+        <p class="sp-note">With only a link, we first try to read the captions from your browser. YouTube usually blocks this — if it does, paste the transcript above.</p>
+        <div class="sp-yt-ai" id="spYtAiBox" hidden>
+          <button type="button" class="sp-btn" id="spYtAi">Try AI on the video (experimental — may not work for all videos or when AI is busy)</button>
+          <span id="spYtAiNote" class="sp-note"></span>
+        </div>
       </div>
       <div id="spIn-media" hidden>
         <label class="sp-pick" id="spMediaPick"><input type="file" id="spMedia" accept="audio/*,video/*">🎧 Choose an audio or video recording</label>
@@ -192,18 +209,6 @@
         <p id="spBigNote" class="sp-help" hidden role="status">Large non-MP3 files are processed in your browser and need a lot of memory — this works best on desktop, or convert to MP3 first.</p>
       </div>
 
-      <div id="spYtHelp" class="sp-help" hidden role="status">
-        <strong>We couldn’t read this video’s captions from your browser.</strong> YouTube often blocks other websites from reading them, or the video has none. You can:
-        <ol>
-          <li>Paste the transcript: on YouTube, open the video description, choose <em>Show transcript</em>, select it all and copy it.</li>
-          <li>Or let the AI work from the video link.</li>
-        </ol>
-        <div class="sp-row">
-          <button type="button" class="sp-btn" id="spYtPaste">Paste the transcript</button>
-          <button type="button" class="sp-btn pri" id="spYtAi">Use AI on the video</button>
-          <button type="button" class="sp-btn" id="spYtMedia">Upload the audio instead</button>
-          <span id="spYtAiNote" class="sp-note" style="margin:0"></span>
-        </div>
       </div>
       <p id="spStatus" class="sp-status" hidden role="status" aria-live="polite"></p>
       <div id="spProgress" hidden><div><span></span></div><p id="spProgressLabel"></p></div>
@@ -253,8 +258,8 @@
   <section class="faq" id="faq">
     <h2>Frequently asked questions</h2>
     <div class="faq-item"><p class="faq-q">What do I get?</p><p class="faq-a">Key-point notes, flashcards and a multiple-choice quiz with explanations, all made in one step from the material you give it. You can switch between the three tabs without waiting for anything new.</p></div>
-    <div class="faq-item"><p class="faq-q">Which files can I use?</p><p class="faq-a">You can paste text, or upload a PDF, Word (.docx) or PowerPoint (.pptx) file. The text is read in your browser. You can also use a YouTube link, or an audio or video recording of a lecture.</p></div>
-    <div class="faq-item"><p class="faq-q">Why does it say it couldn't read a YouTube video's captions?</p><p class="faq-a">YouTube often blocks other websites from reading captions directly. When that happens you can paste the transcript (on YouTube, open the description and choose Show transcript), or let the AI work from the video link instead.</p></div>
+    <div class="faq-item"><p class="faq-q">Which files can I use?</p><p class="faq-a">You can paste text, or upload a PDF, Word (.docx) or PowerPoint (.pptx) file. The text is read in your browser. You can also paste a YouTube video’s transcript, or upload an audio or video recording of a lecture.</p></div>
+    <div class="faq-item"><p class="faq-q">How do I use a YouTube video?</p><p class="faq-a">Paste its transcript: on the YouTube video, click the ⋯ (More) → Show transcript, copy the text, and paste it into the YouTube tab. This works for any video that has captions. With only a link, we try to read the captions from your browser first, but YouTube usually blocks this. There is also an experimental option where the AI works from the video link; it may not work for all videos or when the AI is busy, and it uses one of the day’s audio/video packs.</p></div>
     <div class="faq-item"><p class="faq-q">Is my material stored?</p><p class="faq-a">No. Text is sent to an AI provider to write your flashcards, quiz and notes, and is not saved by ParaFree. Audio and video are sent to our AI provider to be transcribed, and your flashcards, quiz and notes are made from the transcript; ParaFree does not save the recording or the transcript. If the backup route is used, the file is uploaded to the AI provider so it can listen to it, then deleted once your pack is made.</p></div>
     <div class="faq-item"><p class="faq-q">Can I trust the answers?</p><p class="faq-a">The AI is told to use only what is in your material, but it can still make mistakes. Check anything important against your notes or textbook before an exam.</p></div>
   </section>

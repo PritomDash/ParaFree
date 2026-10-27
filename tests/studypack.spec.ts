@@ -1,6 +1,6 @@
 // AI Flashcard, Quiz & Notes Maker page (flashcard-quiz-maker.html; internal name "studypack"): every input type routes to the right path and ends in ONE AI call;
 // the three tabs (Notes / Flashcards / Quiz) come from that one answer; YouTube without captions offers paste /
-// AI-on-the-video (and a clear message when the AI can't watch it); audio goes to Groq Whisper first — split into
+// YouTube: paste-the-transcript first (captions tried silently), experimental AI-on-the-video that falls back to it; audio goes to Groq Whisper first — split into
 // pieces in the browser (MP3 at frame boundaries, other formats re-encoded as 16 kHz mono WAV), one request per
 // piece, then one pack call — with Gemini (chunked upload + processing poll) only when Whisper is unavailable;
 // the length limit / "too long" messages, the audio switch and the daily cap; error answers never render a partial
@@ -186,11 +186,48 @@ test.describe('text inputs → TextRank → ONE call', () => {
 
 // ─────────────────────────────────────────────────────────────
 test.describe('YouTube', () => {
-  test('captions readable in the browser → text path (inputType youtube), no server video job', async ({ page }) => {
-    const caption = JSON.stringify({ events: LONG.split('. ').map((s) => ({ segs: [{ utf8: s + '. ' }] })) });
+  const HOWTO = 'On the YouTube video, click the ⋯ (More) → Show transcript, copy the text, and paste it here.';
+  const ytTab = async (page: Page) => { await page.locator('.sp-in[data-input="youtube"]').click(); await expect(page.locator('#spIn-youtube')).toBeVisible(); };
+  // YouTube's "Show transcript" copy: a timestamp line before each caption line
+  const COPIED = LONG.split('. ').map((t, i) => `${Math.floor(i / 6)}:${String((i * 10) % 60).padStart(2, '0')}\n${t}.`).join('\n');
+
+  test('default: paste the transcript — instructions shown first, the transcript box comes before the optional link; one text call, timestamps removed', async ({ page }) => {
+    const net = await setup(page);
+    await open(page);
+    await ytTab(page);
+    await expect(page.locator('#spYtHow')).toHaveText(HOWTO);
+    await expect(page.locator('.sp-yt-how')).toContainText('Paste the video’s transcript');
+    const order = await page.locator('#spIn-youtube').evaluate((el) => ['#spYtHow', '#spYtText', '#spYtUrl', '#spYtAi'].map((q) => [...el.querySelectorAll('*')].indexOf(el.querySelector(q)!)));
+    expect(order).toEqual([...order].sort((x, y) => x - y));                    // instructions → transcript box → link → AI button
+    await expect(page.locator('label[for="spYtUrl"]')).toHaveText('Video link (optional):');
+    await page.locator('#spYtText').fill(COPIED);
+    await page.locator('#spGo').click();
+    await expectPack(page);
+    const c = packCalls(net.calls);
+    expect(c.map((x) => [x.type, x.inputType])).toEqual([['studypack', 'youtube']]);   // the normal text chain — no Gemini video job
+    expect(c[0].text).toContain('Calvin cycle');
+    expect(c[0].text).not.toMatch(/^\s*\d{1,2}:\d{2}\s*$/m);                      // timestamp lines removed
+    expect(net.yt).toEqual([]);                                                   // a pasted transcript needs no caption fetch
+    expect(net.errors).toEqual([]);
+  });
+
+  test('the AI-on-the-video button is secondary and labelled experimental', async ({ page }) => {
+    await setup(page);
+    await open(page);
+    await ytTab(page);
+    const ai = page.locator('#spYtAi');
+    await expect(ai).toBeVisible();
+    await expect(ai).toHaveText('Try AI on the video (experimental — may not work for all videos or when AI is busy)');
+    await expect(ai).not.toHaveClass(/\bpri\b/);                                  // not styled as the main action
+    await expect(page.locator('#spYtAiNote')).toHaveText('Optional. Uses one of today’s 5 audio/video packs.');
+    await expect(page.locator('#spGo')).toBeVisible();                            // the main button stays the paste route
+  });
+
+  test('link only, captions readable in the browser → text path (inputType youtube), no server video job', async ({ page }) => {
+    const caption = JSON.stringify({ events: LONG.split('. ').map((t) => ({ segs: [{ utf8: t + '. ' }] })) });
     const net = await setup(page, { youtube: (u) => (/lang=en&fmt=json3/.test(u) ? caption : '') });
     await open(page);
-    await page.locator('.sp-in[data-input="youtube"]').click();
+    await ytTab(page);
     await page.locator('#spYtUrl').fill('https://youtu.be/dQw4w9WgXcQ');
     await page.locator('#spGo').click();
     await expectPack(page);
@@ -202,46 +239,98 @@ test.describe('YouTube', () => {
     expect(net.errors).toEqual([]);
   });
 
-  test('no captions → clear message with paste / AI-on-the-video / upload; "Use AI on the video" makes one call', async ({ page }) => {
+  test('link only, no captions → the paste instructions (not an error), nothing sent; then pasting works', async ({ page }) => {
     const net = await setup(page);                                              // every caption request comes back empty
     await open(page);
-    await page.locator('.sp-in[data-input="youtube"]').click();
+    await ytTab(page);
     await page.locator('#spYtUrl').fill('https://www.youtube.com/watch?v=jNQXAC9IVRw');
     await page.locator('#spGo').click();
-    await expect(page.locator('#spYtHelp')).toBeVisible();
-    await expect(page.locator('#spYtHelp')).toContainText('We couldn’t read this video’s captions from your browser.');
-    await expect(page.locator('#spYtAiNote')).toHaveText('Uses one of today’s 5 audio/video packs.');
-    expect(net.yt.length).toBe(4);                                              // en, en-US, en-GB, auto-captions
-    expect(packCalls(net.calls)).toEqual([]);                                   // nothing sent yet
-    await page.locator('#spYtAi').click();
-    await expectPack(page);
-    expect(packCalls(net.calls)).toEqual([{ type: 'studypack_youtube', url: 'https://www.youtube.com/watch?v=jNQXAC9IVRw', mode: 'standard' }]);
-    // "Paste the transcript" goes to the paste box
+    await expect(page.locator('#spStatus')).toHaveText('We couldn’t read this video’s captions automatically — paste its transcript instead. ' + HOWTO);
+    await expect(page.locator('#spStatus')).toHaveClass(/sp-info/);
+    await expect(page.locator('#spStatus')).not.toHaveClass(/sp-error/);
+    await expect(page.locator('#spYtText')).toBeFocused();
+    expect(net.yt.length).toBe(4);                                              // en, en-US, en-GB, auto-captions — tried silently
+    expect(packCalls(net.calls)).toEqual([]);
+    await page.locator('#spYtText').fill(LONG);
     await page.locator('#spGo').click();
-    await expect(page.locator('#spYtHelp')).toBeVisible();
-    await page.locator('#spYtPaste').click();
-    await expect(page.locator('#spIn-paste')).toBeVisible();
-    await expect(page.locator('#spText')).toBeFocused();
+    await expectPack(page);
+    expect(packCalls(net.calls).map((x) => x.type)).toEqual(['studypack']);
     expect(net.errors).toEqual([]);
   });
 
-  test('"Use AI on the video" when no Gemini model can watch it → the server’s clear message, no pack', async ({ page }) => {
-    const net = await setup(page, { api: (b) => b.type === 'studypack_youtube'
-      ? { status: 503, body: { success: false, error: 'ai_unavailable', message: 'The AI can’t watch YouTube videos right now. Paste the transcript instead, or upload the audio.' } } : undefined });
+  test('nothing entered → points to the paste instructions, no requests', async ({ page }) => {
+    const net = await setup(page);
     await open(page);
-    await page.locator('.sp-in[data-input="youtube"]').click();
-    await page.locator('#spYtUrl').fill('https://youtu.be/dQw4w9WgXcQ');
+    await ytTab(page);
     await page.locator('#spGo').click();
+    await expect(page.locator('#spStatus')).toHaveText('Paste the video’s transcript first. ' + HOWTO);
+    await expect(page.locator('#spStatus')).toHaveClass(/sp-info/);
+    expect(net.yt).toEqual([]);
+    expect(packCalls(net.calls)).toEqual([]);
+  });
+
+  test('AI on the video succeeds → ONE studypack_youtube call → pack', async ({ page }) => {
+    const net = await setup(page);
+    await open(page);
+    await ytTab(page);
+    await page.locator('#spYtUrl').fill('https://www.youtube.com/watch?v=jNQXAC9IVRw');
     await page.locator('#spYtAi').click();
-    await expect(page.locator('#spStatus')).toHaveText('The AI can’t watch YouTube videos right now. Paste the transcript instead, or upload the audio.');
-    await expect(page.locator('#spOut')).toBeHidden();
+    await expectPack(page);
+    expect(packCalls(net.calls)).toEqual([{ type: 'studypack_youtube', url: 'https://www.youtube.com/watch?v=jNQXAC9IVRw', mode: 'standard' }]);
+    expect(net.yt).toEqual([]);
+    expect(net.errors).toEqual([]);
+  });
+
+  test('AI on the video fails (any reason) → the paste instructions, never a dead error', async ({ page }) => {
+    const failures: Reply[] = [
+      { status: 503, body: { success: false, error: 'ai_unavailable', message: 'The AI can’t watch YouTube videos right now. Paste the transcript instead, or upload the audio.' } },
+      { status: 502, body: { success: false, error: 'invalid_output', message: 'The AI answer could not be turned into flashcards, a quiz and notes. Please try again.' } },
+      { status: 500, body: {} },
+    ];
+    let n = 0;
+    const net = await setup(page, { api: (b) => (b.type === 'studypack_youtube' ? failures[n++] : undefined) });
+    await open(page);
+    await ytTab(page);
+    await page.locator('#spYtUrl').fill('https://youtu.be/dQw4w9WgXcQ');
+    for (let i = 0; i < failures.length; i++) {
+      await page.locator('#spYtAi').click();
+      await expect(page.locator('#spStatus')).toHaveText('The AI couldn’t read this video right now. ' + HOWTO);
+      await expect(page.locator('#spStatus')).toHaveClass(/sp-info/);
+      await expect(page.locator('#spStatus')).not.toHaveClass(/sp-error/);
+      await expect(page.locator('#spYtText')).toBeFocused();
+      await expect(page.locator('#spOut')).toBeHidden();
+      await expect(page.locator('#spGo')).toBeEnabled();
+    }
+    expect(packCalls(net.calls).map((x) => x.type)).toEqual(['studypack_youtube', 'studypack_youtube', 'studypack_youtube']);
+    expect(net.errors).toEqual([]);
+  });
+
+  test('AI on the video at the daily cap → the cap message plus the paste instructions', async ({ page }) => {
+    const net = await setup(page, { api: (b) => (b.type === 'studypack_youtube'
+      ? { status: 429, body: { success: false, error: 'audio_cap', message: 'You’ve used today’s 5 audio/video packs. Paste text or a transcript instead, or come back tomorrow.' } } : undefined) });
+    await open(page);
+    await ytTab(page);
+    await page.locator('#spYtUrl').fill('https://youtu.be/dQw4w9WgXcQ');
+    await page.locator('#spYtAi').click();
+    await expect(page.locator('#spStatus')).toHaveText('You’ve used today’s 5 audio/video packs. Paste text or a transcript instead, or come back tomorrow. ' + HOWTO);
+    await expect(page.locator('#spStatus')).toHaveClass(/sp-info/);
     expect(packCalls(net.calls).map((x) => x.type)).toEqual(['studypack_youtube']);
   });
 
-  test('not a YouTube link → message, no requests', async ({ page }) => {
+  test('AI on the video without a link → asks for the link, no request', async ({ page }) => {
     const net = await setup(page);
     await open(page);
-    await page.locator('.sp-in[data-input="youtube"]').click();
+    await ytTab(page);
+    await page.locator('#spYtAi').click();
+    await expect(page.locator('#spStatus')).toHaveText('Add the video link above to try this.');
+    await expect(page.locator('#spYtUrl')).toBeFocused();
+    expect(packCalls(net.calls)).toEqual([]);
+  });
+
+  test('not a YouTube link (and no transcript) → message, no requests', async ({ page }) => {
+    const net = await setup(page);
+    await open(page);
+    await ytTab(page);
     await page.locator('#spYtUrl').fill('https://vimeo.com/123');
     await page.locator('#spGo').click();
     await expect(page.locator('#spStatus')).toContainText('Paste a YouTube video link');
@@ -411,9 +500,7 @@ test.describe('audio / video', () => {
     await page.locator('#spGo').click();
     await expect(page.locator('#spStatus')).toContainText('Choose an audio or video file first.');
     await page.locator('.sp-in[data-input="youtube"]').click();
-    await page.locator('#spYtUrl').fill('https://youtu.be/dQw4w9WgXcQ');
-    await page.locator('#spGo').click();
-    await expect(page.locator('#spYtHelp')).toBeVisible();
+    await expect(page.locator('#spYtHow')).toBeVisible();                       // the paste route still works
     await expect(page.locator('#spYtAi')).toBeHidden();
     expect(packCalls(net.calls)).toEqual([]);
   });
@@ -497,11 +584,6 @@ test.describe('errors and pages', () => {
       await page.setViewportSize({ width: w, height: 800 });
       expect(await look(), 'width ' + w).toEqual({ label, lines: 1, overflow: false });
     }
-    await page.locator('.sp-in[data-input="youtube"]').click();
-    await page.locator('#spYtUrl').fill('https://youtu.be/dQw4w9WgXcQ');
-    await page.locator('#spGo').click();
-    await page.locator('#spYtPaste').click();
-    await expect(page.locator('#spStatus')).toHaveText('Paste the transcript here, then select “Make my flashcards & quiz”.');
     expect(net.errors).toEqual([]);
   });
 
