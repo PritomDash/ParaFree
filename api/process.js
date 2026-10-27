@@ -1367,7 +1367,7 @@ async function runChain(text, prompt, type, opts = {}) {
   const chatOffset = requestCounter;
   requestCounter = (requestCounter + 1) % 100000;
   candidates = orderChain(candidates, chatOffset);
-  // Study Pack: Gemini first (it also does the audio jobs), then the rest of the chain in its usual order
+  // Study Pack: Gemini first, then the rest of the chain in its usual order (a capped Gemini model is skipped by its cooldown)
   if (type === "studypack") candidates = [...candidates.filter(c => c.name.startsWith("gemini")), ...candidates.filter(c => !c.name.startsWith("gemini"))];
   console.log(`[ParaFree] Chain (${isCVExtract ? 'CV' : 'AI'}): ${candidates.map(c => c.name).join(' → ') || 'EMPTY'}`);
 
@@ -1764,6 +1764,8 @@ module.exports = async function handler(req, res) {
           return { allowed: rate.allowed, message: rate.allowed ? "" : "Too many requests — please wait a little and try again." };
         },
         runText: (t, p, accept) => runChain(t, p, "studypack", { accept }),
+        // Whisper keys and Gemini media models share the chain's cooldowns ("groq-2/whisper-large-v3-turbo", "gemini/<model>")
+        cooldown: { isCooling: isCoolingDown, start: (n, msg) => startCooldown(n, msg), detail: errDetail },
       });
       return res.status(r.status).json(r.body);
     }

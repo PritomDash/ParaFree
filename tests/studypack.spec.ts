@@ -1,7 +1,10 @@
 // Study Pack page (studypack.html): every input type routes to the right path and ends in ONE study-pack call;
 // the three tabs (Notes / Flashcards / Quiz) come from that one answer; YouTube without captions offers paste /
-// AI-on-the-video; audio uploads in chunks then generates (with the processing poll), the Whisper fallback, the
-// audio switch and the daily cap; error answers never render a partial pack. Homepage card + nav link.
+// AI-on-the-video (and a clear message when the AI can't watch it); audio goes to Groq Whisper first — split into
+// pieces in the browser (MP3 at frame boundaries, other formats re-encoded as 16 kHz mono WAV), one request per
+// piece, then one pack call — with Gemini (chunked upload + processing poll) only when Whisper is unavailable;
+// the length limit / "too long" messages, the audio switch and the daily cap; error answers never render a partial
+// pack. Homepage card + nav link.
 // Pages are served from THIS checkout; /api/process and YouTube are MOCKED (never live); GA, ads, fonts and images
 // are BLOCKED; CDN libraries are cached on disk. Run: npx playwright test tests/studypack.spec.ts --workers=1
 import { test, expect, Page, Route } from '@playwright/test';
@@ -27,7 +30,7 @@ const PACK = {
     { question: 'What does the Calvin cycle fix?', options: ['O2', 'CO2', 'N2', 'H2O'], answer_index: 1, explanation: 'It fixes carbon dioxide.' },
   ],
 };
-const CONFIG = { enabled: true, cap: 5, maxBytes: 50 * 1048576, chunkBytes: 2359296, whisperMaxBytes: 3 * 1048576, gemini: true, whisper: true };
+const CONFIG = { enabled: true, cap: 5, maxBytes: 50 * 1048576, maxSeconds: 3600, chunkBytes: 2359296, pieceBytes: 3 * 1048576, pieceSeconds: 90, gemini: true, whisper: true };
 type Reply = { status?: number; body: any };
 type Api = (body: any, calls: any[]) => Reply | undefined;
 
@@ -218,6 +221,19 @@ test.describe('YouTube', () => {
     expect(net.errors).toEqual([]);
   });
 
+  test('"Use AI on the video" when no Gemini model can watch it → the server’s clear message, no pack', async ({ page }) => {
+    const net = await setup(page, { api: (b) => b.type === 'studypack_youtube'
+      ? { status: 503, body: { success: false, error: 'ai_unavailable', message: 'The AI can’t watch YouTube videos right now. Paste the transcript instead, or upload the audio.' } } : undefined });
+    await open(page);
+    await page.locator('.sp-in[data-input="youtube"]').click();
+    await page.locator('#spYtUrl').fill('https://youtu.be/dQw4w9WgXcQ');
+    await page.locator('#spGo').click();
+    await page.locator('#spYtAi').click();
+    await expect(page.locator('#spStatus')).toHaveText('The AI can’t watch YouTube videos right now. Paste the transcript instead, or upload the audio.');
+    await expect(page.locator('#spOut')).toBeHidden();
+    expect(packCalls(net.calls).map((x) => x.type)).toEqual(['studypack_youtube']);
+  });
+
   test('not a YouTube link → message, no requests', async ({ page }) => {
     const net = await setup(page);
     await open(page);
@@ -233,52 +249,150 @@ test.describe('YouTube', () => {
 // ─────────────────────────────────────────────────────────────
 test.describe('audio / video', () => {
   const audioFile = (bytes: number) => ({ name: 'lecture.mp3', mimeType: 'audio/mpeg', buffer: Buffer.alloc(bytes, 7) });
+  // MP3-like stream: a frame header (FF FB 90 64) every 417 bytes, as in 128 kbps / 44.1 kHz MPEG-1 Layer III
+  const mp3File = (bytes: number) => {
+    const b = Buffer.alloc(bytes, 0x11);
+    for (let o = 0; o + 4 <= bytes; o += 417) b.set([0xFF, 0xFB, 0x90, 0x64], o);
+    return { name: 'lecture.mp3', mimeType: 'audio/mpeg', buffer: b };
+  };
+  // a real WAV (8 kHz mono 16-bit tone) that the browser can decode
+  const wavFile = (seconds: number) => {
+    const n = 8000 * seconds, b = Buffer.alloc(44 + n * 2);
+    b.write('RIFF', 0); b.writeUInt32LE(36 + n * 2, 4); b.write('WAVEfmt ', 8); b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22);
+    b.writeUInt32LE(8000, 24); b.writeUInt32LE(16000, 28); b.writeUInt16LE(2, 32); b.writeUInt16LE(16, 34); b.write('data', 36); b.writeUInt32LE(n * 2, 40);
+    for (let i = 0; i < n; i++) b.writeInt16LE(Math.round(8000 * Math.sin(i / 4)), 44 + i * 2);
+    return { name: 'lecture.wav', mimeType: 'audio/wav', buffer: b };
+  };
+  // the Whisper route, answered like the server: one sealed piece per request, then the pack
+  const whisperApi = (extra?: Api): Api => (b, calls) => {
+    const x = extra && extra(b, calls);
+    if (x) return x;
+    if (b.type === 'studypack_audio_start') return { body: { success: true, route: 'whisper', job: 'J-1', pieces: b.pieces, remaining: 4 } };
+    if (b.type === 'studypack_audio_piece') return { body: { success: true, piece: 'S' + b.index, index: b.index } };
+    if (b.type === 'studypack_audio_pack') return { body: { success: true, pack: PACK, via: 'whisper' } };
+  };
+  const pick = async (page: Page, file: any) => {
+    await page.locator('.sp-in[data-input="media"]').click();
+    await page.locator('#spMedia').setInputFiles(file);
+    await page.locator('#spGo').click();
+  };
 
-  test('upload in chunks → processing poll → ONE generate call → pack', async ({ page }) => {
-    let polls = 0;
-    const net = await setup(page, { api: (b) => {
-      if (b.type === 'studypack_audio_start') return { body: { success: true, token: 'T-upload', chunkBytes: 1024, remaining: 4 } };
-      if (b.type === 'studypack_audio_chunk') return { body: b.offset + 1024 >= 3000 ? { success: true, done: true, token: 'T-file' } : { success: true, next: b.offset + 1024 } };
-      if (b.type === 'studypack_audio_generate') return ++polls === 1 ? { status: 202, body: { success: false, processing: true } } : { body: { success: true, pack: PACK } };
-    } });
+  test('Whisper first: a small file is ONE piece as it is → sealed piece → ONE pack call; nothing goes to Gemini', async ({ page }) => {
+    const net = await setup(page, { api: whisperApi() });
     await open(page);
     await page.locator('.sp-in[data-input="media"]').click();
-    await expect(page.locator('#spMediaNote')).toContainText('Up to 50 MB · 5 audio/video study packs per day.');
-    await page.locator('#spMedia').setInputFiles(audioFile(3000));
-    await page.locator('#spGo').click();
+    await expect(page.locator('#spMediaNote')).toContainText('Up to 50 MB and 60 minutes · 5 audio/video study packs per day. The recording is sent to our AI provider to be transcribed');
+    await pick(page, audioFile(3000));
     await expectPack(page);
     const c = packCalls(net.calls);
-    expect(c.map((x) => x.type + (x.offset !== undefined ? '@' + x.offset : ''))).toEqual([
-      'studypack_audio_start', 'studypack_audio_chunk@0', 'studypack_audio_chunk@1024', 'studypack_audio_chunk@2048', 'studypack_audio_generate', 'studypack_audio_generate']);
-    expect(c[0]).toEqual({ type: 'studypack_audio_start', mime: 'audio/mpeg', size: 3000, name: 'lecture.mp3', mode: 'standard' });
-    expect(Buffer.from(c[1].data, 'base64').length).toBe(1024);
-    expect(Buffer.from(c[3].data, 'base64').length).toBe(3000 - 2048);
-    expect(c[4].token).toBe('T-file');
+    expect(c.map((x) => x.type)).toEqual(['studypack_audio_start', 'studypack_audio_piece', 'studypack_audio_pack']);
+    expect(c[0]).toEqual({ type: 'studypack_audio_start', pieces: 1, split: true, mime: 'audio/mpeg', size: 3000, name: 'lecture.mp3', seconds: 0, mode: 'standard' });
+    expect(c[1]).toMatchObject({ job: 'J-1', index: 0, mime: 'audio/mpeg', name: 'lecture.mp3' });
+    expect(Buffer.from(c[1].data, 'base64').length).toBe(3000);
+    expect(c[2]).toEqual({ type: 'studypack_audio_pack', job: 'J-1', pieces: ['S0'], mode: 'standard' });
     expect(net.errors).toEqual([]);
   });
 
-  test('audio service unavailable + small file → Whisper fallback (one call with the whole file)', async ({ page }) => {
+  test('chunked transcription: a long MP3 is cut at frame boundaries, pieces go one by one, then ONE pack call', async ({ page }) => {
+    const net = await setup(page, { api: whisperApi(), config: Object.assign({}, CONFIG, { pieceBytes: 40000 }) });
+    await open(page);
+    const f = mp3File(100000);
+    await pick(page, f);
+    await expectPack(page);
+    const c = packCalls(net.calls), pieces = c.filter((x) => x.type === 'studypack_audio_piece');
+    expect(c[0]).toMatchObject({ type: 'studypack_audio_start', pieces: pieces.length, split: true, size: 100000 });
+    expect(pieces.length).toBeGreaterThanOrEqual(5);                            // 40000 − 16 KiB margin per piece
+    expect(pieces.map((p) => p.index)).toEqual(pieces.map((_, i) => i));
+    const bufs = pieces.map((p) => Buffer.from(p.data, 'base64'));
+    expect(Buffer.concat(bufs).equals(f.buffer)).toBe(true);                    // nothing lost or repeated
+    bufs.forEach((b, i) => {
+      expect(b.length).toBeLessThanOrEqual(40000 - 16384);
+      if (i > 0) expect([b[0], b[1]]).toEqual([0xFF, 0xFB]);                    // every later piece starts on a frame header
+    });
+    expect(pieces.map((p) => p.name)).toEqual(pieces.map((_, i) => `part-${i + 1}.mp3`));
+    expect(c[c.length - 1]).toEqual({ type: 'studypack_audio_pack', job: 'J-1', pieces: pieces.map((_, i) => 'S' + i), mode: 'standard' });
+    expect(net.errors).toEqual([]);
+  });
+
+  test('chunked transcription: other formats are decoded and re-encoded as 16 kHz mono WAV pieces', async ({ page }) => {
+    const net = await setup(page, { api: whisperApi(), config: Object.assign({}, CONFIG, { pieceBytes: 400000 }) });
+    await open(page);
+    await pick(page, wavFile(25));
+    await expectPack(page);
+    const c = packCalls(net.calls), pieces = c.filter((x) => x.type === 'studypack_audio_piece');
+    expect(c[0]).toMatchObject({ type: 'studypack_audio_start', pieces: 3, split: true, seconds: 25 });
+    expect(pieces.map((p) => [p.name, p.mime])).toEqual([['part-1.wav', 'audio/wav'], ['part-2.wav', 'audio/wav'], ['part-3.wav', 'audio/wav']]);
+    const bufs = pieces.map((p) => Buffer.from(p.data, 'base64'));
+    bufs.forEach((b) => {
+      expect(b.toString('latin1', 0, 4)).toBe('RIFF');
+      expect(b.readUInt16LE(22)).toBe(1);                                       // mono
+      expect(b.readUInt32LE(24)).toBe(16000);                                   // 16 kHz
+      expect(b.length).toBeLessThanOrEqual(400000);
+    });
+    expect(bufs.map((b) => (b.length - 44) / 32000)).toEqual([12, 12, 1]);      // seconds per piece
+    expect(net.errors).toEqual([]);
+  });
+
+  test('recording longer than the limit → "too long, try a shorter clip" before anything is sent', async ({ page }) => {
+    const net = await setup(page, { api: whisperApi(), config: Object.assign({}, CONFIG, { maxSeconds: 120 }) });
+    await open(page);
+    await pick(page, wavFile(130));
+    await expect(page.locator('#spStatus')).toHaveText('This recording is too long — try a shorter clip (up to 2 minutes).');
+    await expect(page.locator('#spOut')).toBeHidden();
+    expect(packCalls(net.calls)).toEqual([]);
+  });
+
+  test('transcription runs out of time on the server → its "too long" message, no pack call, no partial pack', async ({ page }) => {
+    const net = await setup(page, { api: whisperApi((b) => b.type === 'studypack_audio_piece' && b.index === 1
+      ? { status: 504, body: { success: false, error: 'too_long', message: 'This recording took too long to transcribe — try a shorter clip.' } } : undefined),
+    config: Object.assign({}, CONFIG, { pieceBytes: 40000 }) });
+    await open(page);
+    await pick(page, mp3File(100000));
+    await expect(page.locator('#spStatus')).toHaveText('This recording took too long to transcribe — try a shorter clip.');
+    await expect(page.locator('#spOut')).toBeHidden();
+    expect(packCalls(net.calls).map((x) => x.type)).toEqual(['studypack_audio_start', 'studypack_audio_piece', 'studypack_audio_piece']);
+  });
+
+  test('Whisper unavailable mid-job → Gemini (secondary) gets the file, keeping the same job: chunks → poll → pack', async ({ page }) => {
+    let polls = 0;
     const net = await setup(page, { api: (b) => {
-      if (b.type === 'studypack_audio_start') return { status: 503, body: { success: false, error: 'ai_unavailable', message: 'busy' } };
-      if (b.type === 'studypack_audio_whisper') return { body: { success: true, pack: PACK, via: 'whisper' } };
+      if (b.type === 'studypack_audio_start') return { body: b.job ? { success: true, route: 'gemini', token: 'T-upload', chunkBytes: 1024 } : { success: true, route: 'whisper', job: 'J-1', pieces: b.pieces } };
+      if (b.type === 'studypack_audio_piece') return { status: 503, body: { success: false, error: 'whisper_unavailable', message: 'busy' } };
+      if (b.type === 'studypack_audio_chunk') return { body: b.offset + 1024 >= 3000 ? { success: true, done: true, token: 'T-file' } : { success: true, next: b.offset + 1024 } };
+      if (b.type === 'studypack_audio_generate') return ++polls === 1 ? { status: 202, body: { success: false, processing: true } } : { body: { success: true, pack: PACK, via: 'gemini' } };
     } });
     await open(page);
-    await page.locator('.sp-in[data-input="media"]').click();
-    await page.locator('#spMedia').setInputFiles(audioFile(5000));
-    await page.locator('#spGo').click();
+    await pick(page, audioFile(3000));
     await expectPack(page);
     const c = packCalls(net.calls);
-    expect(c.map((x) => x.type)).toEqual(['studypack_audio_start', 'studypack_audio_whisper']);
-    expect(Buffer.from(c[1].data, 'base64').length).toBe(5000);
+    expect(c.map((x) => x.type + (x.offset !== undefined ? '@' + x.offset : ''))).toEqual([
+      'studypack_audio_start', 'studypack_audio_piece', 'studypack_audio_start',
+      'studypack_audio_chunk@0', 'studypack_audio_chunk@1024', 'studypack_audio_chunk@2048', 'studypack_audio_generate', 'studypack_audio_generate']);
+    expect(c[2]).toMatchObject({ split: false, job: 'J-1', size: 3000 });
+    expect(Buffer.from(c[5].data, 'base64').length).toBe(3000 - 2048);
+    expect(c[6].token).toBe('T-file');
+    expect(net.errors).toEqual([]);
+  });
+
+  test('Whisper reported unavailable in the config → straight to the Gemini upload (no pieces)', async ({ page }) => {
+    const net = await setup(page, { config: Object.assign({}, CONFIG, { whisper: false }), api: (b) => {
+      if (b.type === 'studypack_audio_start') return { body: { success: true, route: 'gemini', token: 'T-upload', chunkBytes: 4096 } };
+      if (b.type === 'studypack_audio_chunk') return { body: { success: true, done: true, token: 'T-file' } };
+      if (b.type === 'studypack_audio_generate') return { body: { success: true, pack: PACK, via: 'gemini' } };
+    } });
+    await open(page);
+    await pick(page, audioFile(3000));
+    await expectPack(page);
+    const c = packCalls(net.calls);
+    expect(c.map((x) => x.type)).toEqual(['studypack_audio_start', 'studypack_audio_chunk', 'studypack_audio_generate']);
+    expect(c[0]).toMatchObject({ pieces: 0, split: false });
   });
 
   test('daily cap reached → the server message is shown, nothing else is sent', async ({ page }) => {
     const net = await setup(page, { api: (b) => b.type === 'studypack_audio_start'
       ? { status: 429, body: { success: false, error: 'audio_cap', message: 'You’ve used today’s 5 audio/video study packs. Paste text or a transcript instead, or come back tomorrow.' } } : undefined });
     await open(page);
-    await page.locator('.sp-in[data-input="media"]').click();
-    await page.locator('#spMedia').setInputFiles(audioFile(3000));
-    await page.locator('#spGo').click();
+    await pick(page, audioFile(3000));
     await expect(page.locator('#spStatus')).toContainText('You’ve used today’s 5 audio/video study packs.');
     await expect(page.locator('#spOut')).toBeHidden();
     expect(packCalls(net.calls).map((x) => x.type)).toEqual(['studypack_audio_start']);
@@ -303,9 +417,7 @@ test.describe('audio / video', () => {
   test('file over the size limit → message, no upload', async ({ page }) => {
     const net = await setup(page, { config: Object.assign({}, CONFIG, { maxBytes: 2000 }) });
     await open(page);
-    await page.locator('.sp-in[data-input="media"]').click();
-    await page.locator('#spMedia').setInputFiles(audioFile(3000));
-    await page.locator('#spGo').click();
+    await pick(page, audioFile(3000));
     await expect(page.locator('#spStatus')).toContainText('Audio and video files can be up to');
     expect(packCalls(net.calls)).toEqual([]);
   });

@@ -1,9 +1,11 @@
 'use strict';
 // Study Pack backend (api/_studypack.js via api/process.js): one combined call → {key_points, flashcards, quiz},
-// server-built prompt (client prompt ignored), Gemini first, JSON repair / validation / one re-request,
-// audio switch + daily cap, Gemini Files chunk relay (upload URL sealed), processing poll, Whisper fallback,
-// YouTube via Gemini. Everything is mocked: providers, Gemini Files API, Groq Whisper (global.fetch — unknown
-// URLs throw), Upstash (fake @upstash/redis). No live API calls.
+// server-built prompt (client prompt ignored), Gemini first for text, JSON repair / validation / one re-request,
+// audio switch + daily cap; audio PRIMARY = Groq Whisper piece by piece over the 4 Groq keys (cooldown on 429,
+// sealed transcripts, all pieces or no pack, "too long" limits), SECONDARY = Gemini Files chunk relay with a
+// probed audio-capable model (default gemini-3.5-flash-lite); YouTube via Gemini. Everything is mocked:
+// providers, Gemini Files API + probe, Groq Whisper (global.fetch — unknown URLs throw), Upstash (fake
+// @upstash/redis). No live API calls.
 // Run: node tests/studypack.test.js
 
 const path = require('path');
@@ -16,7 +18,8 @@ function assert(label, cond, detail = '') {
 }
 
 const KEYS = {
-  GROQ_KEY: 'groq-key-1-xxxxxxxx', GEMINI_KEY: 'gemini-key-1-xxxxxx', NVIDIA_KEY: 'nvapi-xxxxxxxxxxxxx',
+  GROQ_KEY: 'groq-key-1-xxxxxxxx', GROQ_KEY_2: 'groq-key-2-xxxxxxxx', GROQ_KEY_3: 'groq-key-3-xxxxxxxx', GROQ_KEY_4: 'groq-key-4-xxxxxxxx',
+  GEMINI_KEY: 'gemini-key-1-xxxxxx', NVIDIA_KEY: 'nvapi-xxxxxxxxxxxxx',
   CF_KEY: 'cf-key-xxxxxxxxxxxx', CF_ACCOUNT: 'cf-account-xxxxxxx',
   KV_REST_API_URL: 'https://fake-upstash.example', KV_REST_API_TOKEN: 'fake-token-xxxxxxxx',
 };
@@ -53,12 +56,14 @@ const PACK = {
 const GOOD = JSON.stringify(PACK);
 const MATERIAL = Array.from({ length: 6 }, (_, i) => `Paragraph ${i}: photosynthesis converts light energy into chemical energy inside chloroplasts, and the Calvin cycle fixes carbon dioxide.`).join('\n\n');
 
-// ── Fetch mock: providers (text), Gemini Files API, Whisper ──
+// ── Fetch mock: providers (text), Gemini Files API + audio probe, Whisper ──
 const respond = (status, json, headers = {}) => ({
   ok: status >= 200 && status < 300, status, json: async () => json, text: async () => (typeof json === 'string' ? json : JSON.stringify(json)),
   headers: { get: (h) => headers[String(h).toLowerCase()] ?? null },
 });
 const UPLOAD_URL = 'https://generativelanguage.googleapis.com/upload/v1beta/files?upload_id=SECRET-UPLOAD-ID&key=' + KEYS.GEMINI_KEY;
+const keyName = (auth) => { const m = /groq-key-(\d)/.exec(String(auth)); return m ? 'groq' + (m[1] === '1' ? '' : '-' + m[1]) : '?'; };
+// answers.whisper: undefined = transcribe; per key ('groq', 'groq-2', …) or for all ('*'): 'fail' | '429' | 'timeout' | '400' | '413'
 let calls = [], answers = {}, files = {}, uploaded = 0;
 global.fetch = async (url, opts = {}) => {
   url = String(url);
@@ -84,17 +89,33 @@ global.fetch = async (url, opts = {}) => {
     if (method === 'DELETE') { files.deleted = true; return respond(200, {}); }
     return respond(200, { name: 'files/abc123', state: files.state || 'ACTIVE' });
   }
-  // generateContent (text chain and media)
+  // Groq Whisper
+  if (url === 'https://api.groq.com/openai/v1/audio/transcriptions') {
+    const key = keyName(opts.headers.Authorization), file = opts.body.get('file');
+    const a = (answers.whisper || {})[key] || (answers.whisper || {})['*'];
+    calls.push({ name: 'whisper', key, file: file.name, model: opts.body.get('model'), bytes: file.size });
+    if (a === 'timeout') throw Object.assign(new Error('The operation was aborted due to timeout'), { name: 'TimeoutError' });
+    if (a === '429') return respond(429, { error: { message: 'Rate limit reached for model whisper-large-v3-turbo: requests per minute (RPM)' } }, { 'retry-after': '30' });
+    if (a === 'empty') return respond(200, '  ');
+    if (a === '400' || a === '413' || a === 'fail') return respond(a === 'fail' ? 500 : +a, { error: { message: 'mock' } });
+    const n = (/part-(\d+)/.exec(file.name) || [0, '1'])[1];
+    return respond(200, `Part ${n} says: photosynthesis converts light energy into chemical energy inside the chloroplasts of plant cells. ` + MATERIAL.split('\n\n').slice(0, 2).join(' '));
+  }
+  // generateContent (text chain, media, audio probe)
   let body = {};
   try { body = typeof opts.body === 'string' ? JSON.parse(opts.body) : {}; } catch (_) {}
   let name = null;
   const gm = url.match(/generativelanguage\.googleapis\.com\/v1beta\/models\/([^:]+):generateContent/);
+  if (gm && body.contents[0].parts[0].inline_data) {
+    calls.push({ name: 'probe:' + gm[1] });
+    const a = (answers.probe || {})[gm[1]] || 'ok';
+    if (a === 'quota') return respond(429, { error: { message: 'Quota exceeded for metric generate_content_free_tier_requests, GenerateRequestsPerDayPerProjectPerModel-FreeTier' } });
+    if (a === 'no') return respond(400, { error: { message: 'Audio input modality is not enabled for this model' } });
+    if (a === '404') return respond(404, { error: { message: 'models/' + gm[1] + ' is not found' } });
+    return respond(200, { candidates: [{ content: { parts: [{ text: 'OK' }] } }] });
+  }
   if (gm) name = 'gemini/' + gm[1];
   else if (url.startsWith('https://api.groq.com/openai/v1/chat/completions')) name = 'groq/' + body.model;
-  else if (url === 'https://api.groq.com/openai/v1/audio/transcriptions') {
-    calls.push({ name: 'whisper' });
-    return answers.whisper === 'fail' ? respond(500, {}) : respond(200, 'Today we cover photosynthesis. ' + MATERIAL);
-  }
   else if (url.includes('/ai/run/')) name = 'cloudflare';
   else if (url === 'https://integrate.api.nvidia.com/v1/chat/completions') name = 'nvidia/' + body.model;
   else if (url.startsWith('https://oai.endpoints.kepler.ai.cloud.ovh.net/')) name = 'ovhcloud';
@@ -128,7 +149,10 @@ async function call(body, ip) {
   try { await handler(req, res); await new Promise((r) => setTimeout(r, 10)); } finally { loud(); }
   return { status, payload, calls: calls.slice(), raw: JSON.stringify(payload) };
 }
-const providerCalls = (r) => r.calls.filter((c) => !c.name.startsWith('files:') && c.name !== 'whisper');
+const providerCalls = (r) => r.calls.filter((c) => !c.name.startsWith('files:') && !c.name.startsWith('probe:') && c.name !== 'whisper');
+const whisperCalls = (r) => r.calls.filter((c) => c.name === 'whisper');
+const probes = (r) => r.calls.filter((c) => c.name.startsWith('probe:')).map((c) => c.name.slice(6));
+const resetProbe = () => { SP._probeCache.clear(); for (const k of [...store.keys()]) if (k.startsWith('studypack:gaudio:')) store.delete(k); };
 
 (async () => {
   // ── 1. pure functions: prompt, JSON repair, validation, tokens ──
@@ -190,13 +214,18 @@ const providerCalls = (r) => r.calls.filter((c) => !c.name.startsWith('files:') 
   r = await call({ type: 'studypack', text: MATERIAL });
   assert('every provider down → 503 high_demand', r.status === 503 && r.payload.error === 'high_demand');
 
-  // ── 4. audio: flag + daily cap ──
-  console.log('\n── 4. audio flag and daily cap ──');
+
+  // ── 4. audio: flag, daily cap, length limit ──
+  console.log('\n── 4. audio flag, daily cap and length limit ──');
   r = await call({ type: 'studypack_config' });
-  assert('config: audio on at launch, cap 5, 50 MB, 2.25 MiB chunks', r.payload.audio.enabled === true && r.payload.audio.cap === 5 && r.payload.audio.maxBytes === 50 * 1048576 && r.payload.audio.chunkBytes === 9 * 262144);
+  const cfg = r.payload.audio;
+  assert('config: audio on at launch, cap 5, 50 MB, 60 min, Whisper pieces of 3 MiB / 90 s, Whisper + Gemini available',
+    cfg.enabled === true && cfg.cap === 5 && cfg.maxBytes === 50 * 1048576 && cfg.maxSeconds === 3600 && cfg.pieceBytes === 3 * 1048576 && cfg.pieceSeconds === 90 &&
+    cfg.whisper === true && cfg.gemini === true && cfg.chunkBytes === 9 * 262144, JSON.stringify(cfg));
+  const WSTART = { type: 'studypack_audio_start', mime: 'audio/mpeg', size: 7 * 1048576, seconds: 1500, pieces: 3, split: true, name: 'lecture.mp3', mode: 'standard' };
   process.env.ENABLE_AUDIO = '0';
-  r = await call({ type: 'studypack_audio_start', mime: 'audio/mpeg', size: 1000, name: 'a.mp3' });
-  assert('ENABLE_AUDIO=0 → 403 audio_disabled, nothing uploaded', r.status === 403 && r.payload.error === 'audio_disabled' && r.calls.length === 0);
+  r = await call(WSTART);
+  assert('ENABLE_AUDIO=0 → 403 audio_disabled, nothing sent anywhere', r.status === 403 && r.payload.error === 'audio_disabled' && r.calls.length === 0);
   await fakeRedis.hset('studypack:cfg', { audio: '1' });
   r = await call({ type: 'studypack_config' });
   assert('Upstash override studypack:cfg audio=1 switches it back on without a redeploy', r.payload.audio.enabled === true);
@@ -208,25 +237,104 @@ const providerCalls = (r) => r.calls.filter((c) => !c.name.startsWith('files:') 
   await fakeRedis.hset('studypack:cfg', { cap: '2' });
   const ip = '203.0.113.7';
   const starts = [];
-  for (let i = 0; i < 3; i++) starts.push(await call({ type: 'studypack_audio_start', mime: 'audio/mpeg', size: 1000, name: 'a.mp3' }, ip));
+  for (let i = 0; i < 3; i++) starts.push(await call(WSTART, ip));
   assert('cap (override 2): jobs 1–2 allowed, job 3 → 429 audio_cap', starts[0].status === 200 && starts[1].status === 200 && starts[2].status === 429 && starts[2].payload.error === 'audio_cap', starts.map((s) => s.status).join(','));
-  r = await call({ type: 'studypack', text: MATERIAL }, ip);
   answers = { gemini: GOOD };
   r = await call({ type: 'studypack', text: MATERIAL }, ip);
   assert('the audio cap does not block text study packs', r.status === 200);
   const keys = [...store.keys()].filter((k) => k.startsWith('studypack:audio:'));
   assert('cap counter key stores a hash, not the IP', keys.length >= 1 && keys.every((k) => !k.includes('203.0.113.7')), keys.join(','));
   store.delete('studypack:cfg');
-  r = await call({ type: 'studypack_audio_start', mime: 'application/pdf', size: 1000 });
+  r = await call(Object.assign({}, WSTART, { mime: 'application/pdf' }));
   assert('non-media type → 400', r.status === 400 && r.payload.error === 'bad_type');
-  r = await call({ type: 'studypack_audio_start', mime: 'audio/mpeg', size: 51 * 1048576 });
-  assert('over 50 MB → 413', r.status === 413);
+  r = await call(Object.assign({}, WSTART, { size: 51 * 1048576 }));
+  assert('over 50 MB → 413', r.status === 413 && r.payload.error === 'too_large');
+  r = await call(Object.assign({}, WSTART, { seconds: 3601 }));
+  assert('recording over 60 min → 413 too_long "try a shorter clip", before any transcription or upload',
+    r.status === 413 && r.payload.error === 'too_long' && /too long — try a shorter clip \(up to 60 minutes\)/.test(r.payload.message) && r.calls.length === 0, r.raw);
+  r = await call(Object.assign({}, WSTART, { seconds: 0, pieces: 500 }));
+  assert('more pieces than the longest allowed recording → 413 too_long', r.status === 413 && r.payload.error === 'too_long');
+  await fakeRedis.hset('studypack:cfg', { maxmin: '20' });
+  r = await call(WSTART);
+  assert('Upstash maxmin=20 lowers the limit live: a 25-min recording → too_long', r.status === 413 && /up to 20 minutes/.test(r.payload.message), r.raw);
+  store.delete('studypack:cfg');
 
-  // ── 5. audio: chunk relay → processing → one Gemini call → file deleted ──
-  console.log('\n── 5. audio upload + generate ──');
+  // ── 5. audio PRIMARY: Groq Whisper piece by piece → one text-chain call ──
+  console.log('\n── 5. audio PRIMARY: Groq Whisper, piece by piece → one text-chain call ──');
+  answers = { gemini: GOOD };
+  r = await call(WSTART);
+  assert('start → route whisper with a sealed job; no Gemini upload, no audio probe', r.status === 200 && r.payload.route === 'whisper' && !!r.payload.job && r.calls.length === 0, r.raw.slice(0, 200));
+  const job = r.payload.job;
+  const piece = (i, j = job, bytes = 4000) => ({ type: 'studypack_audio_piece', job: j, index: i, data: Buffer.alloc(bytes, i + 1).toString('base64'), mime: 'audio/mpeg', name: `part-${i + 1}.mp3` });
+  const sealed = [], used = [];
+  for (let i = 0; i < 3; i++) {
+    r = await call(piece(i));
+    sealed.push(r.payload.piece);
+    used.push(...whisperCalls(r));
+  }
+  assert('3 pieces → 3 Whisper calls (whisper-large-v3-turbo), one per request, named part-N', used.length === 3 && used.every((c, i) => c.model === 'whisper-large-v3-turbo' && c.file === `part-${i + 1}.mp3`), JSON.stringify(used));
+  assert('Whisper is spread over the Groq keys (3 pieces → 3 different keys)', new Set(used.map((c) => c.key)).size === 3, used.map((c) => c.key).join(','));
+  assert('each transcript comes back sealed — not readable in the browser', sealed.every(Boolean) && !r.raw.includes('Part 3 says') && !Buffer.from(sealed[2], 'base64url').toString('latin1').includes('Part 3'));
+  r = await call({ type: 'studypack_audio_pack', job, pieces: [sealed[2], sealed[0], sealed[1]], mode: 'standard' });
+  const tc = providerCalls(r);
+  assert('all pieces (any order) → ONE text-chain call → pack, via whisper', r.status === 200 && r.payload.via === 'whisper' && r.payload.pack.quiz.length === 3 && tc.length === 1 && whisperCalls(r).length === 0, r.raw.slice(0, 200));
+  const at = (s) => tc[0].sent.indexOf(s);
+  assert('…prompt built server-side for a transcript; the pieces are joined in order', tc[0].sent.includes('lecture transcript (from a recording)') && at('Part 1 says') >= 0 && at('Part 1 says') < at('Part 2 says') && at('Part 2 says') < at('Part 3 says'));
+  assert('…no Gemini audio call on this route', !r.calls.some((c) => c.name.startsWith('files:') || c.name.startsWith('probe:')));
+  r = await call({ type: 'studypack_audio_pack', job, pieces: sealed.slice(0, 2) });
+  assert('a missing piece → 400 incomplete, no AI call (never a partial pack)', r.status === 400 && r.payload.error === 'incomplete' && providerCalls(r).length === 0 && !r.payload.pack);
+  r = await call({ type: 'studypack_audio_pack', job, pieces: [sealed[0], sealed[0], sealed[1]] });
+  assert('a duplicated piece → 400 incomplete', r.status === 400 && r.payload.error === 'incomplete');
+  const other = (await call(WSTART)).payload.job;
+  const foreign = (await call(piece(2, other))).payload.piece;
+  r = await call({ type: 'studypack_audio_pack', job, pieces: [sealed[0], sealed[1], foreign] });
+  assert('a piece from another job → 400 incomplete', r.status === 400 && r.payload.error === 'incomplete' && providerCalls(r).length === 0);
+  r = await call(piece(3));
+  assert('piece index beyond the job → 400 bad_piece, nothing sent to Whisper', r.status === 400 && r.payload.error === 'bad_piece' && whisperCalls(r).length === 0);
+  r = await call(piece(0, job, SP.WHISPER_MAX_BYTES + 1));
+  assert('piece over 3 MiB → 413, nothing sent to Whisper', r.status === 413 && whisperCalls(r).length === 0);
+  r = await call(piece(0, sealed[0]));
+  assert('a piece token can’t be used as a job token → 400 bad_token', r.status === 400 && r.payload.error === 'bad_token' && whisperCalls(r).length === 0);
+  r = await call(piece(0, 'forged'));
+  assert('forged job token → 400 bad_token', r.status === 400 && r.payload.error === 'bad_token');
+  answers = { gemini: GOOD, whisper: { groq: '429' } };
+  const seen = [];
+  let all200 = true;
+  const fresh = async (n = 4) => (await call(Object.assign({}, WSTART, { pieces: n }))).payload.job;
+  const rjob = await fresh();
+  for (let i = 0; i < 4; i++) { r = await call(piece(i, rjob)); all200 = all200 && r.status === 200; seen.push(whisperCalls(r).map((c) => c.key).join('>')); }
+  assert('a rate-limited key (429) → the next key transcribes the same piece', all200 && seen.includes('groq>groq-2'), seen.join(' | '));
+  assert('…and that key sits out its cooldown (not tried on the later pieces)', seen.filter((s) => s.split('>').includes('groq')).length === 1, seen.join(' | '));
+  answers = { gemini: GOOD };
+  const tjob = await fresh(1);
+  const tries = [];
+  for (let i = 0; i < 3; i++) tries.push(await call(piece(0, tjob)));
+  assert('the same piece can be sent twice (one retry); a third time → 429, nothing sent to Whisper', tries[0].status === 200 && tries[1].status === 200 && tries[2].status === 429 && tries[2].payload.error === 'piece_retries' && whisperCalls(tries[2]).length === 0, tries.map((t) => t.status).join(','));
+  answers = { gemini: GOOD, whisper: { '*': 'timeout' } };
+  r = await call(piece(0, await fresh(1)));
+  assert('transcription runs out of time → 504 too_long "try a shorter clip", no sealed piece', r.status === 504 && r.payload.error === 'too_long' && /try a shorter clip/.test(r.payload.message) && !r.payload.piece, r.raw);
+  answers = { gemini: GOOD, whisper: { '*': '400' } };
+  r = await call(piece(0, await fresh(1)));
+  assert('Whisper can’t read the audio (400) → 422 bad_audio, not retried on every key', r.status === 422 && r.payload.error === 'bad_audio' && whisperCalls(r).length === 1);
+  answers = { gemini: '{"key_points": ["only one"]}', groq: 'not json', nvidia: GOOD, cloudflare: GOOD, ovhcloud: GOOD, llm7: GOOD };
+  r = await call({ type: 'studypack_audio_pack', job, pieces: sealed, mode: 'standard' });
+  assert('two unusable answers for the transcript → 502 invalid_output, no partial pack', r.status === 502 && r.payload.error === 'invalid_output' && !r.payload.pack && providerCalls(r).length === 2, r.status + ' ' + providerCalls(r).map((c) => c.name).join(','));
+  answers = { gemini: GOOD, whisper: { '*': 'empty' } };
+  const quiet1 = (await call(Object.assign({}, WSTART, { pieces: 1 }))).payload.job;
+  const silent = (await call(piece(0, quiet1))).payload.piece;
+  r = await call({ type: 'studypack_audio_pack', job: quiet1, pieces: [silent] });
+  assert('no speech in the recording → 422 no_speech, no AI call', r.status === 422 && r.payload.error === 'no_speech' && providerCalls(r).length === 0);
+
+  // ── 6. audio SECONDARY: Gemini, with a probed audio-capable model ──
+  console.log('\n── 6. audio SECONDARY: Gemini (probed audio model), only when Whisper can’t be used ──');
+  assert('default Gemini media model is gemini-3.5-flash-lite', SP.GEMINI_AUDIO_DEFAULT === 'gemini-3.5-flash-lite');
+  resetProbe();
+  answers = { gemini: GOOD };
   const size = 2 * SP.CHUNK_BYTES + 1234;
-  r = await call({ type: 'studypack_audio_start', mime: 'audio/mpeg', size, name: 'lecture.mp3', mode: 'standard' });
-  assert('start → sealed token; the upload URL / key never reach the browser', r.status === 200 && r.payload.token && !r.raw.includes('SECRET-UPLOAD-ID') && !r.raw.includes(KEYS.GEMINI_KEY), r.raw.slice(0, 200));
+  const GSTART = { type: 'studypack_audio_start', mime: 'audio/mpeg', size, name: 'lecture.mkv', split: false, mode: 'standard' };
+  r = await call(GSTART);
+  assert('browser couldn’t split the file → Gemini route; gemini-3.5-flash-lite probed first and accepts audio', r.status === 200 && r.payload.route === 'gemini' && probes(r).join() === 'gemini-3.5-flash-lite' && whisperCalls(r).length === 0, r.raw.slice(0, 200) + ' ' + probes(r));
+  assert('start → sealed token; the upload URL / key never reach the browser', !!r.payload.token && !r.raw.includes('SECRET-UPLOAD-ID') && !r.raw.includes(KEYS.GEMINI_KEY));
   let token = r.payload.token;
   const chunk = (off, len) => Buffer.alloc(len, off % 251).toString('base64');
   r = await call({ type: 'studypack_audio_chunk', token, offset: 0, data: chunk(0, 1000) });
@@ -243,34 +351,70 @@ const providerCalls = (r) => r.calls.filter((c) => !c.name.startsWith('files:') 
   r = await call({ type: 'studypack_audio_generate', token, mode: 'standard' });
   assert('file still processing → 202, no AI call', r.status === 202 && r.payload.processing && providerCalls(r).length === 0);
   files = { state: 'ACTIVE' };
-  answers = { gemini: GOOD };
   r = await call({ type: 'studypack_audio_generate', token, mode: 'standard' });
   const gen = providerCalls(r);
-  assert('ACTIVE → ONE Gemini call with the file → all three artifacts', r.status === 200 && r.payload.pack.quiz.length === 3 && gen.length === 1 && gen[0].name.startsWith('gemini/'), r.raw.slice(0, 200));
+  assert('ACTIVE → ONE call to the probed model (gemini-3.5-flash-lite) with the file → pack', r.status === 200 && r.payload.via === 'gemini' && r.payload.pack.quiz.length === 3 && gen.length === 1 && gen[0].name === 'gemini/gemini-3.5-flash-lite', r.raw.slice(0, 200) + ' ' + gen.map((c) => c.name));
   assert('…the call references the uploaded file and asks for JSON without a transcript', gen[0].sent.includes('files/abc123') && /Do NOT include a transcript/.test(gen[0].sent) && gen[0].body.generationConfig.responseMimeType === 'application/json');
   assert('…and the uploaded file is deleted afterwards', files.deleted === true);
   files = { state: 'ACTIVE' };
   answers = { gemini: 'fail' };
   r = await call({ type: 'studypack_audio_generate', token, mode: 'standard' });
-  assert('Gemini unavailable → 503 ai_unavailable (browser then uses the Whisper fallback for small files)', r.status === 503 && r.payload.error === 'ai_unavailable');
-  answers = { filesStart: 'fail' };
-  r = await call({ type: 'studypack_audio_start', mime: 'audio/mpeg', size: 1000, name: 'a.mp3' });
-  assert('Files API down at start → 503 with the Whisper fallback size', r.status === 503 && r.payload.whisperMaxBytes === SP.WHISPER_MAX_BYTES);
-
-  // ── 6. Whisper fallback: transcribe → text chain ──
-  console.log('\n── 6. Whisper fallback ──');
+  assert('Gemini unavailable at generate → 503 ai_unavailable', r.status === 503 && r.payload.error === 'ai_unavailable');
   answers = { gemini: GOOD };
-  r = await call({ type: 'studypack_audio_whisper', data: Buffer.alloc(5000, 1).toString('base64'), mime: 'audio/mpeg', name: 'clip.mp3', mode: 'quick' });
-  assert('small file → Whisper transcript → one study-pack call', r.status === 200 && r.payload.via === 'whisper' && r.calls.filter((c) => c.name === 'whisper').length === 1 && providerCalls(r).length === 1, r.raw.slice(0, 200));
-  assert('…prompt built server-side for a lecture recording, transcript as the material', providerCalls(r)[0].sent.includes('lecture recording') && providerCalls(r)[0].sent.includes('Today we cover photosynthesis'));
-  r = await call({ type: 'studypack_audio_whisper', data: Buffer.alloc(SP.WHISPER_MAX_BYTES + 10, 1).toString('base64'), mime: 'audio/mpeg' });
-  assert('fallback over 3 MB → 413', r.status === 413);
+  r = await call(GSTART);
+  assert('probe result is cached: no second probe', r.status === 200 && probes(r).length === 0);
+  assert('…in Upstash too (shared by every instance)', store.has('studypack:gaudio:1') && JSON.parse(store.get('studypack:gaudio:1')).model === 'gemini-3.5-flash-lite');
+  resetProbe();
+  answers = { gemini: GOOD, probe: { 'gemini-3.5-flash-lite': 'no' } };
+  r = await call(GSTART);
+  assert('flash-lite refuses audio (400) → the next candidate that accepts audio (gemini-3.5-flash) is used', r.status === 200 && probes(r).join() === 'gemini-3.5-flash-lite,gemini-3.5-flash', probes(r).join());
+  resetProbe();
+  process.env.STUDYPACK_GEMINI_MODEL = 'gemini-custom-audio';
+  answers = { gemini: GOOD, probe: { 'gemini-custom-audio': 'quota' } };
+  r = await call(GSTART);
+  assert('STUDYPACK_GEMINI_MODEL is probed first; on its daily quota (429) the default takes over', r.status === 200 && probes(r).join() === 'gemini-custom-audio,gemini-3.5-flash-lite', probes(r).join());
+  resetProbe();
+  r = await call(GSTART);
+  assert('…and the quota-hit model sits out its cooldown (not probed again)', probes(r).join() === 'gemini-3.5-flash-lite', probes(r).join());
+  delete process.env.STUDYPACK_GEMINI_MODEL;
+  resetProbe();
+  answers = { gemini: GOOD, probe: { 'gemini-3.5-flash-lite': 'no', 'gemini-3.5-flash': '404' } };
+  r = await call(GSTART);
+  assert('no model accepts audio on our key → 503 with a clear message, no upload', r.status === 503 && r.payload.error === 'ai_unavailable' && !r.calls.some((c) => c.name === 'files:start') && probes(r).length === 2);
+  r = await call({ type: 'studypack_youtube', url: 'https://youtu.be/dQw4w9WgXcQ' });
+  assert('…the YouTube link fails gracefully with a clear message (cached result: no new probes, no AI call)', r.status === 503 && /can’t watch YouTube videos right now/.test(r.payload.message) && probes(r).length === 0 && providerCalls(r).length === 0, r.raw);
+  resetProbe();
+  answers = { gemini: GOOD };
+  await fakeRedis.hset('studypack:cfg', { cap: '1' });
+  const ip2 = '198.51.100.9';
+  r = await call(WSTART, ip2);
+  const wjob = r.payload.job;
+  r = await call(Object.assign({}, WSTART, { split: false, job: wjob }), ip2);
+  assert('Whisper job falling back to Gemini (job token) keeps its daily slot — cap 1 not exceeded', r.status === 200 && r.payload.route === 'gemini', r.raw.slice(0, 200));
+  r = await call(Object.assign({}, WSTART, { split: false, job: wjob }), ip2);
+  assert('…but only once: replaying that job token for another Gemini upload is capped', r.status === 429 && r.payload.error === 'audio_cap');
+  r = await call(WSTART, ip2);
+  assert('…a NEW job is still capped', r.status === 429 && r.payload.error === 'audio_cap');
+  store.delete('studypack:cfg');
+  answers = { filesStart: 'fail' };
+  r = await call(GSTART);
+  assert('Files API down at start → 503 ai_unavailable', r.status === 503 && r.payload.error === 'ai_unavailable');
+  answers = { gemini: GOOD, whisper: { '*': '429' } };
+  const j3 = (await call(WSTART)).payload.job;
+  r = await call(piece(0, j3));
+  assert('every Groq key rate-limited → 503 whisper_unavailable (the browser then switches to Gemini)', r.status === 503 && r.payload.error === 'whisper_unavailable' && whisperCalls(r).length >= 1, r.raw);
+  r = await call({ type: 'studypack_config' });
+  assert('…config now reports Whisper unavailable, audio still on', r.payload.audio.whisper === false && r.payload.audio.enabled === true);
+  r = await call(WSTART);
+  assert('…and a new job goes straight to Gemini (secondary) instead of Whisper', r.status === 200 && r.payload.route === 'gemini' && whisperCalls(r).length === 0);
 
   // ── 7. YouTube via Gemini (no captions) ──
   console.log('\n── 7. YouTube via Gemini ──');
   answers = { gemini: GOOD };
   r = await call({ type: 'studypack_youtube', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=10', mode: 'quick' });
-  assert('YouTube link → ONE Gemini call with the video URL as file_data → pack', r.status === 200 && r.payload.inputType === 'youtube' && providerCalls(r).length === 1 && providerCalls(r)[0].sent.includes('https://www.youtube.com/watch?v=dQw4w9WgXcQ'));
+  assert('YouTube link → ONE Gemini call (probed model) with the video URL as file_data → pack', r.status === 200 && r.payload.inputType === 'youtube' && providerCalls(r).length === 1 &&
+    providerCalls(r)[0].name === 'gemini/gemini-3.5-flash-lite' && providerCalls(r)[0].sent.includes('https://www.youtube.com/watch?v=dQw4w9WgXcQ'), r.raw.slice(0, 200));
+  assert('…YouTube never goes to Whisper', whisperCalls(r).length === 0);
   r = await call({ type: 'studypack_youtube', url: 'https://evil.example/watch?v=dQw4w9WgXcQ' });
   assert('non-YouTube URL → 400, no AI call', r.status === 400 && r.payload.error === 'bad_url' && providerCalls(r).length === 0);
 
@@ -278,6 +422,8 @@ const providerCalls = (r) => r.calls.filter((c) => !c.name.startsWith('files:') 
   console.log('\n── 8. no secrets ──');
   r = await call({ type: 'studypack_config' });
   assert('config response holds no keys', !Object.values(KEYS).some((k) => r.raw.includes(k)));
+  r = await call({ type: 'studypack_audio_whisper', data: 'AAAA' });
+  assert('the old single-request Whisper type is gone → 400', r.status === 400 && r.payload.error === 'bad_request');
   r = await call({ type: 'studypack_bogus' });
   assert('unknown studypack type → 400', r.status === 400 && r.payload.error === 'bad_request');
 
