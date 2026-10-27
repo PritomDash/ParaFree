@@ -1404,6 +1404,25 @@ const PHOTOS = {
 
   #tools { scroll-margin-top: 80px; }
 
+  /* Flashcards & Quiz banner (homepage tool cards) */
+  .pf-fq-card{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-top:24px;border-radius:24px;padding:30px 34px;text-decoration:none;color:#fff;font-family:'Syne',sans-serif;position:relative;overflow:hidden;
+    background:radial-gradient(circle at 85% 20%,rgba(240,171,252,.35),transparent 45%),linear-gradient(135deg,#2e0a3a 0%,#5b1a6e 55%,#9d1fa8 100%);box-shadow:0 12px 32px rgba(91,26,110,.28);transition:transform .2s ease,box-shadow .2s ease}
+  .pf-fq-card:hover{transform:translateY(-3px);box-shadow:0 18px 40px rgba(91,26,110,.36)}
+  .pf-fq-text{display:block;flex:1 1 auto;min-width:0}
+  .pf-fq-badges{display:flex;flex-wrap:wrap;gap:6px}
+  .pf-fq-badge,.pf-fq-new{display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;letter-spacing:.5px}
+  .pf-fq-badge{background:#f0abfc;color:#2e0a3a}
+  .pf-fq-new{background:#fde047;color:#2e0a3a}
+  .pf-fq-title{display:block;font-size:26px;font-weight:800;margin-top:10px;letter-spacing:-.5px}
+  .pf-fq-desc{display:block;font:400 15px/1.6 'DM Sans',sans-serif;color:rgba(255,255,255,.86);margin-top:6px;max-width:560px}
+  .pf-fq-cta{display:inline-block;margin-top:16px;padding:10px 22px;background:#fff;color:#2e0a3a;border-radius:10px;font-weight:700;font-size:14px}
+  .pf-fq-art{position:relative;flex:0 0 150px;height:110px}
+  .pf-fq-art span{position:absolute;width:86px;height:64px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;box-shadow:0 8px 18px rgba(0,0,0,.25)}
+  .pf-fq-c1{left:0;top:8px;background:#fdf4ff;color:#5b1a6e;transform:rotate(-8deg)}
+  .pf-fq-c2{left:34px;top:22px;background:#f0abfc;color:#2e0a3a;transform:rotate(4deg)}
+  .pf-fq-c3{left:64px;top:40px;background:#fde047;color:#2e0a3a;transform:rotate(12deg)}
+  @media (max-width:640px){.pf-fq-card{padding:24px 20px}.pf-fq-title{font-size:22px}.pf-fq-art{display:none}}
+
   @media (max-width: 768px) {
     #mainNav { padding: 0 16px !important; }
     #mainNav a[href="/blog.html"],
@@ -1477,6 +1496,9 @@ body.pf-alt-active #langBar,body.pf-alt-active #humanizerInfo,body.pf-alt-active
 body.pf-cv-open #pf-scroll-top,body.pf-cv-open #pf-feedback-card{display:none!important}
 /* 901–960px: full-width CV frame so the builder keeps its desktop layout (its phone layout starts at 900px) */
 @media (min-width:901px) and (max-width:960px){#pfHomeCv{padding:0!important}}
+.tab-fq-s{display:none}@media (max-width:400px){.tab-fq-l{display:none}.tab-fq-s{display:inline}}
+/* phones: a little less side padding so the tab row (now 9 tools) wraps no deeper than before */@media (max-width:480px){.tool-tabs{gap:2px}.tool-tab{padding:7px 6px}}
+#pfHomeFq{max-width:1100px;margin:0 auto 16px;padding:0 16px;font-family:'DM Sans',sans-serif}.pf-fq-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 16px;margin:4px 0 10px}.pf-fq-h{font:700 15px Syne,sans-serif;color:#1a1814}.pf-fq-full{font-size:13px;font-weight:700;color:#2d6a4f;text-decoration:none}.pf-fq-full:hover{text-decoration:underline}.pf-fq-loading{padding:28px 16px;text-align:center;color:#6b6660}
 .pf-home-pdf{max-width:1100px;margin:0 auto 16px;padding:0 16px}.pf-subtabs{display:flex;flex-wrap:wrap;gap:6px}.pf-subtab{background:#fff;border:1px solid #e2ddd4;border-radius:8px;padding:9px 14px;min-height:42px;font:600 13px Syne,sans-serif;color:#6b6660;cursor:pointer}.pf-subtab.active{background:#2d6a4f;border-color:#2d6a4f;color:#fff}.pf-home-loading{padding:28px 16px;text-align:center;color:#6b6660}
 /* Hero (≥769px): it was a fixed 100vh box with overflow:hidden, so on screens shorter than the content the
    CTA buttons were cut off under the stats band and "Explore Tools" sat on top of them. Grow with the content
@@ -1585,20 +1607,25 @@ body.pf-cv-open #pf-scroll-top,body.pf-cv-open #pf-feedback-card{display:none!im
     <button class="tool-tab" id="tab-detect" onclick="switchTool('detect')" aria-label="Free AI Content Detector - Check If Text Is AI-Written" title="Free AI Detector — Check if text was written by ChatGPT, Claude or other AI, free GPTZero alternative">🔍 AI Detector</button>
     <button class="tool-tab" id="tab-ai" onclick="switchTool('ai')" aria-label="ParaFree AI - Free AI Assistant for PPT, Docs, Websites" title="ParaFree AI — Create presentations, documents, websites and code for free" style="position:relative;">✨ ParaFree AI</button>
     <button class="tool-tab" id="tab-pdf" onclick="pfOpenPdfTools()" aria-label="Free PDF Tools - PDF to Word, Word to PDF, JPG to PDF, Compress and Merge" title="Free PDF Tools — PDF to Word, Word to PDF, JPG to PDF, compress and merge PDFs in your browser">📄 PDF Tools <span class="tab-new">NEW</span></button>
+    <button class="tool-tab" id="tab-fq" onclick="pfOpenFqTab()" aria-label="Free AI Flashcard, Quiz and Notes Maker" title="Flashcards &amp; Quiz — turn notes, PDFs, slides or a YouTube lecture into flashcards, a quiz and key-point notes, free"><span class="tab-fq-l">🎴 Flashcards &amp; Quiz</span><span class="tab-fq-s">🎴 Flashcards</span><span class="tab-new">NEW</span></button>
     <button class="tool-tab" id="tab-cv" onclick="pfOpenCvTab()" aria-label="Free CV Builder - 54 templates, no signup" title="Free CV Builder — 54 templates, AI writing, cover letter, free PDF download">📄 CV Builder</button>
   </div>
 </div>
 
 <div id="pfHomePdf" class="pf-home-pdf" hidden></div>
+<div id="pfHomeFq" hidden>
+  <div class="pf-fq-head"><span class="pf-fq-h">Flashcards &amp; Quiz — from notes, PDFs, slides or a YouTube lecture</span><a class="pf-fq-full" href="/flashcard-quiz-maker.html">Open full Flashcards &amp; Quiz page →</a></div>
+  <p id="pfFqLoading" class="pf-fq-loading">Loading Flashcards &amp; Quiz…</p>
+</div>
 <div id="pfHomeCv" hidden style="max-width:1100px;margin:0 auto 16px;padding:0 16px;font-family:'DM Sans',sans-serif;">
   <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 16px;margin:4px 0 10px;"><span style="font:700 15px Syne,sans-serif;color:#1a1814;">Free CV Builder — 54 templates, no signup, no watermark</span><a href="/cv-builder.html" target="_blank" rel="noopener" style="font-size:13px;font-weight:700;color:#2d6a4f;text-decoration:none;">Open full CV Builder ↗</a></div>
   <p id="pfCvLoading" style="padding:28px 16px;text-align:center;color:#6b6660;">Loading CV Builder…</p>
 </div>
-<script>/* Extra tabs (PDF Tools, CV Builder): the text tools are only hidden while one is open (body.pf-alt-active)
+<script>/* Extra tabs (PDF Tools, Flashcards & Quiz, CV Builder): the text tools are only hidden while one is open (body.pf-alt-active)
    and shown again on any tool switch. PDF Tools: the shell shows at once; lib/pdf-tools home.js then loads only the
    active tool (files versioned with ?v=, long-cached) and is prefetched when the page is idle. CV Builder is static. */
 (function(){var V=window.PFV='e997645256',T=['pdf-to-word','word-to-pdf','jpg-to-pdf','compress-pdf','merge-pdf','pdf-to-jpg'],N=['📄 PDF to Word','📝 Word to PDF','🖼 JPG to PDF','🗜 Compress PDF','➕ Merge PDF','🖼 PDF to JPG'],
-L=null,P=null,A=null,d=document,PANEL={pdf:'pfHomePdf',cv:'pfHomeCv'};
+L=null,P=null,A=null,d=document,PANEL={pdf:'pfHomePdf',cv:'pfHomeCv',fq:'pfHomeFq'};
 function u(n,x){return '/lib/pdf-tools/'+n+(x||'.js')+'?v='+V}
 function js(src){return new Promise(function(r,j){var s=d.createElement('script');s.src=src;s.onload=r;s.onerror=j;d.head.appendChild(s)})}
 function load(){if(!L)L=js(u('home')).catch(function(e){L=null;throw e});return L}
@@ -1607,10 +1634,10 @@ function shell(t){var b=d.getElementById('pfHomePdf');if(b.firstChild&&!b.hasAtt
 b.innerHTML='<div class="pf-home-head"><div class="pf-subtabs" role="tablist" aria-label="PDF tools">'+T.map(function(id,i){return '<button type="button" class="pf-subtab'+(id===t?' active':'')+'" role="tab" data-pftab="'+id+'" aria-selected="'+(id===t)+'">'+N[i]+'</button>'}).join('')+
 '</div><a class="pf-home-full" href="/pdf-tools.html#'+t+'">Open full PDF Tools page →</a></div><p class="pf-home-privacy">🔒 Your files never leave your device.</p><div class="pf-home-panels"><p class="pf-home-loading">Loading tool…</p></div>';
 if(!b.pfWired){b.pfWired=1;b.addEventListener('click',function(e){var x=e.target.closest&&e.target.closest('.pf-subtab');if(x)window.pfOpenPdfTools(x.getAttribute('data-pftab'),1)})}return b}
-function open(id){if(!A){P=d.querySelector('.tool-tabs .tool-tab.active:not(#tab-pdf):not(#tab-cv)');if(P)P.classList.remove('active')}else if(A!==id)close(1);
+function open(id){if(!A){P=d.querySelector('.tool-tabs .tool-tab.active:not(#tab-pdf):not(#tab-cv):not(#tab-fq)');if(P)P.classList.remove('active')}else if(A!==id)close(1);
 A=id;d.body.classList.add('pf-alt-active');d.body.classList.toggle('pf-cv-open',id==='cv');d.getElementById('tab-'+id).classList.add('active');d.getElementById(PANEL[id]).hidden=false}
 function close(keep){if(!A)return;var id=A;A=null;d.getElementById('tab-'+id).classList.remove('active');d.getElementById(PANEL[id]).hidden=true;d.body.classList.remove('pf-cv-open');if(id==='pdf'&&window.PFHome)window.PFHome.close();if(keep)return;
-d.body.classList.remove('pf-alt-active');if(P&&!d.querySelector('.tool-tabs .tool-tab.active'))P.classList.add('active');var h=location.hash.slice(1);if(T.indexOf(h)>=0||h==='cv-builder')try{history.replaceState(history.state,'',location.pathname+location.search)}catch(e){}}
+d.body.classList.remove('pf-alt-active');if(P&&!d.querySelector('.tool-tabs .tool-tab.active'))P.classList.add('active');var h=location.hash.slice(1);if(T.indexOf(h)>=0||h==='cv-builder'||h==='flashcards')try{history.replaceState(history.state,'',location.pathname+location.search)}catch(e){}}
 window.pfOpenPdfTools=function(t,click){t=T.indexOf(t)>=0?t:null;open('pdf');css();var b=shell(t||'pdf-to-word');
 return load().then(function(){return window.PFHome.open(t,click)}).catch(function(){b.setAttribute('data-err','1');b.innerHTML='<p style="padding:20px 16px;text-align:center;color:#9b1c25">Could not load the PDF tools — check your connection, or open <a href="/pdf-tools.html">the PDF Tools page</a>.</p>'})};
 window.pfClosePdfTools=function(){if(A==='pdf')close()};
@@ -1622,10 +1649,16 @@ addEventListener('resize',function(){clearTimeout(RZ);RZ=setTimeout(function(){c
 addEventListener('message',function(e){if(!F||e.origin!==location.origin||e.source!==F.contentWindow||!e.data)return;var m=e.data;
 if(m.type==='pf-cv-size'){FM=m.mode==='app'?'app':'flow';F.style.height=(FM==='app'?avail():Math.max(200,Math.min(+m.height||0,60000)))+'px'}
 else if(m.type==='pf-cv-focus'){var r=F.getBoundingClientRect();if(Math.abs(r.top-navH())>2)scrollBy({top:r.top-navH(),behavior:'smooth'})}});
+/* Flashcards & Quiz: the real page (/flashcard-quiz-maker.html?embed=1) in an iframe, created on first open — one implementation
+   for the tab and the page, and nothing of it loads with the homepage. The page posts its height (pf-fq-size). */
+var FQ=null;function fqFrame(){if(FQ)return;FQ=d.createElement('iframe');FQ.id='pfFqFrame';FQ.title='ParaFree Flashcards & Quiz';FQ.src='/flashcard-quiz-maker.html?embed=1';FQ.setAttribute('allow','clipboard-write');
+FQ.style.cssText='display:block;width:100%;height:560px;border:0;border-radius:14px;background:transparent';FQ.addEventListener('load',function(){var l=d.getElementById('pfFqLoading');if(l)l.remove()});d.getElementById('pfHomeFq').appendChild(FQ)}
+addEventListener('message',function(e){if(!FQ||e.origin!==location.origin||e.source!==FQ.contentWindow||!e.data||e.data.type!=='pf-fq-size')return;FQ.style.height=Math.max(200,Math.min(+e.data.height||0,20000))+'px'});
+window.pfOpenFqTab=function(){open('fq');fqFrame()};
 window.pfOpenCvTab=function(){open('cv');cvFrame();(window.PFPdfEvents?Promise.resolve():js(u('pdf-events'))).then(function(){window.PFPdfEvents.cvTabClick()}).catch(function(){})};
 d.addEventListener('click',function(e){var t=e.target&&e.target.closest&&e.target.closest('[onclick*="switchTool("]');if(t)close()},true);
-function h(){var t=location.hash.slice(1),x=d.getElementById('tools');if(T.indexOf(t)>=0)window.pfOpenPdfTools(t);else if(t==='cv-builder')window.pfOpenCvTab();else return;if(x)x.scrollIntoView()}
-addEventListener('hashchange',h);var h0=location.hash.slice(1);if(T.indexOf(h0)>=0||h0==='cv-builder')d.addEventListener('DOMContentLoaded',h);
+function h(){var t=location.hash.slice(1),x=d.getElementById('tools');if(T.indexOf(t)>=0)window.pfOpenPdfTools(t);else if(t==='cv-builder')window.pfOpenCvTab();else if(t==='flashcards')window.pfOpenFqTab();else return;if(x)x.scrollIntoView()}
+addEventListener('hashchange',h);var h0=location.hash.slice(1);if(T.indexOf(h0)>=0||h0==='cv-builder'||h0==='flashcards')d.addEventListener('DOMContentLoaded',h);
 if(/[?&]handoff=pdf(&|$)/.test(location.search))addEventListener('load',function(){var s=d.createElement('script');s.src=u('handoff');s.onload=function(){window.PFHandoff.receive()};
 s.onerror=function(){var n=d.createElement('p');n.textContent='Download the Word file and upload it here';n.style.cssText='max-width:1100px;margin:6px auto 0;padding:0 16px;font-size:13px;color:#8a4b12';var a=d.getElementById('langBar');a.parentNode.insertBefore(n,a)};d.head.appendChild(s)});
 /* idle prefetch (3 s after load, low priority, skipped with Save-Data or on 2G) so the first click is near-instant */
@@ -2449,8 +2482,17 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
       </div>
     </div>
+    <!-- Flashcards & Quiz (newest tool): full-width gradient banner under the tool cards, paired with PDF Tools below -->
+    <a href="/flashcard-quiz-maker.html" class="pf-studypack-card pf-fq-card">
+      <span class="pf-fq-text">
+        <span class="pf-fq-badges"><b class="pf-fq-badge">STUDY TOOL</b><b class="pf-fq-new">NEW</b></span>
+        <span class="pf-fq-title">Flashcards &amp; Quiz</span>
+        <span class="pf-fq-desc">Turn notes, PDFs, slides, or a YouTube lecture into key points, flashcards, and a quiz — free, no sign-up.</span>
+        <span class="pf-fq-cta">Make flashcards &amp; a quiz →</span>
+      </span>
+      <span class="pf-fq-art" aria-hidden="true"><span class="pf-fq-c1">Q</span><span class="pf-fq-c2">A</span><span class="pf-fq-c3">✓</span></span>
+    </a>
     <a href="/pdf-tools.html" class="pf-pdf-card" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 24px;margin-top:24px;border-radius:24px;padding:24px 28px;text-decoration:none;background:linear-gradient(135deg,#1a3a2a,#2d6a4f);color:#fff;font-family:'Syne',sans-serif;"><span><b style="background:#52b788;color:#0f2a1c;padding:3px 10px;border-radius:6px;font-size:11px;">PDF TOOLS</b><span style="display:block;font-size:20px;font-weight:800;margin-top:8px;">Convert, compress &amp; merge PDFs — free, in your browser</span></span><span style="color:#b7f0cf;font-size:14px;font-weight:700;">Open PDF Tools →</span></a>
-    <a href="/flashcard-quiz-maker.html" class="pf-studypack-card" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 24px;margin-top:16px;border-radius:24px;padding:24px 28px;text-decoration:none;background:#ffffff;border:1.5px solid #b7e4c7;color:#1a1814;font-family:'Syne',sans-serif;"><span><b style="background:#2d6a4f;color:#ffffff;padding:3px 10px;border-radius:6px;font-size:11px;">STUDY TOOL</b><span style="display:block;font-size:20px;font-weight:800;margin-top:8px;">Flashcards &amp; Quiz</span><span style="display:block;font:400 14px 'DM Sans',sans-serif;color:#6b6660;margin-top:6px;">Turn notes, PDFs, slides, or a YouTube lecture into key points, flashcards, and a quiz — free, no sign-up.</span></span><span style="color:#2d6a4f;font-size:14px;font-weight:700;">Make flashcards &amp; a quiz →</span></a>
   </div>
 </div>
 

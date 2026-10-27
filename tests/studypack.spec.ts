@@ -636,3 +636,122 @@ test.describe('errors and pages', () => {
     expect(net.errors).toEqual([]);
   });
 });
+
+// ─────────────────────────────────────────────────────────────
+test.describe('homepage tab: the real tool, embedded inline', () => {
+  const fqRequests = (net: any) => net.reqs.filter((u: string) => /flashcard-quiz-maker\.html|\/lib\/studypack\//.test(u));
+  async function home(page: Page, w = 1280) {
+    const net: any = await setup(page);
+    net.reqs = [] as string[];
+    page.on('request', (r) => net.reqs.push(r.url()));
+    await page.setViewportSize({ width: w, height: 900 });
+    await page.goto('/');
+    await page.waitForFunction(() => typeof (window as any).pfOpenFqTab === 'function' && document.readyState === 'complete');
+    return net;
+  }
+
+  test('tab sits after PDF Tools with a NEW badge; nothing of the tool loads until it is clicked', async ({ page }) => {
+    const net = await home(page);
+    const tab = page.locator('#tab-fq');
+    await expect(tab.locator('.tab-fq-l')).toHaveText('🎴 Flashcards & Quiz');
+    await expect(tab.locator('.tab-fq-l')).toBeVisible();
+    await expect(tab.locator('.tab-fq-s')).toBeHidden();
+    await expect(tab.locator('.tab-new')).toHaveText('NEW');
+    await expect(tab).toHaveAttribute('aria-label', 'Free AI Flashcard, Quiz and Notes Maker');
+    await page.setViewportSize({ width: 360, height: 780 });                      // small phones: the short label
+    await expect(tab.locator('.tab-fq-s')).toHaveText('🎴 Flashcards');
+    await expect(tab.locator('.tab-fq-s')).toBeVisible();
+    await expect(tab.locator('.tab-fq-l')).toBeHidden();
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const ids = await page.locator('.tool-tabs .tool-tab').evaluateAll((els) => els.map((e) => e.id));
+    expect(ids.indexOf('tab-fq')).toBe(ids.indexOf('tab-pdf') + 1);
+    expect(ids.indexOf('tab-cv')).toBe(ids.indexOf('tab-fq') + 1);
+    await page.waitForTimeout(3500);                                             // past the homepage's idle prefetch
+    expect(fqRequests(net)).toEqual([]);                                         // lazy: no page, no scripts yet
+    await expect(page.locator('#pfFqFrame')).toHaveCount(0);
+    expect(net.errors).toEqual([]);
+  });
+
+  test('click → the real page in an iframe (?embed=1): text tools hidden, link to the full page, the tool works inline', async ({ page }) => {
+    const net = await home(page);
+    await page.locator('#tab-fq').click();
+    await expect(page.locator('#tab-fq')).toHaveClass(/active/);
+    await expect(page.locator('.tool-tabs .tool-tab.active')).toHaveCount(1);
+    await expect(page.locator('#pfHomeFq')).toBeVisible();
+    await expect(page.locator('.paraphrase-wrap').first()).toBeHidden();
+    const full = page.locator('#pfHomeFq a.pf-fq-full');
+    await expect(full).toHaveText('Open full Flashcards & Quiz page →');
+    await expect(full).toHaveAttribute('href', '/flashcard-quiz-maker.html');
+    await expect(page.locator('#pfFqFrame')).toHaveAttribute('src', '/flashcard-quiz-maker.html?embed=1');
+    expect(new URL(page.url()).pathname).toBe('/');                              // URL stays on the homepage
+    const f = page.frameLocator('#pfFqFrame');
+    await expect(f.locator('#spGo')).toBeVisible();
+    for (const sel of ['#mainNav', '.pf-hero', '.pf-content', '.pf-footer']) await expect(f.locator(sel)).toBeHidden();
+    // one implementation: the frame runs the same scripts as the page
+    expect(fqRequests(net).map((u: string) => new URL(u).pathname + new URL(u).search)).toEqual(
+      expect.arrayContaining(['/flashcard-quiz-maker.html?embed=1', '/lib/studypack/app.js', '/lib/studypack/textrank.js']));
+    // the tool works inside the homepage
+    await f.locator('#spText').fill(LONG);
+    await f.locator('#spGo').click();
+    await expect(f.locator('#spNotes li')).toHaveText(PACK.key_points);
+    expect(packCalls(net.calls).map((c) => c.type)).toEqual(['studypack']);
+    // the frame follows its content after the pack appears
+    await expect.poll(async () => page.locator('#pfFqFrame').evaluate((fr: HTMLIFrameElement) => {
+      const doc = fr.contentDocument!; return Math.abs(fr.getBoundingClientRect().height - doc.body.getBoundingClientRect().height) <= 2;
+    })).toBe(true);                                                              // the frame is exactly as tall as the tool: no inner scrollbar, no gap
+    expect(net.errors).toEqual([]);
+  });
+
+  test('switching: back to a text tool restores it; PDF Tools / CV Builder / Flashcards — one panel at a time; #flashcards deep link', async ({ page }) => {
+    await home(page);
+    await page.locator('#tab-fq').click();
+    await page.locator('#tab-humanize').click();
+    await expect(page.locator('#tab-humanize')).toHaveClass(/active/);
+    await expect(page.locator('#humanizeWrap')).toBeVisible();
+    await expect(page.locator('#pfHomeFq')).toBeHidden();
+    await page.locator('#tab-fq').click();
+    await page.locator('#tab-pdf').click();
+    await expect(page.locator('#pfHomeFq')).toBeHidden();
+    await expect(page.locator('#pfHomePdf')).toBeVisible();
+    await page.locator('#tab-fq').click();
+    await expect(page.locator('#pfHomePdf')).toBeHidden();
+    await expect(page.locator('#pfHomeFq')).toBeVisible();
+    await expect(page.locator('.tool-tabs .tool-tab.active')).toHaveCount(1);
+    await expect(page.locator('#pfFqFrame')).toHaveCount(1);                    // reused, not re-created
+    await page.goto('about:blank');
+    await page.goto('/#flashcards');
+    await expect(page.locator('#pfHomeFq')).toBeVisible();
+    await expect(page.locator('#tab-fq')).toHaveClass(/active/);
+  });
+
+  test('SEO: the full page stays canonical + indexable; the embed is noindex with the same canonical; homepage canonical unchanged', async ({ page }) => {
+    await setup(page);
+    await page.goto('/flashcard-quiz-maker.html');
+    expect(await page.locator('meta[name="robots"]').getAttribute('content')).toBe('index, follow');
+    await page.goto('/flashcard-quiz-maker.html?embed=1');
+    expect(await page.locator('meta[name="robots"]').getAttribute('content')).toBe('noindex, follow');
+    expect(await page.locator('link[rel="canonical"]').getAttribute('href')).toBe('https://parafree.app/flashcard-quiz-maker.html');
+    await page.goto('/');
+    expect(await page.locator('link[rel="canonical"]').getAttribute('href')).toBe('https://parafree.app/');
+    await expect(page.locator('link[rel="canonical"]')).toHaveCount(1);
+  });
+
+  for (const w of [320, 360, 768, 1024, 1280]) {
+    test(`${w}px: switcher wraps, the embedded tool fits, no horizontal scroll`, async ({ page }) => {
+      const net = await home(page, w);
+      await page.locator('#tab-fq').click();
+      const f = page.frameLocator('#pfFqFrame');
+      await expect(f.locator('#spGo')).toBeVisible();
+      const r = await page.evaluate(() => {
+        const fr = document.getElementById('pfFqFrame') as HTMLIFrameElement, doc = fr.contentDocument!;
+        const tabs = [...document.querySelectorAll('.tool-tabs .tool-tab')].map((t) => t.getBoundingClientRect());
+        return { sw: document.documentElement.scrollWidth, frameSw: doc.documentElement.scrollWidth, frameW: Math.round(fr.getBoundingClientRect().width),
+          tabsInside: tabs.every((t) => t.left >= -0.5 && t.right <= innerWidth + 0.5) };
+      });
+      expect(r.sw, 'homepage: no horizontal scroll').toBeLessThanOrEqual(w);
+      expect(r.frameSw, 'embedded tool: no horizontal scroll').toBeLessThanOrEqual(r.frameW);
+      expect(r.tabsInside, 'every switcher tab on screen').toBe(true);
+      expect(net.errors).toEqual([]);
+    });
+  }
+});

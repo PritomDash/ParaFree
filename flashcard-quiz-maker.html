@@ -27,7 +27,9 @@
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
 
-  gtag('config', 'G-0QEEGS0DZQ');
+  // ?embed=1 (inside the homepage "Flashcards & Quiz" tab): the homepage already sent the page view
+  if (/[?&]embed=1(&|$)/.test(location.search)) gtag('config', 'G-0QEEGS0DZQ', { send_page_view: false });
+  else gtag('config', 'G-0QEEGS0DZQ');
 </script>
 <script type="application/ld+json">
 {
@@ -125,6 +127,41 @@
 </style>
 </head>
 <body>
+<!-- EMBED MODE (?embed=1): the homepage "Flashcards & Quiz" tab shows this same page in an iframe, so the tool has ONE
+     implementation. Only then: no site header/hero/FAQ/footer, noindex (canonical stays this page), and the page's
+     height is posted to the homepage so the frame has no inner scrollbar. Without ?embed=1 nothing below applies. -->
+<style>
+html.pf-embed body{background:transparent}
+html.pf-embed #mobileMenu,html.pf-embed #mainNav,html.pf-embed .pf-hero,html.pf-embed .pf-content,html.pf-embed .pf-footer,html.pf-embed #pf-scroll-top{display:none!important}
+html.pf-embed body{margin:0;min-height:0!important}   /* else the body is as tall as the frame, and the frame could never shrink */
+html.pf-embed .sp-wrap{max-width:none!important;margin:0!important;padding:4px 0 8px!important}
+</style>
+<script>
+(function () {
+  if (!/[?&]embed=1(&|$)/.test(location.search)) return;
+  var d = document.documentElement, O = location.origin;
+  d.classList.add('pf-embed');
+  var robots = document.querySelector('meta[name="robots"]');
+  if (robots) robots.content = 'noindex, follow';                 // canonical: /flashcard-quiz-maker.html
+  if (window.parent === window) return;
+  try { if (typeof gtag === 'function') gtag('set', { embed_page: parent.location.pathname }); } catch (e) {}
+  var timer = 0, last = 0;
+  function size() {
+    timer = 0;
+    var b = document.body; if (!b) return;
+    var h = Math.ceil(b.getBoundingClientRect().height + (parseFloat(getComputedStyle(b).marginTop) || 0) + (parseFloat(getComputedStyle(b).marginBottom) || 0));
+    if (h === last) return;
+    last = h;
+    parent.postMessage({ type: 'pf-fq-size', height: h }, O);
+  }
+  function soon() { if (!timer) timer = setTimeout(size, 60); }
+  window.addEventListener('load', soon);
+  document.addEventListener('DOMContentLoaded', function () {
+    if (window.ResizeObserver) new ResizeObserver(soon).observe(document.body);
+    soon();
+  });
+})();
+</script>
 
 <!-- NAV (same links as the homepage) -->
 <div id="mobileMenu" onclick="if(event.target===this)toggleMenu()">
