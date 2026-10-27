@@ -1,4 +1,4 @@
-// Study Pack page (studypack.html): every input type routes to the right path and ends in ONE study-pack call;
+// AI Flashcard, Quiz & Notes Maker page (flashcard-quiz-maker.html; internal name "studypack"): every input type routes to the right path and ends in ONE study-pack call;
 // the three tabs (Notes / Flashcards / Quiz) come from that one answer; YouTube without captions offers paste /
 // AI-on-the-video (and a clear message when the AI can't watch it); audio goes to Groq Whisper first — split into
 // pieces in the browser (MP3 at frame boundaries, other formats re-encoded as 16 kHz mono WAV), one request per
@@ -79,7 +79,7 @@ async function setup(page: Page, opts: { api?: Api; config?: any; youtube?: (url
 }
 async function open(page: Page) {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto('/studypack.html');
+  await page.goto('/flashcard-quiz-maker.html');
   await page.waitForFunction(() => !!(window as any).PFStudyPack && !!(window as any).PFTextRank);
 }
 const packCalls = (calls: any[]) => calls.filter((c) => c.type !== 'studypack_config');
@@ -414,6 +414,52 @@ test.describe('audio / video', () => {
     expect(packCalls(net.calls)).toEqual([]);
   });
 
+  const big = (name: string, mimeType: string, bytes: number) => ({ name, mimeType, buffer: Buffer.alloc(bytes, 3) });
+  const BIG_NOTE = 'Large non-MP3 files are processed in your browser and need a lot of memory — this works best on desktop, or convert to MP3 first.';
+  test('large non-MP3 file → memory notice as soon as it is chosen (before processing); MP3 and small files get none', async ({ page }) => {
+    const net = await setup(page, { api: whisperApi() });
+    await open(page);
+    const limit = await page.evaluate(() => (window as any).PFStudyPack.LARGE_DECODE_BYTES);
+    expect(limit).toBe(20 * 1024 * 1024);
+    await page.locator('.sp-in[data-input="media"]').click();
+    const note = page.locator('#spBigNote');
+    await page.locator('#spMedia').setInputFiles(big('lecture.m4a', 'audio/mp4', limit + 1024));
+    await expect(note).toBeVisible();
+    await expect(note).toHaveText(BIG_NOTE);
+    expect(packCalls(net.calls)).toEqual([]);                                   // nothing processed or sent yet
+    await page.locator('#spMedia').setInputFiles(big('lecture.mp3', 'audio/mpeg', limit + 1024));
+    await expect(note).toBeHidden();                                            // MP3: cut without decoding
+    await page.locator('#spMedia').setInputFiles(big('lecture.wav', 'audio/wav', limit - 1024));
+    await expect(note).toBeHidden();                                            // under the threshold
+    await page.locator('#spMedia').setInputFiles(big('lecture.m4a', 'audio/mp4', 2000));
+    await expect(note).toBeHidden();
+  });
+
+  test('large non-MP3 that fails to decode → the same notice as an error, nothing sent, no broken state', async ({ page }) => {
+    const net = await setup(page, { api: whisperApi() });
+    await open(page);
+    const limit = await page.evaluate(() => (window as any).PFStudyPack.LARGE_DECODE_BYTES);
+    await pick(page, big('lecture.m4a', 'audio/mp4', limit + 1024));            // not real audio: decodeAudioData rejects
+    await expect(page.locator('#spStatus')).toHaveText(BIG_NOTE);
+    await expect(page.locator('#spBigNote')).toBeVisible();
+    await expect(page.locator('#spOut')).toBeHidden();
+    await expect(page.locator('#spGo')).toBeEnabled();                           // the user can pick another file and retry
+    expect(packCalls(net.calls)).toEqual([]);
+    expect(net.errors).toEqual([]);
+  });
+
+  test('large MP3 is unaffected: no notice, cut into pieces without decoding', async ({ page }) => {
+    const net = await setup(page, { api: whisperApi() });
+    await open(page);
+    const limit = await page.evaluate(() => (window as any).PFStudyPack.LARGE_DECODE_BYTES);
+    await pick(page, mp3File(limit + 4096));
+    await expectPack(page);
+    await expect(page.locator('#spBigNote')).toBeHidden();
+    const pieces = packCalls(net.calls).filter((x) => x.type === 'studypack_audio_piece');
+    expect(pieces.length).toBe(7);                                              // 20 MiB in (3 MiB − 16 KiB) pieces
+    expect(pieces.every((p) => p.mime === 'audio/mpeg')).toBe(true);
+  });
+
   test('file over the size limit → message, no upload', async ({ page }) => {
     const net = await setup(page, { config: Object.assign({}, CONFIG, { maxBytes: 2000 }) });
     await open(page);
@@ -436,22 +482,48 @@ test.describe('errors and pages', () => {
     expect(net.errors).toEqual([]);
   });
 
-  test('study pack page: title, description, canonical, FAQ = its structured data; homepage card + nav entries', async ({ page }) => {
+  test('page: new name and URL — title, H1, description, canonical, OG, JSON-LD, FAQ = its structured data; nav, homepage card, sitemap, redirect', async ({ page }) => {
     const net = await setup(page);
     await open(page);
-    await expect(page).toHaveTitle(/Study Pack Maker/);
-    expect(await page.locator('meta[name="description"]').getAttribute('content')).toContain('Turn notes, PDFs, slides, or a YouTube lecture into key points, flashcards, and a quiz — free, no sign-up.');
-    expect(await page.locator('link[rel="canonical"]').getAttribute('href')).toBe('https://parafree.app/studypack.html');
-    const faq = await page.evaluate(() => [...document.querySelectorAll('script[type="application/ld+json"]')].map((s) => JSON.parse(s.textContent!)).find((j) => j['@type'] === 'FAQPage'));
+    const URL_ = 'https://parafree.app/flashcard-quiz-maker.html';
+    await expect(page).toHaveTitle('AI Flashcard, Quiz & Notes Maker — from Notes, PDFs or Lectures | ParaFree');
+    await expect(page.locator('h1')).toHaveText('AI Flashcard, Quiz & Notes Maker');
+    await expect(page.locator('.pf-hero p')).toHaveText('Turn your notes, PDFs, slides, or a YouTube lecture into flashcards, a quiz, and key-point notes — free, no sign-up.');
+    expect(await page.locator('meta[name="description"]').getAttribute('content')).toContain('Make flashcards, a multiple-choice quiz and key-point notes');
+    expect(await page.locator('link[rel="canonical"]').getAttribute('href')).toBe(URL_);
+    expect(await page.locator('meta[property="og:url"]').getAttribute('content')).toBe(URL_);
+    expect(await page.locator('meta[property="og:title"]').getAttribute('content')).toBe('AI Flashcard, Quiz & Notes Maker | ParaFree');
+    expect(await page.locator('meta[name="twitter:title"]').getAttribute('content')).toBe('AI Flashcard, Quiz & Notes Maker | ParaFree');
+    const ld = await page.evaluate(() => [...document.querySelectorAll('script[type="application/ld+json"]')].map((s) => JSON.parse(s.textContent!)));
+    const app = ld.find((j) => j['@type'] === 'WebApplication'), faq = ld.find((j) => j['@type'] === 'FAQPage');
+    expect([app.name, app.url]).toEqual(['ParaFree AI Flashcard, Quiz & Notes Maker', URL_]);
     const visible = await page.locator('.faq-item').evaluateAll((els) => els.map((e) => [e.querySelector('.faq-q')!.textContent, e.querySelector('.faq-a')!.textContent]));
     expect(faq.mainEntity.map((q: any) => [q.name, q.acceptedAnswer.text])).toEqual(visible);
-    const html = fs.readFileSync(path.join(ROOT, 'studypack.html'), 'utf8');
+    expect(visible.map((v) => v[1]).join(' ')).toContain('to be transcribed, and the study pack is made from the transcript; ParaFree does not save the recording or the transcript.');
+    await expect(page.locator('#homeNavLinks a[href="/flashcard-quiz-maker.html"]')).toHaveText('Flashcards & Quiz');
+    await expect(page.locator('#mobileMenu a[href="/flashcard-quiz-maker.html"]')).toHaveText('📚 Flashcards & Quiz');
+    await expect(page.locator('footer a[href="/flashcard-quiz-maker.html"]')).toHaveText('Flashcards & Quiz');
+    const html = fs.readFileSync(path.join(ROOT, 'flashcard-quiz-maker.html'), 'utf8');
     expect(html).not.toMatch(/\b(the best|best free|number one|the only|only free)\b|#1\b/i);   // honest copy: no superlatives
+    expect(html).not.toContain('studypack.html');
+    expect(html).not.toMatch(/>\s*(📚 )?Study Pack\s*</);
     await page.goto('/');
-    await expect(page.locator('a.pf-studypack-card')).toContainText('Turn notes, PDFs, slides, or a YouTube lecture into key points, flashcards, and a quiz — free, no sign-up.');
-    await expect(page.locator('#homeNavLinks a[href="/studypack.html"]')).toHaveText('Study Pack');
-    await expect(page.locator('#mobileMenu a[href="/studypack.html"]')).toHaveCount(1);
-    expect(fs.readFileSync(path.join(ROOT, 'sitemap.xml'), 'utf8')).toContain('<loc>https://parafree.app/studypack.html</loc>');
+    const card = page.locator('a.pf-studypack-card');
+    await expect(card).toHaveAttribute('href', '/flashcard-quiz-maker.html');
+    await expect(card).toContainText('Flashcards & Quiz');
+    await expect(card).toContainText('Turn notes, PDFs, slides, or a YouTube lecture into key points, flashcards, and a quiz — free, no sign-up.');
+    await expect(page.locator('#homeNavLinks a[href="/flashcard-quiz-maker.html"]')).toHaveText('Flashcards & Quiz');
+    await expect(page.locator('#mobileMenu a[href="/flashcard-quiz-maker.html"]')).toHaveText('📚 Flashcards & Quiz');
+    await expect(page.locator('a[href="/studypack.html"]')).toHaveCount(0);
+    const sitemap = fs.readFileSync(path.join(ROOT, 'sitemap.xml'), 'utf8');
+    expect(sitemap).toContain('<loc>' + URL_ + '</loc>');
+    expect(sitemap).not.toContain('studypack');
+    expect(fs.existsSync(path.join(ROOT, 'studypack.html'))).toBe(false);
+    // 301 from the old URL (with and without .html) — checked against vercel.json's routes, before the generic /x → /x.html rule
+    const routes = JSON.parse(fs.readFileSync(path.join(ROOT, 'vercel.json'), 'utf8')).routes;
+    const first = (u: string) => routes.find((r: any) => r.src && new RegExp('^' + r.src + '$').test(u));
+    for (const u of ['/studypack.html', '/studypack', '/studypack/']) expect([first(u).status, first(u).headers.Location]).toEqual([301, '/flashcard-quiz-maker.html']);
+    expect(first('/flashcard-quiz-maker').headers.Location).toBe('/$1.html');
     expect(net.errors).toEqual([]);
   });
 });

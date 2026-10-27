@@ -3,21 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Free Study Pack Maker — Key Points, Flashcards &amp; Quiz from Notes, PDFs or Lectures | ParaFree</title>
-<meta name="description" content="Turn notes, PDFs, slides, or a YouTube lecture into key points, flashcards, and a quiz — free, no sign-up. Paste text or upload a PDF, Word or PowerPoint file.">
+<title>AI Flashcard, Quiz &amp; Notes Maker — from Notes, PDFs or Lectures | ParaFree</title>
+<meta name="description" content="Make flashcards, a multiple-choice quiz and key-point notes from your notes, PDFs, slides or a YouTube lecture with AI — free, no sign-up. Paste text or upload a PDF, Word or PowerPoint file.">
 <meta name="robots" content="index, follow">
-<link rel="canonical" href="https://parafree.app/studypack.html">
-<meta property="og:title" content="Free Study Pack Maker — Key Points, Flashcards &amp; Quiz">
-<meta property="og:description" content="Turn notes, PDFs, slides, or a YouTube lecture into key points, flashcards, and a quiz — free, no sign-up.">
-<meta property="og:url" content="https://parafree.app/studypack.html">
+<link rel="canonical" href="https://parafree.app/flashcard-quiz-maker.html">
+<meta property="og:title" content="AI Flashcard, Quiz &amp; Notes Maker | ParaFree">
+<meta property="og:description" content="Turn your notes, PDFs, slides, or a YouTube lecture into flashcards, a quiz, and key-point notes — free, no sign-up.">
+<meta property="og:url" content="https://parafree.app/flashcard-quiz-maker.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="ParaFree">
 <meta property="og:image" content="https://parafree.app/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Free Study Pack Maker | ParaFree">
-<meta name="twitter:description" content="Key points, flashcards and a quiz from your notes, PDFs, slides or a YouTube lecture — free, no sign-up.">
+<meta name="twitter:title" content="AI Flashcard, Quiz &amp; Notes Maker | ParaFree">
+<meta name="twitter:description" content="Flashcards, a quiz and key-point notes from your notes, PDFs, slides or a YouTube lecture — free, no sign-up.">
 <meta name="twitter:image" content="https://parafree.app/og-image.png">
 <meta name="twitter:site" content="@parafree">
 <!-- Google tag (gtag.js) -->
@@ -33,9 +33,9 @@
 {
   "@context": "https://schema.org",
   "@type": "WebApplication",
-  "name": "ParaFree Study Pack",
-  "url": "https://parafree.app/studypack.html",
-  "description": "Turns study material — pasted notes, PDF, Word or PowerPoint files, YouTube lectures or lecture recordings — into key points, flashcards and a multiple-choice quiz in one step. Free, no sign-up.",
+  "name": "ParaFree AI Flashcard, Quiz & Notes Maker",
+  "url": "https://parafree.app/flashcard-quiz-maker.html",
+  "description": "Turns study material — pasted notes, PDF, Word or PowerPoint files, YouTube lectures or lecture recordings — into flashcards, a multiple-choice quiz and key-point notes in one step. Free, no sign-up.",
   "applicationCategory": "EducationalApplication",
   "operatingSystem": "Any (runs in a web browser)",
   "browserRequirements": "Requires JavaScript",
@@ -122,7 +122,7 @@
   <div class="pf-menu-inner">
     <button class="pf-menu-close" onclick="toggleMenu()" aria-label="Close menu">×</button>
     <a href="/">Home</a>
-    <a href="/studypack.html">📚 Study Pack</a>
+    <a href="/flashcard-quiz-maker.html">📚 Flashcards &amp; Quiz</a>
     <a href="/cv-builder.html">CV Builder</a>
     <a href="/pdf-tools.html">📄 PDF Tools</a>
     <a href="/code.html">✨ ParaFree AI</a>
@@ -140,7 +140,7 @@
   </a>
   <div id="homeNavLinks">
     <a href="/" class="nav-link">Paraphraser</a>
-    <a href="/studypack.html" class="nav-link">Study Pack</a>
+    <a href="/flashcard-quiz-maker.html" class="nav-link">Flashcards &amp; Quiz</a>
     <a href="/cv-builder.html" class="nav-link">CV Builder</a>
     <a href="/pdf-tools.html" class="nav-link">PDF Tools</a>
     <a href="/code.html" class="nav-link">ParaFree AI</a>
@@ -154,8 +154,8 @@
 <header class="pf-hero">
   <div class="pf-hero-inner">
     <div class="pf-hero-badge">Free · No Sign-up</div>
-    <h1>Study Pack: Key Points, Flashcards &amp; a Quiz</h1>
-    <p>Turn notes, PDFs, slides, or a YouTube lecture into key points, flashcards, and a quiz — free, no sign-up.</p>
+    <h1>AI Flashcard, Quiz &amp; Notes Maker</h1>
+    <p>Turn your notes, PDFs, slides, or a YouTube lecture into flashcards, a quiz, and key-point notes — free, no sign-up.</p>
   </div>
 </header>
 
@@ -187,6 +187,7 @@
         <label class="sp-pick" id="spMediaPick"><input type="file" id="spMedia" accept="audio/*,video/*">🎧 Choose an audio or video recording</label>
         <p id="spMediaName" class="sp-note"></p>
         <p id="spMediaNote" class="sp-note"></p>
+        <p id="spBigNote" class="sp-help" hidden role="status">Large non-MP3 files are processed in your browser and need a lot of memory — this works best on desktop, or convert to MP3 first.</p>
       </div>
 
       <div id="spYtHelp" class="sp-help" hidden role="status">
@@ -261,7 +262,7 @@
 <footer class="pf-footer">
   <div class="pf-footer-links">
     <a href="/">Home</a>
-    <a href="/studypack.html">Study Pack</a>
+    <a href="/flashcard-quiz-maker.html">Flashcards &amp; Quiz</a>
     <a href="/about.html">About</a>
     <a href="/blog.html">Blog</a>
     <a href="/cv-builder.html">CV Builder</a>
