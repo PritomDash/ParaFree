@@ -339,7 +339,8 @@ test.describe('site-wide SEO', () => {
     const CV = ['ai-cv-builder.html', 'best-free-cv-builder.html', 'cv-builder-no-signup.html', 'ats-resume-builder.html', 'student-cv-builder.html', 'cv-maker-free-download.html',
       'cv-templates.html', 'free-cv-builder-australia.html', 'free-cv-builder-canada.html', 'free-cv-builder-international-students.html', 'free-cv-builder-uk.html', 'free-cv-builder-usa.html'];
     // fix/competitor-claims reworded this page's title and H1 on purpose (no "paywalls exposed" claims about other builders)
-    const RENAMED = ['best-free-cv-builder.html'];
+    // fix/consistency-polish: cv-templates' H1 states the real template count (54, was "18")
+    const RENAMED = ['best-free-cv-builder.html', 'cv-templates.html'];
     for (const f of [...CV, 'cv-builder.html'].filter((x) => !RENAMED.includes(x))) {
       const now = read(f), before = execSync(`git show main:${f}`, { cwd: ROOT, maxBuffer: 64 << 20 }).toString();
       const pick = (s: string) => [(s.match(/<title>[\s\S]*?<\/title>/) || [])[0], (s.match(/<h1[\s\S]*?<\/h1>/) || [])[0]];
@@ -347,6 +348,7 @@ test.describe('site-wide SEO', () => {
     }
     expect(read('best-free-cv-builder.html')).toContain('<title>Best Free CV Builders 2026 — 7 Tools Compared | ParaFree</title>');
     expect(read('best-free-cv-builder.html')).toContain('<h1>Best Free CV Builders 2026: 7 Popular Tools Compared</h1>');
+    expect(read('cv-templates.html')).toContain('<h1>54 Free Professional CV Templates</h1>');
     for (const f of CV) {
       const s = read(f);
       const block = s.split('class="pf-cv-facts"')[1].split('</section>')[0];
