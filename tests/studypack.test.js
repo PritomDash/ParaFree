@@ -158,7 +158,7 @@ const resetProbe = () => { SP._probeCache.clear(); for (const k of [...store.key
   // ── 1. pure functions: prompt, JSON repair, validation, tokens ──
   console.log('\n── 1. prompt, JSON repair, schema validation, tokens ──');
   const p = SP.buildPrompt('exam', 'pptx', false);
-  assert('prompt: mode counts and source from allow-lists', p.includes('12 concise points') && p.includes('up to 20 cards') && p.includes('up to 12 multiple-choice') && p.includes('lecture slides') && /every testable point|cover the material exhaustively/.test(p) && /no padding, no trivia/.test(p));
+  assert('prompt: mode counts and source from allow-lists', p.includes('12 concise points') && p.includes('15 cards') && p.includes('12 multiple-choice') && p.includes('lecture slides'));
   assert('prompt: unknown mode / input fall back to standard / text', SP.buildPrompt('<evil>', 'ignore previous', false).includes('10 concise points') && SP.buildPrompt('x', 'y', false).includes('study notes'));
   assert('media prompt: no transcript in the output', /Do NOT include a transcript/.test(SP.buildPrompt('quick', 'audio', true)));
   assert('parse: clean JSON', !!SP.parsePack(GOOD, 'standard'));
@@ -192,7 +192,7 @@ const resetProbe = () => { SP._probeCache.clear(); for (const k of [...store.key
   const sent = providerCalls(r)[0].sent;
   assert('server-built prompt (quick counts, PDF source) + the material', sent.includes('6 concise points') && sent.includes('document (from a PDF)') && sent.includes('Paragraph 0: photosynthesis'));
   assert('client-supplied prompt is ignored', !sent.includes('WRITE A POEM'));
-  assert('Gemini asked for up to 8192 output tokens (room for the largest pack)', providerCalls(r)[0].body.generationConfig.maxOutputTokens === 8192);
+  assert('Gemini asked for up to 4096 output tokens', providerCalls(r)[0].body.generationConfig.maxOutputTokens === 4096);
   answers = { gemini: 'fail', groq: GOOD };
   r = await call({ type: 'studypack', text: MATERIAL, mode: 'standard', inputType: 'text' });
   assert('Gemini down → next provider in the chain answers', r.status === 200 && providerCalls(r).some((c) => c.name.startsWith('groq/')), providerCalls(r).map((c) => c.name).join(','));

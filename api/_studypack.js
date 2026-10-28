@@ -23,15 +23,10 @@
 'use strict';
 const crypto = require('crypto');
 
-// flashcards / quiz are CEILINGS, not targets: the AI makes one card and one question per important concept, as many as
-// the material supports, up to these. Sized from a mocked worst case (every item at the prompt's word limits, long
-// words, a slow 150 tokens/s): Exam prep's largest pack ≈ 5,500 output tokens / 37 s — inside STUDYPACK_OUT_TOKENS
-// (8,192) and the 40 s attempt / 55 s request budget, so it is never cut off (a cut-off answer would be a failed pack);
-// with normal-length English it is ≈ 3,000 tokens / 20 s. Raise them only after a REAL large-input run confirms the margin.
 const MODES = {
-  quick:    { key_points: 6,  flashcards: 10, quiz: 6,  cover: 'key concept a student must know — the main ideas only, keep it lean' },
-  standard: { key_points: 10, flashcards: 15, quiz: 10, cover: 'important, testable concept — cover the material thoroughly' },
-  exam:     { key_points: 12, flashcards: 20, quiz: 12, cover: 'testable point (definitions, facts, steps, causes, comparisons) — cover the material exhaustively' },
+  quick:    { key_points: 6,  flashcards: 8,  quiz: 5 },
+  standard: { key_points: 10, flashcards: 12, quiz: 8 },
+  exam:     { key_points: 12, flashcards: 15, quiz: 12 },
 };
 const SOURCES = {
   text: 'study notes', pdf: 'document (from a PDF)', docx: 'document (from a Word file)', pptx: 'lecture slides',
@@ -72,9 +67,8 @@ function buildPrompt(mode, inputType, media) {
     '{"key_points":["..."],"flashcards":[{"front":"...","back":"..."}],"quiz":[{"question":"...","options":["...","...","...","..."],"answer_index":0,"explanation":"..."}]}',
     'Rules:',
     `- key_points: ${n.key_points} concise points covering the most important ideas, one sentence each.`,
-    `- flashcards: one card for each ${n.cover}; scale the number to how much the material really contains — up to ${n.flashcards} cards. "front" is a question or term (at most 15 words), "back" a short answer (at most 25 words).`,
-    `- quiz: one question for each ${n.cover} — up to ${n.quiz} multiple-choice questions (each question at most 25 words), exactly 4 options each (at most 12 words each), exactly one correct; "answer_index" is the 0-based index of the correct option; "explanation" is one sentence (at most 20 words) saying why it is correct.`,
-    '- Quality first: important, testable concepts only — no padding, no trivia, no near-duplicates, and never invent material to reach a number. A short text may need only a few cards and questions; always give at least 3 of each.',
+    `- flashcards: ${n.flashcards} cards; "front" is a question or term, "back" a short answer (at most 25 words).`,
+    `- quiz: ${n.quiz} multiple-choice questions, exactly 4 options each, exactly one correct; "answer_index" is the 0-based index of the correct option; "explanation" is one sentence saying why it is correct.`,
     '- Use only information from the material. Do not invent facts, names, dates or numbers.',
     '- Write in the same language as the material.',
     '- Valid JSON: double quotes, escape quotes inside strings, no trailing commas.',

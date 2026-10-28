@@ -22,10 +22,6 @@ const FAST_TIMEOUT = 10000;  // ms per provider; was 4000 which timed out workin
 const LAST_TIMEOUT = 14000;  // ms for the last-resort provider
 const SLOW_TIMEOUT = 25000;  // ms for slow providers (OVHcloud, LLM7, NVIDIA) — they need 10-20s per chunk
 const REQUEST_BUDGET = 55000; // ms — every provider timeout is clipped so the whole request ends under maxDuration=60s
-// Flashcards & Quiz: one answer holds the whole pack (up to 40 cards + 20 questions), so each attempt gets more output
-// room and more time than a paraphrase chunk — still clipped to REQUEST_BUDGET like every other attempt.
-const STUDYPACK_OUT_TOKENS = 8192;
-const STUDYPACK_TIMEOUT = 40000;
 const MIN_ATTEMPT_MS = 1500;  // don't start a provider call with less time than this left in the budget
 const SAFETY_NET_MS  = 5000;  // ms each chunk keeps back for the Cloudflare safety net (Tier 4, ~1-3 s per chunk)
 const TIMEOUT_COOLDOWN        = 2 * 60 * 1000; // a model that timed out sits out 2 min (this instance)…
@@ -570,12 +566,12 @@ async function callOpenRouterModel(text, prompt, key, model) {
   return _orm;
 }
 
-async function callGroqModel(text, prompt, key, model, ms, maxTokens = 4096) {
+async function callGroqModel(text, prompt, key, model, ms) {
   console.log("[ParaFree] Trying: groq/" + model);
   const res = await fetchWithTimeout("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
-    body: JSON.stringify({ model, messages: [{ role: "user", content: prompt + "\n\n" + text }], temperature: 0.7, max_tokens: maxTokens })
+    body: JSON.stringify({ model, messages: [{ role: "user", content: prompt + "\n\n" + text }], temperature: 0.7, max_tokens: 4096 })
   }, ms);
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Groq/" + model + ":" + res.status + " " + errDetail(res, b)); }
   const data = await res.json();
@@ -1269,8 +1265,7 @@ async function runChain(text, prompt, type, opts = {}) {
   // it must reach the model in ONE request — chunking would split the facts from the instruction.
   // Study Pack: one instruction + the (TextRank-filtered) material → one JSON answer, never chunked
   const isCVExtract = type === "cv_extract" || type === "cv_build" || type === "cover_letter" || type === "studypack";
-  // notes + flashcards + quiz in one answer: room for the largest pack (Exam prep ceilings) so it is never cut off
-  const outTokens = type === "studypack" ? STUDYPACK_OUT_TOKENS : undefined;
+  const outTokens = type === "studypack" ? 4096 : undefined;   // notes + flashcards + quiz in one answer
   const cfOk = validKey(CF_KEY) && validKey(CF_ACCOUNT);
 
   // ── WRITING PATH: parallel chunks ──
@@ -1350,7 +1345,7 @@ async function runChain(text, prompt, type, opts = {}) {
   // One entry per resolved key+model slot (rotated per request by orderChain); Groq calls here
   // are unchanged otherwise — callGroqModel never sends reasoning_effort.
   candidates.push(...slotEntries({ GROQ_KEY, GROQ_KEY_2, GROQ_KEY_3, GROQ_KEY_4, GEMINI_KEY, GEMINI_KEY_2, NVIDIA_KEY, CF_KEY, CF_ACCOUNT }, {
-    groq:       (key) => (m, ms) => callGroqModel(text, prompt, key, m, ms, outTokens),   // undefined → 4096, as before
+    groq:       (key) => (m, ms) => callGroqModel(text, prompt, key, m, ms),
     gemini:     (key) => (m, ms) => callGemini(text, prompt, key, outTokens, ms, m),
     nvidia:     (m, ms) => callNvidiaModel(text, prompt, NVIDIA_KEY, outTokens, ms, m),
     cloudflare: (m, ms) => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT, outTokens, ms, m),
@@ -1397,8 +1392,7 @@ async function runChain(text, prompt, type, opts = {}) {
         continue;
       }
       const isNet = tierOf(c) === 4;
-      const until = isNet || !hasNet ? deadline : deadline - SAFETY_NET_MS;
-      const ms = type === "studypack" ? Math.min(STUDYPACK_TIMEOUT, until - Date.now()) : providerTimeout(c.name, until);
+      const ms = providerTimeout(c.name, isNet || !hasNet ? deadline : deadline - SAFETY_NET_MS);
       if (ms < MIN_ATTEMPT_MS) {
         if (!isNet && hasNet) {
           console.log(`[ParaFree] ⏭ ${c.name} [no time left before the safety net] — skipped`);
