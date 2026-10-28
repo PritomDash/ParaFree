@@ -86,7 +86,7 @@
       "name": "How many files can I merge?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "As many as fit in 200 MB, with up to 300 pages in the merged PDF."
+        "text": "As many as fit in 4 GB on desktop Chrome or Edge (1 GB in other browsers), with up to 2,000 pages in the merged PDF."
       }
     },
     {
@@ -167,7 +167,7 @@
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/pdf-tools.css">
-<link rel="preload" as="script" href="/lib/pdf-tools/merge-pdf.js?v=e997645256">
+<link rel="preload" as="script" href="/lib/pdf-tools/merge-pdf.js?v=6a69772c05">
 </head>
 <body data-pf-tool="merge-pdf">
 
@@ -217,8 +217,8 @@
 
 <!-- THE TOOL (the same module as pdf-tools.html, opened on this tool) -->
 <main class="pf-tools"></main>
-<script>window.PFV = 'e997645256';</script>
-<script src="/lib/pdf-tools/panels.js?v=e997645256"></script>
+<script>window.PFV = '6a69772c05';</script>
+<script src="/lib/pdf-tools/panels.js?v=6a69772c05"></script>
 <script>window.PFPanels.render(document.querySelector('main.pf-tools'));</script>
 
 <div class="pf-content">
@@ -228,7 +228,7 @@
   </section>
   <section class="pf-section">
     <h2>Quick facts</h2>
-    <table class="pf-facts"><tr><th scope="row">Price</th><td>Free</td></tr><tr><th scope="row">Signup</th><td>None needed</td></tr><tr><th scope="row">Watermark</th><td>None</td></tr><tr><th scope="row">File limits</th><td>50 MB per file, 200 MB per task; up to 300 pages in the merged PDF</td></tr><tr><th scope="row">Where files are processed</th><td>On your device, in the browser — never uploaded</td></tr><tr><th scope="row">Works on phone</th><td>Yes — Android and iPhone browsers</td></tr></table>
+    <table class="pf-facts"><tr><th scope="row">Price</th><td>Free</td></tr><tr><th scope="row">Signup</th><td>None needed</td></tr><tr><th scope="row">Watermark</th><td>None</td></tr><tr><th scope="row">File limits</th><td>Up to 2 GB per file and 4 GB per task on desktop Chrome or Edge (500 MB and 1 GB in other browsers); up to 2,000 pages in the merged PDF</td></tr><tr><th scope="row">Where files are processed</th><td>On your device, in the browser — never uploaded</td></tr><tr><th scope="row">Works on phone</th><td>Yes — Android and iPhone browsers</td></tr></table>
   </section>
   <section class="pf-section">
     <h2>Combine PDFs for assignment submission</h2>
@@ -248,7 +248,7 @@
   <section class="pf-section">
     <h2>Merge PDFs on your phone</h2>
     <p>It works in the browser on Android and iPhone: choose the PDFs from your files, arrange them with the arrows and merge. No upload, no waiting — your file is processed on your device.</p>
-    <p>Very large merges (hundreds of pages) take longer on a phone, and the merged PDF is limited to 300 pages.</p>
+    <p>Very large merges (hundreds of pages) take longer on a phone, and the merged PDF is limited to 2,000 pages.</p>
   </section>
   <section class="pf-section">
     <h2>Tips before you merge</h2>
@@ -259,7 +259,7 @@
   <section class="pf-section">
     <h2>What it can and can’t do</h2>
     <p>It joins whole PDFs in the order you choose and keeps each page exactly as it was, including its size and selectable text. It does not pick out single pages, rotate pages or remove pages — merge first, then use another tool if you need those.</p>
-    <p>Password-protected PDFs must be unlocked first, and the merged file is limited to 300 pages and 200 MB in total. No upload, no waiting — your file is processed on your device.</p>
+    <p>Password-protected PDFs must be unlocked first, and the merged file is limited to 2,000 pages and 4 GB in total (1 GB in browsers other than desktop Chrome or Edge). No upload, no waiting — your file is processed on your device.</p>
   </section>
   <section class="pf-section">
     <h2>Mixing scans and typed documents</h2>
@@ -276,7 +276,7 @@
     <div class="faq-item"><p class="faq-q">Is merging PDFs free?</p><p class="faq-a">Yes. It is free with no signup and no watermark.</p></div>
     <div class="faq-item"><p class="faq-q">Can I change the order of the files?</p><p class="faq-a">Yes. Drag files into order or use the arrows; the merged PDF follows the list exactly.</p></div>
     <div class="faq-item"><p class="faq-q">Will the merged PDF keep selectable text?</p><p class="faq-a">Yes. Pages are copied as they are, so text stays selectable and page sizes are kept.</p></div>
-    <div class="faq-item"><p class="faq-q">How many files can I merge?</p><p class="faq-a">As many as fit in 200 MB, with up to 300 pages in the merged PDF.</p></div>
+    <div class="faq-item"><p class="faq-q">How many files can I merge?</p><p class="faq-a">As many as fit in 4 GB on desktop Chrome or Edge (1 GB in other browsers), with up to 2,000 pages in the merged PDF.</p></div>
     <div class="faq-item"><p class="faq-q">Are my files uploaded?</p><p class="faq-a">No. No upload, no waiting — your file is processed on your device.</p></div>
     <div class="faq-item"><p class="faq-q">Can I merge some of the pages of a PDF?</p><p class="faq-a">Not yet — whole files are merged. Save the pages you need as a separate PDF first, then merge.</p></div>
     <div class="faq-item"><p class="faq-q">How do I combine a cover sheet and an assignment into one PDF for free?</p><p class="faq-a">Choose both PDFs in Merge PDF, put the cover sheet first and click Merge — you get one PDF with every page unchanged, free and without signup.</p></div>
@@ -345,9 +345,9 @@
 </footer>
 
 <!-- core only; this tool's module loads right away (app.js opens the tool named on <body>) -->
-<script src="/lib/pdf-tools/pdf-events.js?v=e997645256"></script>
-<script src="/lib/pdf-tools/loader.js?v=e997645256"></script>
-<script src="/lib/pdf-tools/common.js?v=e997645256"></script>
-<script src="/lib/pdf-tools/app.js?v=e997645256"></script>
+<script src="/lib/pdf-tools/pdf-events.js?v=6a69772c05"></script>
+<script src="/lib/pdf-tools/loader.js?v=6a69772c05"></script>
+<script src="/lib/pdf-tools/common.js?v=6a69772c05"></script>
+<script src="/lib/pdf-tools/app.js?v=6a69772c05"></script>
 </body>
 </html>

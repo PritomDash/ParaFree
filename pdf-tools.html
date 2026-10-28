@@ -55,7 +55,7 @@
     {"@type": "Question", "name": "Will my PDF look the same in Word?", "acceptedAnswer": {"@type": "Answer", "text": "Text, headings, bold and italic, lists and images are kept, and you can edit the result before downloading it. Complex layouts such as multi-column pages, tables and forms may not match the original exactly, so check the file before you submit it."}},
     {"@type": "Question", "name": "Can it convert scanned PDFs?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. When a page has no text layer, for example a scan or photo of your notes, the PDF to Word tool reads it with OCR (text recognition) in your browser. OCR is most accurate on clear, straight English text, so read through the result before you use it."}},
     {"@type": "Question", "name": "How much smaller will my PDF get?", "acceptedAnswer": {"@type": "Answer", "text": "It depends on the file. Light mode keeps text selectable and shrinks large images, which helps most with PDFs full of photos or scans. Strong mode turns each page into an image for the smallest file, but the text can no longer be selected. If a PDF is already small, the tool tells you and you can keep the original."}},
-    {"@type": "Question", "name": "Are there any file limits?", "acceptedAnswer": {"@type": "Answer", "text": "Each file can be up to 50 MB and one task up to 200 MB in total. PDF to Word handles up to 50 pages at a time; the other tools handle up to 300 pages."}}
+    {"@type": "Question", "name": "Are there any file limits?", "acceptedAnswer": {"@type": "Answer", "text": "It depends on the tool and the browser. On desktop Chrome or Edge, Merge and Light compression take files up to 2 GB (Merge up to 4 GB per task), Strong and Target size compression, PDF to JPG and JPG to PDF up to 1 GB, PDF to Word up to 100 MB and Word to PDF up to 50 MB. Other browsers take up to 500 MB (Merge 1 GB per task) and 50 MB for PDF to Word and Word to PDF. PDF to Word handles up to 50 pages at a time, Merge and Light compression up to 2,000, the other tools up to 300."}}
   ]
 }
 </script>
@@ -68,7 +68,7 @@
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/pdf-tools.css">
-<link rel="preload" as="script" href="/lib/pdf-tools/pdf-to-word.js?v=e997645256">
+<link rel="preload" as="script" href="/lib/pdf-tools/pdf-to-word.js?v=6a69772c05">
 </head>
 <body>
 
@@ -128,8 +128,8 @@
 
 <main class="pf-tools"></main>
 <!-- the five tool panels (one copy, shared with the homepage PDF tab) -->
-<script>window.PFV = 'e997645256';</script>
-<script src="/lib/pdf-tools/panels.js?v=e997645256"></script>
+<script>window.PFV = '6a69772c05';</script>
+<script src="/lib/pdf-tools/panels.js?v=6a69772c05"></script>
 <script>window.PFPanels.render(document.querySelector('main.pf-tools'));</script>
 
 <!-- ABOUT THE TOOLS -->
@@ -179,7 +179,7 @@
     <div class="faq-item"><p class="faq-q">Will my PDF look the same in Word?</p><p class="faq-a">Text, headings, bold and italic, lists and images are kept, and you can edit the result before downloading it. Complex layouts such as multi-column pages, tables and forms may not match the original exactly, so check the file before you submit it.</p></div>
     <div class="faq-item"><p class="faq-q">Can it convert scanned PDFs?</p><p class="faq-a">Yes. When a page has no text layer, for example a scan or photo of your notes, the PDF to Word tool reads it with OCR (text recognition) in your browser. OCR is most accurate on clear, straight English text, so read through the result before you use it.</p></div>
     <div class="faq-item"><p class="faq-q">How much smaller will my PDF get?</p><p class="faq-a">It depends on the file. Light mode keeps text selectable and shrinks large images, which helps most with PDFs full of photos or scans. Strong mode turns each page into an image for the smallest file, but the text can no longer be selected. If a PDF is already small, the tool tells you and you can keep the original.</p></div>
-    <div class="faq-item"><p class="faq-q">Are there any file limits?</p><p class="faq-a">Each file can be up to 50 MB and one task up to 200 MB in total. PDF to Word handles up to 50 pages at a time; the other tools handle up to 300 pages.</p></div>
+    <div class="faq-item"><p class="faq-q">Are there any file limits?</p><p class="faq-a">It depends on the tool and the browser. On desktop Chrome or Edge, Merge and Light compression take files up to 2 GB (Merge up to 4 GB per task), Strong and Target size compression, PDF to JPG and JPG to PDF up to 1 GB, PDF to Word up to 100 MB and Word to PDF up to 50 MB. Other browsers take up to 500 MB (Merge 1 GB per task) and 50 MB for PDF to Word and Word to PDF. PDF to Word handles up to 50 pages at a time, Merge and Light compression up to 2,000, the other tools up to 300.</p></div>
   </section>
 </div>
 
@@ -230,9 +230,9 @@
 
 <!-- core only; each tool's module loads when its tab opens (app.js), the PDF writer on the
      first "Download PDF", the hand-off after a PDF to Word result. ?v= = version of lib/pdf-tools -->
-<script src="/lib/pdf-tools/pdf-events.js?v=e997645256"></script>
-<script src="/lib/pdf-tools/loader.js?v=e997645256"></script>
-<script src="/lib/pdf-tools/common.js?v=e997645256"></script>
-<script src="/lib/pdf-tools/app.js?v=e997645256"></script>
+<script src="/lib/pdf-tools/pdf-events.js?v=6a69772c05"></script>
+<script src="/lib/pdf-tools/loader.js?v=6a69772c05"></script>
+<script src="/lib/pdf-tools/common.js?v=6a69772c05"></script>
+<script src="/lib/pdf-tools/app.js?v=6a69772c05"></script>
 </body>
 </html>
