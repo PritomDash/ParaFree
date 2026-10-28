@@ -424,7 +424,7 @@ test.describe('Flashcards & Quiz: document upload', () => {
   async function open(page: Page) {
     await page.goto('/flashcard-quiz-maker.html');
     await page.waitForFunction(() => !!(window as any).PFStudyPack);
-    await page.locator('.sp-in[data-input="file"]').click();
+    await expect(page.locator('#spIn-paste .sp-upload-btn')).toBeVisible();   // "Paste or upload", the default tab
   }
 
   test('a 60 MB PDF and a .docx with 30 MB of images: read in slices; exactly one AI call each, with trimmed text — size has no effect on API use', async ({ page }) => {
@@ -454,7 +454,7 @@ test.describe('Flashcards & Quiz: document upload', () => {
     await page.locator('#spGo').click();
     await expect(page.locator('#spStatus')).toContainText('Documents can be up to 2 GB here');
     await page.locator('#spFile').setInputFiles(sparse('big.pdf', 300 * MB));
-    await expect(page.locator('#spFileName')).toContainText('large file: it is read on your device');
+    await expect(page.locator('#spFileNote')).toContainText('large file: it is read on your device');
     expect(net.api.filter((c) => c.type === 'studypack')).toEqual([]);
   });
 
@@ -464,6 +464,6 @@ test.describe('Flashcards & Quiz: document upload', () => {
     await page.locator('#spFile').setInputFiles(sparse('mid.pdf', 600 * MB));
     await expect(page.locator('#spStatus')).toHaveText('This file is 600 MB. Documents can be up to 500 MB here (up to 2 GB on desktop Chrome or Edge) — try a shorter part of it.');
     await page.locator('#spFile').setInputFiles(sparse('mid2.pdf', 300 * MB));
-    await expect(page.locator('#spFileName')).toContainText('Works best on desktop Chrome or Edge; in this browser the limit is 500 MB.');
+    await expect(page.locator('#spFileNote')).toContainText('Works best on desktop Chrome or Edge; in this browser the limit is 500 MB.');
   });
 });

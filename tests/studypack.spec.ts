@@ -83,6 +83,8 @@ async function open(page: Page) {
   await page.waitForFunction(() => !!(window as any).PFStudyPack && !!(window as any).PFTextRank);
 }
 const packCalls = (calls: any[]) => calls.filter((c) => c.type !== 'studypack_config');
+// a short paste (sent in full) for the paste-or-upload tests
+const NOTES = 'Photosynthesis turns light energy into chemical energy in the chloroplasts of plant cells. Chlorophyll absorbs red and blue light and reflects green light. The Calvin cycle then fixes carbon dioxide into sugars that the plant uses to grow.';
 const LONG = Array.from({ length: 14 }, (_, p) => Array.from({ length: 5 }, (_, s) =>
   ['Photosynthesis converts light energy into chemical energy inside the chloroplasts of plant cells.',
     'The Calvin cycle uses ATP and NADPH to fix carbon dioxide into sugars.',
@@ -158,10 +160,69 @@ test.describe('text inputs → TextRank → ONE call', () => {
     expect(net.errors).toEqual([]);
   });
 
+  test('three input tabs: "Paste or upload" (text box + Upload File), YouTube, Audio / Video', async ({ page }) => {
+    await setup(page);
+    await open(page);
+    await expect(page.locator('.sp-in')).toHaveText(['✍️ Paste or upload', '▶️ YouTube', '🎧 Audio / Video']);
+    await expect(page.locator('.sp-in.active')).toHaveText('✍️ Paste or upload');
+    // the upload button sits under the text box, in the same panel
+    const panel = page.locator('#spIn-paste');
+    await expect(panel.locator('#spText')).toBeVisible();
+    await expect(panel.locator('.sp-upload-btn')).toHaveText('📎 Upload File');
+    await expect(panel.locator('.sp-upload-types')).toHaveText('PDF, Word (.docx), PowerPoint (.pptx) or .txt');
+    expect(await page.locator('#spFile').getAttribute('accept')).toMatch(/^\.pdf,\.docx,\.pptx,\.txt,/);
+    const textBox = await page.locator('#spText').boundingBox(), btn = await panel.locator('.sp-upload-btn').boundingBox();
+    expect(btn!.y).toBeGreaterThan(textBox!.y + textBox!.height);
+    await expect(page.locator('#spIn-file')).toHaveCount(0);
+    for (const [tab, id] of [['youtube', '#spIn-youtube'], ['media', '#spIn-media'], ['paste', '#spIn-paste']]) {
+      await page.locator(`.sp-in[data-input="${tab}"]`).click();
+      await expect(page.locator(id)).toBeVisible();
+      await expect(page.locator('[id^="spIn-"]:visible')).toHaveCount(1);
+    }
+    await expect(page.locator('.sp-honest')).toHaveText('AI can make mistakes — check anything important against your notes or textbook.');
+  });
+
+  test('an uploaded file is used instead of the text box until it is removed (✕); then pasted text is used again', async ({ page }) => {
+    const net = await setup(page);
+    await open(page);
+    await page.locator('#spText').fill(NOTES);
+    await page.locator('#spFile').setInputFiles(FX('pdf-tools/text.pdf'));
+    await expect(page.locator('#spFileChip')).toBeVisible();
+    await expect(page.locator('#spFileName')).toHaveText('📄 text.pdf');
+    await expect(page.locator('#spText')).toBeDisabled();
+    await expect(page.locator('#spText')).toHaveAttribute('placeholder', 'Using the uploaded file — remove it (✕) to paste text instead.');
+    await page.locator('#spGo').click();
+    await expect.poll(() => packCalls(net.calls).length, { timeout: 60000 }).toBe(1);
+    expect(packCalls(net.calls)[0].inputType).toBe('pdf');
+    await expectPack(page);
+    await page.locator('#spFileRemove').click();
+    await expect(page.locator('#spFileChip')).toBeHidden();
+    await expect(page.locator('#spText')).toBeEnabled();
+    await expect(page.locator('#spText')).toHaveValue(NOTES);              // what was pasted is still there
+    await page.locator('#spGo').click();
+    await expect.poll(() => packCalls(net.calls).length, { timeout: 60000 }).toBe(2);
+    expect(packCalls(net.calls)[1].inputType).toBe('text');
+    // GA: pasted text and an uploaded file are still told apart
+    const gen = (await page.evaluate(() => ((window as any).dataLayer || []).filter((a: any) => a && a[0] === 'event' && a[1] === 'studypack_generate').map((a: any) => a[2].input)));
+    expect(gen).toEqual(['file', 'paste']);
+    expect(net.errors).toEqual([]);
+  });
+
+  test('a .txt upload is read in the browser and sent as text', async ({ page }) => {
+    const net = await setup(page);
+    await open(page);
+    await page.locator('#spFile').setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from(NOTES) });
+    await page.locator('#spGo').click();
+    await expect.poll(() => packCalls(net.calls).length, { timeout: 60000 }).toBe(1);
+    const c = packCalls(net.calls)[0];
+    expect(c.inputType).toBe('text');
+    expect(c.text).toContain(NOTES.split('.')[0]);
+    await expectPack(page);
+  });
+
   test('PDF, Word and PowerPoint are read in the browser and sent as text with their input type (one call each)', async ({ page }) => {
     const net = await setup(page);
     await open(page);
-    await page.locator('.sp-in[data-input="file"]').click();
     const cases: [any, string, string][] = [
       [FX('pdf-tools/text.pdf'), 'pdf', 'Chlorophyll absorbs light'],
       [{ name: 'notes.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
