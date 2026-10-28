@@ -147,7 +147,7 @@ test.describe('4. humanizer: honest wording', () => {
     // meter: "Naturalness (estimate)" with a level (the one naturalness scale — fix/humanizer-score), not "% Human" or "/ 100"
     await paraphraseOnce(page);
     await expect(page.locator('#humanScoreBadge')).toContainText('Naturalness (estimate):');
-    await expect(page.locator('#humanScoreText')).toHaveText(/^(Few|Some|Many) AI-style patterns$/);
+    await expect(page.locator('#humanScoreText')).toHaveText(/^(Natural|Fairly natural|Reads robotic)$/);
     // humanizer score panel: estimate wording, no detector promise; (before, after) are naturalnessOf() results
     const STIFF = 'Furthermore, it is important to note this. Moreover, this ensures the result. Additionally, this allows growth. Therefore, it is pivotal.';
     for (const [from, to, title] of [[STIFF, TEXT, 'Reads More Naturally'], [TEXT, STIFF, 'Try Another Style']] as [string, string, string][]) {

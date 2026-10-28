@@ -79,7 +79,6 @@ async function humanize(page: Page, input = INPUT) {
     check,
   };
 }
-const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
 
 test.describe('Humanizer: one naturalness check, on the real output, for every indicator', () => {
   test('panel, status line and badge all come from naturalnessOf() — on the input (before) and the text that came back (after)', async ({ page }) => {
@@ -87,8 +86,8 @@ test.describe('Humanizer: one naturalness check, on the real output, for every i
     const r = await humanize(page);
     const before = await r.check(INPUT), after = await r.check(PLAIN);
     // the same check gives the same level and value everywhere
-    expect(r.beforeLevel).toBe(cap(before.level));
-    expect(r.afterLevel).toBe(cap(after.level));
+    expect(r.beforeLevel).toBe(before.label);
+    expect(r.afterLevel).toBe(after.label);
     expect(r.badge).toEqual({ text: after.label, level: after.level, value: after.value });
     expect(r.status).toBe(`✓ Done — ${after.label.charAt(0).toLowerCase() + after.label.slice(1)} (estimate)`);
     expect(r.desc).toContain(`Estimate ${before.value} → ${after.value} (higher = fewer AI-style patterns)`);
@@ -155,7 +154,7 @@ test.describe('Humanizer: one naturalness check, on the real output, for every i
       expect(t).not.toMatch(/\/\s*100/);
     }
     expect(r.panel).toContain('an estimate, not an AI-detector result.');
-    expect([r.beforeLevel, r.afterLevel].every((x) => /^(Few|Some|Many)$/.test(x))).toBe(true);
+    expect([r.beforeLevel, r.afterLevel].every((x) => /^(Natural|Fairly natural|Reads robotic)$/.test(x))).toBe(true);
     const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
     expect(html).not.toContain('sounds human now');
     expect(html).not.toMatch(/beforeScore \* \(0\.1 \+ Math\.random\(\)/);

@@ -763,7 +763,7 @@ const PHOTOS = {
   .score-circle-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
   .score-circle-text .score-num { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 20px; line-height: 1; display: block; }
   .score-circle-text .score-pct { font-size: 11px; color: var(--text3); }
-  .score-circle-text .score-num.is-level { font-size: 16px; }   /* Few / Some / Many */
+  .score-circle-text .score-num.is-level { font-size: 12.5px; line-height: 1.15; max-width: 66px; white-space: normal; }   /* Natural / Fairly natural / Reads robotic */
   .score-circle-text .score-pct.is-level { font-size: 9.5px; white-space: nowrap; display: block; margin-top: 2px; }
   .score-circle-label { font-size: 12px; font-weight: 500; color: var(--text2); text-align: center; }
   .score-arrow { font-size: 28px; color: var(--accent2); font-weight: 700; }
@@ -2027,7 +2027,7 @@ document.addEventListener('DOMContentLoaded', function() {
           </svg>
           <div class="score-circle-text">
             <span class="score-num" id="beforeNum" style="color:#6b6660;">–</span>
-            <span class="score-pct is-level">AI patterns</span>
+            <span class="score-pct is-level">estimate</span>
           </div>
         </div>
         <div class="score-circle-label">Before</div>
@@ -2047,7 +2047,7 @@ document.addEventListener('DOMContentLoaded', function() {
           </svg>
           <div class="score-circle-text">
             <span class="score-num" id="afterNum" style="color:#2d6a4f;">–</span>
-            <span class="score-pct is-level">AI patterns</span>
+            <span class="score-pct is-level">estimate</span>
           </div>
         </div>
         <div class="score-circle-label">After</div>
@@ -4986,7 +4986,7 @@ function estimateAIScore(text) { return analyzeAIPatterns(text).score; }
 // Naturalness (estimate) — the ONE scale every indicator uses (status line, badge, score panel), always measured
 // on the real text. The check only looks at stock AI phrases and sentence variety, so its raw value tops out at 45;
 // it is shown as a level with what was found, not as a "/ 100" score that would make good text look mediocre.
-const NATURAL_LEVELS = { few: 'Few AI-style patterns', some: 'Some AI-style patterns', many: 'Many AI-style patterns' };
+const NATURAL_LEVELS = { few: 'Natural', some: 'Fairly natural', many: 'Reads robotic' };
 function naturalnessOf(text) {
   const a = analyzeAIPatterns(text || '');
   const value = 100 - a.score;                                  // higher = fewer AI-style patterns
@@ -5012,7 +5012,7 @@ function showScorePanel(before, after) {
   document.getElementById("scorePanel").classList.add("show");
   const circle = (id, numId, n) => {
     const num = document.getElementById(numId);
-    num.textContent = n.level.charAt(0).toUpperCase() + n.level.slice(1);
+    num.textContent = n.label;
     num.classList.add("is-level");
     num.style.color = NATURAL_COLOR[n.level];
     document.getElementById(id).setAttribute('stroke', NATURAL_COLOR[n.level]);
