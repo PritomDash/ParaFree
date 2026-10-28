@@ -263,6 +263,12 @@ test.describe('structured data, titles, previews, freshness', () => {
   });
 
   test('titles and descriptions are unique; existing titles and H1s unchanged; honest copy on the new pages', () => {
+    // fix/competitor-claims retitled these on purpose (no competitor limits or "paywalls exposed" in the title)
+    const RETITLED: Record<string, string> = {
+      'best-free-cv-builder.html': 'Best Free CV Builders 2026 — 7 Tools Compared | ParaFree',
+      'best-free-paraphrasing-tool.html': 'Best Free Paraphrasing Tools 2026 — 7 Tools Compared | ParaFree',
+      'quillbot-alternative.html': 'Free Quillbot Alternative — No Word Limit | ParaFree',
+    };
     const titles = new Map<string, string>(), descs = new Map<string, string>();
     for (const f of htmlPages()) {
       const s = read(f);
@@ -270,7 +276,8 @@ test.describe('structured data, titles, previews, freshness', () => {
       if (/noindex/.test(s.match(/<meta name="robots" content="([^"]*)"/)?.[1] || '')) continue;
       if (t) { expect(titles.get(t), `${f} title duplicates ${titles.get(t)}`).toBeUndefined(); titles.set(t, f); }
       if (d) { expect(descs.get(d), `${f} description duplicates ${descs.get(d)}`).toBeUndefined(); descs.set(d, f); }
-      const old = before(f);
+      const old = RETITLED[f] ? '' : before(f);
+      if (RETITLED[f]) expect(t, f).toBe(RETITLED[f]);
       if (old) {
         expect(s.match(/<title>([\s\S]*?)<\/title>/)?.[1], f).toBe(old.match(/<title>([\s\S]*?)<\/title>/)?.[1]);
         const h1 = (x: string) => x.match(/<h1[^>]*>([\s\S]*?)<\/h1>/)?.[1]?.replace(/\sstyle="[^"]*"/g, '');   // text + tags (styles may change)

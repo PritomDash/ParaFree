@@ -157,8 +157,9 @@ test.describe('honesty cleanup', () => {
     const cv = fs.readFileSync(path.join(ROOT, 'cv-builder.html'), 'utf8');
     expect(cv).not.toContain('✓ Only one');
     expect(cv).not.toContain('The Only Free CV Builder With a Built-In Job Search');
-    expect((cv.match(/Checked October 2026/g) || []).length).toBe(2);
-    expect(fs.readFileSync(path.join(ROOT, 'paraphrase-word-document.html'), 'utf8')).toContain('Checked October 2026');
-    expect(fs.readFileSync(path.join(ROOT, 'best-free-cv-builder.html'), 'utf8')).toContain('checked October 2026');
+    // fix/competitor-claims: the dated competitor notes went with the competitor figures they dated
+    expect(cv).not.toMatch(/checked October 2026/i);
+    expect(fs.readFileSync(path.join(ROOT, 'paraphrase-word-document.html'), 'utf8')).not.toMatch(/checked October 2026/i);
+    expect(fs.readFileSync(path.join(ROOT, 'best-free-cv-builder.html'), 'utf8')).not.toMatch(/checked October 2026/i);
   });
 });

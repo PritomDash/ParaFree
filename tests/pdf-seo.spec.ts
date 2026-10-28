@@ -338,11 +338,15 @@ test.describe('site-wide SEO', () => {
   test('CV pages: new honest facts added, titles and H1s unchanged, no Word CV claim', () => {
     const CV = ['ai-cv-builder.html', 'best-free-cv-builder.html', 'cv-builder-no-signup.html', 'ats-resume-builder.html', 'student-cv-builder.html', 'cv-maker-free-download.html',
       'cv-templates.html', 'free-cv-builder-australia.html', 'free-cv-builder-canada.html', 'free-cv-builder-international-students.html', 'free-cv-builder-uk.html', 'free-cv-builder-usa.html'];
-    for (const f of [...CV, 'cv-builder.html']) {
+    // fix/competitor-claims reworded this page's title and H1 on purpose (no "paywalls exposed" claims about other builders)
+    const RENAMED = ['best-free-cv-builder.html'];
+    for (const f of [...CV, 'cv-builder.html'].filter((x) => !RENAMED.includes(x))) {
       const now = read(f), before = execSync(`git show main:${f}`, { cwd: ROOT, maxBuffer: 64 << 20 }).toString();
       const pick = (s: string) => [(s.match(/<title>[\s\S]*?<\/title>/) || [])[0], (s.match(/<h1[\s\S]*?<\/h1>/) || [])[0]];
       expect(pick(now), f).toEqual(pick(before));
     }
+    expect(read('best-free-cv-builder.html')).toContain('<title>Best Free CV Builders 2026 — 7 Tools Compared | ParaFree</title>');
+    expect(read('best-free-cv-builder.html')).toContain('<h1>Best Free CV Builders 2026: 7 Popular Tools Compared</h1>');
     for (const f of CV) {
       const s = read(f);
       const block = s.split('class="pf-cv-facts"')[1].split('</section>')[0];
