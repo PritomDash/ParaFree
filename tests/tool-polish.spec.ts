@@ -144,19 +144,20 @@ test.describe('4. humanizer: honest wording', () => {
     await page.locator('#tab-humanize').click();
     await expect(page.locator('#humanizerInfo p')).toHaveText('Paste ChatGPT, Claude or any AI text → we rewrite it to read more naturally');
     expect(await page.locator('#inputText').getAttribute('placeholder')).toContain('rewrite it to read more naturally');
-    // meter: "Naturalness (estimate)" and "NN / 100", not "% Human"
+    // meter: "Naturalness (estimate)" with a level (the one naturalness scale — fix/humanizer-score), not "% Human" or "/ 100"
     await paraphraseOnce(page);
     await expect(page.locator('#humanScoreBadge')).toContainText('Naturalness (estimate):');
-    await expect(page.locator('#humanScoreText')).toHaveText(/^\d{2,3} \/ 100$/);
-    // humanizer score panel: estimate wording, no detector promise
-    // (before, after): both naturalness estimates from the same check — fix/humanizer-score
-    for (const [after, title] of [[90, 'Reads More Naturally'], [75, 'Try Another Style']] as [number, string][]) {
-      await page.evaluate((a) => (window as any).showScorePanel(80, a), after);
+    await expect(page.locator('#humanScoreText')).toHaveText(/^(Few|Some|Many) AI-style patterns$/);
+    // humanizer score panel: estimate wording, no detector promise; (before, after) are naturalnessOf() results
+    const STIFF = 'Furthermore, it is important to note this. Moreover, this ensures the result. Additionally, this allows growth. Therefore, it is pivotal.';
+    for (const [from, to, title] of [[STIFF, TEXT, 'Reads More Naturally'], [TEXT, STIFF, 'Try Another Style']] as [string, string, string][]) {
+      await page.evaluate(([a, b]) => { const W = window as any; W.showScorePanel(W.naturalnessOf(a), W.naturalnessOf(b)); }, [from, to]);
       await expect(page.locator('#scoreTitle')).toContainText(title);
       const panel = await page.locator('#scorePanel').innerText();
       expect(panel).not.toMatch(/pass AI detectors|% human|Highly Human|Low AI Score/i);
     }
-    await expect(page.locator('#scoreDesc')).toContainText('/ 100');
+    await expect(page.locator('#scoreDesc')).toContainText('an estimate, not an AI-detector result');
+    await expect(page.locator('#scoreDesc')).not.toContainText('/ 100');
     // the whole homepage
     const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
     expect(html).not.toMatch(/100% human|% Human'|Beat AI Detection|very likely to pass AI detectors|significantly reduces AI detection scores/i);

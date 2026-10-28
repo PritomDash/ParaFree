@@ -105,7 +105,7 @@ function makeSandbox(aiMode) {
     getLang: () => 'english', langSuffix: () => '',
     showStatus: (m, t) => ctx._statuses.push([t, m]), hideStatus() {}, setLoading() {}, setToolLoading() {},
     resetApiDots() {}, applyApiStatuses() {}, showDownloadBtn() {}, showHumanScore() {}, showDonateNote() {},
-    enableEditing() {}, showScorePanel() {}, estimateAIScore: () => 50, setDlBtnLoading() {}, restoreDlBtn() {},
+    enableEditing() {}, showScorePanel() {}, estimateAIScore: () => 50, naturalnessOf: () => ({ value: 50, level: 'some', label: 'Some AI-style patterns', detail: '' }), setDlBtnLoading() {}, restoreDlBtn() {},
     getCurrentOutputText: () => 'x',
     renderOutput: (content) => { ctx._rendered = content; ctx.fullOutputText = content; },
     fetch: async (url, opts) => {

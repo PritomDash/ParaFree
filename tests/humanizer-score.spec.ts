@@ -1,6 +1,6 @@
-// The Humanizer's before / after "Naturalness (estimate)" (branch fix/humanizer-score). Both numbers come from the same
-// check — estimateAIScore() in index.html — run on the text that was sent and on the text that came back; the "after"
-// number used to be the "before" score × a random 10–30 %. The AI answer is mocked (no provider is called), GA and
+// The Humanizer's "Naturalness (estimate)" (branch fix/humanizer-score). Every indicator — status line, badge and score
+// panel — comes from ONE check, naturalnessOf() in index.html (estimateAIScore's findings), run on the real text; the
+// "after" number used to be the "before" score × a random 10–30 %, and the badge a detector score stretched to 70–100. The AI answer is mocked (no provider is called), GA and
 // ads are blocked, CDN libraries come from the test cache. Run: npx playwright test tests/humanizer-score.spec.ts
 import { test, expect, Page, Route } from '@playwright/test';
 import fs from 'fs';
@@ -66,59 +66,96 @@ async function humanize(page: Page, input = INPUT) {
   await page.locator('#inputText').fill(input);
   await page.locator('#humanizeBtn').click();
   await expect(page.locator('#scorePanel')).toHaveClass(/show/, { timeout: 30000 });
-  const est = (t: string) => page.evaluate((x) => 100 - (window as any).estimateAIScore(x), t);
+  await expect(page.locator('#humanScoreBadge')).toBeVisible();
+  // the one check, run here on a given text: { value, level, label, detail }
+  const check = (t: string) => page.evaluate((x) => (window as any).naturalnessOf(x), t);
+  const txt = page.locator('#humanScoreText');
   return {
-    before: +(await page.locator('#beforeNum').innerText()), after: +(await page.locator('#afterNum').innerText()),
+    beforeLevel: await page.locator('#beforeNum').innerText(), afterLevel: await page.locator('#afterNum').innerText(),
     title: await page.locator('#scoreTitle').innerText(), status: await page.locator('#statusMsg').innerText(),
-    panel: await page.locator('#scorePanel').innerText(), est,
+    panel: await page.locator('#scorePanel').innerText(), desc: await page.locator('#scoreDesc').innerText(),
+    badge: { text: await txt.innerText(), level: await txt.getAttribute('data-level'), value: +(await txt.getAttribute('data-value'))! },
+    badgeBox: await page.locator('#humanScoreBadge').innerText(),
+    check,
   };
 }
+const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
 
-test.describe('Humanizer: the after-score is measured on the real output', () => {
-  test('before = the estimate on the input, after = the same estimate on the text that came back', async ({ page }) => {
+test.describe('Humanizer: one naturalness check, on the real output, for every indicator', () => {
+  test('panel, status line and badge all come from naturalnessOf() — on the input (before) and the text that came back (after)', async ({ page }) => {
     const net = await setup(page, PLAIN);
     const r = await humanize(page);
-    expect(r.before).toBe(await r.est(INPUT));
-    expect(r.after).toBe(await r.est(PLAIN));
-    expect(r.after).toBeGreaterThan(r.before);                    // the plain rewrite really does score better here
+    const before = await r.check(INPUT), after = await r.check(PLAIN);
+    // the same check gives the same level and value everywhere
+    expect(r.beforeLevel).toBe(cap(before.level));
+    expect(r.afterLevel).toBe(cap(after.level));
+    expect(r.badge).toEqual({ text: after.label, level: after.level, value: after.value });
+    expect(r.status).toBe(`✓ Done — ${after.label.charAt(0).toLowerCase() + after.label.slice(1)} (estimate)`);
+    expect(r.desc).toContain(`Estimate ${before.value} → ${after.value} (higher = fewer AI-style patterns)`);
+    expect(r.desc).toContain(`Before: ${before.detail}. After: ${after.detail}.`);
+    // and the value is the homepage estimator on that text, nothing added
+    expect(after.value).toBe(await page.evaluate((x) => 100 - (window as any).estimateAIScore(x), PLAIN));
+    expect(after.value).toBeGreaterThan(before.value);
     expect(r.title).toContain('Reads More Naturally');
-    expect(r.status).toBe(`✓ Done — naturalness estimate ${r.before} → ${r.after} / 100`);
     expect(net.calls.filter((c) => c.text)).toHaveLength(1);
     expect(net.errors).toEqual([]);
   });
 
-  test('no random multiplier: Math.random forced to 0 and to 0.999 gives the same numbers', async ({ browser }) => {
-    const out: number[][] = [];
+  test('the paraphraser’s badge uses the same check and scale (no detector score, no 70–100 stretch)', async ({ page }) => {
+    await setup(page, PLAIN);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto('/');
+    await page.waitForFunction(() => typeof (window as any).paraphrase === 'function' && document.readyState === 'complete');
+    await page.locator('#inputText').fill(INPUT);
+    await page.locator('#paraphraseBtn').click();
+    await expect(page.locator('#humanScoreBadge')).toBeVisible({ timeout: 30000 });
+    const out = await page.evaluate(() => (window as any).fullOutputText || document.getElementById('outputText')!.innerText);
+    const n = await page.evaluate((x) => (window as any).naturalnessOf(x), out);
+    const txt = page.locator('#humanScoreText');
+    await expect(txt).toHaveText(n.label);
+    expect(+(await txt.getAttribute('data-value'))!).toBe(n.value);
+    expect(await page.locator('#humanScoreBadge').innerText()).not.toMatch(/\/\s*100|\d+\s*%/);
+    const src = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+    const fn = src.slice(src.indexOf('function showHumanScore(text)'), src.indexOf('function showHumanScore(text)') + 1200);
+    expect(fn).toContain('naturalnessOf(text)');
+    expect(fn).not.toMatch(/calculateAIScore|\* 30\)|\/ 65/);
+  });
+
+  test('no random multiplier: Math.random forced to 0 and to 0.999 gives the same results everywhere', async ({ browser }) => {
+    const out: any[] = [];
     for (const rnd of [0, 0.999]) {
       const ctx = await browser.newContext({ baseURL: 'https://parafree.app' });
       const page = await ctx.newPage();
       await setup(page, PLAIN, rnd);
       const r = await humanize(page);
-      out.push([r.before, r.after]);
+      out.push([r.beforeLevel, r.afterLevel, r.desc, r.status, r.badge]);
       await ctx.close();
     }
     expect(out[0]).toEqual(out[1]);
   });
 
-  test('an unchanged result scores the same as the input; a stiffer one scores lower (the old code always showed a big gain)', async ({ page }) => {
+  test('an unchanged result is "About the Same"; a stiffer one is "Try Another Style" (the old code always showed a big gain)', async ({ page }) => {
     await setup(page, INPUT);
     let r = await humanize(page);
-    expect(r.after).toBe(r.before);
+    expect(r.afterLevel).toBe(r.beforeLevel);
     expect(r.title).toContain('About the Same');
     const STIFFER = INPUT.replace('Therefore, scientists', 'It is worth noting that, due to the fact that it is pivotal, scientists consequently delve into it. Therefore, scientists');
     const page2 = await page.context().newPage();
     await setup(page2, STIFFER);
     r = await humanize(page2, PLAIN);
-    expect(r.after).toBeLessThan(r.before);
     expect(r.title).toContain('Try Another Style');
+    expect(r.badge.level).toBe((await r.check(STIFFER)).level);
   });
 
-  test('wording: an estimate only — no "human", "undetectable" or "bypass", no detector promise', async ({ page }) => {
+  test('wording: an estimate shown as a level — no "/ 100", no "human", "undetectable" or "bypass", no detector promise', async ({ page }) => {
     await setup(page, PLAIN);
     const r = await humanize(page);
-    for (const t of [r.status, r.panel]) expect(t).not.toMatch(/\bhuman\b|sounds human|undetectable|bypass|pass(es)? (ai )?detectors?/i);
-    expect(r.panel).toContain('An estimate, not an AI-detector result.');
-    expect(r.panel).toMatch(/Naturalness estimate: \d+ → \d+ \/ 100/);
+    for (const t of [r.status, r.panel, r.badgeBox]) {
+      expect(t).not.toMatch(/\bhuman\b|sounds human|undetectable|bypass|pass(es)? (ai )?detectors?/i);
+      expect(t).not.toMatch(/\/\s*100/);
+    }
+    expect(r.panel).toContain('an estimate, not an AI-detector result.');
+    expect([r.beforeLevel, r.afterLevel].every((x) => /^(Few|Some|Many)$/.test(x))).toBe(true);
     const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
     expect(html).not.toContain('sounds human now');
     expect(html).not.toMatch(/beforeScore \* \(0\.1 \+ Math\.random\(\)/);

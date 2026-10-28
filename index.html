@@ -763,6 +763,8 @@ const PHOTOS = {
   .score-circle-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
   .score-circle-text .score-num { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 20px; line-height: 1; display: block; }
   .score-circle-text .score-pct { font-size: 11px; color: var(--text3); }
+  .score-circle-text .score-num.is-level { font-size: 16px; }   /* Few / Some / Many */
+  .score-circle-text .score-pct.is-level { font-size: 9.5px; white-space: nowrap; display: block; margin-top: 2px; }
   .score-circle-label { font-size: 12px; font-weight: 500; color: var(--text2); text-align: center; }
   .score-arrow { font-size: 28px; color: var(--accent2); font-weight: 700; }
   .score-info { flex: 1; min-width: 200px; }
@@ -1870,7 +1872,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <!-- NATURALNESS METER (shown after a result, computed locally: a readability heuristic, not an AI-detection result) -->
 <div id="humanScoreBadge" style="display:none;max-width:1100px;margin:0 auto 8px;padding:0 16px;">
-  <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(135deg,#f7f5f0,#ffffff);border:1px solid var(--border);border-radius:14px;font-family:'DM Sans',sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(135deg,#f7f5f0,#ffffff);border:1px solid var(--border);border-radius:14px;font-family:'DM Sans',sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
     <span style="font-size:13px;font-weight:600;color:var(--text2);white-space:nowrap;" title="A readability estimate from sentence variety and common AI phrasing — not an AI-detector result">Naturalness (estimate):</span>
     <div style="flex:1;height:8px;border-radius:6px;background:#e2ddd4;overflow:hidden;min-width:80px;">
       <div id="humanScoreBar" style="height:100%;width:0%;border-radius:6px;background:linear-gradient(90deg,#2d6a4f,#40916c);transition:width 0.6s ease;"></div>
@@ -2024,8 +2026,8 @@ document.addEventListener('DOMContentLoaded', function() {
               stroke-dashoffset="226"/>
           </svg>
           <div class="score-circle-text">
-            <span class="score-num" id="beforeNum" style="color:#6b6660;">0</span>
-            <span class="score-pct">natural</span>
+            <span class="score-num" id="beforeNum" style="color:#6b6660;">–</span>
+            <span class="score-pct is-level">AI patterns</span>
           </div>
         </div>
         <div class="score-circle-label">Before</div>
@@ -2044,8 +2046,8 @@ document.addEventListener('DOMContentLoaded', function() {
               stroke-dashoffset="226"/>
           </svg>
           <div class="score-circle-text">
-            <span class="score-num" id="afterNum" style="color:#2d6a4f;">0</span>
-            <span class="score-pct">natural</span>
+            <span class="score-num" id="afterNum" style="color:#2d6a4f;">–</span>
+            <span class="score-pct is-level">AI patterns</span>
           </div>
         </div>
         <div class="score-circle-label">After</div>
@@ -3385,16 +3387,16 @@ function showHumanScore(text) {
     const note = document.getElementById('tryAgainNote');
     if (!badge || !bar || !txt) return;
     if (!text || text.split(/\s+/).length < 20) return;
-    const aiScore = calculateAIScore(text);
-    // Remap AI score range (30=best → 95=worst) to display range (100% → 70%).
-    // Base score is always 30, so raw 100-aiScore never exceeds 70 — remapping
-    // gives meaningful fluctuation driven by the actual heuristic analysis.
-    const humanScore = Math.round(100 - ((aiScore - 30) / 65) * 30);
+    const n = naturalnessOf(text);                              // the same check and scale as the humanizer's panel
     badge.style.display = 'block';
     if (note) note.style.display = 'block';
     bar.style.width = '0%';
-    requestAnimationFrame(() => requestAnimationFrame(() => { bar.style.width = humanScore + '%'; }));
-    txt.textContent = humanScore + ' / 100';
+    bar.style.background = NATURAL_COLOR[n.level];
+    requestAnimationFrame(() => requestAnimationFrame(() => { bar.style.width = NATURAL_FILL[n.level] + '%'; }));
+    txt.textContent = n.label;
+    txt.dataset.level = n.level;
+    txt.dataset.value = n.value;
+    badge.title = 'Found: ' + n.detail + '. An estimate, not an AI-detector result.';
   } catch(e) { /* never break paraphrase */ }
 }
 
@@ -4093,11 +4095,11 @@ async function humanize() {
     document.getElementById("outputCount").textContent = countWords(_humanized) + " words";
     // Naturalness (estimate): the SAME check (estimateAIScore) on the text you gave and on the text that came back —
     // the main text only, both times (a reference list is kept unchanged, so it is left out of both). Measured, never made up.
-    const naturalness = (t) => 100 - estimateAIScore(t);
-    const beforeNatural = naturalness(_refSplit.body), afterNatural = naturalness(cleanMarkdown(result.trim()));
-    showStatus("✓ Done — naturalness estimate " + beforeNatural + " → " + afterNatural + " / 100", "success");
+    const before = naturalnessOf(_refSplit.body), out = cleanMarkdown(result.trim()), after = naturalnessOf(out);
+    showStatus("✓ Done — " + after.label.charAt(0).toLowerCase() + after.label.slice(1) + " (estimate)", "success");
     showDownloadBtn();
-    showScorePanel(beforeNatural, afterNatural);
+    showHumanScore(out);
+    showScorePanel(before, after);
     gaToolUsed('humanize', countWords(text));
   } else {
     document.getElementById("outputText").innerHTML = '<span class="output-placeholder">Your humanized text will appear here...</span>';
@@ -4962,21 +4964,39 @@ document.addEventListener("keydown", (e) => {
 // ════════════════════════════════════════════
 // SCORE PANEL FUNCTIONS
 // ════════════════════════════════════════════
-function estimateAIScore(text) {
+// The naturalness check: stock AI phrases and how similar the sentence lengths are. → { score, phrases, uniform }
+function analyzeAIPatterns(text) {
   let score = 55;
   const aiPhrases = ["furthermore","moreover","additionally","in conclusion","it is important","it is worth noting","in summary","as a result","therefore","consequently","this ensures","this allows","this helps","in order to","due to the fact","it should be noted","plays a crucial role","delve into","tapestry","underscore","pivotal"];
   let aiCount = 0;
   aiPhrases.forEach(phrase => { if (text.toLowerCase().includes(phrase)) aiCount++; });
   score += Math.min(aiCount * 5, 30);
   const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+  let uniform = false;
   if (sentences.length > 3) {
     const lengths = sentences.map(s => s.trim().split(/\s+/).length);
     const avg = lengths.reduce((a,b) => a+b, 0) / lengths.length;
     const variance = lengths.reduce((a,b) => a + Math.pow(b-avg, 2), 0) / lengths.length;
-    if (variance < 20) score += 10;
+    if (variance < 20) { score += 10; uniform = true; }
   }
-  return Math.min(Math.max(score, 40), 95);
+  return { score: Math.min(Math.max(score, 40), 95), phrases: aiCount, uniform };
 }
+function estimateAIScore(text) { return analyzeAIPatterns(text).score; }
+
+// Naturalness (estimate) — the ONE scale every indicator uses (status line, badge, score panel), always measured
+// on the real text. The check only looks at stock AI phrases and sentence variety, so its raw value tops out at 45;
+// it is shown as a level with what was found, not as a "/ 100" score that would make good text look mediocre.
+const NATURAL_LEVELS = { few: 'Few AI-style patterns', some: 'Some AI-style patterns', many: 'Many AI-style patterns' };
+function naturalnessOf(text) {
+  const a = analyzeAIPatterns(text || '');
+  const value = 100 - a.score;                                  // higher = fewer AI-style patterns
+  const level = value >= 45 ? 'few' : value >= 30 ? 'some' : 'many';
+  const detail = (a.phrases ? a.phrases + ' stock AI phrase' + (a.phrases === 1 ? '' : 's') : 'no stock AI phrases') + ', ' +
+    (a.uniform ? 'similar sentence lengths' : 'varied sentence lengths');
+  return { value, level, label: NATURAL_LEVELS[level], detail };
+}
+const NATURAL_FILL = { few: 100, some: 60, many: 25 };
+const NATURAL_COLOR = { few: '#2d6a4f', some: '#d98a1f', many: '#c0392b' };
 
 function animateCircle(circleId, percentage) {
   const circle = document.getElementById(circleId);
@@ -4987,27 +5007,34 @@ function animateCircle(circleId, percentage) {
   }, 200);
 }
 
-// before / after: naturalness estimates (0–100) from the same check on the input and on the output
+// before / after: naturalnessOf() on the input and on the output — the same check as the badge
 function showScorePanel(before, after) {
   document.getElementById("scorePanel").classList.add("show");
-  document.getElementById("beforeNum").textContent = before;
-  document.getElementById("afterNum").textContent = after;
-  animateCircle("beforeCircle", before);
-  animateCircle("afterCircle", after);
+  const circle = (id, numId, n) => {
+    const num = document.getElementById(numId);
+    num.textContent = n.level.charAt(0).toUpperCase() + n.level.slice(1);
+    num.classList.add("is-level");
+    num.style.color = NATURAL_COLOR[n.level];
+    document.getElementById(id).setAttribute('stroke', NATURAL_COLOR[n.level]);
+    animateCircle(id, NATURAL_FILL[n.level]);
+  };
+  circle("beforeCircle", "beforeNum", before);
+  circle("afterCircle", "afterNum", after);
 
-  const change = "Naturalness estimate: " + before + " → " + after + " / 100, from the same check on your text and on the result (sentence variety and common AI phrasing). An estimate, not an AI-detector result.";
+  const found = "Before: " + before.detail + ". After: " + after.detail + ". Estimate " + before.value + " → " + after.value +
+    " (higher = fewer AI-style patterns), from stock AI phrases and sentence variety — an estimate, not an AI-detector result.";
   let title, desc, badges;
-  if (after > before) {
+  if (after.value > before.value) {
     title = "✅ Reads More Naturally";
-    desc = change + " Read it through and add your own touches.";
-    badges = '<span class="score-badge good">✓ Estimate up by ' + (after - before) + '</span><span class="score-badge warn">Read it through</span>';
-  } else if (after === before) {
+    desc = found + " Read it through and add your own touches.";
+    badges = '<span class="score-badge good">✓ ' + after.label + '</span><span class="score-badge warn">Read it through</span>';
+  } else if (after.value === before.value) {
     title = "About the Same";
-    desc = change + " Try another style, or edit the text yourself.";
+    desc = found + " Try another style, or edit the text yourself.";
     badges = '<span class="score-badge warn">⚡ Try Different Style</span><span class="score-badge warn">✎ Edit It Yourself</span>';
   } else {
     title = "⚡ Try Another Style";
-    desc = change + " This version scored lower — try another style or run it again.";
+    desc = found + " This version has more AI-style patterns — try another style or run it again.";
     badges = '<span class="score-badge warn">⚡ Run Again</span><span class="score-badge warn">⚡ Try Different Style</span>';
   }
   document.getElementById("scoreTitle").textContent = title;
