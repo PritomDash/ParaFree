@@ -2019,13 +2019,13 @@ document.addEventListener('DOMContentLoaded', function() {
           <svg viewBox="0 0 90 90">
             <circle class="score-circle-bg" cx="45" cy="45" r="36"/>
             <circle class="score-circle-fill" id="beforeCircle" cx="45" cy="45" r="36"
-              stroke="#e63946"
+              stroke="#b8b2a7"
               stroke-dasharray="226"
               stroke-dashoffset="226"/>
           </svg>
           <div class="score-circle-text">
-            <span class="score-num" id="beforeNum" style="color:#e63946;">0%</span>
-            <span class="score-pct">AI</span>
+            <span class="score-num" id="beforeNum" style="color:#6b6660;">0</span>
+            <span class="score-pct">natural</span>
           </div>
         </div>
         <div class="score-circle-label">Before</div>
@@ -2044,8 +2044,8 @@ document.addEventListener('DOMContentLoaded', function() {
               stroke-dashoffset="226"/>
           </svg>
           <div class="score-circle-text">
-            <span class="score-num" id="afterNum" style="color:#2d6a4f;">0%</span>
-            <span class="score-pct">Human</span>
+            <span class="score-num" id="afterNum" style="color:#2d6a4f;">0</span>
+            <span class="score-pct">natural</span>
           </div>
         </div>
         <div class="score-circle-label">After</div>
@@ -2054,8 +2054,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     <!-- SCORE INFO -->
     <div class="score-info">
-      <h3 id="scoreTitle">Humanization Complete!</h3>
-      <p id="scoreDesc">Your text has been rewritten to sound more human.</p>
+      <h3 id="scoreTitle">Done</h3>
+      <p id="scoreDesc">Your text has been rewritten to read more naturally.</p>
       <div class="score-badges" id="scoreBadges"></div>
     </div>
   </div>
@@ -4091,13 +4091,13 @@ async function humanize() {
       : cleanMarkdown(result.trim());
     renderOutput(_humanized);
     document.getElementById("outputCount").textContent = countWords(_humanized) + " words";
-    showStatus("✓ Humanized — sounds human now!", "success");
+    // Naturalness (estimate): the SAME check (estimateAIScore) on the text you gave and on the text that came back —
+    // the main text only, both times (a reference list is kept unchanged, so it is left out of both). Measured, never made up.
+    const naturalness = (t) => 100 - estimateAIScore(t);
+    const beforeNatural = naturalness(_refSplit.body), afterNatural = naturalness(cleanMarkdown(result.trim()));
+    showStatus("✓ Done — naturalness estimate " + beforeNatural + " → " + afterNatural + " / 100", "success");
     showDownloadBtn();
-
-    const beforeScore = estimateAIScore(text);
-    const afterScore = Math.max(3, Math.round(beforeScore * (0.1 + Math.random() * 0.2)));
-    const humanScore = 100 - afterScore;
-    showScorePanel(beforeScore, humanScore);
+    showScorePanel(beforeNatural, afterNatural);
     gaToolUsed('humanize', countWords(text));
   } else {
     document.getElementById("outputText").innerHTML = '<span class="output-placeholder">Your humanized text will appear here...</span>';
@@ -4987,25 +4987,27 @@ function animateCircle(circleId, percentage) {
   }, 200);
 }
 
-function showScorePanel(beforeAI, afterHuman) {
+// before / after: naturalness estimates (0–100) from the same check on the input and on the output
+function showScorePanel(before, after) {
   document.getElementById("scorePanel").classList.add("show");
-  document.getElementById("beforeNum").textContent = beforeAI + "%";
-  document.getElementById("afterNum").textContent = afterHuman + "%";
-  animateCircle("beforeCircle", beforeAI);
-  animateCircle("afterCircle", afterHuman);
+  document.getElementById("beforeNum").textContent = before;
+  document.getElementById("afterNum").textContent = after;
+  animateCircle("beforeCircle", before);
+  animateCircle("afterCircle", after);
 
+  const change = "Naturalness estimate: " + before + " → " + after + " / 100, from the same check on your text and on the result (sentence variety and common AI phrasing). An estimate, not an AI-detector result.";
   let title, desc, badges;
-  if (afterHuman >= 85) {
-    title = "🎉 Reads Much More Naturally";
-    desc = "Fewer AI-style patterns: naturalness estimate " + afterHuman + " / 100. This is an estimate, not a guarantee of any AI-detector result — read it through and add your own touches.";
-    badges = '<span class="score-badge great">✓ Highly Natural</span><span class="score-badge great">✓ Varied Sentences</span><span class="score-badge great">✓ Fewer AI Phrases</span>';
-  } else if (afterHuman >= 70) {
+  if (after > before) {
     title = "✅ Reads More Naturally";
-    desc = "Naturalness estimate " + afterHuman + " / 100. Run it again or try another style for a smoother result.";
-    badges = '<span class="score-badge good">✓ Mostly Natural</span><span class="score-badge good">✓ Fewer AI Phrases</span><span class="score-badge warn">⚡ Run Again For Smoother Text</span>';
+    desc = change + " Read it through and add your own touches.";
+    badges = '<span class="score-badge good">✓ Estimate up by ' + (after - before) + '</span><span class="score-badge warn">Read it through</span>';
+  } else if (after === before) {
+    title = "About the Same";
+    desc = change + " Try another style, or edit the text yourself.";
+    badges = '<span class="score-badge warn">⚡ Try Different Style</span><span class="score-badge warn">✎ Edit It Yourself</span>';
   } else {
-    title = "⚡ Partially Humanized";
-    desc = "Some AI patterns remain. Try running the humanizer again or switch to a different style for better results.";
+    title = "⚡ Try Another Style";
+    desc = change + " This version scored lower — try another style or run it again.";
     badges = '<span class="score-badge warn">⚡ Run Again</span><span class="score-badge warn">⚡ Try Different Style</span>';
   }
   document.getElementById("scoreTitle").textContent = title;

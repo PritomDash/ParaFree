@@ -119,7 +119,8 @@ test.describe('1. tool first', () => {
       'Why ParaFree is Better Than Quillbot Free': 'A Free Quillbot Alternative With No Word Limit',              // fix/competitor-claims
       'Comparison: ParaFree vs Other Free Tools': 'What ParaFree Offers, Free',
       'Comparison: Formatting Preservation Across Tools': 'Formatting Preservation in ParaFree',
-      'ParaFree — The Best Free Paraphrasing Tool With No Word Limit': 'ParaFree — A Free Paraphrasing Tool With No Word Limit' };   // fix/consistency-polish
+      'ParaFree — The Best Free Paraphrasing Tool With No Word Limit': 'ParaFree — A Free Paraphrasing Tool With No Word Limit',   // fix/consistency-polish
+      'Humanization Complete!': 'Done' };   // fix/humanizer-score: the score panel's default title, no claim
     const REMOVED = ['Quillbot Free'];   // the competitor's box in the "Quillbot vs ParaFree" post (no undated competitor claims)
     const missingHeads = heads(before).filter((h) => !heads(now).includes(h) && !REMOVED.includes(h) && !(RENAMED[h] && heads(now).includes(RENAMED[h])));
     expect(missingHeads).toEqual([]);

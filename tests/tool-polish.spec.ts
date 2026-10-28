@@ -149,7 +149,8 @@ test.describe('4. humanizer: honest wording', () => {
     await expect(page.locator('#humanScoreBadge')).toContainText('Naturalness (estimate):');
     await expect(page.locator('#humanScoreText')).toHaveText(/^\d{2,3} \/ 100$/);
     // humanizer score panel: estimate wording, no detector promise
-    for (const [after, title] of [[90, 'Reads Much More Naturally'], [75, 'Reads More Naturally']] as [number, string][]) {
+    // (before, after): both naturalness estimates from the same check — fix/humanizer-score
+    for (const [after, title] of [[90, 'Reads More Naturally'], [75, 'Try Another Style']] as [number, string][]) {
       await page.evaluate((a) => (window as any).showScorePanel(80, a), after);
       await expect(page.locator('#scoreTitle')).toContainText(title);
       const panel = await page.locator('#scorePanel').innerText();
