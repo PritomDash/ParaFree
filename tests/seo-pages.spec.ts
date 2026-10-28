@@ -72,7 +72,7 @@ test.describe('SEO additions', () => {
         return r.toString();
       })).split(/\s+/).filter(Boolean).length;
       expect(words).toBeGreaterThanOrEqual(500);
-      expect(words).toBeLessThanOrEqual(700);
+      expect(words).toBeLessThanOrEqual(900);   // feat/seo-expansion added a one-sentence definition (was 700)
     });
   }
 

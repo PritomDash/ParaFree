@@ -40,9 +40,24 @@
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     "itemListElement": [
-      {"@type":"ListItem","position":1,"name":"Home","item":"https://parafree.app/"},
-      {"@type":"ListItem","position":2,"name":"CV Builder","item":"https://parafree.app/cv-builder.html"},
-      {"@type":"ListItem","position":3,"name":"AI CV Builder","item":"https://parafree.app/ai-cv-builder.html"}
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "https://parafree.app/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "CV Builder",
+        "item": "https://parafree.app/cv-builder.html"
+      },
+      {
+        "@type": "ListItem",
+        "position": 3,
+        "name": "AI CV Builder",
+        "item": "https://parafree.app/ai-cv-builder.html"
+      }
     ]
   },
   {
@@ -53,8 +68,19 @@
     "applicationCategory": "BusinessApplication",
     "operatingSystem": "Any",
     "description": "Free AI-powered CV builder that writes bullet points, professional summaries and cover letters automatically. No signup required.",
-    "featureList": ["AI bullet point writing", "AI professional summary", "AI cover letter", "Job description matching", "54 templates", "Instant PDF download"],
-    "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}
+    "featureList": [
+      "AI bullet point writing",
+      "AI professional summary",
+      "AI cover letter",
+      "Job description matching",
+      "54 templates",
+      "Instant PDF download"
+    ],
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    }
   },
   {
     "@context": "https://schema.org",
@@ -63,27 +89,42 @@
       {
         "@type": "Question",
         "name": "Is the AI CV builder really free?",
-        "acceptedAnswer": {"@type": "Answer", "text": "Yes. ParaFree's AI CV builder is completely free — no subscription, no credit card, no signup. The AI writes bullet points, your professional summary and your cover letter at no cost."}
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. All AI writing features — bullet points, professional summary, cover letter, job description matching — are free. No subscription, no credit card, no signup required."
+        }
       },
       {
         "@type": "Question",
         "name": "What does the AI write for my CV?",
-        "acceptedAnswer": {"@type": "Answer", "text": "The AI writes role-specific bullet points for each job entry, a professional summary tailored to your target role, and a matching cover letter. You can also paste a job description to get keywords matched automatically."}
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "The AI writes role-specific bullet points for each job entry, a professional summary tailored to your target role, and a matching cover letter. Paste a job description to get keywords matched automatically."
+        }
       },
       {
         "@type": "Question",
         "name": "Do I need to give the AI any information?",
-        "acceptedAnswer": {"@type": "Answer", "text": "You fill in your basic details — job title, company, dates, and a rough description of what you did. The AI then rewrites and expands those notes into polished, action-verb-led bullet points."}
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "You fill in your basic details and rough notes about each role. The AI expands these into polished, action-verb-led bullet points. The more context you give, the better the output."
+        }
       },
       {
         "@type": "Question",
-        "name": "How is ParaFree's AI different from ChatGPT for CV writing?",
-        "acceptedAnswer": {"@type": "Answer", "text": "ParaFree's AI is integrated directly into the CV builder — it writes into your template in real time, formatted and ready to download. You don't need to copy-paste from a chat window, reformat anything, or know how to write the right prompts."}
+        "name": "How is ParaFree different from using ChatGPT for my CV?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "ParaFree's AI writes directly into your CV template in real time — formatted and ready to download. No copying from a chat window, no reformatting, no prompting needed."
+        }
       },
       {
         "@type": "Question",
-        "name": "Can AI write a cover letter too?",
-        "acceptedAnswer": {"@type": "Answer", "text": "Yes. ParaFree includes a free AI cover letter generator that matches your CV's design and content. Enter the company name, role, and tone, and the AI writes a tailored letter in seconds."}
+        "name": "Can AI write my cover letter too?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. ParaFree includes a free AI cover letter generator. Enter the company, role and tone preference, and the AI writes a tailored letter that matches your CV's design."
+        }
       }
     ]
   }
@@ -230,7 +271,7 @@ footer p{font-size:13px;color:#999;margin:4px 0}
     <div class="feature-card">
       <div class="icon">📩</div>
       <h3>Cover Letter</h3>
-      <p>One click generates a full cover letter matching your CV's design. Personalised to the company and role.</p>
+      <p>One click generates a full cover letter matching your CV's design. Personalised to the company and role. See the <a href="/cover-letter-generator.html">free cover letter generator</a> page for how it works.</p>
     </div>
     <div class="feature-card">
       <div class="icon">🎯</div>

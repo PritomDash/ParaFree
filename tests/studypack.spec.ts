@@ -652,14 +652,14 @@ test.describe('errors and pages', () => {
     const net = await setup(page);
     await open(page);
     const URL_ = 'https://parafree.app/flashcard-quiz-maker.html';
-    await expect(page).toHaveTitle('AI Flashcard, Quiz & Notes Maker — from Notes, PDFs or Lectures | ParaFree');
+    await expect(page).toHaveTitle('Free AI Flashcard Maker & Quiz Generator — from Notes, PDFs or Lectures | ParaFree')   // feat/seo-expansion: search terms in the title;
     await expect(page.locator('h1')).toHaveText('AI Flashcard, Quiz & Notes Maker');
     await expect(page.locator('.pf-hero p')).toHaveText('Turn your notes, PDFs, slides, or a YouTube lecture into flashcards, a quiz, and key-point notes — free, no sign-up.');
-    expect(await page.locator('meta[name="description"]').getAttribute('content')).toContain('Make flashcards, a multiple-choice quiz and key-point notes');
+    expect(await page.locator('meta[name="description"]').getAttribute('content')).toContain('Free AI flashcard maker and quiz generator: make flashcards, a multiple-choice quiz and key-point notes');
     expect(await page.locator('link[rel="canonical"]').getAttribute('href')).toBe(URL_);
     expect(await page.locator('meta[property="og:url"]').getAttribute('content')).toBe(URL_);
-    expect(await page.locator('meta[property="og:title"]').getAttribute('content')).toBe('AI Flashcard, Quiz & Notes Maker | ParaFree');
-    expect(await page.locator('meta[name="twitter:title"]').getAttribute('content')).toBe('AI Flashcard, Quiz & Notes Maker | ParaFree');
+    expect(await page.locator('meta[property="og:title"]').getAttribute('content')).toBe('Free AI Flashcard Maker & Quiz Generator | ParaFree');
+    expect(await page.locator('meta[name="twitter:title"]').getAttribute('content')).toBe('Free AI Flashcard Maker & Quiz Generator | ParaFree');
     const ld = await page.evaluate(() => [...document.querySelectorAll('script[type="application/ld+json"]')].map((s) => JSON.parse(s.textContent!)));
     const app = ld.find((j) => j['@type'] === 'WebApplication'), faq = ld.find((j) => j['@type'] === 'FAQPage');
     expect([app.name, app.url]).toEqual(['ParaFree AI Flashcard, Quiz & Notes Maker', URL_]);

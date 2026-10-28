@@ -126,7 +126,7 @@ test.describe('1. tool first', () => {
     const missingLinks = [...hrefs(before)].filter((h) => !hrefs(now).has(h));
     expect(missingLinks).toEqual([]);
     const count = (s: string, re: RegExp) => (s.match(re) || []).length;
-    expect(count(now, /class="faq-item"/g)).toBe(count(before, /class="faq-item"/g));
+    expect(count(now, /class="faq-item"/g)).toBeGreaterThanOrEqual(count(before, /class="faq-item"/g));   // kept (feat/seo-expansion made 6 more visible)
     expect(count(now, /<details class="seo-section/g)).toBe(count(before, /<details class="seo-section/g));
     const types = (s: string) => jsonLd(s).map((j) => JSON.parse(j)['@type'] || JSON.parse(j)['@graph']?.length);
     expect(types(now)).toEqual(types(before));

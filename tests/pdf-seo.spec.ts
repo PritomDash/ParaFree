@@ -322,7 +322,8 @@ test.describe('site-wide SEO', () => {
     for (const g of GUIDES) {
       const s = read(g);
       const ld = ldBlocks(s).map((b) => JSON.parse(b));
-      expect(ld.map((x) => x['@type'])).toEqual(['Article', 'BreadcrumbList']);
+      // feat/seo-expansion: guides whose steps are a visible numbered list also carry HowTo
+      expect(ld.map((x) => x['@type']).filter((t) => t !== 'HowTo')).toEqual(['Article', 'BreadcrumbList']);
       expect(s).toContain('class="article-meta"');
       expect(s).toContain(ENTITY);
       const words = s.split('<article>')[1].split('</article>')[0].replace(/<[^>]+>/g, ' ').split(/\s+/).filter(Boolean).length;

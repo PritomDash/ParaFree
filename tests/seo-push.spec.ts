@@ -268,6 +268,7 @@ test.describe('structured data, titles, previews, freshness', () => {
       'best-free-cv-builder.html': 'Best Free CV Builders 2026 — 7 Tools Compared | ParaFree',
       'best-free-paraphrasing-tool.html': 'Best Free Paraphrasing Tools 2026 — 7 Tools Compared | ParaFree',
       'quillbot-alternative.html': 'Free Quillbot Alternative — No Word Limit | ParaFree',
+      'code.html': 'ParaFree AI — Free AI Chat &amp; Assistant, No Signup — Code, Research, Study',   // feat/seo-expansion: the terms people search for
     };
     const titles = new Map<string, string>(), descs = new Map<string, string>();
     for (const f of htmlPages()) {

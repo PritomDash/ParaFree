@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Flashcard, Quiz &amp; Notes Maker — from Notes, PDFs or Lectures | ParaFree</title>
-<meta name="description" content="Make flashcards, a multiple-choice quiz and key-point notes from your notes, PDFs, slides or a YouTube lecture with AI — free, no sign-up. Paste text or upload a PDF, Word or PowerPoint file.">
+<title>Free AI Flashcard Maker &amp; Quiz Generator — from Notes, PDFs or Lectures | ParaFree</title>
+<meta name="description" content="Free AI flashcard maker and quiz generator: make flashcards, a multiple-choice quiz and key-point notes from your notes, PDFs, slides, a YouTube lecture or a recording — no sign-up. Paste text or upload a PDF, Word, PowerPoint or .txt file.">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://parafree.app/flashcard-quiz-maker.html">
-<meta property="og:title" content="AI Flashcard, Quiz &amp; Notes Maker | ParaFree">
+<meta property="og:title" content="Free AI Flashcard Maker &amp; Quiz Generator | ParaFree">
 <meta property="og:description" content="Turn your notes, PDFs, slides, or a YouTube lecture into flashcards, a quiz, and key-point notes — free, no sign-up.">
 <meta property="og:url" content="https://parafree.app/flashcard-quiz-maker.html">
 <meta property="og:type" content="website">
@@ -16,7 +16,7 @@
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="AI Flashcard, Quiz &amp; Notes Maker | ParaFree">
+<meta name="twitter:title" content="Free AI Flashcard Maker &amp; Quiz Generator | ParaFree">
 <meta name="twitter:description" content="Flashcards, a quiz and key-point notes from your notes, PDFs, slides or a YouTube lecture — free, no sign-up.">
 <meta name="twitter:image" content="https://parafree.app/og-image.png">
 <meta name="twitter:site" content="@parafree">
@@ -53,10 +53,13 @@
   "@type": "FAQPage",
   "mainEntity": [
     {"@type": "Question", "name": "What do I get?", "acceptedAnswer": {"@type": "Answer", "text": "Key-point notes, flashcards and a multiple-choice quiz with explanations, all made in one step from the material you give it. You can switch between the three tabs without waiting for anything new."}},
-    {"@type": "Question", "name": "Which files can I use?", "acceptedAnswer": {"@type": "Answer", "text": "You can paste text, or upload a PDF, Word (.docx) or PowerPoint (.pptx) file. The text is read in your browser. You can also paste a YouTube video’s transcript, or upload an audio or video recording of a lecture."}},
+    {"@type": "Question", "name": "Which files can I use?", "acceptedAnswer": {"@type": "Answer", "text": "You can paste text, or upload a PDF, Word (.docx), PowerPoint (.pptx) or .txt file — up to 2 GB on desktop Chrome or Edge, 500 MB in other browsers. The text is read in your browser. You can also paste a YouTube video’s transcript, or upload an audio or video recording of a lecture (up to 50 MB and 60 minutes)."}},
     {"@type": "Question", "name": "How do I use a YouTube video?", "acceptedAnswer": {"@type": "Answer", "text": "Paste its transcript: on the YouTube video, click the ⋯ (More) → Show transcript, copy the text, and paste it into the YouTube tab. This works for any video that has captions. With only a link, we try to read the captions from your browser first, but YouTube usually blocks this. There is also an experimental option where the AI works from the video link; it may not work for all videos or when the AI is busy, and it uses one of the day’s audio/video packs."}},
     {"@type": "Question", "name": "Is my material stored?", "acceptedAnswer": {"@type": "Answer", "text": "No. Text is sent to an AI provider to write your flashcards, quiz and notes, and is not saved by ParaFree. Audio and video are sent to our AI provider to be transcribed, and your flashcards, quiz and notes are made from the transcript; ParaFree does not save the recording or the transcript. If the backup route is used, the file is uploaded to the AI provider so it can listen to it, then deleted once your pack is made."}},
-    {"@type": "Question", "name": "Can I trust the answers?", "acceptedAnswer": {"@type": "Answer", "text": "The AI is told to use only what is in your material, but it can still make mistakes. Check anything important against your notes or textbook before an exam."}}
+    {"@type": "Question", "name": "Can I trust the answers?", "acceptedAnswer": {"@type": "Answer", "text": "The AI is told to use only what is in your material, but it can still make mistakes. Check anything important against your notes or textbook before an exam."}},
+    {"@type": "Question", "name": "How do I turn a PDF into flashcards for free?", "acceptedAnswer": {"@type": "Answer", "text": "Click Upload File, choose the PDF, pick a size and click the button. The text is read in your browser and you get flashcards, a quiz and key points. A scanned PDF needs PDF to Word with OCR first."}},
+    {"@type": "Question", "name": "Can I make a quiz from my notes?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Paste your notes or upload the file; every pack includes a multiple-choice quiz with an explanation for each answer. Choose Exam prep for the longest quiz."}},
+    {"@type": "Question", "name": "Is the flashcard maker really free with no sign-up?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. There is no account and no payment. Text and files have no daily limit; audio, video and the experimental YouTube option have a small daily allowance per person."}}
   ]
 }
 </script>
@@ -132,6 +135,8 @@
 .sp-outbar{display:flex;justify-content:flex-end;gap:8px;padding:10px 16px;border-top:1px solid var(--border);background:var(--surface2)}
 .sp-honest{font-size:12.5px;color:var(--text3);margin:10px 0 0}
 @media (max-width:600px){.sp-controls{flex-direction:column;align-items:stretch}#spGo{width:100%}}
+.pf-define-wrap{max-width:900px;margin:18px auto 0;padding:0 16px}
+.pf-define{background:#eef6f1;border-left:4px solid #2d6a4f;border-radius:0 10px 10px 0;padding:12px 16px;margin:0;font-size:15px;line-height:1.6;color:#1a1814}
 </style>
 </head>
 <body>
@@ -140,7 +145,7 @@
      height is posted to the homepage so the frame has no inner scrollbar. Without ?embed=1 nothing below applies. -->
 <style>
 html.pf-embed body{background:transparent}
-html.pf-embed #mobileMenu,html.pf-embed #mainNav,html.pf-embed .pf-hero,html.pf-embed .pf-content,html.pf-embed .pf-footer,html.pf-embed #pf-scroll-top{display:none!important}
+html.pf-embed #mobileMenu,html.pf-embed #mainNav,html.pf-embed .pf-hero,html.pf-embed .pf-content,html.pf-embed .pf-define-wrap,html.pf-embed .pf-footer,html.pf-embed #pf-scroll-top{display:none!important}
 html.pf-embed body{margin:0;min-height:0!important}   /* else the body is as tall as the frame, and the frame could never shrink */
 html.pf-embed .sp-wrap{max-width:none!important;margin:0!important;padding:4px 0 8px!important}
 </style>
@@ -212,6 +217,8 @@ html.pf-embed .sp-wrap{max-width:none!important;margin:0!important;padding:4px 0
     <p>Turn your notes, PDFs, slides, or a YouTube lecture into flashcards, a quiz, and key-point notes — free, no sign-up.</p>
   </div>
 </header>
+
+<div class="pf-define-wrap"><p class="pf-define">ParaFree’s AI flashcard maker and quiz generator is a free tool that turns your notes, PDFs, Word files, slides, YouTube transcripts or lecture recordings into flashcards, a multiple-choice quiz and key-point notes in one step — no sign-up, no account.</p></div>
 
 <main class="sp-wrap" id="spTool">
   <div class="sp-card">
@@ -301,13 +308,21 @@ html.pf-embed .sp-wrap{max-width:none!important;margin:0!important;padding:4px 0
     <p><strong>Quick</strong> gives a short summary, a few cards and a five-question quiz. <strong>Standard</strong> is a good default for a lecture or chapter. <strong>Exam prep</strong> makes more cards and a longer quiz.</p>
   </section>
 
+  <section class="pf-section">
+    <h2>More ways to use it</h2>
+    <p>Guides for the most common jobs: <a href="/notes-to-flashcards.html">turn notes into flashcards</a>, <a href="/pdf-to-flashcards.html">make flashcards from a PDF</a>, <a href="/quiz-from-notes.html">make a quiz from your notes</a>, and the <a href="/flashcard-maker.html">AI flashcard maker</a> overview. For everything else you can study with for free, see <a href="/ai-study-tools.html">AI study tools</a>.</p>
+  </section>
+
   <section class="faq" id="faq">
     <h2>Frequently asked questions</h2>
     <div class="faq-item"><p class="faq-q">What do I get?</p><p class="faq-a">Key-point notes, flashcards and a multiple-choice quiz with explanations, all made in one step from the material you give it. You can switch between the three tabs without waiting for anything new.</p></div>
-    <div class="faq-item"><p class="faq-q">Which files can I use?</p><p class="faq-a">You can paste text, or upload a PDF, Word (.docx) or PowerPoint (.pptx) file. The text is read in your browser. You can also paste a YouTube video’s transcript, or upload an audio or video recording of a lecture.</p></div>
+    <div class="faq-item"><p class="faq-q">Which files can I use?</p><p class="faq-a">You can paste text, or upload a PDF, Word (.docx), PowerPoint (.pptx) or .txt file — up to 2 GB on desktop Chrome or Edge, 500 MB in other browsers. The text is read in your browser. You can also paste a YouTube video’s transcript, or upload an audio or video recording of a lecture (up to 50 MB and 60 minutes).</p></div>
     <div class="faq-item"><p class="faq-q">How do I use a YouTube video?</p><p class="faq-a">Paste its transcript: on the YouTube video, click the ⋯ (More) → Show transcript, copy the text, and paste it into the YouTube tab. This works for any video that has captions. With only a link, we try to read the captions from your browser first, but YouTube usually blocks this. There is also an experimental option where the AI works from the video link; it may not work for all videos or when the AI is busy, and it uses one of the day’s audio/video packs.</p></div>
     <div class="faq-item"><p class="faq-q">Is my material stored?</p><p class="faq-a">No. Text is sent to an AI provider to write your flashcards, quiz and notes, and is not saved by ParaFree. Audio and video are sent to our AI provider to be transcribed, and your flashcards, quiz and notes are made from the transcript; ParaFree does not save the recording or the transcript. If the backup route is used, the file is uploaded to the AI provider so it can listen to it, then deleted once your pack is made.</p></div>
     <div class="faq-item"><p class="faq-q">Can I trust the answers?</p><p class="faq-a">The AI is told to use only what is in your material, but it can still make mistakes. Check anything important against your notes or textbook before an exam.</p></div>
+    <div class="faq-item"><p class="faq-q">How do I turn a PDF into flashcards for free?</p><p class="faq-a">Click Upload File, choose the PDF, pick a size and click the button. The text is read in your browser and you get flashcards, a quiz and key points. A scanned PDF needs <a href="/pdf-to-word.html">PDF to Word</a> with OCR first.</p></div>
+    <div class="faq-item"><p class="faq-q">Can I make a quiz from my notes?</p><p class="faq-a">Yes. Paste your notes or upload the file; every pack includes a multiple-choice quiz with an explanation for each answer. Choose Exam prep for the longest quiz.</p></div>
+    <div class="faq-item"><p class="faq-q">Is the flashcard maker really free with no sign-up?</p><p class="faq-a">Yes. There is no account and no payment. Text and files have no daily limit; audio, video and the experimental YouTube option have a small daily allowance per person.</p></div>
   </section>
 </div>
 
