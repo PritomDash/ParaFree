@@ -115,8 +115,12 @@ test.describe('1. tool first', () => {
     // headings renamed on purpose since (old → new): honest humanizer wording (fix/tool-polish, fix/humanizer-consistency)
     const RENAMED: Record<string, string> = { 'Beat AI Detection': 'Make AI Text Read Naturally',
       'Why AI Detectors Flag Your Text': 'Why AI Text Can Sound Robotic',                       // fix/humanizer-consistency
-      'ParaFree AI Humanizer vs Paid Alternatives': 'What the ParaFree AI Humanizer Offers' };
-    const missingHeads = heads(before).filter((h) => !heads(now).includes(h) && !(RENAMED[h] && heads(now).includes(RENAMED[h])));
+      'ParaFree AI Humanizer vs Paid Alternatives': 'What the ParaFree AI Humanizer Offers',
+      'Why ParaFree is Better Than Quillbot Free': 'A Free Quillbot Alternative With No Word Limit',              // fix/competitor-claims
+      'Comparison: ParaFree vs Other Free Tools': 'What ParaFree Offers, Free',
+      'Comparison: Formatting Preservation Across Tools': 'Formatting Preservation in ParaFree' };
+    const REMOVED = ['Quillbot Free'];   // the competitor's box in the "Quillbot vs ParaFree" post (no undated competitor claims)
+    const missingHeads = heads(before).filter((h) => !heads(now).includes(h) && !REMOVED.includes(h) && !(RENAMED[h] && heads(now).includes(RENAMED[h])));
     expect(missingHeads).toEqual([]);
     const missingLinks = [...hrefs(before)].filter((h) => !hrefs(now).has(h));
     expect(missingLinks).toEqual([]);
