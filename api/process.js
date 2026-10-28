@@ -984,7 +984,7 @@ Q: Is it really free? What is the catch?
 A: Genuinely free forever. No hidden charge at the download step, no trial that expires, no premium tier.
 
 Q: What languages are supported?
-A: 18 languages including Hindi, Bengali, Arabic, Urdu, Tamil, Telugu, Filipino — more than most free tools. QuillBot free does not support these languages.
+A: 18 languages including Hindi, Bengali, Arabic, Urdu, Tamil, Telugu, Filipino — all free.
 
 Q: My PowerPoint slide design changed or disappeared.
 A: ParaFree is designed to preserve slide designs. If you see an issue, try re-uploading the original PPTX file.
@@ -1002,16 +1002,16 @@ Q: What is ATS and why does it matter?
 A: ATS (Applicant Tracking System) is software employers use to filter resumes. ParaFree templates are single-column, text-based, and keyword-readable by ATS so your CV is not rejected before a human reads it.
 
 Q: How is ParaFree different from QuillBot?
-A: QuillBot free: 125-word limit, requires signup, no document upload, around $20/month paid. ParaFree: no word limit, no signup, free DOCX/PDF/PPTX upload, $0 forever.
+A: ParaFree has no word limit, needs no signup, uploads DOCX/PDF/PPTX free, and costs $0. (Do not quote other tools' prices or limits — they change.)
 
 Q: How is ParaFree different from Wordtune?
-A: Wordtune free: 10 rewrites per day, requires signup. ParaFree: unlimited, no signup.
+A: ParaFree has no daily rewrite limit and needs no signup.
 
 Q: How is ParaFree CV different from Zety or Resume.io?
-A: Zety and Resume.io require a paid subscription to download. ParaFree download is always free.
+A: ParaFree download is always free — no payment step at download.
 
 Q: How is ParaFree CV different from Canva or FlowCV?
-A: Canva and FlowCV require account creation. ParaFree requires no signup.
+A: ParaFree requires no signup.
 
 ── PARAFREE PAGES ──
 Main paraphraser: https://parafree.app
