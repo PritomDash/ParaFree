@@ -78,7 +78,7 @@
       "name": "Is compressing a PDF free?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Yes. It is free with no signup and no watermark. Files can be up to 50 MB and 300 pages."
+        "text": "Yes. It is free with no signup and no watermark. With Light, files can be up to 2 GB and 2,000 pages on desktop Chrome or Edge (500 MB in other browsers); Strong and Target size handle up to 1 GB and 300 pages (500 MB in other browsers)."
       }
     },
     {
@@ -167,7 +167,7 @@
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/pdf-tools.css">
-<link rel="preload" as="script" href="/lib/pdf-tools/compress-pdf.js?v=e997645256">
+<link rel="preload" as="script" href="/lib/pdf-tools/compress-pdf.js?v=6a69772c05">
 </head>
 <body data-pf-tool="compress-pdf">
 
@@ -217,8 +217,8 @@
 
 <!-- THE TOOL (the same module as pdf-tools.html, opened on this tool) -->
 <main class="pf-tools"></main>
-<script>window.PFV = 'e997645256';</script>
-<script src="/lib/pdf-tools/panels.js?v=e997645256"></script>
+<script>window.PFV = '6a69772c05';</script>
+<script src="/lib/pdf-tools/panels.js?v=6a69772c05"></script>
 <script>window.PFPanels.render(document.querySelector('main.pf-tools'));</script>
 
 <div class="pf-content">
@@ -228,7 +228,7 @@
   </section>
   <section class="pf-section">
     <h2>Quick facts</h2>
-    <table class="pf-facts"><tr><th scope="row">Price</th><td>Free</td></tr><tr><th scope="row">Signup</th><td>None needed</td></tr><tr><th scope="row">Watermark</th><td>None</td></tr><tr><th scope="row">File limits</th><td>50 MB per file, 200 MB per task; up to 300 pages</td></tr><tr><th scope="row">Where files are processed</th><td>On your device, in the browser — never uploaded</td></tr><tr><th scope="row">Works on phone</th><td>Yes — Android and iPhone browsers</td></tr></table>
+    <table class="pf-facts"><tr><th scope="row">Price</th><td>Free</td></tr><tr><th scope="row">Signup</th><td>None needed</td></tr><tr><th scope="row">Watermark</th><td>None</td></tr><tr><th scope="row">File limits</th><td>Light: up to 2 GB and 2,000 pages on desktop Chrome or Edge; Strong and Target size: up to 1 GB and 300 pages; 500 MB in other browsers</td></tr><tr><th scope="row">Where files are processed</th><td>On your device, in the browser — never uploaded</td></tr><tr><th scope="row">Works on phone</th><td>Yes — Android and iPhone browsers</td></tr></table>
   </section>
   <section class="pf-section">
     <h2>Upload limits on university and job portals</h2>
@@ -271,7 +271,7 @@
     <h2>Frequently asked questions</h2>
     <div class="faq-item"><p class="faq-q">Can I compress a PDF to exactly 100 KB or 200 KB?</p><p class="faq-a">You can set a target and the tool makes the file as good as possible while staying under it. It cannot always reach very small targets for long or detailed PDFs; then it tells you and offers the smallest version it made.</p></div>
     <div class="faq-item"><p class="faq-q">Will my text stay selectable?</p><p class="faq-a">Yes with Light mode, and with Target size whenever Light is enough. Strong mode turns pages into images, so the text is no longer selectable; the result always tells you which was used.</p></div>
-    <div class="faq-item"><p class="faq-q">Is compressing a PDF free?</p><p class="faq-a">Yes. It is free with no signup and no watermark. Files can be up to 50 MB and 300 pages.</p></div>
+    <div class="faq-item"><p class="faq-q">Is compressing a PDF free?</p><p class="faq-a">Yes. It is free with no signup and no watermark. With Light, files can be up to 2 GB and 2,000 pages on desktop Chrome or Edge (500 MB in other browsers); Strong and Target size handle up to 1 GB and 300 pages (500 MB in other browsers).</p></div>
     <div class="faq-item"><p class="faq-q">Is my PDF uploaded to a server?</p><p class="faq-a">No. No upload, no waiting — your file is processed on your device.</p></div>
     <div class="faq-item"><p class="faq-q">Why did my PDF not get smaller?</p><p class="faq-a">If a PDF is mostly text, or its images are already small, there is little to remove. The tool then says it is already well compressed and offers your original file.</p></div>
     <div class="faq-item"><p class="faq-q">How does Target size decide?</p><p class="faq-a">It tries Light first. If that is still above your target, it rebuilds the pages as images and searches for the highest resolution and quality that stays under the target, down to about 72 DPI. If even that is too big, you get the smallest version and a clear message.</p></div>
@@ -341,9 +341,9 @@
 </footer>
 
 <!-- core only; this tool's module loads right away (app.js opens the tool named on <body>) -->
-<script src="/lib/pdf-tools/pdf-events.js?v=e997645256"></script>
-<script src="/lib/pdf-tools/loader.js?v=e997645256"></script>
-<script src="/lib/pdf-tools/common.js?v=e997645256"></script>
-<script src="/lib/pdf-tools/app.js?v=e997645256"></script>
+<script src="/lib/pdf-tools/pdf-events.js?v=6a69772c05"></script>
+<script src="/lib/pdf-tools/loader.js?v=6a69772c05"></script>
+<script src="/lib/pdf-tools/common.js?v=6a69772c05"></script>
+<script src="/lib/pdf-tools/app.js?v=6a69772c05"></script>
 </body>
 </html>

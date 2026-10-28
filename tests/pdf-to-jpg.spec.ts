@@ -214,7 +214,7 @@ test.describe('PDF to JPG — the tool', () => {
     await expect(role(p, 'range-error')).toBeHidden();
   });
 
-  test('errors: password-protected PDF, over 50 MB, over 300 pages, not a PDF — clear messages and tool_error', async ({ page }) => {
+  test('errors: password-protected PDF, over 1 GB, over 300 pages, not a PDF — clear messages and tool_error', async ({ page }) => {
     const net = await setup(page);
     await page.goto('/pdf-to-jpg.html');
     await ready(page);
@@ -223,9 +223,11 @@ test.describe('PDF to JPG — the tool', () => {
     await expect(role(p, 'error')).toContainText('"encrypted.pdf" is password-protected (encrypted). Please remove the password first', { timeout: 30000 });
     await expect(p.locator('.pf-thumb')).toHaveCount(0);
     await expect(role(p, 'go')).toBeDisabled();
-    const big = Buffer.alloc(51 * 1000 * 1000, 0x20); big.write('%PDF-1.4\n');
-    await p.locator('input[type=file]').setInputFiles({ name: 'huge.pdf', mimeType: 'application/pdf', buffer: big });
-    await expect(role(p, 'error')).toHaveText('"huge.pdf" is 51.0 MB. The limit is 50 MB per file — try compressing it first or splitting it.');
+    const big = path.join(os.tmpdir(), 'huge.pdf');                 // sparse: the size check comes before any reading
+    fs.closeSync(fs.openSync(big, 'w')); fs.truncateSync(big, 1100 * 1000 * 1000);
+    await p.locator('input[type=file]').setInputFiles(big);
+    await expect(role(p, 'error')).toHaveText('"huge.pdf" is 1100.0 MB. The limit is 1 GB per file — try compressing it first or splitting it.');
+    fs.rmSync(big, { force: true });
     await p.locator('input[type=file]').setInputFiles(fx('pages-301.pdf'));
     await expect(role(p, 'error')).toHaveText('"pages-301.pdf" has 301 pages. This tool handles up to 300 pages at a time — try splitting it into smaller parts.', { timeout: 30000 });
     await p.locator('input[type=file]').setInputFiles(fx('photo.jpg'));

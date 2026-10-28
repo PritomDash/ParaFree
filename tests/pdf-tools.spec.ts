@@ -242,7 +242,7 @@ test.describe('PDF to Word', () => {
     await expect(role(p, 'summary')).toContainText('read with OCR');
   });
 
-  test('limits and wrong files: 50 pages, 50 MB, encrypted, not a PDF', async ({ page }) => {
+  test('limits and wrong files: 50 pages, 100 MB, encrypted, not a PDF', async ({ page }) => {
     await open(page, '#pdf-to-word');
     const p = panel(page, 'pdf-to-word');
     const input = p.locator('input[type=file]');
@@ -252,10 +252,11 @@ test.describe('PDF to Word', () => {
     await expect(role(p, 'error')).toContainText('"encrypted.pdf" is password-protected');
     await input.setInputFiles({ name: 'photo.jpg', mimeType: 'image/jpeg', buffer: fs.readFileSync(fx('photo.jpg')) });
     await expect(role(p, 'error')).toContainText('Please choose a PDF file');
-    const big = path.join(os.tmpdir(), 'pf-big-51mb.pdf');
-    fs.closeSync(fs.openSync(big, 'w')); fs.truncateSync(big, 51 * 1024 * 1024);
+    const big = path.join(os.tmpdir(), 'pf-big-210mb.pdf');
+    fs.closeSync(fs.openSync(big, 'w')); fs.truncateSync(big, 210 * 1000 * 1000);
     await input.setInputFiles(big);
-    await expect(role(p, 'error')).toContainText('The limit is 50 MB per file');
+    await expect(role(p, 'error')).toContainText('The limit is 100 MB per file');
+    fs.rmSync(big, { force: true });
     const errs = (await gaEvents(page)).filter((e: any) => e[0] === 'tool_error').map((e: any) => e[1].error_type);
     expect(errs).toEqual(['too_many_pages', 'encrypted', 'unsupported', 'too_large']);
     await role(p, 'start-over').click();
@@ -838,12 +839,17 @@ test.describe('Compress PDF', () => {
     expect(out.buf.equals(fs.readFileSync(fx('text.pdf')))).toBe(true);
   });
 
-  test('limits: 300 pages, encrypted', async ({ page }) => {
+  test('limits: Light takes 301 pages (read page by page), Strong stops at 300; encrypted', async ({ page }) => {
     await open(page, '#compress-pdf');
     const p = panel(page, 'compress-pdf');
     await p.locator('input[type=file]').setInputFiles(fx('pages-301.pdf'));
     await role(p, 'go').click();
+    await expect(role(p, 'result')).toBeVisible({ timeout: 60000 });
+    await expect(role(p, 'error')).toBeHidden();
+    await p.locator('input[value="strong"]').check();
+    await role(p, 'go').click();
     await expect(role(p, 'error')).toContainText('has 301 pages. This tool handles up to 300 pages', { timeout: 60000 });
+    await p.locator('input[value="light"]').check();
     await p.locator('input[type=file]').setInputFiles(fx('encrypted.pdf'));
     await role(p, 'go').click();
     await expect(role(p, 'error')).toContainText('"encrypted.pdf" is password-protected');
@@ -881,26 +887,32 @@ test.describe('Merge PDF', () => {
     await expect(p.locator('.pf-item-name')).toHaveText(['three-pages.pdf', 'two-pages.pdf']);
   });
 
-  test('encrypted file is named in the error; 300-page and 200 MB limits', async ({ page }) => {
+  test('encrypted file is named in the error; 2,000-page limit; 4 GB per task (2 GB per file) on desktop Chrome', async ({ page }) => {
     await open(page, '#merge-pdf');
     const p = panel(page, 'merge-pdf');
     await p.locator('input[type=file]').setInputFiles([fx('two-pages.pdf'), fx('encrypted.pdf')]);
     await expect(role(p, 'error')).toContainText('"encrypted.pdf" is password-protected');
     await expect(p.locator('.pf-item-name')).toHaveText(['two-pages.pdf']);
-    await p.locator('input[type=file]').setInputFiles(fx('pages-301.pdf'));
-    await expect(p.locator('.pf-item')).toHaveCount(2);
+    await p.locator('input[type=file]').setInputFiles(Array(7).fill(fx('pages-301.pdf')));
+    await expect(p.locator('.pf-item')).toHaveCount(8);
     await role(p, 'go').click();
-    await expect(role(p, 'error')).toContainText('These PDFs have 303 pages together. This tool handles up to 300 pages');
+    await expect(role(p, 'error')).toContainText('These PDFs have 2109 pages together. This tool handles up to 2000 pages');
     await role(p, 'start-over').click();
+    // sparse files: the size check comes before anything is read
     const files: string[] = [];
-    for (let i = 0; i < 5; i++) {
-      const f = path.join(os.tmpdir(), `pf-41mb-${i}.pdf`);
-      fs.closeSync(fs.openSync(f, 'w')); fs.truncateSync(f, 41 * 1024 * 1024);
+    for (let i = 0; i < 3; i++) {
+      const f = path.join(os.tmpdir(), `pf-1500mb-${i}.pdf`);
+      fs.closeSync(fs.openSync(f, 'w')); fs.truncateSync(f, 1500 * 1000 * 1000);
       files.push(f);
     }
     await p.locator('input[type=file]').setInputFiles(files);
-    await expect(role(p, 'error')).toContainText('The limit is 200 MB per task');
+    await expect(role(p, 'error')).toContainText('These files add up to 4500.0 MB. The limit is 4 GB per task');
     await expect(p.locator('.pf-item')).toHaveCount(0);
+    const big = path.join(os.tmpdir(), 'pf-2100mb.pdf');
+    fs.closeSync(fs.openSync(big, 'w')); fs.truncateSync(big, 2100 * 1000 * 1000);
+    await p.locator('input[type=file]').setInputFiles(big);
+    await expect(role(p, 'error')).toContainText('"pf-2100mb.pdf" is 2100.0 MB. The limit is 2 GB per file');
+    for (const f of [...files, big]) fs.rmSync(f, { force: true });   // large placeholder files: don't leave them on disk
   });
 });
 
