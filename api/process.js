@@ -955,7 +955,7 @@ ParaFree is a 100% free-forever AI writing suite. No premium tier, no trial expi
 2. CV / RESUME BUILDER — parafree.app/cv-builder.html
    - 54 ATS-optimized templates, all free — no locked tier
    - AI writes bullet points, professional summary, cover letter from user input
-   - Built-in live job search (Jooble API) — only free CV builder with this feature
+   - Built-in live job search (Jooble API)
    - Downloads: CV as PDF, Cover Letter as PDF + DOCX — always free, no watermark
    - No signup, no payment at download
    - Formats for AU / UK / CA / US CV styles
@@ -993,7 +993,7 @@ Q: Can I download my CV for free?
 A: Yes. PDF download is always free, no watermark, no payment required.
 
 Q: Does the CV builder help me find jobs?
-A: Yes — built-in live job search via Jooble shows real current listings with direct apply links. No other free CV builder includes this.
+A: Yes — built-in live job search via Jooble shows real current listings with direct apply links.
 
 Q: How many CV templates are there?
 A: 54 ATS-friendly templates, all completely free.

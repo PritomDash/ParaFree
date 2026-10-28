@@ -74,9 +74,29 @@ const kbHits = kb.split('\n').filter((l) => COMP.test(l) && FIGURE.test(l));
 assert('no competitor prices / limits in the support answers', kbHits.length === 0, kbHits.join('\n'));
 assert('the assistant is told not to quote other tools\' prices or limits', /Do not quote other tools' prices or limits/.test(kb));
 
-console.log('\n── 5. no "only / best tool" claims against named competitors in the comparisons ──');
-const SUPER = /\b(?:only (?:major )?(?:tool|CV builder|one) (?:in this comparison|that)|the best tool available|doesn't have at any price tier|ParaFree wins|beats Quill[Bb]ot)\b/i;
-const superHits = pages.flatMap((f) => units(fs.readFileSync(f, 'utf8')).filter((u) => SUPER.test(u)).map((u) => `${path.basename(f)}: ${u.slice(0, 140)}`));
+console.log('\n── 5. no "only / beat / no other tool" superiority claims (pages, blog sources, support answers) ──');
+// fix/consistency-polish widened this from the comparison pages to every superiority phrasing: ParaFree states its
+// own strengths, never that other tools lack them. ("only one tier" and "not only a paraphrasing tool" are fine.)
+const SUPER = new RegExp([
+  String.raw`\bonly (?:major )?(?:tool|CV builder|one) (?:in this comparison|that)`,
+  String.raw`\bthe (?:first and )?only (?:major |widely accessible |completely |genuinely |truly )*(?:free )?(?:paraphras\w*|tool|CV builder|builder|option|humanizer|app|site)`,
+  String.raw`\bonly (?:major |widely accessible )?free (?:paraphras\w*|tool|CV builder|builder)`,
+  String.raw`\bfirst and only\b`,
+  String.raw`\bno other (?:major )?(?:free )?(?:paraphras\w*|tool|CV builder|builder)`,
+  String.raw`\b(?:we )?beats? (?:every|paid|any other|all other|other|Quill[Bb]ot)`,
+  String.raw`\bwe beat\b`,
+  String.raw`#1 (?:free )?tool`,
+  String.raw`\bunlike most competitors\b`,
+  String.raw`\bthe best tool available\b`,
+  String.raw`\bdoesn't have at any price tier\b`,
+  String.raw`\bParaFree wins\b`,
+].join('|'), 'i');
+assert('self-check: catches "the only completely free tool", "we beat paid CV builders", "No other tool in this comparison"',
+  ['ParaFree is the only completely free tool that handles this.', 'See why we beat paid CV builders.', 'No other tool in this comparison supports PowerPoint.'].every((s) => SUPER.test(s)));
+assert('self-check: allows "only one tier", "not only a paraphrasing tool", "beats any compression setting"',
+  !['There is only one tier.', 'ParaFree is not only a paraphrasing tool.', 'Rescanning usually beats any compression setting.'].some((s) => SUPER.test(s)));
+const superHits = pages.concat(blogSrc).flatMap((f) => units(fs.readFileSync(f, 'utf8')).filter((u) => SUPER.test(u)).map((u) => `${path.basename(f)}: ${u.slice(0, 140)}`))
+  .concat(kb.split('\n').filter((l) => SUPER.test(l)).map((l) => 'api/process.js: ' + l.trim().slice(0, 140)));
 assert('none left', superHits.length === 0, superHits.join('\n'));
 
 console.log(`\n${passed} passed, ${failed} failed`);
