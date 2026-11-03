@@ -267,6 +267,7 @@ const ratings = require("./_ratings");
 const usage = require("./_usage");
 const studypack = require("./_studypack");
 const quality = require("./_quality");
+const { createPacer } = require("./_pacer");
 const discovery = createModelDiscovery({ fetchWithTimeout, getRedis: () => redis });
 
 // ── PROVIDER CHAIN ──
@@ -347,7 +348,7 @@ function slotEntries(keys, callers) {
   for (const [k, key] of Object.entries(groqKeys)) {
     if (validKey(key)) add("groq", k, callers.groq(key), (m) => k + "/" + m);
   }
-  const geminiKeys = { "gemini": keys.GEMINI_KEY, "gemini-2": keys.GEMINI_KEY_2 };
+  const geminiKeys = { "gemini": keys.GEMINI_KEY, "gemini-2": keys.GEMINI_KEY_2, "gemini-3": keys.GEMINI_KEY_3 };
   for (const [k, key] of Object.entries(geminiKeys)) {
     if (validKey(key)) add("gemini", k, callers.gemini(key), (m) => k + "/" + m);
   }
@@ -386,9 +387,12 @@ function orderChain(candidates, startOffset) {
   const groupRecency = {};
   for (const c of out) if (c.group) groupRecency[c.group] = Math.max(groupRecency[c.group] ?? -1, discovery.recency(c.name));
   const recent = (c, tier) => tier === 3 ? -1 : c.group ? groupRecency[c.group] : discovery.recency(c.name);
+  // Within a tier the entry with the MOST headroom goes first (rate-limit headers + today's shared counters, in
+  // 20 % steps so near-equal entries keep the rotation / recency order). No headroom data → all equal.
+  const room = (c) => Math.round(pacer.headroom(c.name) * 5);
   return out
-    .map((c, idx) => { const tier = tierOf(c); return { c, idx, tier, recent: recent(c, tier) }; })
-    .sort((a, b) => (a.tier - b.tier) || (b.recent - a.recent) || (a.idx - b.idx))
+    .map((c, idx) => { const tier = tierOf(c); return { c, idx, tier, recent: recent(c, tier), room: tier === 3 ? 0 : room(c) }; })
+    .sort((a, b) => (a.tier - b.tier) || (b.room - a.room) || (b.recent - a.recent) || (a.idx - b.idx))
     .map(x => x.c);
 }
 
@@ -473,17 +477,29 @@ function finishedText(data, shape, label, info, res) {
 const isCutoff = (msg) => /:cutoff\b|:empty\b/.test(msg || "");
 
 // Cooling = rate-limit cooldown (this instance) OR on the shared health-check skip list.
+// Cooldowns live in the shared pacer (api/_pacer.js — Upstash, shared by every instance): per-minute 429 →
+// retry-after + jitter; per-day 429 → until that provider's daily reset; Google 500/503 overload → a few seconds;
+// a timeout → 2 min. After a cooldown one probe goes first. The health-check skip list (discovery) still counts.
+// providerCooldowns stays as this instance's mirror for the health check.
+const pacer = createPacer({ getRedis: () => redis });
 function cooldownUntil(name) {
-  let until = providerCooldowns.get(name) || 0;
-  if (until && until <= Date.now()) { providerCooldowns.delete(name); until = 0; }
-  return Math.max(until, discovery.skipUntil(name));
+  return Math.max(pacer.cooldownUntil(name), discovery.skipUntil(name));
 }
 function isCoolingDown(name) {
-  return cooldownUntil(name) > Date.now();
+  return cooldownUntil(name) > Date.now() || pacer.probeBlocked(name);
 }
-function startCooldown(name, msg, ms = quotaCooldownMs(msg), why = quotaCooldown(msg) === DAILY_COOLDOWN ? 'daily quota' : 'rate-limited') {
-  providerCooldowns.set(name, Date.now() + ms);
-  console.log(`[ParaFree] ⏸ ${name} ${why} — skipping it for ${Math.round(ms / 1000)}s`);
+// Overload (not quota): Google 500/503 answers, or any provider saying it is overloaded / UNAVAILABLE
+const isOverload = (msg) => !isQuotaError(msg) && (/^Gemini\/[^:]*:(500|503)\b/.test(msg || "") || /overloaded|UNAVAILABLE/i.test(msg || ""));
+function startCooldown(name, msg, ms, why) {
+  let kind;
+  if (why === 'timed out') kind = 'timeout';
+  else if (why === 'overloaded') kind = 'overload';
+  else kind = quotaCooldown(msg) === DAILY_COOLDOWN ? 'day' : 'minute';
+  const took = pacer.note(name, kind, retryAfterMs(msg) / 1000);
+  providerCooldowns.set(name, Date.now() + took);
+  usage.record(redis, 'cool', kind + '|' + name);
+  const label = { day: 'daily quota (until its reset)', minute: 'rate-limited', overload: 'overloaded', timeout: 'timed out' }[kind];
+  console.log(`[ParaFree] ⏸ ${name} ${label} — skipping it for ${Math.round(took / 1000)}s`);
 }
 // If EVERY candidate is cooling down, returns the one whose cooldown ends soonest
 // (it gets tried anyway rather than failing outright); otherwise null.
@@ -1077,6 +1093,10 @@ const CHUNK_INTER_DELAY  = 300;  // ms between chunk starts
 const FIRST_CHUNK_WORDS  = 250;  // streaming: a small first chunk so the first text shows in ~2 s
 const BIG_CHUNK_WORDS    = 400;  // a chunk this big never shares a key with another big chunk in flight
 const bigInFlight = new Map();   // key ("groq-2", "gemini", …) → big chunks in flight on this instance
+const MAX_PROVIDERS_PER_CHUNK = Number(process.env.PF_MAX_PROVIDERS) || 3;   // real provider attempts per chunk (then split, then "Retry this part"); PF_MAX_PROVIDERS only in tests
+const SHORT_RESERVE = 0.15;          // keep the last 15 % of each provider's daily capacity for short requests
+const SHORT_REQUEST_WORDS = 300;     // requests below this are "short" (66 % of traffic, GA4 word_bucket <300)
+const QUEUE_MAX_S = 30;              // a long document waits at most this long for a provider instead of failing
 
 function countWordsApprox(text) {
   return text.trim().split(/\s+/).filter(Boolean).length;
@@ -1170,6 +1190,31 @@ function buildWritingCandidates(text, prompt, keys) {
 // One structured log line per attempt (no text): provider, finish reason, words in/out, change %, gate, 429 type,
 // remaining-quota headers.
 function logAttempt(o) { try { console.log('[ParaFree] chunk-log ' + JSON.stringify(o)); } catch (_) {} }
+const queuedMessage = (s) => `High demand — starting in ~${s} s`;
+const TOOL_NAMES = new Set(['paraphrase', 'humanize', 'grammar', 'summarize', 'detect', 'code_assistant', 'code_project', 'cv_extract', 'cv_build', 'cover_letter']);
+
+// Today's numbers for admin.html: requests per tool, chunks/requests and tokens per provider, 429s by type,
+// cooled providers and until when, quality-gate rejections, AI Gateway spend. Counts only.
+async function adminDashboard() {
+  const day = new Date().toISOString().slice(0, 10);
+  let h = {};
+  try { h = (redis && redis.hgetall ? await redis.hgetall(usage.PREFIX + day) : {}) || {}; } catch (_) {}
+  const out = { date: day, timezone: 'UTC', requestsByTool: {}, chunksByProvider: {}, chatByProvider: {}, tokensByProvider: {},
+    cooldownsByType: { minute: {}, day: {}, overload: {}, timeout: {} }, gateRejections: {}, cooled: pacer.status().cooled, gateway: null };
+  const fam = (e) => usage.familyOf(e);
+  const add = (o, k, n) => { o[k] = (o[k] || 0) + n; };
+  for (const [field, v] of Object.entries(h)) {
+    const n = Number(v) || 0, bar = field.indexOf('|'), kind = field.slice(0, bar), rest = field.slice(bar + 1);
+    if (kind === 'tool') add(out.requestsByTool, rest, n);
+    else if (kind === 'chunk') add(out.chunksByProvider, rest === usage.NONE ? usage.NONE : fam(rest), n);
+    else if (kind === 'chat') add(out.chatByProvider, fam(rest), n);
+    else if (kind === 'tok') add(out.tokensByProvider, fam(rest), n);
+    else if (kind === 'gate') add(out.gateRejections, rest, n);
+    else if (kind === 'cool') { const k2 = rest.split('|')[0], entry = rest.slice(k2.length + 1); if (out.cooldownsByType[k2]) add(out.cooldownsByType[k2], entry, n); }
+  }
+  try { out.gateway = await studypack.gatewayStatus(process.env, redis); } catch (_) {}
+  return out;
+}
 // Quality-gate rejections and cut-offs per reason, per UTC day (admin dashboard) — counts only
 function gateCount(reason) { usage.record(redis, 'gate', reason); }
 // how.stopOnTimeout: a big chunk gives up after its first timeout (the caller splits it — "try big, split on failure")
@@ -1198,9 +1243,20 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0,
   console.log(`[ParaFree] chunk seq=${seq}: ${chunkText.length} chars, ${Math.round((chunkDeadline - chunkStart) / 1000)}s share, chain: ${ordered.map(c => c.name).join(' → ')}`);
   const forced = soonestIfAllCooling(ordered);
   const hasNet = ordered.some(c => tierOf(c) === 4 && (c === forced || !isCoolingDown(c.name)));
+  let attempts = 0;
   for (const c of ordered) {
     if (c !== forced && isCoolingDown(c.name)) {
       console.log(`[ParaFree] ⏭ chunk seq=${seq} ${c.name} [cooldown] — skipped`);
+      continue;
+    }
+    // at most MAX_PROVIDERS_PER_CHUNK real attempts — then the caller splits the chunk or reports the part
+    if (attempts >= MAX_PROVIDERS_PER_CHUNK) {
+      console.log(`[ParaFree] ⏹ chunk seq=${seq} ${attempts} providers tried — stopping here (split or Retry part)`);
+      break;
+    }
+    // the last ~15 % of a provider's daily capacity is kept for short requests (<300 words)
+    if (!how.short && tierOf(c) <= 3 && pacer.headroom(c.name) < SHORT_RESERVE) {
+      console.log(`[ParaFree] ⏭ chunk seq=${seq} ${c.name} [reserved for short requests] — skipped`);
       continue;
     }
     const isNet = tierOf(c) === 4;
@@ -1218,12 +1274,16 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0,
     const t0 = Date.now();
     const info = {};
     const inW = chunkWords;
+    attempts++;
+    pacer.startProbe(c.name);            // first call after a cooldown = the one probe
     if (big) bigInFlight.set(keyOf(c), (bigInFlight.get(keyOf(c)) || 0) + 1);
     try {
       const result = await c.fn(expectedTimeout, info).finally(() => { if (big) bigInFlight.set(keyOf(c), Math.max(0, (bigInFlight.get(keyOf(c)) || 1) - 1)); });
       const ms = Date.now() - t0;
       if (result && result.trim().length > 5) {
         const out = result.trim();
+        // the provider answered: count it (requests + estimated tokens) and end any cooldown/probe
+        pacer.noteSuccess(c.name, Math.round((inW + countWordsApprox(out)) * 1.3 + prompt.length / 4), info.headers);
         const bad = check ? check(out) : null;
         logAttempt({ seq, provider: c.name, ms, finish: info.finish || null, inW, outW: countWordsApprox(out),
           change: Math.round(quality.changeShare(chunkText, out) * 100), gate: bad || 'ok', rem: info.headers || null });
@@ -1245,7 +1305,7 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0,
       const quota = isQuotaError(msg);
       const tag = quota ? '429-rate-limit' : isCutoff(msg) ? 'cutoff' : msg.includes(':401') ? '401-auth' : msg.includes(':403') ? '403-forbidden' : msg.includes(':404') ? '404-model-not-found' : msg.includes(':503') ? '503-unavailable' : isAbort ? `TIMEOUT-${expectedTimeout}ms` : 'error';
       console.log(`[ParaFree] ❌ chunk seq=${seq} ${c.name} [${tag}] in ${ms}ms — ${msg.slice(0, 200)}`);
-      logAttempt({ seq, provider: c.name, ms, finish: info.finish || (isCutoff(msg) ? (msg.match(/finish=(w+)/) || [, 'empty'])[1] : null), inW, outW: 0,
+      logAttempt({ seq, provider: c.name, ms, finish: info.finish || (isCutoff(msg) ? (msg.match(/finish=(\w+)/) || [, 'empty'])[1] : null), inW, outW: 0,
         gate: tag, q429: quota ? (quotaCooldown(msg) === DAILY_COOLDOWN ? 'day' : 'minute') : undefined, rem: info.headers || null });
       if (isCutoff(msg)) gateCount('cutoff');
       if (how.stopOnTimeout && isAbort && !quota && !isNet) {
@@ -1253,11 +1313,15 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0,
         console.log(`[ParaFree] ⏱ chunk seq=${seq} (${chunkWords} words) timed out on ${c.name} — splitting it instead of trying more providers`);
         return null;
       }
-      if (quota) startCooldown(c.name, msg);
+      pacer.noteHeaders(c.name, info.headers);
+      // an instant 429 costs nothing but teaches the pacer — it does not use up one of the chunk's 3 attempts
+      if (quota) { startCooldown(c.name, msg); attempts--; }
       else if (isAbort && !isNet && expectedTimeout >= TIMEOUT_COOLDOWN_MIN_MS) startCooldown(c.name, msg, TIMEOUT_COOLDOWN, 'timed out');
+      else if (isOverload(msg) && !isAbort) startCooldown(c.name, msg, 0, 'overloaded');
+      else pacer.endProbe(c.name);
     }
   }
-  console.error(`[ParaFree] ❌ chunk seq=${seq} exhausted all ${ordered.length} providers in ${Date.now() - chunkStart}ms`);
+  console.error(`[ParaFree] ❌ chunk seq=${seq} failed after ${attempts} provider(s) of ${ordered.length} in ${Date.now() - chunkStart}ms`);
   usage.record(redis, 'chunk', null);
   return null;
 }
@@ -1273,12 +1337,14 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0,
 async function runChain(text, prompt, type, opts = {}) {
   const deadline       = Date.now() + REQUEST_BUDGET;
   await discovery.ensure();   // model lists: never waits more than ~1 s (cold instance only)
+  await pacer.sync();          // shared cooldowns + today's counters (at most one read per 20 s per instance)
   const GROQ_KEY       = process.env.GROQ_KEY;
   const GROQ_KEY_2     = process.env.GROQ_KEY_2;
   const GROQ_KEY_3     = process.env.GROQ_KEY_3;
   const GROQ_KEY_4     = process.env.GROQ_KEY_4;     // optional — used only when set
   const GEMINI_KEY     = process.env.GEMINI_KEY;
   const GEMINI_KEY_2   = process.env.GEMINI_KEY_2;   // optional — used only when set
+  const GEMINI_KEY_3   = process.env.GEMINI_KEY_3;   // optional — used only when set (its own project = its own quota)
   const OPENROUTER_KEY = process.env.OPENROUTER_KEY;
   const GLM_KEY        = process.env.GLM_KEY;
   const MISTRAL_KEY    = process.env.MISTRAL_KEY;
@@ -1313,7 +1379,7 @@ async function runChain(text, prompt, type, opts = {}) {
   // starting at a different offset so parallel calls spread across providers.
   if (!isAIChat && !isCVExtract) {
     const envKeys = {
-      DEEPSEEK_KEY, GEMINI_KEY, GEMINI_KEY_2, GROQ_KEY, GROQ_KEY_2, GROQ_KEY_3, GROQ_KEY_4, MISTRAL_KEY, MISTRAL_KEY_2,
+      DEEPSEEK_KEY, GEMINI_KEY, GEMINI_KEY_2, GEMINI_KEY_3, GROQ_KEY, GROQ_KEY_2, GROQ_KEY_3, GROQ_KEY_4, MISTRAL_KEY, MISTRAL_KEY_2,
       CF_KEY, CF_ACCOUNT, OPENROUTER_KEY, GLM_KEY, SAMBANOVA_KEY, NVIDIA_KEY,
       SCW_KEY, HF_KEY, CHUTES_KEY, HETZNER_KEY,
       EXTRA1_KEY, EXTRA2_KEY, EXTRA3_KEY, EXTRA4_KEY, EXTRA5_KEY, EXTRA6_KEY
@@ -1353,6 +1419,20 @@ async function runChain(text, prompt, type, opts = {}) {
     const continuationNote = (us) => us.some(u => u.piece > 0) && us.some(u => /^<<<\d+>>>/.test(u.text))
       ? '\n\nNOTE: a paragraph without a <<<N>>> marker continues the marked paragraph before it. Paraphrase it as its own paragraph and keep it without a marker.'
       : '';
+    // High demand: a long document waits briefly (the page says "starting in ~N s" and retries) instead of failing,
+    // when every Tier 1–3 entry is cooling or held back for short requests and one frees up within QUEUE_MAX_S.
+    if (sendWords >= SHORT_REQUEST_WORDS) {
+      const strong = sampleChain.filter(c => tierOf(c) <= 3);
+      const usable = strong.filter(c => !isCoolingDown(c.name) && pacer.headroom(c.name) >= SHORT_RESERVE);
+      if (strong.length && !usable.length) {
+        const soonest = Math.min(...strong.map(c => cooldownUntil(c.name) || Date.now()));
+        const waitS = Math.max(1, Math.ceil((soonest - Date.now()) / 1000));
+        if (waitS <= QUEUE_MAX_S) {
+          console.log(`[ParaFree] ⏳ writing: ${sendWords} words — every strong provider is busy; asking the page to start again in ~${waitS}s`);
+          return { success: false, error: "queued", retryAfterS: waitS + 2, apiStatuses: {} };
+        }
+      }
+    }
     console.log(`[ParaFree] writing: ${groups.length} chunk(s) × ${sampleTotal} providers — sequential, input=${inputWords} words, units=${units.length}, target=${target}, isPPTX=${isPPTX}, kind=${kind}`);
     const t0 = Date.now();
     let seqNo = 0, okChunks = 0;
@@ -1371,7 +1451,7 @@ async function runChain(text, prompt, type, opts = {}) {
         return null;
       };
       const result = await paraphraseChunk(send, prompt + continuationNote(us), envKeys, baseOffset + seq, seq, deadline, Math.max(1, left), check,
-        { stopOnTimeout: depth === 0 && countWordsApprox(send) >= BIG_CHUNK_WORDS && (us.length >= 2 || !!quality.halve(us[0])) });
+        { stopOnTimeout: depth === 0 && countWordsApprox(send) >= BIG_CHUNK_WORDS && (us.length >= 2 || !!quality.halve(us[0])), short: sendWords < SHORT_REQUEST_WORDS });
       if (result !== null) { okChunks++; return { out: texts ? quality.rebuild(us, texts) : result, failed: false }; }
       // split once and retry the halves (a single long unit is re-cut by sentence first)
       let parts = null;
@@ -1426,7 +1506,7 @@ async function runChain(text, prompt, type, opts = {}) {
   // Same default max_tokens per caller as before; order comes from orderChain (see PROVIDER CHAIN).
   // One entry per resolved key+model slot (rotated per request by orderChain); Groq calls here
   // are unchanged otherwise — callGroqModel never sends reasoning_effort.
-  candidates.push(...slotEntries({ GROQ_KEY, GROQ_KEY_2, GROQ_KEY_3, GROQ_KEY_4, GEMINI_KEY, GEMINI_KEY_2, NVIDIA_KEY, CF_KEY, CF_ACCOUNT }, {
+  candidates.push(...slotEntries({ GROQ_KEY, GROQ_KEY_2, GROQ_KEY_3, GROQ_KEY_4, GEMINI_KEY, GEMINI_KEY_2, GEMINI_KEY_3, NVIDIA_KEY, CF_KEY, CF_ACCOUNT }, {
     groq:       (key) => (m, ms) => callGroqModel(text, prompt, key, m, ms),
     gemini:     (key) => (m, ms) => callGemini(text, prompt, key, outTokens, ms, m),
     nvidia:     (m, ms) => callNvidiaModel(text, prompt, NVIDIA_KEY, outTokens, ms, m),
@@ -1458,7 +1538,8 @@ async function runChain(text, prompt, type, opts = {}) {
     return { success: false, error: "no_keys", apiStatuses: {} };
   }
 
-  const MAX_RETRIES = 1;
+  // one pass through the chain (the old second pass doubled the calls on a bad minute)
+  const MAX_RETRIES = 0;
   let lastApiStatuses = {};
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -1497,6 +1578,7 @@ async function runChain(text, prompt, type, opts = {}) {
         if (result && result.trim().length > 5) {
           console.log(`[ParaFree] ✅ ${isCVExtract ? 'CV' : 'AI'} request handled by ${c.name}${attempt > 0 ? ' (retry)' : ''}`);
           discovery.noteSuccess(c.name, c.pk, c.patternIndex, c.model);
+          pacer.noteSuccess(c.name, Math.round((countWordsApprox(text) + countWordsApprox(result)) * 1.3 + prompt.length / 4));
           usage.record(redis, 'chat', c.name);
           apiStatuses[c.name] = "success";
           return { success: true, result: result.trim(), usedApi: c.name, apiStatuses };
@@ -1511,6 +1593,7 @@ async function runChain(text, prompt, type, opts = {}) {
         const isAbort = /abort/i.test(msg) || Date.now() - t0 >= ms - 100;
         if (quota) startCooldown(c.name, msg);
         else if (isAbort && !isNet && ms >= TIMEOUT_COOLDOWN_MIN_MS) startCooldown(c.name, msg, TIMEOUT_COOLDOWN, 'timed out');
+        else if (isOverload(msg) && !isAbort) startCooldown(c.name, msg, 0, 'overloaded');
       }
     }
     lastApiStatuses = { ...apiStatuses };
@@ -1595,7 +1678,7 @@ async function handleTestKeys(body) {
   const tests = [
     ...keyRows([["groq", process.env.GROQ_KEY], ["groq-2", process.env.GROQ_KEY_2], ["groq-3", process.env.GROQ_KEY_3], ["groq-4", process.env.GROQ_KEY_4]]).flatMap(([n, key]) =>
       slotRows(n, "groq", key, (k, m) => callGroq(testText, testPrompt, k, undefined, undefined, m), (m) => n + "/" + m)),
-    ...keyRows([["gemini", process.env.GEMINI_KEY], ["gemini-2", process.env.GEMINI_KEY_2]]).flatMap(([n, key]) =>
+    ...keyRows([["gemini", process.env.GEMINI_KEY], ["gemini-2", process.env.GEMINI_KEY_2], ["gemini-3", process.env.GEMINI_KEY_3]]).flatMap(([n, key]) =>
       slotRows(n, "gemini", key, (k, m) => callGemini(testText, testPrompt, k, undefined, undefined, m), (m) => n + "/" + m)),
     ...slotRows("cloudflare", "cloudflare", process.env.CF_KEY, (k, m) => callCloudflare(testText, testPrompt, k, cfAccount, undefined, undefined, m),
       (m, pos) => pos === 0 ? "cloudflare" : "cloudflare/" + m, { account: cfAccount }),
@@ -1691,7 +1774,10 @@ async function handleTestKeys(body) {
 }
 
 // ── MAIN HANDLER ──
-module.exports = async function handler(req, res) {
+module.exports = handler;
+// tests reset the shared pacer between cases (never used by the site)
+handler._pacer = pacer;
+async function handler(req, res) {
   // KEYS FOUND — absolute first line so this appears in every Vercel function invocation
   // Only whether each provider has a key — never any part of the key itself.
   const hasKey = (name) => !!validKey(process.env[name]);
@@ -1702,6 +1788,7 @@ module.exports = async function handler(req, res) {
     groq4:      hasKey("GROQ_KEY_4"),
     gemini:     hasKey("GEMINI_KEY"),
     gemini2:    hasKey("GEMINI_KEY_2"),
+    gemini3:    hasKey("GEMINI_KEY_3"),
     cloudflare: hasKey("CF_KEY") && hasKey("CF_ACCOUNT"),
     nvidia:     hasKey("NVIDIA_KEY"),
     sambanova:  hasKey("SAMBANOVA_KEY"),
@@ -1822,6 +1909,14 @@ module.exports = async function handler(req, res) {
     }
 
     // Daily provider usage (counts only, no text) — PIN-gated, private
+    // Admin dashboard (admin.html, behind ADMIN_PASSWORD): today's counts only — never text, keys or IPs
+    if (body && body.type === "adminDashboard") {
+      const adminPw = getAdminPassword();
+      if (!adminPw || body.adminPassword !== adminPw) return res.status(401).json({ error: "Unauthorized" });
+      try { return res.status(200).json(await adminDashboard()); }
+      catch (e) { return res.status(500).json({ error: "Failed to read the dashboard" }); }
+    }
+
     if (body && body.type === "providerUsage") {
       try {
         const correctPin = process.env.FEEDBACK_PIN;
@@ -1861,6 +1956,9 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: "Text too long. Max 50,000 characters." });
     }
 
+    // requests per tool per UTC day (admin dashboard) — the tool name only, from a fixed list
+    usage.record(redis, 'tool', TOOL_NAMES.has(type) ? type : (type ? 'other' : 'paraphrase'));
+
     // Rate limit check (uses text for duplicate detection)
     const rate = checkRateLimit(ip, text);
     res.setHeader("X-RateLimit-Remaining", rate.remaining);
@@ -1896,13 +1994,16 @@ module.exports = async function handler(req, res) {
       const line = (o) => { try { res.write(JSON.stringify(o) + "\n"); } catch (_) {} };
       line({ type: "start" });
       const r = await runChain(text.trim(), prompt, type, { mode, language, onChunk: (c) => line({ type: "chunk", index: c.index, total: c.total, text: c.text, sep: c.sep, failed: !!c.failed }) });
-      line(r.success
+      line(r.error === "queued"
+        ? { type: "done", success: false, error: "queued", status: 503, retryAfterS: r.retryAfterS, message: queuedMessage(r.retryAfterS) }
+        : r.success
         ? { type: "done", success: true, result: r.result, usedApi: r.usedApi, apiStatuses: r.apiStatuses, failedParts: r.failedParts && r.failedParts.length ? r.failedParts : undefined, remaining: rate.remaining }
         : { type: "done", success: false, error: "high_demand", status: 503, message: "Our AI is at high demand right now. Please wait 20 seconds and try again — your full document will process.", apiStatuses: r.apiStatuses });
       return res.end();
     }
 
-    const { success, result, usedApi, error, apiStatuses, failedParts } = await runChain(text.trim(), prompt, type, { mode, language });
+    const { success, result, usedApi, error, apiStatuses, failedParts, retryAfterS } = await runChain(text.trim(), prompt, type, { mode, language });
+    if (error === "queued") return res.status(503).json({ success: false, error: "queued", retryAfterS, message: queuedMessage(retryAfterS) });
 
     if (success) {
       return res.status(200).json({

@@ -24,6 +24,9 @@ const KEYS = {
 };
 for (const k of Object.keys(process.env)) if (/_KEY|_KEY_\d|^CF_ACCOUNT$|^UPSTASH|^KV_|_MODEL$|_PREFS$/.test(k)) delete process.env[k];
 Object.assign(process.env, KEYS);
+// These tests check the chain ORDER, so they let a chunk walk the whole chain; the default cap of 3 providers per
+// chunk is covered in tests/pacer.test.js.
+process.env.PF_MAX_PROVIDERS = '99';
 
 // ── Clock ──
 const realNow = Date.now;
@@ -133,6 +136,7 @@ async function call(body) {
   let status = 0, payload = null;
   const res = { setHeader() {}, status(s) { status = s; return this; }, json(j) { payload = j; return this; }, end() { return this; } };
   calls = []; listCalls = [];
+  handler._pacer._reset();   // this file tests model discovery, not pacing: every request starts with no cooldowns
   const logStart = logs.length;
   const t0 = Date.now();
   quiet();

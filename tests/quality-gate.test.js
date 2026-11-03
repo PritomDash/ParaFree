@@ -124,12 +124,13 @@ const sentencePara = (n) => Array.from({ length: Math.ceil(n / 12) }, (_, i) => 
   r = await call({ text: LONG, mode: 'standard' });
   assert('OpenAI-style finish_reason "length" → next provider (Gemini) answers', r.status === 200 && r.calls.some(c => c.name.startsWith('gemini')) && r.payload.result.split(/\n\s*\n/).length === 4, r.calls.map(c => c.name).join(','));
   assert('the cut answer is not in the result', !r.payload.failedParts && Q.countWords(r.payload.result) > 200);
-  fresh({ groq: () => ({ status: 500 }), gemini: (c) => ({ text: fakeAnswer(c), finish: 'MAX_TOKENS' }), cloudflare: good });
-  r = await call({ text: LONG, mode: 'standard' });
-  assert('Gemini MAX_TOKENS → next provider', r.status === 200 && r.calls.some(c => c.name === 'cloudflare'), r.calls.map(c => c.name).join(','));
-  fresh({ groq: () => ({ status: 500 }), gemini: (c) => ({ text: fakeAnswer(c), finish: 'SAFETY' }), cloudflare: good });
-  r = await call({ text: LONG, mode: 'standard' });
-  assert('Gemini SAFETY → next provider', r.status === 200 && r.calls.some(c => c.name === 'cloudflare'));
+  // groq 120b down, Gemini cut off → the third provider tried (groq gpt-oss-20b) answers
+  for (const fr of ['MAX_TOKENS', 'SAFETY']) {
+    fresh({ 'groq/openai/gpt-oss-120b': () => ({ status: 500 }), gemini: (c) => ({ text: fakeAnswer(c), finish: fr }), '*': good });
+    r = await call({ text: LONG, mode: 'standard' });
+    const names = r.calls.map(c => c.name);
+    assert(`Gemini ${fr} → next provider`, r.status === 200 && names.includes('gemini/gemini-3.5-flash-lite') && names[names.length - 1] === 'groq/openai/gpt-oss-20b' && !r.payload.failedParts, names.join(','));
+  }
   fresh({ groq: (c) => ({ text: textPart(c) }), gemini: good });
   r = await call({ text: LONG, mode: 'standard' });
   assert('near-identical (unparaphrased) answer rejected → next provider', r.status === 200 && r.calls.some(c => c.name.startsWith('gemini')) && r.logs.some(l => /quality gate \(unchanged\)/.test(l)));

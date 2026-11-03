@@ -3900,8 +3900,17 @@ async function runAPIChain(text, prompt, mode, language, toolType, protectCtx, o
     }
     // Always apply dot statuses so failures are shown in red/yellow even on error
     if (data.apiStatuses) applyApiStatuses(data.apiStatuses);
+    // High demand on a long document: the server asks us to start again shortly — wait, say so, retry (twice at most)
+    if (data && data.error === 'queued' && (window._pfQueueTries || 0) < 2) {
+      window._pfQueueTries = (window._pfQueueTries || 0) + 1;
+      const waitS = Math.max(1, Math.min(30, Number(data.retryAfterS) || 10));
+      showStatus(`High demand — starting in ~${waitS} s`, 'info');
+      await new Promise(r => setTimeout(r, waitS * 1000));
+      try { return await runAPIChain(text, prompt, mode, language, toolType, protectCtx, onPartial); }
+      finally { window._pfQueueTries = 0; }
+    }
     if (!res.ok || !data.success) {
-      _pfLastApiError = (data.error === 'high_demand' || res.status === 503) ? 'all_busy'
+      _pfLastApiError = (data.error === 'high_demand' || data.error === 'queued' || res.status === 503) ? 'all_busy'
         : res.status === 504 ? 'timeout' : res.status >= 500 ? 'server_error' : 'other';
       if (data.error === 'high_demand') {
         showStatus("⏳ Our AI is at high demand right now. Please wait 20 seconds and try again — your full document will process.", "error");
