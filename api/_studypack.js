@@ -237,19 +237,40 @@ async function geminiGetFile(fetchFn, key, name) {
 function geminiDeleteFile(fetchFn, key, name) {
   return Promise.resolve(fetchFn(`${GEMINI_BASE}/v1beta/${name}?key=${key}`, { method: 'DELETE' })).catch(() => {});
 }
+// lowest thinking setting for the pack (thinking tokens count against maxOutputTokens): Flash-Lite "minimal",
+// 3.8 Flash "low", Gemma none; a model that rejects it is asked again without it
+function packThinking(model) {
+  const m = String(model).toLowerCase();
+  if (/gemma/.test(m)) return null;
+  if (/gemini-2\.5/.test(m)) return { thinkingBudget: 0 };
+  if (/flash-lite/.test(m)) return { thinkingLevel: 'minimal' };
+  if (/flash/.test(m)) return { thinkingLevel: /gemini-3\.8|gemini-[4-9]/.test(m) ? 'low' : 'minimal' };
+  return null;
+}
 async function geminiGenerate(fetchFn, key, model, filePart, prompt, ms, cd) {
-  const res = await fetchFn(`${GEMINI_BASE}/v1beta/models/${model}:generateContent?key=${key}`, {
-    method: 'POST', signal: AbortSignal.timeout(ms),
+  const deadline = Date.now() + ms;
+  const send = (tc) => fetchFn(`${GEMINI_BASE}/v1beta/models/${model}:generateContent?key=${key}`, {
+    method: 'POST', signal: AbortSignal.timeout(Math.max(1000, deadline - Date.now())),
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents: [{ parts: [{ file_data: filePart }, { text: prompt }] }],
-      generationConfig: { temperature: 0.4, maxOutputTokens: 4096, responseMimeType: 'application/json' },
+      generationConfig: Object.assign({ temperature: 0.4, maxOutputTokens: 4096, responseMimeType: 'application/json' }, tc ? { thinkingConfig: tc } : {}),
     }),
   });
+  const tc = packThinking(model);
+  let res = await send(tc);
+  if (!res.ok && res.status === 400 && tc) {
+    let b = ''; try { b = await res.text(); } catch (_) {}
+    if (!/thinking/i.test(b)) throw new Error(`Gemini/${model}:${res.status} ${cd.detail(res, b)}`);
+    res = await send(null);
+  }
   if (!res.ok) { let b = ''; try { b = await res.text(); } catch (_) {} throw new Error(`Gemini/${model}:${res.status} ${cd.detail(res, b)}`); }
   const data = await res.json();
-  const parts = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
-  return parts ? parts.map((p) => p.text || '').join('') : '';
+  const cand = data && data.candidates && data.candidates[0];
+  // a cut-off pack (MAX_TOKENS / SAFETY …) is a failure, never a half pack
+  if (cand && cand.finishReason && !/^(STOP|FINISH_REASON_UNSPECIFIED)$/.test(cand.finishReason)) throw new Error(`Gemini/${model}:cutoff finish=${String(cand.finishReason).toLowerCase()}`);
+  const parts = cand && cand.content && cand.content.parts;
+  return parts ? parts.filter((p) => !p.thought).map((p) => p.text || '').join('') : '';
 }
 // Cooldown names match the text chain ("gemini/<model>", "gemini-2/<model>"), so a daily quota hit here also
 // makes the chain skip that model, and the other way round.

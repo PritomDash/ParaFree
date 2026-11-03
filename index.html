@@ -364,6 +364,7 @@ if (/[?&]embed=paraphraser(&|$)/.test(location.search)) {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 <script src="/lib/protect.js"></script>
 <script src="/lib/partial.js"></script>
+<script src="/lib/prompts-v2.js"></script>
 <script src="/lib/tool-events.js"></script>
 <script>
   if (typeof pdfjsLib !== 'undefined') {
@@ -3463,7 +3464,8 @@ async function summarize() {
   hideStatus();
   document.getElementById("outputText").innerHTML = '<span class="output-placeholder">Summarizing...</span>';
 
-  const prompt = `Summarize the following text. Your summary MUST be significantly shorter than the input — maximum 30% of the original word count. Use concise bullet points for the key ideas, then one short conclusion sentence. Be brief and to the point. Never exceed 30% of input word count.${langSuffix()} Return only the summary, nothing else:`;
+  // shortened prompt only when lib/prompts-v2.js is switched on (?prompts=v2) — off by default
+  const prompt = (window.PFPromptsV2 && PFPromptsV2.enabled) ? PFPromptsV2.summarize(langSuffix()) : `Summarize the following text. Your summary MUST be significantly shorter than the input — maximum 30% of the original word count. Use concise bullet points for the key ideas, then one short conclusion sentence. Be brief and to the point. Never exceed 30% of input word count.${langSuffix()} Return only the summary, nothing else:`;
 
   const result = await runAPIChain(text, prompt, currentMode, getLang(), currentTool);
   setToolLoading('summarize', false, "∑ Summarize Now");
@@ -3557,7 +3559,7 @@ async function checkGrammar() {
   const gep = document.getElementById('grammarErrorsPanel');
   if (gep) { gep.style.display = 'none'; gep.innerHTML = ''; }
 
-  const prompt = `You are a grammar checker. Check the following text for grammar, spelling, punctuation, and style errors. Respond in this EXACT format:
+  const prompt = (window.PFPromptsV2 && PFPromptsV2.enabled) ? PFPromptsV2.grammar : `You are a grammar checker. Check the following text for grammar, spelling, punctuation, and style errors. Respond in this EXACT format:
 
 CORRECTED TEXT:
 [Write the fully corrected text here]
@@ -4110,6 +4112,9 @@ KEY REQUIREMENTS:
 - Sound like a real person talking to a friend — relaxed, direct, genuine.
 - Do not change the core meaning. Return only the rewritten text, nothing else:`
 };
+
+// Shortened prompts (lib/prompts-v2.js) replace these only when switched on (?prompts=v2) — not quality-tested yet
+if (window.PFPromptsV2 && PFPromptsV2.enabled) { Object.assign(MODE_PROMPTS, PFPromptsV2.paraphrase); Object.assign(HUMANIZE_PROMPTS, PFPromptsV2.humanize); }
 
 // ════════════════════════════════════════════
 // HUMANIZE FUNCTION

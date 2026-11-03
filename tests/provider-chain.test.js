@@ -307,7 +307,11 @@ const groqCalls = (names, model) => names.filter(n => n.startsWith('groq') && (!
   assert('writing: llama sends no reasoning_effort', GROQS.every(k => !('reasoning_effort' in bodyOf(`${k}/${LLAMA}`))), JSON.stringify(bodyOf(`groq/${LLAMA}`)));
   reset({});
   r = await call({ text: SHORT, type: 'code_assistant' });
-  assert('chat: Groq calls unchanged (never sent reasoning_effort)', r.rawCalls.filter(c => c.name.startsWith('groq')).every(c => !('reasoning_effort' in c.body)));
+  // Phase 4: hidden reasoning off on every path — chat/CV gpt-oss calls send "low" too; other models never get the field
+  const chatGroq = r.rawCalls.filter(c => c.name.startsWith('groq'));
+  assert('chat: gpt-oss calls send reasoning_effort "low"; llama/qwen never get the field',
+    chatGroq.some(c => /gpt-oss/.test(c.body.model)) && chatGroq.every(c => (/gpt-oss/.test(c.body.model) ? c.body.reasoning_effort === 'low' : !('reasoning_effort' in c.body))),
+    JSON.stringify(chatGroq.map(c => [c.body.model, c.body.reasoning_effort])));
   assert('chat: llama entries present', groqCalls(r.calls, LLAMA).length >= 3);
 
   // ── 8. Gemini key: three models, three quotas ──

@@ -538,17 +538,43 @@ async function callGroq(text, prompt, key, maxTokens = 2048, ms, model = GROQ_MO
   return finishedText(data, 'openai', "Groq/" + model, info, res);
 }
 
-async function callGemini(text, prompt, key, maxTokens = 2048, ms, model = GEMINI_MODEL, info) {
+// Hidden reasoning off for writing and flashcards: the lowest thinking setting each Gemini model allows (thinking
+// tokens count against maxOutputTokens and were a cause of cut-off answers). A model that rejects the field is retried
+// at once without it (or with "low" when "minimal" isn't offered) and remembered.
+const thinkingRejected = new Map();   // model → 'minimal' (use low) | 'all' (send nothing)
+function thinkingFor(model) {
+  const m = String(model || '').toLowerCase();
+  if (/gemma/.test(m) || thinkingRejected.get(m) === 'all') return null;
+  let tc = null;
+  if (/gemini-2\.5/.test(m)) tc = { thinkingBudget: 0 };
+  else if (/flash-lite/.test(m)) tc = { thinkingLevel: 'minimal' };
+  else if (/gemini-3\.8-flash|gemini-[4-9]/.test(m)) tc = { thinkingLevel: 'low' };      // 3.8 Flash has no "minimal"
+  else if (/flash/.test(m)) tc = { thinkingLevel: 'minimal' };
+  else if (/pro/.test(m)) tc = { thinkingLevel: 'low' };
+  if (tc && tc.thinkingLevel === 'minimal' && thinkingRejected.get(m) === 'minimal') tc = { thinkingLevel: 'low' };
+  return tc;
+}
+async function callGemini(text, prompt, key, maxTokens = 2048, ms, model = GEMINI_MODEL, info, lean = false) {
   console.log("[ParaFree] Trying: gemini/" + model);
   const url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + key;
-  const res = await fetchWithTimeout(url, {
+  const t0 = Date.now();
+  const send = (tc) => fetchWithTimeout(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt + "\n\n" + text }] }],
-      generationConfig: { temperature: 0.7, maxOutputTokens: maxTokens }
+      generationConfig: { temperature: 0.7, maxOutputTokens: maxTokens, ...(tc ? { thinkingConfig: tc } : {}) }
     })
-  }, ms);
+  }, Math.max(MIN_ATTEMPT_MS, (ms || FAST_TIMEOUT) - (Date.now() - t0)));
+  const tc = lean ? thinkingFor(model) : null;
+  let res = await send(tc);
+  if (!res.ok && res.status === 400 && tc) {
+    let b = ""; try { b = await res.text(); } catch (_) {}
+    if (!/thinking/i.test(b)) throw new Error("Gemini/" + model + ":" + res.status + " " + errDetail(res, b));
+    thinkingRejected.set(String(model).toLowerCase(), tc.thinkingLevel === 'minimal' ? 'minimal' : 'all');
+    console.log(`[ParaFree] gemini/${model} rejected thinkingConfig ${JSON.stringify(tc)} — retrying ${tc.thinkingLevel === 'minimal' ? 'with "low"' : 'without it'}`);
+    res = await send(thinkingFor(model));
+  }
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Gemini/" + model + ":" + res.status + " " + errDetail(res, b)); }
   const data = await res.json();
   if (data.error) throw new Error("Gemini/" + model + ":" + data.error.message);
@@ -623,7 +649,9 @@ async function callGroqModel(text, prompt, key, model, ms, info) {
   const res = await fetchWithTimeout("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
-    body: JSON.stringify({ model, messages: [{ role: "user", content: prompt + "\n\n" + text }], temperature: 0.7, max_tokens: 4096 })
+    // gpt-oss is a reasoning model: "low" on every path (chat, CV, Study Pack too) — other models reject the field
+    body: JSON.stringify({ model, messages: [{ role: "user", content: prompt + "\n\n" + text }], temperature: 0.7, max_tokens: 4096,
+      ...(isGptOss(model) ? { reasoning_effort: "low" } : {}) })
   }, ms);
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Groq/" + model + ":" + res.status + " " + errDetail(res, b)); }
   const data = await res.json();
@@ -1071,8 +1099,20 @@ If the user's issue is not covered above, direct them to:
 Never make up answers. Never claim features not listed above.`,
 };
 
+// PROMPT_DIET=on: the shortened prompts of lib/prompts-v2.js (not quality-tested yet — off by default)
+const promptsV2 = require("../lib/prompts-v2.js");
+function promptOf(mode) {
+  if (process.env.PROMPT_DIET !== "on") return PROMPTS[mode] || PROMPTS.standard;
+  if (promptsV2.paraphrase[mode]) return promptsV2.paraphrase[mode];
+  if (mode === "paraphrase") return promptsV2.paraphrase.standard;
+  if (promptsV2.humanize[mode]) return promptsV2.humanize[mode];
+  if (mode === "grammar") return promptsV2.grammar;
+  if (mode === "summarize") return promptsV2.summarize("");
+  if (mode === "code_assistant" || mode === "code_project") return promptsV2.code_assistant;
+  return PROMPTS[mode] || promptsV2.paraphrase.standard;
+}
 function getPrompt(mode, language) {
-  const base = PROMPTS[mode] || PROMPTS.standard;
+  const base = promptOf(mode);
   if (!language || language === "english") return base;
   const langName = language.charAt(0).toUpperCase() + language.slice(1);
   // Prepend language rule so it reads as an instruction, not as text to paraphrase
@@ -1149,7 +1189,7 @@ function buildWritingCandidates(text, prompt, keys) {
   // One entry per resolved key+model slot; `group` lets orderChain rotate each Groq / Gemini slot across the keys.
   chain.push(...slotEntries(keys, {
     groq:       (key) => (m, ms, info) => callGroq(text, prompt, key, mt, ms, m, info),
-    gemini:     (key) => (m, ms, info) => callGemini(text, prompt, key, mt, ms, m, info),
+    gemini:     (key) => (m, ms, info) => callGemini(text, prompt, key, mt, ms, m, info, true),
     nvidia:     (m, ms, info) => callNvidiaModel(text, prompt, NVIDIA_KEY, mt, ms, m, info),
     cloudflare: (m, ms, info) => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT, mt, ms, m, info),
   }));
@@ -1508,7 +1548,7 @@ async function runChain(text, prompt, type, opts = {}) {
   // are unchanged otherwise — callGroqModel never sends reasoning_effort.
   candidates.push(...slotEntries({ GROQ_KEY, GROQ_KEY_2, GROQ_KEY_3, GROQ_KEY_4, GEMINI_KEY, GEMINI_KEY_2, GEMINI_KEY_3, NVIDIA_KEY, CF_KEY, CF_ACCOUNT }, {
     groq:       (key) => (m, ms) => callGroqModel(text, prompt, key, m, ms),
-    gemini:     (key) => (m, ms) => callGemini(text, prompt, key, outTokens, ms, m),
+    gemini:     (key) => (m, ms) => callGemini(text, prompt, key, outTokens, ms, m, undefined, type === "studypack"),
     nvidia:     (m, ms) => callNvidiaModel(text, prompt, NVIDIA_KEY, outTokens, ms, m),
     cloudflare: (m, ms) => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT, outTokens, ms, m),
   }));
