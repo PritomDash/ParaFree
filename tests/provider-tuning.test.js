@@ -96,7 +96,7 @@ global.fetch = async (url, opts = {}) => {
   if (!name) throw new Error('UNMOCKED URL — refusing live call: ' + url);
   calls.push({ name, timeoutMs: lastTimeoutMs, body });
   const b = behaviour[name] || behaviour[name.split('/')[0]] || 'fail';
-  const text = `[${name}] paraphrased output text paraphrased output text`;
+  const text = fakeAnswer(contentOf(body), name);
   if (b === 'ok') {
     if (name.startsWith('gemini')) return respond(200, { candidates: [{ content: { parts: [{ text }] } }] });
     if (name === 'cloudflare') return respond(200, { success: true, result: { response: text } });
@@ -114,6 +114,7 @@ const realLog = console.log, realWarn = console.warn, realErr = console.error;
 function quiet() { const cap = (...a) => logs.push(a.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); console.log = cap; console.warn = cap; console.error = cap; }
 function loud() { console.log = realLog; console.warn = realWarn; console.error = realErr; }
 quiet();
+const { fakeAnswer, contentOf } = require('./_fake-answer');
 const handler = require('../api/process.js');
 loud();
 let ipSeq = 0;

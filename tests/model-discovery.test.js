@@ -1,4 +1,5 @@
 'use strict';
+const { fakeAnswer, contentOf } = require('./_fake-answer');
 // Automatic model discovery — api/_model-discovery.js + its wiring in api/process.js.
 // Everything is mocked: provider model lists and chat endpoints (global.fetch, unknown URLs
 // throw), Upstash (fake @upstash/redis injected into the module cache) and the clock.
@@ -101,7 +102,7 @@ global.fetch = async (url, opts = {}) => {
   if (!name) throw new Error('UNMOCKED URL — refusing live call: ' + url);
   calls.push({ name, body, t: Date.now() });
   const b = behaviour[name] || behaviour[name.split('/')[0]] || 'fail';
-  const text = `[${name}] paraphrased output text paraphrased output text`;
+  const text = fakeAnswer(contentOf(body), name);
   if (b === 'ok') {
     if (name.startsWith('gemini/')) return respond(200, { candidates: [{ content: { parts: [{ text }] } }] });
     if (name.startsWith('cloudflare/')) return respond(200, { success: true, result: { response: text } });

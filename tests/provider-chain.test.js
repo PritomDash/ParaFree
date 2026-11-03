@@ -68,8 +68,8 @@ function providerOf(url, opts, body) {
 }
 const DISABLED_HOST_NAMES = ['openrouter', 'mistral', 'sambanova', 'deepseek', 'scaleway', 'huggingface', 'chutes'];
 
-function okBody(name) {
-  const text = `[${name}] ${'paraphrased output text '.repeat(3)}`;
+function okBody(name, body) {
+  const text = fakeAnswer(contentOf(body), name);
   if (name.startsWith('gemini/')) return { candidates: [{ content: { parts: [{ text }] } }] };
   if (name === 'cloudflare') return { success: true, result: { response: text } };
   return { choices: [{ message: { content: text }, finish_reason: 'stop' }] };
@@ -96,7 +96,7 @@ global.fetch = async (url, opts) => {
   if (!name) throw new Error('UNMOCKED URL — refusing live call: ' + url);
   calls.push({ name, body, timeoutMs: lastTimeoutMs });
   const b = behaviour[name] || behaviour[keyOf(name)] || 'fail';
-  if (b === 'ok') return respond(200, okBody(name));
+  if (b === 'ok') return respond(200, okBody(name, body));
   if (typeof b === 'object') return respond(b.status, b.body);
   // Real-world message shapes (Groq): per-minute TPM vs daily RPD
   if (b === 'quota') return respond(429, { error: { message: 'Rate limit reached for model on tokens per minute (TPM): Limit 8000, Used 7990' } });
@@ -119,6 +119,7 @@ function quiet() {
 }
 function loud() { console.log = realLog; console.warn = realWarn; console.error = realErr; }
 
+const { fakeAnswer, contentOf } = require('./_fake-answer');
 const handler = require('../api/process.js');
 
 let ipSeq = 0;

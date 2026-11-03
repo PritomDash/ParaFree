@@ -266,6 +266,7 @@ const { createModelDiscovery } = require("./_model-discovery");
 const ratings = require("./_ratings");
 const usage = require("./_usage");
 const studypack = require("./_studypack");
+const quality = require("./_quality");
 const discovery = createModelDiscovery({ fetchWithTimeout, getRedis: () => redis });
 
 // ── PROVIDER CHAIN ──
@@ -309,12 +310,12 @@ function slotEntry(provider, pk, slot, model, call, nameFor, patternIndex = slot
   const entry = {
     name: nameFor(model), rank: SLOT_RANK[provider](slot), group: provider === "groq" || provider === "gemini" ? provider + ":" + slot : undefined,
     pk, patternIndex, model,
-    async fn(ms) {
+    async fn(ms, info) {
       const deadline = Date.now() + ms;
       let m = model;
       for (let attempt = 0; ; attempt++) {
         try {
-          return await call(m, Math.max(MIN_ATTEMPT_MS, deadline - Date.now()));
+          return await call(m, Math.max(MIN_ATTEMPT_MS, deadline - Date.now()), info);
         } catch (e) {
           if (attempt >= 3 || !discovery.isDeadModelError(e.message)) throw e;
           const next = await discovery.markDead(provider, m, e.message, pk, slot);
@@ -436,6 +437,41 @@ function errDetail(res, body) {
   if (ra > 0) d += " [retry-after " + Math.ceil(ra) + "s]";
   return d;
 }
+// Rate-limit headers of a provider answer (Groq / OpenAI style) → { remReq, remTok, resetReq, resetTok } (numbers or
+// undefined). Only counts — copied into `info` for the per-chunk log and the pacer.
+function rateHeaders(res) {
+  const h = (n) => { try { return res && res.headers && res.headers.get ? res.headers.get(n) : null; } catch (_) { return null; } };
+  const num = (v) => (v === null || v === undefined || v === '' ? undefined : Number(v));
+  return { remReq: num(h('x-ratelimit-remaining-requests')), remTok: num(h('x-ratelimit-remaining-tokens')),
+           resetReq: h('x-ratelimit-reset-requests') || undefined, resetTok: h('x-ratelimit-reset-tokens') || undefined };
+}
+// The text of a finished answer. A cut-off (OpenAI "length", Gemini MAX_TOKENS / SAFETY / RECITATION …),
+// a blocked answer or an empty one throws "<label>:cutoff …" / ":empty", so the chain treats it as a failure.
+function finishedText(data, shape, label, info, res) {
+  if (info) { info.headers = rateHeaders(res); }
+  const problem = quality.finishProblem(data, shape);
+  let text;
+  if (shape === 'gemini') {
+    const parts = (data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || [];
+    text = parts.filter((p) => !p.thought).map((p) => p.text || '').join('');
+    if (info) info.finish = (data && data.candidates && data.candidates[0] && data.candidates[0].finishReason) || null;
+  } else if (shape === 'cloudflare') {
+    text = data && data.result && data.result.response;
+    const used = data && data.result && data.result.usage && data.result.usage.completion_tokens;
+    if (info) info.finish = used && info.maxTokens && used >= info.maxTokens ? 'length' : 'stop';
+    if (used && info && info.maxTokens && used >= info.maxTokens) throw new Error(label + ":cutoff finish=length");
+  } else {
+    const ch = data && data.choices && data.choices[0];
+    text = ch && ch.message ? ch.message.content : undefined;
+    if (info) info.finish = (ch && ch.finish_reason) || null;
+    if (ch && (text === null || text === undefined)) throw new Error(label + ": null content (finish_reason=" + (ch.finish_reason || "unknown") + ")");
+  }
+  if (problem && problem !== 'empty' && shape !== 'cloudflare') throw new Error(label + ":cutoff finish=" + problem);
+  if (text === undefined || text === null || !String(text).trim()) throw new Error(label + ":empty no text");
+  return text;
+}
+const isCutoff = (msg) => /:cutoff\b|:empty\b/.test(msg || "");
+
 // Cooling = rate-limit cooldown (this instance) OR on the shared health-check skip list.
 function cooldownUntil(name) {
   let until = providerCooldowns.get(name) || 0;
@@ -462,7 +498,7 @@ function providerTimeout(name, until) {
   return Math.min(PROVIDER_TIMEOUTS[name] || PROVIDER_TIMEOUTS[name.split("/")[0]] || FAST_TIMEOUT, until - Date.now());
 }
 
-async function callGroq(text, prompt, key, maxTokens = 2048, ms, model = GROQ_MODEL) {
+async function callGroq(text, prompt, key, maxTokens = 2048, ms, model = GROQ_MODEL, info) {
   console.log("[ParaFree] Trying: groq/" + model);
   const res = await fetchWithTimeout("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
@@ -479,14 +515,10 @@ async function callGroq(text, prompt, key, maxTokens = 2048, ms, model = GROQ_MO
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Groq/" + model + ":" + res.status + " " + errDetail(res, b)); }
   const data = await res.json();
   if (!data.choices || !data.choices[0]) throw new Error("Groq: no response");
-  const content = data.choices[0].message?.content;
-  if (content === null || content === undefined) {
-    throw new Error("Groq: null content (finish_reason=" + (data.choices[0].finish_reason || "unknown") + ")");
-  }
-  return content;
+  return finishedText(data, 'openai', "Groq/" + model, info, res);
 }
 
-async function callGemini(text, prompt, key, maxTokens = 2048, ms, model = GEMINI_MODEL) {
+async function callGemini(text, prompt, key, maxTokens = 2048, ms, model = GEMINI_MODEL, info) {
   console.log("[ParaFree] Trying: gemini/" + model);
   const url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + key;
   const res = await fetchWithTimeout(url, {
@@ -501,7 +533,7 @@ async function callGemini(text, prompt, key, maxTokens = 2048, ms, model = GEMIN
   const data = await res.json();
   if (data.error) throw new Error("Gemini/" + model + ":" + data.error.message);
   if (!data.candidates || !data.candidates[0]) throw new Error("Gemini/" + model + ": no response");
-  return data.candidates[0].content.parts[0].text;
+  return finishedText(data, 'gemini', "Gemini/" + model, info, res);
 }
 
 async function callCerebras(text, prompt, key) {
@@ -566,7 +598,7 @@ async function callOpenRouterModel(text, prompt, key, model) {
   return _orm;
 }
 
-async function callGroqModel(text, prompt, key, model, ms) {
+async function callGroqModel(text, prompt, key, model, ms, info) {
   console.log("[ParaFree] Trying: groq/" + model);
   const res = await fetchWithTimeout("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
@@ -576,11 +608,7 @@ async function callGroqModel(text, prompt, key, model, ms) {
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Groq/" + model + ":" + res.status + " " + errDetail(res, b)); }
   const data = await res.json();
   if (!data.choices || !data.choices[0]) throw new Error("Groq/" + model + ": no response");
-  const content = data.choices[0].message?.content;
-  if (content === null || content === undefined) {
-    throw new Error("Groq/" + model + ": null content (finish_reason=" + (data.choices[0].finish_reason || "unknown") + ")");
-  }
-  return content;
+  return finishedText(data, 'openai', "Groq/" + model, info, res);
 }
 
 async function callMistral(text, prompt, key, maxTokens = 2048) {
@@ -603,7 +631,7 @@ async function callMistral(text, prompt, key, maxTokens = 2048) {
   return _mc;
 }
 
-async function callCloudflare(text, prompt, key, account, maxTokens = 2048, ms, model = CF_MODEL) {
+async function callCloudflare(text, prompt, key, account, maxTokens = 2048, ms, model = CF_MODEL, info) {
   console.log("[ParaFree] Trying: cloudflare/" + model);
   const res = await fetchWithTimeout(
     "https://api.cloudflare.com/client/v4/accounts/" + account + "/ai/run/" + model,
@@ -617,7 +645,7 @@ async function callCloudflare(text, prompt, key, account, maxTokens = 2048, ms, 
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Cloudflare:" + res.status + " " + errDetail(res, b)); }
   const data = await res.json();
   if (!data.success) throw new Error("Cloudflare: " + JSON.stringify(data.errors));
-  return data.result.response;
+  return finishedText(data, 'cloudflare', "Cloudflare", Object.assign(info || {}, { maxTokens }), res);
 }
 
 async function callGLM(text, prompt, key, maxTokens = 1500) {
@@ -688,7 +716,7 @@ async function callSambaNova(text, prompt, key) {
 // One NVIDIA model per call: each resolved NVIDIA model (NVIDIA_MODEL_PREFS) is its own chain
 // entry ("nvidia/<model>"). A 404/410 is marked dead by the entry, which retries at once with the
 // model its slot now resolves to.
-async function callNvidiaModel(text, prompt, key, maxTokens = 1500, ms = FAST_TIMEOUT, model) {
+async function callNvidiaModel(text, prompt, key, maxTokens = 1500, ms = FAST_TIMEOUT, model, info) {
   console.log("[ParaFree] Trying: nvidia/" + model);
   const res = await fetchWithTimeout("https://integrate.api.nvidia.com/v1/chat/completions", {
     method: "POST",
@@ -698,12 +726,10 @@ async function callNvidiaModel(text, prompt, key, maxTokens = 1500, ms = FAST_TI
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("NVIDIA/" + model + ":" + res.status + " " + errDetail(res, b)); }
   const data = await res.json();
   if (!data.choices?.[0]) throw new Error("NVIDIA/" + model + ": no response");
-  const content = data.choices[0].message?.content;
-  if (content === null || content === undefined) throw new Error("NVIDIA/" + model + ": null content (finish_reason=" + (data.choices[0].finish_reason || "unknown") + ")");
-  return content;
+  return finishedText(data, 'openai', "NVIDIA/" + model, info, res);
 }
 
-async function callOVHcloud(text, prompt, maxTokens = 1500, ms) {
+async function callOVHcloud(text, prompt, maxTokens = 1500, ms, info) {
   console.log("[ParaFree] Trying: ovhcloud");
   const res = await fetchWithTimeout("https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/chat/completions", {
     method: "POST",
@@ -718,9 +744,7 @@ async function callOVHcloud(text, prompt, maxTokens = 1500, ms) {
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("OVHcloud:" + res.status + " " + errDetail(res, b)); }
   const data = await res.json();
   if (!data.choices?.[0]) throw new Error("OVHcloud: no response");
-  const _ovc = data.choices[0].message?.content;
-  if (_ovc === null || _ovc === undefined) throw new Error("OVHcloud: null content (finish_reason=" + (data.choices[0].finish_reason || "unknown") + ")");
-  return _ovc;
+  return finishedText(data, 'openai', "OVHcloud", info, res);
 }
 
 async function callDeepSeek(text, prompt, key) {
@@ -741,7 +765,7 @@ async function callDeepSeek(text, prompt, key) {
   return data.choices[0].message.content;
 }
 
-async function callLLM7(text, prompt, maxTokens = 1500, ms) {
+async function callLLM7(text, prompt, maxTokens = 1500, ms, info) {
   console.log("[ParaFree] Trying: llm7");
   const res = await fetchWithTimeout("https://api.llm7.io/v1/chat/completions", {
     method: "POST",
@@ -756,9 +780,7 @@ async function callLLM7(text, prompt, maxTokens = 1500, ms) {
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("LLM7:" + res.status + " " + errDetail(res, b)); }
   const data = await res.json();
   if (!data.choices?.[0]) throw new Error("LLM7: no response");
-  const _lc = data.choices[0].message?.content;
-  if (_lc === null || _lc === undefined) throw new Error("LLM7: null content (finish_reason=" + (data.choices[0].finish_reason || "unknown") + ")");
-  return _lc;
+  return finishedText(data, 'openai', "LLM7", info, res);
 }
 
 async function callScaleway(text, prompt, key, maxTokens = 1500) {
@@ -1051,32 +1073,6 @@ function countWordsApprox(text) {
   return text.trim().split(/\s+/).filter(Boolean).length;
 }
 
-function buildChunks(text) {
-  const words = countWordsApprox(text);
-  // clamp(ceil(words / 400), 1, 12)
-  const chunkCount = Math.max(1, Math.min(CHUNK_MAX_COUNT, Math.ceil(words / CHUNK_TARGET_WORDS)));
-  if (chunkCount === 1) return [text];
-
-  const targetWords = Math.ceil(words / chunkCount);
-  const paras = text.split(/\n\n+/).filter(p => p.trim());
-
-  const chunks = [];
-  let cur = [], curWords = 0;
-  for (const para of paras) {
-    const pw = countWordsApprox(para);
-    // Flush when we've hit the per-chunk target and still have quota for more chunks
-    if (curWords >= targetWords && chunks.length < chunkCount - 1) {
-      chunks.push(cur.join('\n\n'));
-      cur = [];
-      curWords = 0;
-    }
-    cur.push(para);
-    curWords += pw;
-  }
-  if (cur.length) chunks.push(cur.join('\n\n'));
-  return chunks;
-}
-
 // Runs `fns` (thunks) in parallel, at most `limit` at a time.
 // Preserves result order. Replaces unbounded Promise.all for chunk calls.
 async function parallelLimit(fns, limit) {
@@ -1115,22 +1111,21 @@ function buildWritingCandidates(text, prompt, keys) {
   const chain = [];
   const add = (name, fn, keyOk = true) => { if (keyOk) chain.push({ name, fn }); };
 
-  // Dynamic max_tokens: cap output at ~1.5× input word count in tokens (1 word ≈ 1.5 tokens),
-  // floored at 600 and capped at 1500. Prevents over-provisioning on short chunks and
-  // reduces per-request token consumption on providers with daily quota limits.
+  // Output cap sized to the chunk: clamp(words × 2.2, 600, 3000) tokens — room for the whole answer
+  // (scripts like Bengali/Hindi need more tokens per word); a cut-off answer is still caught by finishedText.
   const chunkWords = countWordsApprox(text);
-  const mt = Math.min(1500, Math.max(600, Math.ceil(chunkWords * 1.5)));
+  const mt = quality.outputCap(chunkWords);
 
   // Working chain (final order from orderChain: slot ranks, TIER3_ORDER for Tier 3)
   // One entry per resolved key+model slot; `group` lets orderChain rotate each Groq / Gemini slot across the keys.
   chain.push(...slotEntries(keys, {
-    groq:       (key) => (m, ms) => callGroq(text, prompt, key, mt, ms, m),
-    gemini:     (key) => (m, ms) => callGemini(text, prompt, key, mt, ms, m),
-    nvidia:     (m, ms) => callNvidiaModel(text, prompt, NVIDIA_KEY, mt, ms, m),
-    cloudflare: (m, ms) => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT, mt, ms, m),
+    groq:       (key) => (m, ms, info) => callGroq(text, prompt, key, mt, ms, m, info),
+    gemini:     (key) => (m, ms, info) => callGemini(text, prompt, key, mt, ms, m, info),
+    nvidia:     (m, ms, info) => callNvidiaModel(text, prompt, NVIDIA_KEY, mt, ms, m, info),
+    cloudflare: (m, ms, info) => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT, mt, ms, m, info),
   }));
-  add("ovhcloud",   (ms) => callOVHcloud(text, prompt, mt, ms),                       true);
-  add("llm7",       (ms) => callLLM7(text, prompt, mt, ms),                           true);
+  add("ovhcloud",   (ms, info) => callOVHcloud(text, prompt, mt, ms, info),           true);
+  add("llm7",       (ms, info) => callLLM7(text, prompt, mt, ms, info),               true);
 
   // ── DISABLED (listed in DISABLED_PROVIDERS — filtered out by orderChain) ──
   // mistral / mistral-2 — free plan requires paid upgrade to activate keys (card required)
@@ -1162,7 +1157,13 @@ function buildWritingCandidates(text, prompt, keys) {
 // the chunks after it; Tiers 1–3 also leave SAFETY_NET_MS of that share for the Cloudflare safety
 // net, which may itself run until the deadline minus SAFETY_NET_MS per later chunk. Every attempt
 // is capped by its provider timeout as before. Returns the result string, or null if all failed.
-async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0, deadline = Date.now() + REQUEST_BUDGET, chunksLeft = 1) {
+// check(result) → null when the answer is usable, else the gate reason (the next provider is tried).
+// One structured log line per attempt (no text): provider, finish reason, words in/out, change %, gate, 429 type,
+// remaining-quota headers.
+function logAttempt(o) { try { console.log('[ParaFree] chunk-log ' + JSON.stringify(o)); } catch (_) {} }
+// Quality-gate rejections and cut-offs per reason, per UTC day (admin dashboard) — counts only
+function gateCount(reason) { usage.record(redis, 'gate', reason); }
+async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0, deadline = Date.now() + REQUEST_BUDGET, chunksLeft = 1, check = null) {
   const { chain, lastResort } = buildWritingCandidates(chunkText, prompt, envKeys);
   // startOffset comes from runChain's sequential counter (baseOffset + chunkSeq), so
   // consecutive chunks start on a DIFFERENT Groq key — even load across the keys.
@@ -1197,14 +1198,25 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0,
       break;
     }
     const t0 = Date.now();
+    const info = {};
+    const inW = countWordsApprox(chunkText);
     try {
-      const result = await c.fn(expectedTimeout);
+      const result = await c.fn(expectedTimeout, info);
       const ms = Date.now() - t0;
       if (result && result.trim().length > 5) {
-        console.log(`[ParaFree] ✅ chunk seq=${seq} handled by ${c.name} in ${ms}ms (${result.trim().length} chars out)`);
+        const out = result.trim();
+        const bad = check ? check(out) : null;
+        logAttempt({ seq, provider: c.name, ms, finish: info.finish || null, inW, outW: countWordsApprox(out),
+          change: Math.round(quality.changeShare(chunkText, out) * 100), gate: bad || 'ok', rem: info.headers || null });
+        if (bad) {
+          console.warn(`[ParaFree] ⚠️ chunk seq=${seq} ${c.name} answer rejected by the quality gate (${bad}) — next`);
+          gateCount(bad);
+          continue;
+        }
+        console.log(`[ParaFree] ✅ chunk seq=${seq} handled by ${c.name} in ${ms}ms (${out.length} chars out)`);
         discovery.noteSuccess(c.name, c.pk, c.patternIndex, c.model);
         usage.record(redis, 'chunk', c.name);
-        return result.trim();
+        return out;
       }
       console.warn(`[ParaFree] ⚠️ chunk seq=${seq} ${c.name} empty/short (${result?.length || 0} chars, ${ms}ms) — next`);
     } catch (e) {
@@ -1212,8 +1224,11 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0,
       const msg = e.message || 'unknown';
       const isAbort = msg.includes('abort') || msg.includes('AbortError') || ms >= expectedTimeout - 100;
       const quota = isQuotaError(msg);
-      const tag = quota ? '429-rate-limit' : msg.includes(':401') ? '401-auth' : msg.includes(':403') ? '403-forbidden' : msg.includes(':404') ? '404-model-not-found' : msg.includes(':503') ? '503-unavailable' : isAbort ? `TIMEOUT-${expectedTimeout}ms` : 'error';
+      const tag = quota ? '429-rate-limit' : isCutoff(msg) ? 'cutoff' : msg.includes(':401') ? '401-auth' : msg.includes(':403') ? '403-forbidden' : msg.includes(':404') ? '404-model-not-found' : msg.includes(':503') ? '503-unavailable' : isAbort ? `TIMEOUT-${expectedTimeout}ms` : 'error';
       console.log(`[ParaFree] ❌ chunk seq=${seq} ${c.name} [${tag}] in ${ms}ms — ${msg.slice(0, 200)}`);
+      logAttempt({ seq, provider: c.name, ms, finish: info.finish || (isCutoff(msg) ? (msg.match(/finish=(w+)/) || [, 'empty'])[1] : null), inW, outW: 0,
+        gate: tag, q429: quota ? (quotaCooldown(msg) === DAILY_COOLDOWN ? 'day' : 'minute') : undefined, rem: info.headers || null });
+      if (isCutoff(msg)) gateCount('cutoff');
       if (quota) startCooldown(c.name, msg);
       else if (isAbort && !isNet && expectedTimeout >= TIMEOUT_COOLDOWN_MIN_MS) startCooldown(c.name, msg, TIMEOUT_COOLDOWN, 'timed out');
     }
@@ -1286,53 +1301,79 @@ async function runChain(text, prompt, type, opts = {}) {
       console.error("[ParaFree] ❌ No valid API keys — check Vercel environment variables");
       return { success: false, error: "no_keys", apiStatuses: {} };
     }
-    const chunks = buildChunks(text);
+    // Units: paragraphs, with any paragraph over 350 words split by sentence (pieces rejoin with a space),
+    // PPTX boxes kept whole. Chunks: consecutive units of about CHUNK_TARGET_WORDS. Each chunk's answer must pass
+    // the quality gate (cut-off, length, language, preamble/markdown, repetition, unparaphrased, paragraph count,
+    // markers) or the next provider is tried. A chunk that still fails is split in half and retried once; a part
+    // that fails again keeps its original text AND is reported in failedParts, so the page can mark it and offer
+    // "Retry this part". If nothing could be paraphrased at all the request fails (never a silent copy).
+    const kind = quality.kindOf(type);
+    const gateOpts = { kind, mode: opts.mode, language: opts.language };
+    const units = quality.segment(text);
+    const sendWords = units.filter(u => u.send).reduce((n, u) => n + countWordsApprox(u.text), 0);
+    const target = Math.max(CHUNK_TARGET_WORDS, Math.ceil(sendWords / CHUNK_MAX_COUNT));
+    const groups = quality.groupUnits(units, target);
     const baseOffset = requestCounter;
-    requestCounter = (requestCounter + Math.max(chunks.length, 1)) % 100000;
+    requestCounter = (requestCounter + Math.max(groups.length, 1)) % 100000;
     const inputWords = countWordsApprox(text);
-    const isPPTX = text.includes('[SLIDE') && text.includes('[/SLIDE');
-
-    // Assign each chunk an explicit sequence number BEFORE dispatch.
-    // Chunks may complete in any order during parallel processing — the seq
-    // number is the only authoritative record of original position.
-    const indexedChunks = chunks.map((text, seq) => ({ seq, text }));
-    console.log(`[ParaFree] writing: ${indexedChunks.length} chunk(s) × ${sampleTotal} providers (chain=${sampleChain.length} + last-resort=${sampleLast ? 1 : 0}) — sequential, input=${inputWords} words, isPPTX=${isPPTX}, seqs=[${indexedChunks.map(c => c.seq).join(',')}]`);
+    const isPPTX = quality.isPptx(text);
+    // paraphrase answers are mapped back paragraph by paragraph; humanize too when a paragraph was split or the
+    // text carries DOCX/PPTX markers; grammar and summarize answers are used whole
+    const mapped = (us) => kind === 'paraphrase' || (kind === 'humanize' && us.some(u => u.piece !== undefined || u.box || /^<<<\d+>>>/.test(u.text)));
+    const continuationNote = (us) => us.some(u => u.piece > 0) && us.some(u => /^<<<\d+>>>/.test(u.text))
+      ? '\n\nNOTE: a paragraph without a <<<N>>> marker continues the marked paragraph before it. Paraphrase it as its own paragraph and keep it without a marker.'
+      : '';
+    console.log(`[ParaFree] writing: ${groups.length} chunk(s) × ${sampleTotal} providers — sequential, input=${inputWords} words, units=${units.length}, target=${target}, isPPTX=${isPPTX}, kind=${kind}`);
     const t0 = Date.now();
+    let seqNo = 0, okChunks = 0;
+    const failedParts = [];
 
-    // Each thunk returns {seq, result} so the sequence number travels with the result.
-    // A brief inter-chunk pause lets rate-limited providers (Groq, Gemini) recover quota.
-    const rawResults = await parallelLimit(
-      indexedChunks.map(({ seq, text: chunkText }) => async () => {
-        if (seq > 0) await new Promise(r => setTimeout(r, CHUNK_INTER_DELAY));
-        const result = await paraphraseChunk(chunkText, prompt, envKeys, baseOffset + seq, seq, deadline, indexedChunks.length - seq);
-        return { seq, result };
-      }),
-      CHUNK_CONCURRENCY
-    );
-    const elapsed = Date.now() - t0;
-
-    // Sort by original sequence number. parallelLimit already fills results by position,
-    // but the explicit sort makes the ordering guarantee visible and self-verifying.
-    rawResults.sort((a, b) => a.seq - b.seq);
-
-    // Verify sequence integrity and apply graceful fallback for any failed chunk.
-    // Sequence gaps are still fatal (structural error). Individual chunk failures
-    // fall back to the original text for that chunk so the document still completes.
-    for (let i = 0; i < indexedChunks.length; i++) {
-      if (!rawResults[i] || rawResults[i].seq !== i) {
-        console.error(`[ParaFree] ❌ Sequence gap at index ${i} — expected seq=${i}, got seq=${rawResults[i] ? rawResults[i].seq : 'undefined'}`);
-        return { success: false, error: "high_demand", apiStatuses: {} };
+    // → { out, failed } for a run of units; depth 1 = already split once
+    async function runUnits(us, depth, left) {
+      const send = quality.chunkSendText(us);
+      if (!send.trim()) return { out: quality.chunkOriginal(us), failed: false, empty: true };
+      const seq = seqNo++;
+      if (seq > 0) await new Promise(r => setTimeout(r, CHUNK_INTER_DELAY));
+      let texts = null;
+      const check = (out) => {
+        const bad = quality.gate(send, out, gateOpts);
+        if (bad) return bad;
+        if (mapped(us)) { texts = quality.mapOutput(us, out); if (!texts) return 'paragraphs'; }
+        return null;
+      };
+      const result = await paraphraseChunk(send, prompt + continuationNote(us), envKeys, baseOffset + seq, seq, deadline, Math.max(1, left), check);
+      if (result !== null) { okChunks++; return { out: texts ? quality.rebuild(us, texts) : result, failed: false }; }
+      // split once and retry the halves (a single long unit is re-cut by sentence first)
+      let parts = null;
+      if (depth === 0 && Date.now() < deadline - 2 * MIN_ATTEMPT_MS) {
+        if (us.length >= 2) { const mid = Math.ceil(us.length / 2); parts = [us.slice(0, mid), us.slice(mid)]; }
+        else { const h = quality.halve(us[0]); if (h) parts = [[h[0]], [h[1]]]; }
       }
-      if (rawResults[i].result === null) {
-        console.warn(`[ParaFree] ⚠️ Chunk seq=${i} (${i + 1}/${indexedChunks.length}) failed all providers — keeping original text for this chunk`);
-        rawResults[i].result = indexedChunks[i].text; // graceful: partial doc beats total failure
+      if (parts) {
+        console.log(`[ParaFree] ↔ chunk seq=${seq} failed — split in two and retried`);
+        const a = await runUnits(parts[0], 1, left), b = await runUnits(parts[1], 1, left);
+        const sep = parts[0][parts[0].length - 1].sep;
+        return { out: a.out + sep + b.out, failed: a.failed && b.failed, parts: [a, b] };
       }
+      const original = quality.chunkOriginal(us);
+      failedParts.push({ text: original, words: countWordsApprox(original) });
+      return { out: original, failed: true };
     }
 
-    // Assemble strictly in sequence order — guaranteed by the sort + verification above.
-    const assembled = rawResults.map(r => r.result).join('\n\n');
-    console.log(`[ParaFree] ✅ All ${indexedChunks.length} chunk(s) complete in ${elapsed}ms — assembled ${assembled.length} chars, seqs verified [${rawResults.map(r => r.seq).join(',')}]`);
-    return { success: true, result: assembled, usedApi: 'parallel-chunks', apiStatuses: {} };
+    const outs = [];
+    for (let i = 0; i < groups.length; i++) {
+      const r = await runUnits(groups[i], 0, groups.length - i);
+      outs.push(r.out + (i < groups.length - 1 ? groups[i][groups[i].length - 1].sep : ''));
+      if (opts.onChunk) opts.onChunk({ index: i, total: groups.length, text: r.out });
+    }
+    const elapsed = Date.now() - t0;
+    const assembled = outs.join('');
+    if (okChunks === 0 && failedParts.length) {
+      console.error(`[ParaFree] ❌ writing: no chunk could be paraphrased (${failedParts.length} part(s) failed) in ${elapsed}ms`);
+      return { success: false, error: "high_demand", apiStatuses: {} };
+    }
+    console.log(`[ParaFree] ✅ All ${groups.length} chunk(s) complete in ${elapsed}ms — assembled ${assembled.length} chars, ${failedParts.length} part(s) kept original`);
+    return { success: true, result: assembled, usedApi: 'parallel-chunks', apiStatuses: {}, failedParts };
   }
 
   // ── AI CHAT / CV EXTRACT PATH: sequential with single retry ──
@@ -1803,7 +1844,7 @@ module.exports = async function handler(req, res) {
         ? body.prompt.trim()
         : getPrompt(mode || type || "standard", language);
 
-    const { success, result, usedApi, error, apiStatuses } = await runChain(text.trim(), prompt, type);
+    const { success, result, usedApi, error, apiStatuses, failedParts } = await runChain(text.trim(), prompt, type, { mode, language });
 
     if (success) {
       return res.status(200).json({
@@ -1811,6 +1852,9 @@ module.exports = async function handler(req, res) {
         result,
         usedApi,
         apiStatuses,
+        // parts the AI could not paraphrase: their ORIGINAL text sits in result unchanged — the page marks them
+        // and offers "Retry this part" (never shown as if paraphrased)
+        failedParts: failedParts && failedParts.length ? failedParts : undefined,
         remaining: rate.remaining
       });
     }
