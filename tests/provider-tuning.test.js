@@ -133,7 +133,8 @@ const reset = (b = {}) => { behaviour = b; advance(61 * 60 * 1000); };   // expi
 const M120 = 'openai/gpt-oss-120b', M20 = 'openai/gpt-oss-20b';
 const NV_U = 'nvidia/nvidia/nemotron-3-ultra-550b-a55b', NV_L = 'nvidia/nvidia/nemotron-3.5-lightning-30b-a3b';
 const SHORT = 'This is a short paragraph that needs paraphrasing for the test suite here.';
-const LONG = Array.from({ length: 12 }, (_, i) => `Paragraph ${i} ` + 'word '.repeat(100)).join('\n\n');
+// ~3,600 words → 4 chunks of ~1,000 words (CHUNK_TARGET_WORDS), up to 3 in flight at once
+const LONG = Array.from({ length: 36 }, (_, i) => `Paragraph ${i} ` + 'word '.repeat(100)).join('\n\n');
 const SECRET_TEXT = 'Confidential thesis sentence about zebra migration patterns in 2026.';
 const T12_FAIL = Object.fromEntries([...GROQS, 'gemini', 'gemini-2'].map(k => [k, 'fail']));   // Tiers 1–2 down
 
@@ -209,16 +210,19 @@ const T12_FAIL = Object.fromEntries([...GROQS, 'gemini', 'gemini-2'].map(k => [k
   reset({ ...T12_FAIL, cloudflare: 'ok' });
   r = await call({ text: LONG, mode: 'standard' });
   const firstUltra = tm(r.rawCalls, NV_U);
-  assert('4 chunks: chunk 1 ultra capped to its share minus the safety-net reserve (~55/4 − 5 ≈ 8.75 s)', firstUltra >= 8000 && firstUltra <= 8800, String(firstUltra));
+  // 4 chunks, 3 at once: chunk 1's share = 80 s / ceil(4/3) = 40 s, minus the 5 s safety-net reserve = 35 s → the
+  // slow provider's own 25 s cap applies (the share still clips it when the budget runs short)
+  assert('4 chunks: chunk 1 ultra gets its 25 s slow-provider cap (its 40 s share − 5 s reserve is larger)', firstUltra === 25000, String(firstUltra));
   assert('4 chunks: every chunk still reaches the safety net and succeeds', r.calls.filter(n => n === 'cloudflare').length === 4 && r.payload.success, r.calls.join(','));
-  assert('no attempt longer than the 25 s slow cap or the 55 s budget', r.rawCalls.every(c => c.timeoutMs <= 25000));
-  assert('chunk share logged', r.logs.some(l => /chunk seq=0: \d+ chars, 1[34]s share/.test(l)), r.logs.filter(l => l.includes('share')).slice(0, 2).join(' | '));
+  assert('no attempt longer than the 30 s per-provider cap or the 80 s budget', r.rawCalls.every(c => c.timeoutMs <= 30000));
+  assert('chunk share logged', r.logs.some(l => /chunk seq=0: \d+ chars, (39|40)s share/.test(l)),r.logs.filter(l => l.includes('share')).slice(0, 2).join(' | '));
 
   // ── 5. A model that times out sits out 2 min ──
   console.log('\n── 5. Timeout cooldown ──');
   reset({ ...T12_FAIL, [NV_U]: 'timeout', [NV_L]: 'ok' });
   r = await call({ text: LONG, mode: 'standard' });
-  assert('ultra timed out once, then skipped for the other chunks', r.calls.filter(n => n === NV_U).length === 1 && r.calls.filter(n => n === NV_L).length === 4, r.calls.join(','));
+  // the big chunk that hit the timeout is split in two ("try big, split on failure"): 2 halves + 3 other chunks
+  assert('ultra timed out once, then skipped for the other chunks (the timed-out chunk is split: 5 pieces)', r.calls.filter(n => n === NV_U).length === 1 && r.calls.filter(n => n === NV_L).length === 5 && r.payload.success, r.calls.join(','));
   assert('"timed out — skipping it for 120s" logged', r.logs.some(l => l.includes(`${NV_U} timed out — skipping it for 120s`)), r.logs.filter(l => l.includes('⏸')).join(' | '));
   advance(121 * 1000);
   behaviour = { ...T12_FAIL, [NV_U]: 'ok' };

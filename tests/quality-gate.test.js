@@ -111,7 +111,8 @@ const sentencePara = (n) => Array.from({ length: Math.ceil(n / 12) }, (_, i) => 
   let r = await call({ text: P1744, mode: 'standard', type: 'paraphrase' });
   const groqCalls = r.calls.filter(c => c.name.startsWith('groq'));
   assert('success', r.status === 200 && r.payload.success, JSON.stringify(r.payload).slice(0, 200));
-  assert('sent as ≥4 chunks (never one 1,744-word chunk)', r.calls.length >= 4 && r.calls.every(c => c.words <= 700), r.calls.map(c => c.words).join(','));
+  // Phase 2 groups the sentence pieces into ~1,000-word chunks: never one 1,744-word chunk, every chunk ≤ 1,000 words
+  assert('never sent as one 1,744-word chunk: ≥2 chunks, each ≤ 1,000 words', r.calls.length >= 2 && r.calls.every(c => c.words <= 1000), r.calls.map(c => c.words).join(','));
   assert('complete: the answer has about as many words as the input', Math.abs(Q.countWords(r.payload.result) - 1744) < 60, Q.countWords(r.payload.result));
   assert('still ONE paragraph (pieces rejoined with spaces)', !/\n\s*\n/.test(r.payload.result));
   assert('no failed parts', !r.payload.failedParts);
@@ -143,7 +144,7 @@ const sentencePara = (n) => Array.from({ length: Math.ceil(n / 12) }, (_, i) => 
   console.log('\n── 5. Split on failure, then a clearly reported failed part ──');
   // every provider fails chunks above 300 words, succeeds on smaller ones → split in half, both halves pass
   const big = Array.from({ length: 2 }, (_, i) => `Part ${i}: ` + sentencePara(300)).join('\n\n');
-  fresh({ '*': (c) => ((textPart(c).match(/\S+/g) || []).length > 200 ? { status: 500 } : good(c)) });
+  fresh({ '*': (c) => ((textPart(c).match(/\S+/g) || []).length > 400 ? { status: 500 } : good(c)) });
   r = await call({ text: big, mode: 'standard' });
   assert('a chunk that fails at full size is split in two and both halves succeed', r.status === 200 && !r.payload.failedParts && r.logs.some(l => /split in two/.test(l)), JSON.stringify(r.payload).slice(0, 160));
   // paragraph 2 always fails everywhere → it keeps its original text AND is reported

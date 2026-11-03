@@ -138,7 +138,8 @@ async function call(body) {
 function reset(b = {}) { behaviour = b; advance(61 * 60 * 1000); } // expires cooldowns (daily = 15 min) and recent-success ordering (1 h)
 
 const SHORT = 'This is a short paragraph that needs paraphrasing for the test suite here.';
-const LONG = Array.from({ length: 12 }, (_, i) => `Paragraph ${i} ` + 'word '.repeat(100)).join('\n\n');
+// ~3,600 words → 4 chunks of ~1,000 words (CHUNK_TARGET_WORDS), up to 3 in flight at once
+const LONG = Array.from({ length: 36 }, (_, i) => `Paragraph ${i} ` + 'word '.repeat(100)).join('\n\n');
 const groqCalls = (names, model) => names.filter(n => n.startsWith('groq') && (!model || n.endsWith('/' + model)));
 
 (async () => {

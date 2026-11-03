@@ -876,6 +876,7 @@ const PHOTOS = {
   .pf-partial p { margin: 0 0 8px; }
   .pf-retry-part { margin: 0 8px 0 0; padding: 5px 14px; border-radius: 20px; border: 1px solid #d97706; background: transparent; color: inherit; cursor: pointer; font: inherit; }
   .pf-retry-part:disabled { opacity: 0.6; cursor: default; }
+  .pf-streaming { opacity: 0.6; font-style: italic; }
   .see-more-btn {
     display: inline-block;
     margin: 10px 0 0;
@@ -3777,8 +3778,8 @@ function renderDetectorResult(aiScore, humanScore, metrics) {
 // batches processed sequentially; the frontend merges results in order.
 // DOCX batches use globally-numbered <<<N>>> markers so the combined result
 // parses correctly in one pass (batch 1 = <<<1..K>>>, batch 2 = <<<K+1..M>>>).
-const BATCH_SPLIT_THRESHOLD = 1400; // split docs > 1400 words into batches
-const BATCH_TARGET_WORDS    = 1200; // each batch ≈ 1200 words → 3-4 chunks of ~350 words, no rate-limit pressure
+const BATCH_SPLIT_THRESHOLD = 3200; // split docs > 3,200 words into batches
+const BATCH_TARGET_WORDS    = 3000; // each batch ≈ 3,000 words (~20 KB, far below the 4.5 MB body limit) → ≤3–4 server chunks of ~1,000 words
 
 function buildFrontendBatches(apiText, bps) {
   if (bps && bps.length > 0) {
@@ -3823,7 +3824,8 @@ function buildFrontendBatches(apiText, bps) {
 // protectCtx (optional): { skipMarkers: Set<number> } in, { keepOriginal: Set<number> } out.
 // Paraphrase/humanize/grammar requests go through PFProtect (lib/protect.js): links and
 // citations are masked as ⟦L#⟧ and restored, reference entries are never sent.
-async function runAPIChain(text, prompt, mode, language, toolType, protectCtx) {
+// onPartial(textSoFar) (optional): called while the answer streams in, with the finished parts so far, in order.
+async function runAPIChain(text, prompt, mode, language, toolType, protectCtx, onPartial) {
   showStatus("Processing...", "info");
   const _tool = toolType || currentTool;
   const _guard = (typeof PFProtect !== 'undefined' && PFProtect.TOOLS.has(_tool))
@@ -3855,11 +3857,41 @@ async function runAPIChain(text, prompt, mode, language, toolType, protectCtx) {
       body: JSON.stringify({
         text: _guard ? _guard.sendText : text,
         prompt: _guard ? _guard.prompt : prompt,
-        mode, language, type: _tool
+        mode, language, type: _tool, stream: true
       })
     });
     let data;
-    try { data = await res.json(); }
+    const _ct = (res.headers && res.headers.get && res.headers.get('content-type')) || '';
+    try {
+      if (/ndjson/.test(_ct) && res.body && res.body.getReader) {
+        // streamed answer: one JSON line per finished part (in order), then {type:"done", …}
+        const reader = res.body.getReader(), dec = new TextDecoder();
+        let buf = '', soFar = '';
+        const showSoFar = () => {
+          if (!onPartial) return;
+          let t = soFar;
+          if (_guard && _guard.changed) { try { t = _guard.restore(soFar) || soFar; } catch (_) { t = soFar.replace(/⟦L\d+⟧/g, '…'); } }
+          try { onPartial(t); } catch (_) {}
+        };
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (value) buf += dec.decode(value, { stream: true });
+          let nl;
+          while ((nl = buf.indexOf('\n')) >= 0) {
+            const lineText = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
+            if (!lineText) continue;
+            const msg = JSON.parse(lineText);
+            if (msg.type === 'chunk') { soFar += msg.text + (msg.sep || ''); showSoFar(); }
+            else if (msg.type === 'done') data = msg;
+          }
+          if (done) break;
+        }
+        if (!data) throw new Error('stream ended early');
+        if (!data.success && data.status) Object.defineProperty(res, 'status', { value: data.status });
+      } else {
+        data = await res.json();
+      }
+    }
     catch (_) { _pfLastApiError = res.status === 504 ? 'timeout' : 'bad_response'; showStatus("The server sent an unexpected answer. Please try again.", "error"); return null; }
     if (res.status === 429) {
       _pfLastApiError = 'rate_limited';
@@ -4097,7 +4129,9 @@ async function humanize() {
   // Reference section (if any) is never sent — re-attached unchanged after the result.
   const _refSplit = typeof PFProtect !== 'undefined' ? PFProtect.splitReferences(text) : { body: text, gap: '', tail: '' };
   let result = _refSplit.body.trim()
-    ? await runAPIChain(_refSplit.body, prompt, currentHMode, getLang(), 'humanize')
+    ? await runAPIChain(_refSplit.body, prompt, currentHMode, getLang(), 'humanize', undefined, (soFar) => {
+        document.getElementById("outputText").innerHTML = '<span>' + escapeHtml(cleanMarkdown(soFar)) + '</span><span class="pf-streaming"> … writing the rest</span>';
+      })
     : ' ';
 
   isLoading = false;
@@ -4903,7 +4937,12 @@ async function paraphrase() {
     if (_isLongDoc) {
       _showBatchProgress(_bi);
     }
-    const _batchResult = await runAPIChain(_batches[_bi].text, apiPrompt, currentMode, getLang(), 'paraphrase', _protectCtx);
+    // Plain text: show each finished part as it streams in (DOCX is rebuilt only once everything has arrived)
+    const _preview = docxParaCount > 0 ? null : (soFar) => {
+      document.getElementById("outputText").innerHTML = '<span>' + escapeHtml(processParaphraseOutput(combinedResult + (combinedResult ? '\n\n' : '') + soFar)) +
+        '</span><span class="pf-streaming"> … writing the rest</span>';
+    };
+    const _batchResult = await runAPIChain(_batches[_bi].text, apiPrompt, currentMode, getLang(), 'paraphrase', _protectCtx, _preview);
     console.log(`[paraphrase] batch ${_bi + 1}/${_batches.length} result chars:`, _batchResult ? _batchResult.length : 'null');
     if (!_batchResult) {
       setLoading(false);
