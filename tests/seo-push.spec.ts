@@ -269,6 +269,12 @@ test.describe('structured data, titles, previews, freshness', () => {
       'best-free-paraphrasing-tool.html': 'Best Free Paraphrasing Tools 2026 — 7 Tools Compared | ParaFree',
       'quillbot-alternative.html': 'Free Quillbot Alternative — No Word Limit | ParaFree',
       'code.html': 'ParaFree AI — Free AI Chat &amp; Assistant, No Signup — Code, Research, Study',   // feat/seo-expansion: the terms people search for
+      // feat/seo-push phase 1: retitled for the queries Search Console shows they already rank for (5–30)
+      'ai-rephraser.html': 'AI Rephraser Free — Rephrase Sentences and Paragraphs',
+      'paraphrase-powerpoint.html': 'Paraphrase PowerPoint Free — Rewrite Slides, Keep Design',
+      'paraphrase-pdf.html': 'Paraphrase PDF Online Free — Upload a PDF, Get a Rewrite',
+      'paraphrasing-tool-no-word-limit.html': 'Paraphrasing Tool With No Word Limit — Free, No Signup',
+      'free-cv-builder-uk.html': 'Free CV Builder UK — Make a UK CV Online, Download PDF',
     };
     const titles = new Map<string, string>(), descs = new Map<string, string>();
     for (const f of htmlPages()) {
