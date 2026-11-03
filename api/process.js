@@ -1252,7 +1252,7 @@ async function adminDashboard() {
     else if (kind === 'gate') add(out.gateRejections, rest, n);
     else if (kind === 'cool') { const k2 = rest.split('|')[0], entry = rest.slice(k2.length + 1); if (out.cooldownsByType[k2]) add(out.cooldownsByType[k2], entry, n); }
   }
-  try { out.gateway = await studypack.gatewayStatus(process.env, redis); } catch (_) {}
+  try { out.gateway = await studypack.gatewayStatus(process.env, redis); } catch (_) {}   // AI Gateway spend, rolling 30 days
   return out;
 }
 // Quality-gate rejections and cut-offs per reason, per UTC day (admin dashboard) — counts only
@@ -1975,7 +1975,7 @@ async function handler(req, res) {
     // Study Pack (studypack.html): the prompt is built server-side from {text, mode, inputType}
     if (body && typeof body.type === "string" && body.type.startsWith("studypack")) {
       const r = await studypack.handle(body, {
-        env: process.env, redis, ip,
+        env: process.env, redis, ip, req,   // req: the x-vercel-oidc-token header for the AI Gateway route
         rateLimit: (t) => {
           const rate = checkRateLimit(ip, t);
           return { allowed: rate.allowed, message: rate.allowed ? "" : "Too many requests — please wait a little and try again." };
