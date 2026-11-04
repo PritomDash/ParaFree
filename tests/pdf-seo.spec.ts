@@ -166,7 +166,10 @@ test.describe('PDF tool landing pages', () => {
       // FAQ JSON-LD = the visible FAQ; WebApplication free; BreadcrumbList; no aggregateRating
       const ld = ldBlocks(read(`${slug}.html`)).map((b) => JSON.parse(b));
       const types = ld.map((x) => x['@type']);
-      expect(types.sort()).toEqual(['BreadcrumbList', 'FAQPage', 'WebApplication']);
+      // feat/seo-push: + HowTo, built from the page's own visible "How to use it" steps
+      expect(types.sort()).toEqual(['BreadcrumbList', 'FAQPage', 'HowTo', 'WebApplication']);
+      const howTo = ld.find((x) => x['@type'] === 'HowTo').step.map((st: any) => st.text);
+      expect((await page.locator('.pf-howto .pf-steps li').allInnerTexts()).map((t) => t.replace(/\s+/g, ' ').trim())).toEqual(howTo);
       const app = ld.find((x) => x['@type'] === 'WebApplication');
       expect(app.offers.price).toBe('0');
       expect(JSON.stringify(ld)).not.toContain('aggregateRating');
@@ -341,7 +344,8 @@ test.describe('site-wide SEO', () => {
       'cv-templates.html', 'free-cv-builder-australia.html', 'free-cv-builder-canada.html', 'free-cv-builder-international-students.html', 'free-cv-builder-uk.html', 'free-cv-builder-usa.html'];
     // fix/competitor-claims reworded this page's title and H1 on purpose (no "paywalls exposed" claims about other builders)
     // fix/consistency-polish: cv-templates' H1 states the real template count (54, was "18")
-    const RENAMED = ['best-free-cv-builder.html', 'cv-templates.html'];
+    // feat/seo-push: free-cv-builder-uk retitled for the UK queries it ranks for (H1 unchanged)
+    const RENAMED = ['best-free-cv-builder.html', 'cv-templates.html', 'free-cv-builder-uk.html'];
     for (const f of [...CV, 'cv-builder.html'].filter((x) => !RENAMED.includes(x))) {
       const now = read(f), before = execSync(`git show main:${f}`, { cwd: ROOT, maxBuffer: 64 << 20 }).toString();
       const pick = (s: string) => [(s.match(/<title>[\s\S]*?<\/title>/) || [])[0], (s.match(/<h1[\s\S]*?<\/h1>/) || [])[0]];
@@ -350,6 +354,8 @@ test.describe('site-wide SEO', () => {
     expect(read('best-free-cv-builder.html')).toContain('<title>Best Free CV Builders 2026 — 7 Tools Compared | ParaFree</title>');
     expect(read('best-free-cv-builder.html')).toContain('<h1>Best Free CV Builders 2026: 7 Popular Tools Compared</h1>');
     expect(read('cv-templates.html')).toContain('<h1>54 Free Professional CV Templates</h1>');
+    expect(read('free-cv-builder-uk.html')).toContain('<title>Free CV Builder UK — Make a UK CV Online, Download PDF</title>');
+    expect(read('free-cv-builder-uk.html')).toContain('<h1>Free CV Builder for the United Kingdom</h1>');
     for (const f of CV) {
       const s = read(f);
       const block = s.split('class="pf-cv-facts"')[1].split('</section>')[0];

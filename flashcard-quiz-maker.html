@@ -69,7 +69,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <meta name="theme-color" content="#2d6a4f">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" onload="this.onload=null;this.rel='stylesheet'"><noscript><link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"></noscript>
 <link rel="stylesheet" href="/pdf-tools.css">
 <style>
 .sp-wrap{max-width:1100px;margin:0 auto 24px;padding:0 16px;font-family:'DM Sans',sans-serif;color:var(--text)}
@@ -221,7 +221,7 @@ html.pf-embed .sp-wrap{max-width:none!important;margin:0!important;padding:4px 0
 </div>
 <nav id="mainNav">
   <a href="/" style="display:flex;align-items:center;text-decoration:none;">
-    <img src="/logo-dark.svg" alt="ParaFree" height="34" style="height:34px;width:auto;" id="navLogo">
+    <img src="/logo-dark.svg" alt="ParaFree" width="142" height="34" style="height:34px;width:auto;" id="navLogo">
   </a>
   <div id="homeNavLinks">
     <a href="/" class="nav-link">Paraphraser</a>
@@ -373,7 +373,7 @@ html.pf-embed .sp-wrap{max-width:none!important;margin:0!important;padding:4px 0
     <a href="/terms.html">Terms</a>
     <a href="https://ko-fi.com/parafree" target="_blank" rel="noopener" onclick="if(typeof gtag==='function')gtag('event','donate_click',{placement:'footer'})">☕ Support ParaFree</a>
   </div>
-  <div class="pf-footer-brand"><img src="/favicon.svg" alt="ParaFree" height="20" style="height:20px;width:auto;"><span>ParaFree</span></div>
+  <div class="pf-footer-brand"><img src="/favicon.svg" alt="ParaFree" width="20" height="20" loading="lazy" style="height:20px;width:auto;"><span>ParaFree</span></div>
   <p>© 2026 ParaFree · Free AI Writing Suite · No limits, no signup, always free</p>
 </footer>
 
