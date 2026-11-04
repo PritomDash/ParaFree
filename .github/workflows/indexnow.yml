@@ -1,0 +1,26 @@
+# IndexNow on every production deploy: tells Bing (which also feeds ChatGPT search), Yandex, Seznam and Naver which
+# pages changed, so they re-crawl them now instead of on their own schedule. Runs AFTER Vercel reports the production
+# deployment as live (IndexNow fetches the key file https://parafree.app/<key>.txt to verify the site).
+# No secrets needed: the key is public by design (it is the file at the site root).
+name: IndexNow ping
+
+on:
+  deployment_status:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    if: github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'Production'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.deployment.sha }}
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Ping IndexNow with the pages this deploy changed
+        run: node scripts/indexnow.js --changed "${{ github.event.deployment.sha }}~1" "${{ github.event.deployment.sha }}"

@@ -144,6 +144,45 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/pdf-tools.css">
 <link rel="preload" as="script" href="/lib/pdf-tools/compress-pdf.js?v=8896d013b7">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "How to use Compress a PDF to 100 KB",
+  "totalTime": "PT2M",
+  "estimatedCost": {
+    "@type": "MonetaryAmount",
+    "currency": "USD",
+    "value": "0"
+  },
+  "step": [
+    {
+      "@type": "HowToStep",
+      "position": 1,
+      "name": "Choose your PDF ",
+      "text": "Choose your PDF — the target is already set to 100 KB."
+    },
+    {
+      "@type": "HowToStep",
+      "position": 2,
+      "name": "Click “Compress PDF”",
+      "text": "Click “Compress PDF”."
+    },
+    {
+      "@type": "HowToStep",
+      "position": 3,
+      "name": "Read the result",
+      "text": "Read the result: it says whether the file is under 100 KB and how it got there."
+    },
+    {
+      "@type": "HowToStep",
+      "position": 4,
+      "name": "Download it, or follow the tips below if 100 KB was out of reach",
+      "text": "Download it, or follow the tips below if 100 KB was out of reach."
+    }
+  ]
+}
+</script>
 </head>
 <body data-pf-tool="compress-pdf" data-pf-preset='{&quot;input[name=pf-compress-mode][value=target]&quot;: true, &quot;[data-role=target]&quot;: &quot;100000&quot;}'>
 
@@ -201,6 +240,10 @@
   <section class="pf-section pf-howto">
     <h2>How to use it</h2>
     <ol class="pf-steps"><li>Choose your PDF — the target is already set to 100 KB.</li><li>Click “Compress PDF”.</li><li>Read the result: it says whether the file is under 100 KB and how it got there.</li><li>Download it, or follow the tips below if 100 KB was out of reach.</li></ol>
+  </section>
+  <section class="pf-section pf-qa">
+    <h2 id="under-100kb">How do I make a PDF smaller than 100 KB?</h2>
+    <p class="pf-answer">Choose your PDF on this page — the target is already set to 100 KB. ParaFree tries Light compression first, then Strong (pages become images) at the highest quality under 100 KB, down to about 72 DPI. A short scanned form usually fits; a long colour scan may not, and then the page tells you and offers the smallest file instead. Free, in your browser.</p>
   </section>
   <section class="pf-section">
     <h2>Quick facts</h2>

@@ -73,6 +73,26 @@ footer p{margin:0;font-size:13px;color:#999;}
 @media(max-width:600px){.blog-grid{grid-template-columns:1fr;}}
 </style>
 <style>/* donate link: hide desktop nav entry where the nav gets crowded (still in mobile menu + footer) */@media (max-width:1023px){nav .donate-nav{display:none !important}}</style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://parafree.app/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Blog",
+      "item": "https://parafree.app/blog.html"
+    }
+  ]
+}
+</script>
 </head>
 <body>
 <div id="mobileMenu" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9998;" onclick="if(event.target===this)toggleMenu()">
@@ -111,6 +131,7 @@ footer p{margin:0;font-size:13px;color:#999;}
 
 <div class="container">
   <div class="page-header">
+    <nav class="pf-crumbs" aria-label="Breadcrumb" style="font-size:13px;opacity:.78;margin:0 0 12px;"><a href="/" style="color:inherit;">Home</a> <span aria-hidden="true">›</span> <span aria-current="page">Blog</span></nav>
     <h1>Blog</h1>
     <p>Writing guides, tool insights, and building notes from Pritom Dash &mdash; the creator of ParaFree.</p>
   </div>
