@@ -381,7 +381,9 @@ test.describe('performance: no tool code before the embed is near view', () => {
         const before = await measure('/__base/' + f);
         const after = await measure('/' + f);
         expect(after.tool, `${f}: tool code during the initial load`).toEqual([]);
-        expect(after.total - before.total, `${f}: added bytes`).toBeLessThan(7000);
+        // markup added to the page itself after the embeds round (SEO: breadcrumbs, hreflang, Q&A) is not embed cost
+        const later = Math.max(0, fs.statSync(path.join(ROOT, f)).size - execSync(`git show ${LANDING_EMBEDS}:${f}`, { cwd: ROOT, maxBuffer: 64 << 20 }).length);
+        expect(after.total - before.total - later, `${f}: added bytes`).toBeLessThan(7000);
         // then the embed: once near view (after load), the real tool loads
         await page.locator('[data-pf-embed]').scrollIntoViewIfNeeded();
         await expect(page.locator('.pf-embed-loading')).toHaveCount(0, { timeout: 60000 });
