@@ -73,7 +73,7 @@ const FUNCS = [
   'summarize', 'checkGrammar', 'renderGrammarOutput', 'humanize', 'paraphrase', 'detectAI',
   'calculateAIScore', 'calculateMetrics', 'handleFileUpload', 'downloadOutput',
   'buildFrontendBatches', 'processParaphraseOutput', 'parseStructuredOutput', 'countWords', 'cleanMarkdown',
-  'escapeHtml', 'stripMarkdown',
+  'escapeHtml', 'stripMarkdown', 'pfAfterRun', 'pfMark',
 ];
 
 // ── Mocked /api/process ──
@@ -236,7 +236,7 @@ const words = (n, w = 'word') => Array.from({ length: n }, (_, i) => w + i).join
   }
 
   console.log('\n── 3. tool_error with error_type ──');
-  for (const [mode, type] of [['busy', 'all_busy'], ['timeout', 'timeout'], ['server', 'other'], ['ratelimit', 'other'], ['network', 'other']]) {
+  for (const [mode, type] of [['busy', 'all_busy'], ['timeout', 'timeout'], ['server', 'server_error'], ['ratelimit', 'rate_limited'], ['network', 'network']]) {
     for (const [tool, cur, call] of [['paraphrase', 'paraphrase', 'paraphrase'], ['summarize', 'summarize', 'summarize'],
                                      ['grammar', 'grammar', 'checkGrammar'], ['humanize', 'humanize', 'humanize']]) {
       const ctx = makeSandbox(mode);

@@ -26,6 +26,9 @@ const KEYS = {
 };
 for (const k of Object.keys(process.env)) if (/_KEY|_KEY_\d|^CF_ACCOUNT$|^UPSTASH|^KV_|_MODEL$/.test(k)) delete process.env[k];
 Object.assign(process.env, KEYS);
+// These tests check the chain ORDER, so they let a chunk walk the whole chain; the default cap of 3 providers per
+// chunk is covered in tests/pacer.test.js.
+process.env.PF_MAX_PROVIDERS = '99';
 
 // ── Chain vocabulary ──
 const M120 = 'openai/gpt-oss-120b', M20 = 'openai/gpt-oss-20b', LLAMA = 'llama-3.3-70b-versatile';
@@ -68,8 +71,8 @@ function providerOf(url, opts, body) {
 }
 const DISABLED_HOST_NAMES = ['openrouter', 'mistral', 'sambanova', 'deepseek', 'scaleway', 'huggingface', 'chutes'];
 
-function okBody(name) {
-  const text = `[${name}] ${'paraphrased output text '.repeat(3)}`;
+function okBody(name, body) {
+  const text = fakeAnswer(contentOf(body), name);
   if (name.startsWith('gemini/')) return { candidates: [{ content: { parts: [{ text }] } }] };
   if (name === 'cloudflare') return { success: true, result: { response: text } };
   return { choices: [{ message: { content: text }, finish_reason: 'stop' }] };
@@ -96,7 +99,7 @@ global.fetch = async (url, opts) => {
   if (!name) throw new Error('UNMOCKED URL — refusing live call: ' + url);
   calls.push({ name, body, timeoutMs: lastTimeoutMs });
   const b = behaviour[name] || behaviour[keyOf(name)] || 'fail';
-  if (b === 'ok') return respond(200, okBody(name));
+  if (b === 'ok') return respond(200, okBody(name, body));
   if (typeof b === 'object') return respond(b.status, b.body);
   // Real-world message shapes (Groq): per-minute TPM vs daily RPD
   if (b === 'quota') return respond(429, { error: { message: 'Rate limit reached for model on tokens per minute (TPM): Limit 8000, Used 7990' } });
@@ -119,6 +122,7 @@ function quiet() {
 }
 function loud() { console.log = realLog; console.warn = realWarn; console.error = realErr; }
 
+const { fakeAnswer, contentOf } = require('./_fake-answer');
 const handler = require('../api/process.js');
 
 let ipSeq = 0;
@@ -134,10 +138,13 @@ async function call(body) {
   try { await handler(req, res); } finally { loud(); }
   return { status, payload, calls: calls.map(c => c.name), rawCalls: calls.slice(), logs: logs.slice(), rawLogs: rawLogs.slice() };
 }
-function reset(b = {}) { behaviour = b; advance(61 * 60 * 1000); } // expires cooldowns (daily = 15 min) and recent-success ordering (1 h)
+// expires cooldowns and recent-success ordering (1 h); daily cooldowns now last until the provider's reset, so the
+// shared pacer is cleared too (each case starts with no cooldowns)
+function reset(b = {}) { behaviour = b; advance(61 * 60 * 1000); handler._pacer._reset(); }
 
 const SHORT = 'This is a short paragraph that needs paraphrasing for the test suite here.';
-const LONG = Array.from({ length: 12 }, (_, i) => `Paragraph ${i} ` + 'word '.repeat(100)).join('\n\n');
+// ~3,600 words → 4 chunks of ~1,000 words (CHUNK_TARGET_WORDS), up to 3 in flight at once
+const LONG = Array.from({ length: 36 }, (_, i) => `Paragraph ${i} ` + 'word '.repeat(100)).join('\n\n');
 const groqCalls = (names, model) => names.filter(n => n.startsWith('groq') && (!model || n.endsWith('/' + model)));
 
 (async () => {
@@ -186,44 +193,47 @@ const groqCalls = (names, model) => names.filter(n => n.startsWith('groq') && (!
   r = await call({ text: SHORT, type: 'code_assistant' });
   assert('chat path logs key+model', r.logs.some(l => l.includes(`AI request handled by groq-2/${M120}`)));
 
-  // ── 4a. Per-minute rate limit → 60 s cooldown, per key+model ──
-  console.log('\n── 4a. Per-minute 429 → 60s cooldown (per key+model) ──');
+  // ── 4a. Per-minute rate limit → retry-after (or 20 s) + 0–3 s jitter, per key+model, shared (api/_pacer.js) ──
+  console.log('\n── 4a. Per-minute 429 → 20 s (+ jitter) cooldown (per key+model) ──');
   reset({ ...Object.fromEntries(GROQS.map(k => [`${k}/${M120}`, 'quota'])), gemini: 'ok' });
   let cooldownStart = Date.now();
   r = await call({ text: LONG, mode: 'standard' });
   assert('each 120b entry called once across 4 chunks', groqCalls(r.calls, M120).length === 3, r.calls.join(','));
   assert('then Tier 1 gemini handles every chunk (no Tier 2 needed)', r.calls.filter(n => n === G1).length === 4 && groqCalls(r.calls, M20).length === 0, r.calls.join(','));
-  assert('60s cooldown logged per key+model', r.logs.some(l => /groq(-[23])?\/openai\/gpt-oss-120b rate-limited — skipping it for 60s/.test(l)));
+  assert('20–23 s cooldown logged per key+model (no retry-after → 20 s + jitter)', r.logs.some(l => /groq(-[23])?\/openai\/gpt-oss-120b rate-limited — skipping it for 2[0-3]s/.test(l)), r.logs.filter(l => l.includes('⏸')).slice(0, 2).join(' | '));
   r = await call({ text: SHORT, mode: 'standard' });
   assert('next request skips the cooled 120b entries', r.calls.join(',') === G1, r.calls.join(','));
   r = await call({ text: SHORT, type: 'code_assistant' });
   assert('cooldown applies to chat path too', r.calls.join(',') === G1, r.calls.join(','));
-  advance(59 * 1000 - (Date.now() - cooldownStart));
+  advance(19 * 1000 - (Date.now() - cooldownStart));
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('still cooling at 0:59', groqCalls(r.calls).length === 0, r.calls.join(','));
-  advance(2 * 1000);
+  assert('still cooling at 0:19', groqCalls(r.calls).length === 0, r.calls.join(','));
+  advance(6 * 1000);
   behaviour = { groq: 'ok', 'groq-2': 'ok', 'groq-3': 'ok' };
   r = await call({ text: SHORT, mode: 'standard' });
   // gemini/G1 succeeded most recently in Tier 1, so it is tried first ("last known good"); it
-  // fails here and the 120b entry — out of cooldown again — handles the request.
-  assert('120b tried again after 60s', r.calls[r.calls.length - 1].endsWith('/' + M120) && r.payload.success && r.calls.every(n => n === G1 || n.endsWith('/' + M120)), r.calls.join(','));
+  // fails here and a 120b entry — out of cooldown again (its one probe) — handles the request.
+  assert('120b tried again after the cooldown', r.calls[r.calls.length - 1].endsWith('/' + M120) && r.payload.success && r.calls.every(n => n === G1 || n.endsWith('/' + M120)), r.calls.join(','));
 
-  // ── 4b. Daily quota → 15 min cooldown ──
-  console.log('\n── 4b. Daily quota → 15 min cooldown ──');
+  // ── 4b. Daily quota → cooled until that provider's daily reset (not a fixed 15 min) ──
+  console.log('\n── 4b. Daily quota → until the daily reset ──');
   reset({ groq: 'daily', 'groq-2': 'daily', 'groq-3': 'daily', gemini: 'ok' });
   cooldownStart = Date.now();
+  const toUtcMidnight = Math.ceil((86400000 - (Date.now() % 86400000)) / 1000);
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('900s (15 min) cooldown logged', r.logs.some(l => /groq.* daily quota — skipping it for 900s/.test(l)));
-  advance(121 * 1000 - (Date.now() - cooldownStart));                      // 2:01 — past the OLD 2-min cooldown
-  r = await call({ text: SHORT, mode: 'standard' });
-  assert('still cooling at 2:01 (the old 2-min cooldown would have expired)', groqCalls(r.calls).length === 0, r.calls.join(','));
+  const dl = r.logs.find(l => /groq.* daily quota \(until its reset\) — skipping it for \d+s/.test(l));
+  const dsecs = dl ? Number(dl.match(/for (\d+)s/)[1]) : -1;
+  assert('Groq per-day 429 (no reset header) → cooled until the next UTC midnight (+ ≤60 s jitter)', dsecs >= toUtcMidnight - 2 && dsecs <= toUtcMidnight + 61, `${dsecs}s vs ${toUtcMidnight}s`);
   advance(899 * 1000 - (Date.now() - cooldownStart));                      // 14:59
   r = await call({ text: SHORT, mode: 'standard' });
   assert('still cooling at 14:59', groqCalls(r.calls).length === 0, r.calls.join(','));
-  advance(2 * 1000);
+  advance(16 * 60 * 1000);                                                  // 30:59 — past the OLD 15-min cooldown
+  r = await call({ text: SHORT, mode: 'standard' });
+  assert('still cooling after the old 15-min cooldown (no wasted retries every 15 min)', groqCalls(r.calls).length === 0 || (Date.now() - cooldownStart) / 1000 > toUtcMidnight, r.calls.join(','));
+  advance((toUtcMidnight + 62) * 1000 - (Date.now() - cooldownStart));    // just past the reset
   behaviour = { groq: 'ok', 'groq-2': 'ok', 'groq-3': 'ok' };
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('Groq tried again after 15 min', r.calls[r.calls.length - 1].startsWith('groq') && r.payload.success && r.calls.every(n => n === G1 || n.startsWith('groq')), r.calls.join(','));
+  assert('Groq tried again after its daily reset', r.calls[r.calls.length - 1].startsWith('groq') && r.payload.success && r.calls.every(n => n === G1 || n.startsWith('groq')), r.calls.join(','));
 
   reset({
     [G1]:       { status: 429, body: { error: { status: 'RESOURCE_EXHAUSTED', message: 'Quota exceeded for metric: generate_requests_per_model_per_day (GenerateRequestsPerDayPerProjectPerModel)' } } },
@@ -231,9 +241,13 @@ const groqCalls = (names, model) => names.filter(n => n.startsWith('groq') && (!
     ovhcloud:   { status: 429, body: { error: 'Too Many Requests' } },
   });
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('Gemini per-day quota → 900s', r.logs.some(l => l.includes(`${G1} daily quota — skipping it for 900s`)));
-  assert('Cloudflare daily allocation → 900s', r.logs.some(l => /cloudflare daily quota — skipping it for 900s/.test(l)));
-  assert('plain 429 → 60s', r.logs.some(l => /ovhcloud rate-limited — skipping it for 60s/.test(l)));
+  const secsOf = (re) => { const l = r.logs.find(x => re.test(x)); return l ? Number(l.match(/for (\d+)s/)[1]) : -1; };
+  const ptReset = Math.ceil((handler._pacer.resetAt('gemini/x', Date.now()) - Date.now()) / 1000);
+  const gs = secsOf(new RegExp(G1.replace(/[/.]/g, '\\$&') + ' daily quota \\(until its reset\\)'));
+  assert('Gemini per-day quota → until midnight Pacific (+ ≤60 s jitter)', gs >= ptReset - 2 && gs <= ptReset + 61, `${gs}s vs ${ptReset}s`);
+  const cs = secsOf(/cloudflare daily quota \(until its reset\)/), utc = Math.ceil((86400000 - (Date.now() % 86400000)) / 1000);
+  assert('Cloudflare daily allocation → until 00:00 UTC', cs >= utc - 2 && cs <= utc + 61, `${cs}s vs ${utc}s`);
+  assert('plain 429 (no retry-after) → 20–23 s', /^2[0-3]$/.test(String(secsOf(/ovhcloud rate-limited/))), String(secsOf(/ovhcloud rate-limited/)));
 
   // ── 4c. Every entry cooling → try the one whose cooldown ends soonest ──
   console.log('\n── 4c. All cooling → soonest-expiring entry tried ──');
@@ -293,7 +307,11 @@ const groqCalls = (names, model) => names.filter(n => n.startsWith('groq') && (!
   assert('writing: llama sends no reasoning_effort', GROQS.every(k => !('reasoning_effort' in bodyOf(`${k}/${LLAMA}`))), JSON.stringify(bodyOf(`groq/${LLAMA}`)));
   reset({});
   r = await call({ text: SHORT, type: 'code_assistant' });
-  assert('chat: Groq calls unchanged (never sent reasoning_effort)', r.rawCalls.filter(c => c.name.startsWith('groq')).every(c => !('reasoning_effort' in c.body)));
+  // Phase 4: hidden reasoning off on every path — chat/CV gpt-oss calls send "low" too; other models never get the field
+  const chatGroq = r.rawCalls.filter(c => c.name.startsWith('groq'));
+  assert('chat: gpt-oss calls send reasoning_effort "low"; llama/qwen never get the field',
+    chatGroq.some(c => /gpt-oss/.test(c.body.model)) && chatGroq.every(c => (/gpt-oss/.test(c.body.model) ? c.body.reasoning_effort === 'low' : !('reasoning_effort' in c.body))),
+    JSON.stringify(chatGroq.map(c => [c.body.model, c.body.reasoning_effort])));
   assert('chat: llama entries present', groqCalls(r.calls, LLAMA).length >= 3);
 
   // ── 8. Gemini key: three models, three quotas ──

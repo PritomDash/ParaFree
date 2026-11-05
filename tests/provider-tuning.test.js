@@ -30,6 +30,9 @@ const KEYS = {
 };
 for (const k of Object.keys(process.env)) if (/_KEY|_KEY_\d|^CF_ACCOUNT$|^UPSTASH|^KV_|_MODEL$|_PREFS$|^MODEL_BLOCKLIST$|^FALLBACK_ORDER$|_PIN$/.test(k)) delete process.env[k];
 Object.assign(process.env, KEYS);
+// These tests check the chain ORDER, so they let a chunk walk the whole chain; the default cap of 3 providers per
+// chunk is covered in tests/pacer.test.js.
+process.env.PF_MAX_PROVIDERS = '99';
 
 // ── Clock ──
 const realNow = Date.now;
@@ -96,7 +99,7 @@ global.fetch = async (url, opts = {}) => {
   if (!name) throw new Error('UNMOCKED URL — refusing live call: ' + url);
   calls.push({ name, timeoutMs: lastTimeoutMs, body });
   const b = behaviour[name] || behaviour[name.split('/')[0]] || 'fail';
-  const text = `[${name}] paraphrased output text paraphrased output text`;
+  const text = fakeAnswer(contentOf(body), name);
   if (b === 'ok') {
     if (name.startsWith('gemini')) return respond(200, { candidates: [{ content: { parts: [{ text }] } }] });
     if (name === 'cloudflare') return respond(200, { success: true, result: { response: text } });
@@ -114,6 +117,7 @@ const realLog = console.log, realWarn = console.warn, realErr = console.error;
 function quiet() { const cap = (...a) => logs.push(a.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); console.log = cap; console.warn = cap; console.error = cap; }
 function loud() { console.log = realLog; console.warn = realWarn; console.error = realErr; }
 quiet();
+const { fakeAnswer, contentOf } = require('./_fake-answer');
 const handler = require('../api/process.js');
 loud();
 let ipSeq = 0;
@@ -127,12 +131,14 @@ async function call(body) {
   try { await handler(req, res); await new Promise(r => realSetTimeout(r, 20)); } finally { loud(); }
   return { status, payload, calls: calls.map(c => c.name), rawCalls: calls.slice(), listCalls: listCalls.slice(), logs: logs.slice(logStart) };
 }
-const reset = (b = {}) => { behaviour = b; advance(61 * 60 * 1000); };   // expires cooldowns + recent-success ordering
+// expires cooldowns + recent-success ordering; daily cooldowns last until the provider's reset → clear the pacer too
+const reset = (b = {}) => { behaviour = b; advance(61 * 60 * 1000); handler._pacer._reset(); };
 
 const M120 = 'openai/gpt-oss-120b', M20 = 'openai/gpt-oss-20b';
 const NV_U = 'nvidia/nvidia/nemotron-3-ultra-550b-a55b', NV_L = 'nvidia/nvidia/nemotron-3.5-lightning-30b-a3b';
 const SHORT = 'This is a short paragraph that needs paraphrasing for the test suite here.';
-const LONG = Array.from({ length: 12 }, (_, i) => `Paragraph ${i} ` + 'word '.repeat(100)).join('\n\n');
+// ~3,600 words → 4 chunks of ~1,000 words (CHUNK_TARGET_WORDS), up to 3 in flight at once
+const LONG = Array.from({ length: 36 }, (_, i) => `Paragraph ${i} ` + 'word '.repeat(100)).join('\n\n');
 const SECRET_TEXT = 'Confidential thesis sentence about zebra migration patterns in 2026.';
 const T12_FAIL = Object.fromEntries([...GROQS, 'gemini', 'gemini-2'].map(k => [k, 'fail']));   // Tiers 1–2 down
 
@@ -208,16 +214,19 @@ const T12_FAIL = Object.fromEntries([...GROQS, 'gemini', 'gemini-2'].map(k => [k
   reset({ ...T12_FAIL, cloudflare: 'ok' });
   r = await call({ text: LONG, mode: 'standard' });
   const firstUltra = tm(r.rawCalls, NV_U);
-  assert('4 chunks: chunk 1 ultra capped to its share minus the safety-net reserve (~55/4 − 5 ≈ 8.75 s)', firstUltra >= 8000 && firstUltra <= 8800, String(firstUltra));
+  // 4 chunks, 3 at once: chunk 1's share = 80 s / ceil(4/3) = 40 s, minus the 5 s safety-net reserve = 35 s → the
+  // slow provider's own 25 s cap applies (the share still clips it when the budget runs short)
+  assert('4 chunks: chunk 1 ultra gets its 25 s slow-provider cap (its 40 s share − 5 s reserve is larger)', firstUltra === 25000, String(firstUltra));
   assert('4 chunks: every chunk still reaches the safety net and succeeds', r.calls.filter(n => n === 'cloudflare').length === 4 && r.payload.success, r.calls.join(','));
-  assert('no attempt longer than the 25 s slow cap or the 55 s budget', r.rawCalls.every(c => c.timeoutMs <= 25000));
-  assert('chunk share logged', r.logs.some(l => /chunk seq=0: \d+ chars, 1[34]s share/.test(l)), r.logs.filter(l => l.includes('share')).slice(0, 2).join(' | '));
+  assert('no attempt longer than the 30 s per-provider cap or the 80 s budget', r.rawCalls.every(c => c.timeoutMs <= 30000));
+  assert('chunk share logged', r.logs.some(l => /chunk seq=0: \d+ chars, (39|40)s share/.test(l)),r.logs.filter(l => l.includes('share')).slice(0, 2).join(' | '));
 
   // ── 5. A model that times out sits out 2 min ──
   console.log('\n── 5. Timeout cooldown ──');
   reset({ ...T12_FAIL, [NV_U]: 'timeout', [NV_L]: 'ok' });
   r = await call({ text: LONG, mode: 'standard' });
-  assert('ultra timed out once, then skipped for the other chunks', r.calls.filter(n => n === NV_U).length === 1 && r.calls.filter(n => n === NV_L).length === 4, r.calls.join(','));
+  // the big chunk that hit the timeout is split in two ("try big, split on failure"): 2 halves + 3 other chunks
+  assert('ultra timed out once, then skipped for the other chunks (the timed-out chunk is split: 5 pieces)', r.calls.filter(n => n === NV_U).length === 1 && r.calls.filter(n => n === NV_L).length === 5 && r.payload.success, r.calls.join(','));
   assert('"timed out — skipping it for 120s" logged', r.logs.some(l => l.includes(`${NV_U} timed out — skipping it for 120s`)), r.logs.filter(l => l.includes('⏸')).join(' | '));
   advance(121 * 1000);
   behaviour = { ...T12_FAIL, [NV_U]: 'ok' };
@@ -237,16 +246,24 @@ const T12_FAIL = Object.fromEntries([...GROQS, 'gemini', 'gemini-2'].map(k => [k
   const GEM_MINUTE = JSON.parse(JSON.stringify(GEM_DAILY).replace('PerDay', 'PerMinute'));
   reset({ ...Object.fromEntries(GROQS.map(k => [k, 'fail'])), 'gemini/gemini-3.5-flash-lite': GEM_DAILY, 'gemini-2/gemini-3.5-flash-lite': GEM_MINUTE, ovhcloud: 'ok' });
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('Gemini per-day quota id beyond 200 chars → daily (900 s, not 41 s)', r.logs.some(l => l.includes('gemini/gemini-3.5-flash-lite daily quota — skipping it for 900s')), r.logs.filter(l => l.includes('⏸')).join(' | '));
-  assert('Gemini per-minute → its retryDelay (41 s)', r.logs.some(l => l.includes('gemini-2/gemini-3.5-flash-lite rate-limited — skipping it for 41s')), r.logs.filter(l => l.includes('⏸')).join(' | '));
+  const ptSecs = Math.ceil((handler._pacer.resetAt('gemini/x', Date.now()) - Date.now()) / 1000);
+  const gl = r.logs.find(l => l.includes('gemini/gemini-3.5-flash-lite daily quota (until its reset) — skipping it for'));
+  const gsec = gl ? Number(gl.match(/for (\d+)s/)[1]) : -1;
+  assert('Gemini per-day quota id beyond 200 chars → daily: until midnight Pacific (not its 41 s retryDelay)', gsec >= ptSecs - 2 && gsec <= ptSecs + 61, `${gsec}s vs ${ptSecs}s | ` + r.logs.filter(l => l.includes('⏸')).join(' | '));
+  assert('Gemini per-minute → its retryDelay (41 s) + 0–3 s jitter', r.logs.some(l => /gemini-2\/gemini-3\.5-flash-lite rate-limited — skipping it for 4[1-4]s/.test(l)), r.logs.filter(l => l.includes('⏸')).join(' | '));
   reset({ groq: { status: 429, body: { error: { message: 'Rate limit reached for model on tokens per minute (TPM)' } }, headers: { 'retry-after': '30' } },
           'groq-2': { status: 429, body: { error: { message: 'Rate limit reached for model on tokens per day (TPD): Limit 200000' } }, headers: { 'retry-after': '7200' } },
           'groq-3': 'daily', 'groq-4': 'daily', gemini: 'ok', 'gemini-2': 'ok' });
+  const utcSecs = Math.ceil((86400000 - (Date.now() % 86400000)) / 1000);
   for (let i = 0; i < 4; i++) await call({ text: SHORT, mode: 'standard' });
   const allLogs = logs.join('\n');
-  assert('Groq per-minute 429 with Retry-After 30 → 30 s', new RegExp(`groq/${M120} rate-limited — skipping it for 30s`).test(allLogs));
-  assert('Groq TPD 429 with Retry-After 7200 → 7200 s (2 h)', new RegExp(`groq-2/${M120} daily quota — skipping it for 7200s`).test(allLogs));
-  assert('Groq TPD 429 without Retry-After → 900 s', new RegExp(`groq-3/${M120} daily quota — skipping it for 900s`).test(allLogs));
+  // the LAST matching line (the log buffer holds the whole run)
+  const secsFor = (re) => { const all = [...allLogs.matchAll(new RegExp(re.source, 'g'))]; return all.length ? Number(all[all.length - 1][1]) : -1; };
+  assert('Groq per-minute 429 with Retry-After 30 → 30 s + 0–3 s jitter', /^3[0-3]$/.test(String(secsFor(new RegExp(`groq/${M120} rate-limited — skipping it for (\\d+)s`)))));
+  const g2 = secsFor(new RegExp(`groq-2/${M120} daily quota \\(until its reset\\) — skipping it for (\\d+)s`));
+  assert('Groq TPD 429 with Retry-After 7200 → 7200 s (2 h, rolling window) + ≤60 s jitter', g2 >= 7200 && g2 <= 7261, String(g2));
+  const g3 = secsFor(new RegExp(`groq-3/${M120} daily quota \\(until its reset\\) — skipping it for (\\d+)s`));
+  assert('Groq per-day 429 without Retry-After → until the next UTC midnight', g3 >= utcSecs - 120 && g3 <= utcSecs + 61, `${g3}s vs ${utcSecs}s`);
 
   // ── 7. Daily usage counter (counts only) ──
   console.log('\n── 7. Usage counter ──');
@@ -269,7 +286,10 @@ const T12_FAIL = Object.fromEntries([...GROQS, 'gemini', 'gemini-2'].map(k => [k
   assert('a chunk every provider failed counted as (none)', h['chunk|(none)'] === 1, JSON.stringify(h));
   assert('chat request counted separately', h['chat|ovhcloud'] === 1, JSON.stringify(h));
   const usageDump = [...store.entries()].filter(([k]) => k.startsWith('pf_usage:')).map(e => e.join('=')).join('\n');
-  assert('no text stored in the usage hash (keys + values only names and counts)', !usageDump.includes('zebra') && !usageDump.includes('Paragraph') && !usageDump.includes('paraphras'), usageDump);
+  // every field is "<counter>|<name>" from a fixed set of counters, every value a number — never the text sent
+  const usageFields = [...store.entries()].filter(([k]) => k.startsWith('pf_usage:')).flatMap(([, v]) => Object.entries(JSON.parse(v)));
+  assert('no text stored in the usage hash (keys + values only names and counts)', !usageDump.includes('zebra') && !usageDump.includes('Paragraph')
+    && usageFields.every(([f, n]) => /^(chunk|chat|tok|gate|cool|tool)\|[\w\-./|()]+$/.test(f) && Number.isFinite(Number(n))), usageDump);
   r = await call({ type: 'testKeys', adminPassword: 'test-admin' });
   const day = r.payload.usage && r.payload.usage.days && r.payload.usage.days[0];
   assert('testKeys shows today\'s usage (UTC)', day && day.date === today && r.payload.usage.timezone === 'UTC' && day.totalChunks >= 6, JSON.stringify(r.payload.usage).slice(0, 300));

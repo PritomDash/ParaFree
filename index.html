@@ -363,6 +363,8 @@ if (/[?&]embed=paraphraser(&|$)/.test(location.search)) {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 <script src="/lib/protect.js"></script>
+<script src="/lib/partial.js"></script>
+<script src="/lib/prompts-v2.js"></script>
 <script src="/lib/tool-events.js"></script>
 <script>
   if (typeof pdfjsLib !== 'undefined') {
@@ -869,6 +871,13 @@ const PHOTOS = {
     font-style: italic;
     font-weight: 300;
   }
+  /* a part the AI could not paraphrase: kept original, marked, with "Retry this part" (lib/partial.js) */
+  mark.pf-unchanged { background: rgba(245, 158, 11, 0.22); color: inherit; border-bottom: 2px dashed #d97706; padding: 0 1px; }
+  .pf-partial { margin: 0 0 10px; padding: 10px 12px; border: 1px solid #d97706; border-radius: 10px; background: rgba(245, 158, 11, 0.08); font-size: 0.9em; }
+  .pf-partial p { margin: 0 0 8px; }
+  .pf-retry-part { margin: 0 8px 0 0; padding: 5px 14px; border-radius: 20px; border: 1px solid #d97706; background: transparent; color: inherit; cursor: pointer; font: inherit; }
+  .pf-retry-part:disabled { opacity: 0.6; cursor: default; }
+  .pf-streaming { opacity: 0.6; font-style: italic; }
   .see-more-btn {
     display: inline-block;
     margin: 10px 0 0;
@@ -3455,7 +3464,8 @@ async function summarize() {
   hideStatus();
   document.getElementById("outputText").innerHTML = '<span class="output-placeholder">Summarizing...</span>';
 
-  const prompt = `Summarize the following text. Your summary MUST be significantly shorter than the input — maximum 30% of the original word count. Use concise bullet points for the key ideas, then one short conclusion sentence. Be brief and to the point. Never exceed 30% of input word count.${langSuffix()} Return only the summary, nothing else:`;
+  // shortened prompt only when lib/prompts-v2.js is switched on (?prompts=v2) — off by default
+  const prompt = (window.PFPromptsV2 && PFPromptsV2.enabled) ? PFPromptsV2.summarize(langSuffix()) : `Summarize the following text. Your summary MUST be significantly shorter than the input — maximum 30% of the original word count. Use concise bullet points for the key ideas, then one short conclusion sentence. Be brief and to the point. Never exceed 30% of input word count.${langSuffix()} Return only the summary, nothing else:`;
 
   const result = await runAPIChain(text, prompt, currentMode, getLang(), currentTool);
   setToolLoading('summarize', false, "∑ Summarize Now");
@@ -3468,6 +3478,7 @@ async function summarize() {
     showStatus("✓ Summarized successfully!", "success");
     showDownloadBtn();
     gaToolUsed('summarize', countWords(text));
+    pfAfterRun(async () => { await summarize(); return !PFPartial.list().length; }, true);
   } else {
     document.getElementById("outputText").innerHTML = '<span class="output-placeholder">Try again in a few hours.</span>';
     showStatus("All AI engines busy. Try again later!", "error");
@@ -3548,7 +3559,7 @@ async function checkGrammar() {
   const gep = document.getElementById('grammarErrorsPanel');
   if (gep) { gep.style.display = 'none'; gep.innerHTML = ''; }
 
-  const prompt = `You are a grammar checker. Check the following text for grammar, spelling, punctuation, and style errors. Respond in this EXACT format:
+  const prompt = (window.PFPromptsV2 && PFPromptsV2.enabled) ? PFPromptsV2.grammar : `You are a grammar checker. Check the following text for grammar, spelling, punctuation, and style errors. Respond in this EXACT format:
 
 CORRECTED TEXT:
 [Write the fully corrected text here]
@@ -3575,6 +3586,7 @@ Text to check:`;
     showStatus("✓ Grammar check complete!", "success");
     showDownloadBtn();
     gaToolUsed('grammar', countWords(text));
+    pfAfterRun(async () => { await checkGrammar(); return !PFPartial.list().length; }, true);
   } else {
     document.getElementById("outputText").innerHTML = '<span class="output-placeholder">Try again in a few hours.</span>';
     showStatus("All AI engines busy. Try again later!", "error");
@@ -3768,8 +3780,8 @@ function renderDetectorResult(aiScore, humanScore, metrics) {
 // batches processed sequentially; the frontend merges results in order.
 // DOCX batches use globally-numbered <<<N>>> markers so the combined result
 // parses correctly in one pass (batch 1 = <<<1..K>>>, batch 2 = <<<K+1..M>>>).
-const BATCH_SPLIT_THRESHOLD = 1400; // split docs > 1400 words into batches
-const BATCH_TARGET_WORDS    = 1200; // each batch ≈ 1200 words → 3-4 chunks of ~350 words, no rate-limit pressure
+const BATCH_SPLIT_THRESHOLD = 3200; // split docs > 3,200 words into batches
+const BATCH_TARGET_WORDS    = 3000; // each batch ≈ 3,000 words (~20 KB, far below the 4.5 MB body limit) → ≤3–4 server chunks of ~1,000 words
 
 function buildFrontendBatches(apiText, bps) {
   if (bps && bps.length > 0) {
@@ -3814,7 +3826,8 @@ function buildFrontendBatches(apiText, bps) {
 // protectCtx (optional): { skipMarkers: Set<number> } in, { keepOriginal: Set<number> } out.
 // Paraphrase/humanize/grammar requests go through PFProtect (lib/protect.js): links and
 // citations are masked as ⟦L#⟧ and restored, reference entries are never sent.
-async function runAPIChain(text, prompt, mode, language, toolType, protectCtx) {
+// onPartial(textSoFar) (optional): called while the answer streams in, with the finished parts so far, in order.
+async function runAPIChain(text, prompt, mode, language, toolType, protectCtx, onPartial) {
   showStatus("Processing...", "info");
   const _tool = toolType || currentTool;
   const _guard = (typeof PFProtect !== 'undefined' && PFProtect.TOOLS.has(_tool))
@@ -3846,18 +3859,61 @@ async function runAPIChain(text, prompt, mode, language, toolType, protectCtx) {
       body: JSON.stringify({
         text: _guard ? _guard.sendText : text,
         prompt: _guard ? _guard.prompt : prompt,
-        mode, language, type: _tool
+        mode, language, type: _tool, stream: true
       })
     });
-    const data = await res.json();
+    let data;
+    const _ct = (res.headers && res.headers.get && res.headers.get('content-type')) || '';
+    try {
+      if (/ndjson/.test(_ct) && res.body && res.body.getReader) {
+        // streamed answer: one JSON line per finished part (in order), then {type:"done", …}
+        const reader = res.body.getReader(), dec = new TextDecoder();
+        let buf = '', soFar = '';
+        const showSoFar = () => {
+          if (!onPartial) return;
+          let t = soFar;
+          if (_guard && _guard.changed) { try { t = _guard.restore(soFar) || soFar; } catch (_) { t = soFar.replace(/⟦L\d+⟧/g, '…'); } }
+          try { onPartial(t); } catch (_) {}
+        };
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (value) buf += dec.decode(value, { stream: true });
+          let nl;
+          while ((nl = buf.indexOf('\n')) >= 0) {
+            const lineText = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
+            if (!lineText) continue;
+            const msg = JSON.parse(lineText);
+            if (msg.type === 'chunk') { soFar += msg.text + (msg.sep || ''); showSoFar(); }
+            else if (msg.type === 'done') data = msg;
+          }
+          if (done) break;
+        }
+        if (!data) throw new Error('stream ended early');
+        if (!data.success && data.status) Object.defineProperty(res, 'status', { value: data.status });
+      } else {
+        data = await res.json();
+      }
+    }
+    catch (_) { _pfLastApiError = res.status === 504 ? 'timeout' : 'bad_response'; showStatus("The server sent an unexpected answer. Please try again.", "error"); return null; }
     if (res.status === 429) {
+      _pfLastApiError = 'rate_limited';
       showStatus("Rate limit reached. Please try again in an hour!", "error");
       return null;
     }
     // Always apply dot statuses so failures are shown in red/yellow even on error
     if (data.apiStatuses) applyApiStatuses(data.apiStatuses);
+    // High demand on a long document: the server asks us to start again shortly — wait, say so, retry (twice at most)
+    if (data && data.error === 'queued' && (window._pfQueueTries || 0) < 2) {
+      window._pfQueueTries = (window._pfQueueTries || 0) + 1;
+      const waitS = Math.max(1, Math.min(30, Number(data.retryAfterS) || 10));
+      showStatus(`High demand — starting in ~${waitS} s`, 'info');
+      await new Promise(r => setTimeout(r, waitS * 1000));
+      try { return await runAPIChain(text, prompt, mode, language, toolType, protectCtx, onPartial); }
+      finally { window._pfQueueTries = 0; }
+    }
     if (!res.ok || !data.success) {
-      _pfLastApiError = (data.error === 'high_demand' || res.status === 503) ? 'all_busy' : 'other';
+      _pfLastApiError = (data.error === 'high_demand' || data.error === 'queued' || res.status === 503) ? 'all_busy'
+        : res.status === 504 ? 'timeout' : res.status >= 500 ? 'server_error' : 'other';
       if (data.error === 'high_demand') {
         showStatus("⏳ Our AI is at high demand right now. Please wait 20 seconds and try again — your full document will process.", "error");
       } else {
@@ -3869,10 +3925,17 @@ async function runAPIChain(text, prompt, mode, language, toolType, protectCtx) {
       document.getElementById("activeApiLabel").textContent = "Done";   // engine names are not shown
       apiLabelLocked = true;
     }
+    // Parts the AI couldn't paraphrase keep their original text in the result — remember them (as the page will
+    // show them) so they are marked and can be retried; never shown as if paraphrased.
+    if (Array.isArray(data.failedParts) && data.failedParts.length && window.PFPartial) {
+      const restorePart = (t) => { if (!_guard || !_guard.changed) return t; try { return _guard.restore(t) || t; } catch (_) { return t; } };
+      PFPartial.add(data.failedParts.map(p => ({ text: restorePart(String(p.text || '')) })));
+      gaToolError(_tool, 'partial');
+    }
     return _guarded(data.result);
   } catch(e) {
-    // A Vercel timeout comes back as a 504 with a non-JSON body
-    _pfLastApiError = (res && res.status === 504) ? 'timeout' : 'other';
+    // A Vercel timeout comes back as a 504 with a non-JSON body; no answer at all = network
+    _pfLastApiError = (res && res.status === 504) ? 'timeout' : res ? 'bad_response' : 'network';
     showStatus("Connection error. Please check your internet.", "error");
     return null;
   }
@@ -3904,6 +3967,7 @@ function gaDownload(format, tool) {
 // ════════════════════════════════════════════
 function setToolLoading(tool, on, label) {
   isLoading = on;
+  if (on && window.PFPartial && !window._pfRetrying) PFPartial.reset();
   const btn = document.getElementById(tool + 'Btn');
   const spinner = document.getElementById('spinner' + tool.charAt(0).toUpperCase());
   const btnText = document.getElementById('btnText' + tool.charAt(0).toUpperCase());
@@ -4049,6 +4113,9 @@ KEY REQUIREMENTS:
 - Do not change the core meaning. Return only the rewritten text, nothing else:`
 };
 
+// Shortened prompts (lib/prompts-v2.js) replace these only when switched on (?prompts=v2) — not quality-tested yet
+if (window.PFPromptsV2 && PFPromptsV2.enabled) { Object.assign(MODE_PROMPTS, PFPromptsV2.paraphrase); Object.assign(HUMANIZE_PROMPTS, PFPromptsV2.humanize); }
+
 // ════════════════════════════════════════════
 // HUMANIZE FUNCTION
 // ════════════════════════════════════════════
@@ -4075,8 +4142,10 @@ async function humanize() {
   const prompt = HUMANIZE_PROMPTS[currentHMode];
   // Reference section (if any) is never sent — re-attached unchanged after the result.
   const _refSplit = typeof PFProtect !== 'undefined' ? PFProtect.splitReferences(text) : { body: text, gap: '', tail: '' };
-  const result = _refSplit.body.trim()
-    ? await runAPIChain(_refSplit.body, prompt, currentHMode, getLang(), 'humanize')
+  let result = _refSplit.body.trim()
+    ? await runAPIChain(_refSplit.body, prompt, currentHMode, getLang(), 'humanize', undefined, (soFar) => {
+        document.getElementById("outputText").innerHTML = '<span>' + escapeHtml(cleanMarkdown(soFar)) + '</span><span class="pf-streaming"> … writing the rest</span>';
+      })
     : ' ';
 
   isLoading = false;
@@ -4085,7 +4154,31 @@ async function humanize() {
   btnTextH.textContent = "◈ Humanize Now";
   document.getElementById("loadingDots").className = "loading-dots";
 
-  if (result) {
+  // Retry one part that kept its original text: only that part is sent again, then spliced into the result
+  const _retryPart = async (i) => {
+    const part = PFPartial.list()[i];
+    if (!part) return false;
+    window._pfRetrying = true; isLoading = true; btn.disabled = true;
+    let fresh = null;
+    try { fresh = await runAPIChain(part.text, prompt, currentHMode, getLang(), 'humanize'); }
+    finally { isLoading = false; btn.disabled = false; window._pfRetrying = false; }
+    const next = fresh ? PFPartial.splice(result, part.text, fresh) : null;
+    if (next === null) return false;
+    result = next;
+    PFPartial.remove(i);
+    _finishHumanize(true);
+    pfAfterRun(_retryPart);
+    return true;
+  };
+  if (result) { _finishHumanize(false); pfAfterRun(_retryPart); }
+  else {
+    document.getElementById("outputText").innerHTML = '<span class="output-placeholder">Your humanized text will appear here...</span>';
+    showStatus("All AI engines are busy right now. Please try again in a few hours!", "error");
+    resetApiDots();
+    gaToolError('humanize');
+  }
+
+  function _finishHumanize(isRetry) {
     window._lastRawOutput = result.trim();
     window._lastParaphraseStructured = null;
     const _humanized = _refSplit.tail
@@ -4100,12 +4193,7 @@ async function humanize() {
     showDownloadBtn();
     showHumanScore(out);
     showScorePanel(before, after);
-    gaToolUsed('humanize', countWords(text));
-  } else {
-    document.getElementById("outputText").innerHTML = '<span class="output-placeholder">Your humanized text will appear here...</span>';
-    showStatus("All AI engines are busy right now. Please try again in a few hours!", "error");
-    resetApiDots();
-    gaToolError('humanize');
+    if (!isRetry) gaToolUsed('humanize', countWords(text));
   }
 }
 
@@ -4474,7 +4562,7 @@ function renderOutput(content, isHTML) {
 
   // Skip animation for very short outputs (≤ 6 words) — just show instantly
   if (total <= 6) {
-    outputEl.innerHTML = '<span>' + escapeHtml(content) + '</span>';
+    outputEl.innerHTML = '<span>' + pfMark(escapeHtml(content)) + '</span>';
     enableEditing();
     return;
   }
@@ -4490,10 +4578,10 @@ function renderOutput(content, isHTML) {
     _typingTimer = null;
     outputEl.removeEventListener('click', skipTyping);
     if (content.length <= PREVIEW_CHARS) {
-      outputEl.innerHTML = '<span>' + escapeHtml(content) + '</span>';
+      outputEl.innerHTML = '<span>' + pfMark(escapeHtml(content)) + '</span>';
     } else {
       outputEl.innerHTML =
-        '<span>' + escapeHtml(content.slice(0, PREVIEW_CHARS)) + '...</span>' +
+        '<span>' + pfMark(escapeHtml(content.slice(0, PREVIEW_CHARS))) + '...</span>' +
         '<br><button class="see-more-btn" onclick="toggleSeeMore(this)">See more ↓</button>';
     }
     enableEditing();
@@ -4513,6 +4601,18 @@ function renderOutput(content, isHTML) {
   step();
 }
 
+// Unchanged (not paraphrased) parts get a visible mark in the output (lib/partial.js)
+function pfMark(html) { return window.PFPartial ? PFPartial.markHtml(html, escapeHtml) : html; }
+// After a tool run: announce any parts that kept their original text. onRetry(i) re-sends just that part and
+// resolves true when it was paraphrased; wholeDoc = only a full re-run is possible (PPTX, grammar, summary).
+function pfAfterRun(onRetry, wholeDoc) {
+  if (!window.PFPartial) return;
+  PFPartial.showNotice({ onRetry, wholeDoc: !!wholeDoc });   // removes the old notice; none when nothing is left
+  if (!PFPartial.list().length) return;
+  const n = PFPartial.list().length;
+  showStatus('⚠ Done, but ' + (n === 1 ? '1 part' : n + ' parts') + ' couldn’t be paraphrased — marked below.', 'error');
+}
+
 function toggleSeeMore(btn) {
   const outputEl = document.getElementById('outputText');
   const expanding = btn.textContent.includes('↓');
@@ -4522,7 +4622,7 @@ function toggleSeeMore(btn) {
         '<br><button class="see-more-btn" onclick="toggleSeeMore(this)">See less ↑</button>';
     } else {
       outputEl.innerHTML =
-        '<span>' + escapeHtml(fullOutputText) + '</span>' +
+        '<span>' + pfMark(escapeHtml(fullOutputText)) + '</span>' +
         '<br><button class="see-more-btn" onclick="toggleSeeMore(this)">See less ↑</button>';
     }
   } else {
@@ -4716,6 +4816,7 @@ function resetApiDots() {
 
 function setLoading(on) {
   isLoading = on;
+  if (on && window.PFPartial && !window._pfRetrying) PFPartial.reset();
   const btn = document.getElementById("paraphraseBtn");
   const spinner = document.getElementById("spinner");
   const dots = document.getElementById("loadingDots");
@@ -4746,7 +4847,8 @@ function setLoading(on) {
 // ════════════════════════════════════════════
 async function paraphrase() {
   if (isLoading) return;
-  if (pptxMode && pptxData) { await paraphrasePPTX(); return; }
+  // PPTX: a part that failed keeps its boxes' original text; Retry runs the slides again
+  if (pptxMode && pptxData) { await paraphrasePPTX(); pfAfterRun(async () => { PFPartial.reset(); await paraphrase(); return !PFPartial.list().length; }, true); return; }
 
   const text = inputEl.value.trim();
   if (!text) { showStatus("Please enter some text to paraphrase.", "error"); return; }
@@ -4849,7 +4951,12 @@ async function paraphrase() {
     if (_isLongDoc) {
       _showBatchProgress(_bi);
     }
-    const _batchResult = await runAPIChain(_batches[_bi].text, apiPrompt, currentMode, getLang(), 'paraphrase', _protectCtx);
+    // Plain text: show each finished part as it streams in (DOCX is rebuilt only once everything has arrived)
+    const _preview = docxParaCount > 0 ? null : (soFar) => {
+      document.getElementById("outputText").innerHTML = '<span>' + escapeHtml(processParaphraseOutput(combinedResult + (combinedResult ? '\n\n' : '') + soFar)) +
+        '</span><span class="pf-streaming"> … writing the rest</span>';
+    };
+    const _batchResult = await runAPIChain(_batches[_bi].text, apiPrompt, currentMode, getLang(), 'paraphrase', _protectCtx, _preview);
     console.log(`[paraphrase] batch ${_bi + 1}/${_batches.length} result chars:`, _batchResult ? _batchResult.length : 'null');
     if (!_batchResult) {
       setLoading(false);
@@ -4868,7 +4975,37 @@ async function paraphrase() {
 
   setLoading(false);
 
+  // Retry one part that kept its original text: only that part is sent again, then spliced into the result
+  const _retryPart = async (i) => {
+    const part = PFPartial.list()[i];
+    if (!part) return false;
+    window._pfRetrying = true; setLoading(true);
+    let fresh = null;
+    try { fresh = await runAPIChain(part.text, apiPrompt, currentMode, getLang(), 'paraphrase', _protectCtx); }
+    finally { setLoading(false); window._pfRetrying = false; }
+    const next = fresh ? PFPartial.splice(combinedResult, part.text, fresh) : null;
+    if (next === null) return false;
+    combinedResult = next;
+    PFPartial.remove(i);
+    _finishParaphrase(true);
+    pfAfterRun(_retryPart);
+    if (!PFPartial.list().length) showStatus("✓ Paraphrased successfully!", "success");
+    return true;
+  };
+
   if (combinedResult) {
+    _finishParaphrase(false);
+    pfAfterRun(_retryPart);
+  } else {
+    window._docxParaMap = null;
+    document.getElementById("outputText").innerHTML = '<span class="output-placeholder">Your paraphrased text will appear here...</span>';
+    showStatus("All AI engines are busy right now. Please try again in a few hours!", "error");
+    resetApiDots();
+    document.getElementById("activeApiLabel").textContent = "All busy";
+    gaToolError('paraphrase');
+  }
+
+  function _finishParaphrase(isRetry) {
     window._lastRawOutput = combinedResult.trim();
     // Strip common AI preamble patterns before splitting
     const cleanResult = combinedResult
@@ -4921,15 +5058,7 @@ async function paraphrase() {
     showStatus("✓ Paraphrased successfully!", "success");
     showDownloadBtn();
     showHumanScore(displayText);
-    showDonateNote();
-    gaToolUsed('paraphrase', countWords(text));
-  } else {
-    window._docxParaMap = null;
-    document.getElementById("outputText").innerHTML = '<span class="output-placeholder">Your paraphrased text will appear here...</span>';
-    showStatus("All AI engines are busy right now. Please try again in a few hours!", "error");
-    resetApiDots();
-    document.getElementById("activeApiLabel").textContent = "All busy";
-    gaToolError('paraphrase');
+    if (!isRetry) { showDonateNote(); gaToolUsed('paraphrase', countWords(text)); }
   }
 }
 

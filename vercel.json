@@ -4,23 +4,29 @@
   "trailingSlash": false,
   "functions": {
     "api/process.js": {
-      "maxDuration": 60
+      "maxDuration": 90
     }
   },
   "routes": [
     {
       "src": "/lib/pdf-tools/(.*)",
-      "headers": { "Cache-Control": "public, max-age=31536000, immutable" },
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable"
+      },
       "continue": true
     },
     {
       "src": "/studypack(?:\\.html)?/?$",
-      "headers": { "Location": "/flashcard-quiz-maker.html" },
+      "headers": {
+        "Location": "/flashcard-quiz-maker.html"
+      },
       "status": 301
     },
     {
       "src": "/([a-z0-9][a-z0-9-]*)$",
-      "headers": { "Location": "/$1.html" },
+      "headers": {
+        "Location": "/$1.html"
+      },
       "status": 301
     },
     {

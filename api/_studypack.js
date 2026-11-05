@@ -44,7 +44,10 @@ const WHISPER_MAX_BYTES = 3 * 1024 * 1024;
 const PIECE_SECONDS = 90;                           // re-encoded WAV pieces: 16 kHz mono 16-bit, 90 s ≈ 2.9 MB
 const WHISPER_MODEL = 'whisper-large-v3-turbo';
 const WHISPER_TIMEOUT_MS = 25000;
-const PIECE_BUDGET_MS = 50000;                      // a piece request (all key attempts) ends inside the 60 s maxDuration
+const PIECE_BUDGET_MS = 75000;                      // a piece request (Whisper keys, then AI Gateway) ends inside the 90 s maxDuration
+const GATEWAY_MIN_MS = 15000;                       // time a piece keeps back for the AI Gateway when Whisper fails
+// audio extracted from a video in the browser (8 kHz mono WAV, ~0.96 MB/min) can be a little larger than the video
+const EXTRACTED_MAX_BYTES = 64 * 1024 * 1024;
 const GEMINI_AUDIO_DEFAULT = 'gemini-3.5-flash-lite';
 const PROBE_OK_MS = 6 * 60 * 60 * 1000, PROBE_NONE_MS = 60 * 60 * 1000;
 const TOKEN_TTL_MS = 2 * 60 * 60 * 1000;
@@ -52,6 +55,7 @@ const MEDIA_TYPES = /^(audio|video)\/[\w.+-]+$/;
 const WHISPER_EXT = /\.(flac|mp3|mp4|mpeg|mpga|m4a|ogg|opus|wav|webm)$/i;   // formats Groq Whisper accepts
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com';
 const TextRank = require('../lib/studypack/textrank.js');
+const gateway = require('./_gateway.js');
 
 const modeOf = (m) => (Object.prototype.hasOwnProperty.call(MODES, m) ? m : 'standard');
 const inputOf = (t) => (Object.prototype.hasOwnProperty.call(SOURCES, t) ? t : 'text');
@@ -237,19 +241,40 @@ async function geminiGetFile(fetchFn, key, name) {
 function geminiDeleteFile(fetchFn, key, name) {
   return Promise.resolve(fetchFn(`${GEMINI_BASE}/v1beta/${name}?key=${key}`, { method: 'DELETE' })).catch(() => {});
 }
+// lowest thinking setting for the pack (thinking tokens count against maxOutputTokens): Flash-Lite "minimal",
+// 3.8 Flash "low", Gemma none; a model that rejects it is asked again without it
+function packThinking(model) {
+  const m = String(model).toLowerCase();
+  if (/gemma/.test(m)) return null;
+  if (/gemini-2\.5/.test(m)) return { thinkingBudget: 0 };
+  if (/flash-lite/.test(m)) return { thinkingLevel: 'minimal' };
+  if (/flash/.test(m)) return { thinkingLevel: /gemini-3\.8|gemini-[4-9]/.test(m) ? 'low' : 'minimal' };
+  return null;
+}
 async function geminiGenerate(fetchFn, key, model, filePart, prompt, ms, cd) {
-  const res = await fetchFn(`${GEMINI_BASE}/v1beta/models/${model}:generateContent?key=${key}`, {
-    method: 'POST', signal: AbortSignal.timeout(ms),
+  const deadline = Date.now() + ms;
+  const send = (tc) => fetchFn(`${GEMINI_BASE}/v1beta/models/${model}:generateContent?key=${key}`, {
+    method: 'POST', signal: AbortSignal.timeout(Math.max(1000, deadline - Date.now())),
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents: [{ parts: [{ file_data: filePart }, { text: prompt }] }],
-      generationConfig: { temperature: 0.4, maxOutputTokens: 4096, responseMimeType: 'application/json' },
+      generationConfig: Object.assign({ temperature: 0.4, maxOutputTokens: 4096, responseMimeType: 'application/json' }, tc ? { thinkingConfig: tc } : {}),
     }),
   });
+  const tc = packThinking(model);
+  let res = await send(tc);
+  if (!res.ok && res.status === 400 && tc) {
+    let b = ''; try { b = await res.text(); } catch (_) {}
+    if (!/thinking/i.test(b)) throw new Error(`Gemini/${model}:${res.status} ${cd.detail(res, b)}`);
+    res = await send(null);
+  }
   if (!res.ok) { let b = ''; try { b = await res.text(); } catch (_) {} throw new Error(`Gemini/${model}:${res.status} ${cd.detail(res, b)}`); }
   const data = await res.json();
-  const parts = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
-  return parts ? parts.map((p) => p.text || '').join('') : '';
+  const cand = data && data.candidates && data.candidates[0];
+  // a cut-off pack (MAX_TOKENS / SAFETY …) is a failure, never a half pack
+  if (cand && cand.finishReason && !/^(STOP|FINISH_REASON_UNSPECIFIED)$/.test(cand.finishReason)) throw new Error(`Gemini/${model}:cutoff finish=${String(cand.finishReason).toLowerCase()}`);
+  const parts = cand && cand.content && cand.content.parts;
+  return parts ? parts.filter((p) => !p.thought).map((p) => p.text || '').join('') : '';
 }
 // Cooldown names match the text chain ("gemini/<model>", "gemini-2/<model>"), so a daily quota hit here also
 // makes the chain skip that model, and the other way round.
@@ -305,7 +330,7 @@ async function geminiAudioModel(fetchFn, env, redis, keyIndex, cd) {
 }
 // One Gemini call with the media; one invalid answer is re-requested once. Everything stays inside the function's
 // 60 s (maxDuration): no new attempt with less than 10 s left.
-const MEDIA_BUDGET_MS = 52000;
+const MEDIA_BUDGET_MS = 80000;   // the Gemini media route's own budget inside the 90 s maxDuration
 async function geminiPack(fetchFn, env, keyIndex, model, filePart, mode, inputType, cd) {
   const deadline = Date.now() + MEDIA_BUDGET_MS, key = geminiKeyOf(env, keyIndex);
   const prompt = buildPrompt(mode, inputType, true);
@@ -344,8 +369,16 @@ async function whisperTranscribe(fetchFn, key, buf, mime, name, ms, cd) {
   return String(await res.text()).trim();
 }
 // Next key in turn; a 429 starts that key's cooldown and the next key tries. → {text} or {error}
-async function transcribePiece(fetchFn, env, cd, buf, mime, name) {
-  const deadline = Date.now() + PIECE_BUDGET_MS, keys = whisperKeys(env);
+// gw (optional): { redis, req } — when every Whisper key is busy or failed, the AI Gateway gets the piece (2nd route)
+async function transcribePiece(fetchFn, env, cd, buf, mime, name, gw) {
+  const r = await whisperPiece(fetchFn, env, cd, buf, mime, name, gw ? PIECE_BUDGET_MS - GATEWAY_MIN_MS : PIECE_BUDGET_MS);
+  if (!gw || !r.error || r.error === 'too_large' || r.error === 'bad_audio') return r;
+  const g = await gateway.transcribe(env, gw.redis, gw.req, fetchFn, buf, mime, GATEWAY_MIN_MS - 1000);
+  if (g.text) { console.log('[StudyPack] piece transcribed by the AI Gateway (' + g.model + ')'); return { text: g.text, key: 'gateway' }; }
+  return g.error === 'bad_audio' || g.error === 'too_large' ? { error: g.error } : r;
+}
+async function whisperPiece(fetchFn, env, cd, buf, mime, name, budgetMs) {
+  const deadline = Date.now() + budgetMs, keys = whisperKeys(env);
   const start = keys.length ? whisperTurn++ % keys.length : 0;
   let timedOut = false;
   for (const k of keys.slice(start).concat(keys.slice(0, start))) {
@@ -364,6 +397,14 @@ async function transcribePiece(fetchFn, env, cd, buf, mime, name) {
   }
   return { error: timedOut ? 'too_long' : 'whisper_unavailable' };
 }
+// Can a recording go piece by piece? Groq Whisper with a free key, or else the AI Gateway (OIDC + spend guard)
+async function piecesReady(a, env, cd, redis, ctx, fetchFn) {
+  if (a.whisper && whisperReady(env, cd)) return true;
+  try { return (await gateway.ready(env, redis, ctx && ctx.req, fetchFn, WHISPER_MAX_BYTES, 'audio/wav')).ok; } catch (_) { return false; }
+}
+// Admin dashboard: AI Gateway spend (rolling 30 days) and whether the route is on
+const gatewayStatus = (env, redis) => gateway.status(env, redis);
+
 // Used when api/process.js passes no cooldown store (tests of this module alone)
 const localCool = new Map();
 const LOCAL_CD = {
@@ -401,7 +442,7 @@ async function handle(body, ctx) {
   if (type === 'studypack_config') {
     const a = await audioConfig(env, redis);
     return ok({ audio: { enabled: a.enabled, cap: a.cap, maxBytes: AUDIO_MAX_BYTES, maxSeconds: a.maxMinutes * 60, chunkBytes: CHUNK_BYTES,
-      pieceBytes: WHISPER_MAX_BYTES, pieceSeconds: PIECE_SECONDS, whisper: a.whisper && whisperReady(env, cd), gemini: a.gemini },
+      pieceBytes: WHISPER_MAX_BYTES, pieceSeconds: PIECE_SECONDS, whisper: await piecesReady(a, env, cd, redis, ctx, fetchFn), gemini: a.gemini },
       modes: Object.keys(MODES) });
   }
 
@@ -439,20 +480,23 @@ async function handle(body, ctx) {
     }
 
     const size = +body.size, mime = String(body.mime || '');
+    const fromVideo = body.from === 'video' && /^audio\//.test(mime);      // audio the browser extracted from a video
     if (!MEDIA_TYPES.test(mime)) return fail(400, 'bad_type', 'Please choose an audio or video file.');
-    if (!(size > 0) || size > AUDIO_MAX_BYTES) return fail(413, 'too_large', `Audio and video files can be up to ${AUDIO_MAX_BYTES / 1048576} MB.`);
+    if (!(size > 0) || size > (fromVideo ? EXTRACTED_MAX_BYTES : AUDIO_MAX_BYTES)) return fail(413, 'too_large', `Audio and video files can be up to ${AUDIO_MAX_BYTES / 1048576} MB.`);
     if (+body.seconds > a.maxMinutes * 60) return fail(413, 'too_long', tooLongMsg(a), { maxSeconds: a.maxMinutes * 60 });
     const prior = body.job ? unseal(env, body.job) : null;       // a Whisper job falling back to Gemini keeps its slot (once)
     const pieces = +body.pieces;
-    // PRIMARY: Groq Whisper, piece by piece
-    if (!prior && body.split !== false && a.whisper && whisperReady(env, cd) && Number.isInteger(pieces) && pieces >= 1) {
+    // PRIMARY: transcription piece by piece — Groq Whisper, or the AI Gateway when every Whisper key is busy
+    if (!prior && body.split !== false && Number.isInteger(pieces) && pieces >= 1 && (await piecesReady(a, env, cd, redis, ctx, fetchFn))) {
       if (pieces > maxPieces(a)) return fail(413, 'too_long', tooLongMsg(a), { maxSeconds: a.maxMinutes * 60 });
       const slot = await takeAudioSlot(redis, ip, a.cap);
       if (!slot.ok) return capFail();
       const j = crypto.randomBytes(9).toString('base64url');
       return ok({ route: 'whisper', job: seal(env, { j, n: pieces, mt: mime }), pieces, remaining: slot.remaining });
     }
-    // SECONDARY: Gemini listens to the whole file (Whisper unavailable, or the browser could not split the file)
+    // THIRD: Gemini listens to the whole recording (no transcription route, or the browser could not split the file).
+    // Audio only — a video is never uploaded as video/* (≈8× the tokens); the browser extracts its audio first.
+    if (/^video\//.test(mime)) return fail(415, 'audio_only', 'Please upload the audio of this video (MP3 or M4A) — the AI listens to the sound only.');
     const model = a.gemini ? await geminiAudioModel(fetchFn, env, redis, keyIndex, cd) : null;
     if (!model) return fail(503, 'ai_unavailable', BUSY_AUDIO);
     let remaining;
@@ -463,7 +507,7 @@ async function handle(body, ctx) {
     }
     try {
       const url = await geminiStartUpload(fetchFn, geminiKeyOf(env, keyIndex), mime, size, body.name);
-      return ok({ route: 'gemini', token: seal(env, { u: url, k: keyIndex, md: model, m: mime, s: size }), chunkBytes: CHUNK_BYTES, remaining });
+      return ok({ route: 'gemini', token: seal(env, { u: url, k: keyIndex, md: model, m: mime, s: size, v: fromVideo ? 1 : 0 }), chunkBytes: CHUNK_BYTES, remaining });
     } catch (e) {
       console.error('[StudyPack] audio start:', e.message);
       return fail(503, 'ai_unavailable', BUSY_AUDIO);
@@ -483,7 +527,7 @@ async function handle(body, ctx) {
     if ((await jobUse(redis, job.j, 'piece' + index)) > 2) return fail(429, 'piece_retries', 'This upload was retried too often — please choose the file again.');
     const mime = MEDIA_TYPES.test(String(body.mime || '')) ? String(body.mime) : 'audio/mpeg';
     const ext = (String(body.name || '').match(WHISPER_EXT) || [null, mime === 'audio/wav' ? 'wav' : 'mp3'])[1].toLowerCase();
-    const r = await transcribePiece(fetchFn, env, cd, buf, mime, `part-${index + 1}.${ext}`);
+    const r = await transcribePiece(fetchFn, env, cd, buf, mime, `part-${index + 1}.${ext}`, { redis, req: ctx.req });
     if (r.error === 'too_long') return fail(504, 'too_long', 'This recording took too long to transcribe — try a shorter clip.');
     if (r.error === 'too_large') return fail(413, 'too_large', 'This part of the recording is too large — please try again.');
     if (r.error === 'bad_audio') return fail(422, 'bad_audio', 'We couldn’t read the audio in this file. Try an MP3 or M4A file.');
@@ -522,7 +566,7 @@ async function handle(body, ctx) {
     try {
       const file = await geminiUploadChunk(fetchFn, t.u, offset, buf, last);
       if (!last) return ok({ next: offset + buf.length });
-      return ok({ done: true, token: seal(env, { f: file.name, uri: file.uri, k: t.k, md: t.md, m: file.mimeType || t.m }) });
+      return ok({ done: true, token: seal(env, { f: file.name, uri: file.uri, k: t.k, md: t.md, m: file.mimeType || t.m, v: t.v || 0 }) });
     } catch (e) {
       console.error('[StudyPack] chunk:', e.message);
       return fail(503, 'ai_unavailable', 'Upload failed — please try again.');
@@ -542,7 +586,7 @@ async function handle(body, ctx) {
       console.error('[StudyPack] file:', e.message);
       return fail(503, 'ai_unavailable', BUSY_AUDIO);
     }
-    const inputType = String(t.m).startsWith('video/') ? 'video' : 'audio';
+    const inputType = t.v || String(t.m).startsWith('video/') ? 'video' : 'audio';
     const r = await geminiPack(fetchFn, env, t.k, t.md || GEMINI_AUDIO_DEFAULT, { mime_type: t.m, file_uri: t.uri }, mode, inputType, cd);
     geminiDeleteFile(fetchFn, key, t.f);
     if (r.pack) return ok({ pack: r.pack, inputType, mode, via: 'gemini' });
@@ -554,7 +598,7 @@ async function handle(body, ctx) {
 }
 
 module.exports = {
-  handle, buildPrompt, looseParse, closeTruncated, validatePack, parsePack, seal, unseal, audioConfig, takeAudioSlot,
+  handle, buildPrompt, looseParse, closeTruncated, validatePack, parsePack, seal, unseal, audioConfig, takeAudioSlot, gatewayStatus, piecesReady,
   geminiAudioModel, transcribePiece, whisperKeys, _probeCache: probeCache,
   MODES, SOURCES, AUDIO_DEFAULTS, AUDIO_MAX_BYTES, CHUNK_BYTES, WHISPER_MAX_BYTES, PIECE_SECONDS, WHISPER_MODEL, GEMINI_AUDIO_DEFAULT, MIN_ITEMS, YT_RE,
 };

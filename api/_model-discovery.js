@@ -50,7 +50,7 @@ const GEMINI_KEY_NAMES = ['gemini', 'gemini-2'];
 const KEY_NAMES = [...GROQ_KEY_NAMES, ...GEMINI_KEY_NAMES, 'cloudflare', 'nvidia'];
 // Env var holding each provider key's API key (groq-4 / gemini-2 are used only when set).
 const KEY_ENV = { 'groq': 'GROQ_KEY', 'groq-2': 'GROQ_KEY_2', 'groq-3': 'GROQ_KEY_3', 'groq-4': 'GROQ_KEY_4',
-                  'gemini': 'GEMINI_KEY', 'gemini-2': 'GEMINI_KEY_2' };
+                  'gemini': 'GEMINI_KEY', 'gemini-2': 'GEMINI_KEY_2', 'gemini-3': 'GEMINI_KEY_3' };
 
 // Listed by the provider but failing every call in the health check (Oct 23, 2026). Treated as
 // dead, so their slots resolve to the next matching model. Env MODEL_BLOCKLIST
