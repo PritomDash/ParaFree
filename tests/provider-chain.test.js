@@ -223,17 +223,14 @@ const groqCalls = (names, model) => names.filter(n => n.startsWith('groq') && (!
   r = await call({ text: SHORT, mode: 'standard' });
   const dl = r.logs.find(l => /groq.* daily quota \(until its reset\) — skipping it for \d+s/.test(l));
   const dsecs = dl ? Number(dl.match(/for (\d+)s/)[1]) : -1;
-  assert('Groq per-day 429 (no reset header) → cooled until the next UTC midnight (+ ≤60 s jitter)', dsecs >= toUtcMidnight - 2 && dsecs <= toUtcMidnight + 61, `${dsecs}s vs ${toUtcMidnight}s`);
-  advance(899 * 1000 - (Date.now() - cooldownStart));                      // 14:59
+  assert('Groq per-day 429 (no reset header) → capped at 120 s (not next UTC midnight)', dsecs > 0 && dsecs <= 120, `${dsecs}s`);
+  advance(60 * 1000);                                                       // 1:00 — still within the 120 s cap
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('still cooling at 14:59', groqCalls(r.calls).length === 0, r.calls.join(','));
-  advance(16 * 60 * 1000);                                                  // 30:59 — past the OLD 15-min cooldown
-  r = await call({ text: SHORT, mode: 'standard' });
-  assert('still cooling after the old 15-min cooldown (no wasted retries every 15 min)', groqCalls(r.calls).length === 0 || (Date.now() - cooldownStart) / 1000 > toUtcMidnight, r.calls.join(','));
-  advance((toUtcMidnight + 62) * 1000 - (Date.now() - cooldownStart));    // just past the reset
+  assert('still cooling at 1:00', groqCalls(r.calls).length === 0, r.calls.join(','));
+  advance(62 * 1000);                                                       // 2:02 — just past the 120 s cap
   behaviour = { groq: 'ok', 'groq-2': 'ok', 'groq-3': 'ok' };
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('Groq tried again after its daily reset', r.calls[r.calls.length - 1].startsWith('groq') && r.payload.success && r.calls.every(n => n === G1 || n.startsWith('groq')), r.calls.join(','));
+  assert('Groq tried again after the 120 s cap (not after a daily reset)', r.calls[r.calls.length - 1].startsWith('groq') && r.payload.success && r.calls.every(n => n === G1 || n.startsWith('groq')), r.calls.join(','));
 
   reset({
     [G1]:       { status: 429, body: { error: { status: 'RESOURCE_EXHAUSTED', message: 'Quota exceeded for metric: generate_requests_per_model_per_day (GenerateRequestsPerDayPerProjectPerModel)' } } },
@@ -242,26 +239,27 @@ const groqCalls = (names, model) => names.filter(n => n.startsWith('groq') && (!
   });
   r = await call({ text: SHORT, mode: 'standard' });
   const secsOf = (re) => { const l = r.logs.find(x => re.test(x)); return l ? Number(l.match(/for (\d+)s/)[1]) : -1; };
-  const ptReset = Math.ceil((handler._pacer.resetAt('gemini/x', Date.now()) - Date.now()) / 1000);
   const gs = secsOf(new RegExp(G1.replace(/[/.]/g, '\\$&') + ' daily quota \\(until its reset\\)'));
-  assert('Gemini per-day quota → until midnight Pacific (+ ≤60 s jitter)', gs >= ptReset - 2 && gs <= ptReset + 61, `${gs}s vs ${ptReset}s`);
-  const cs = secsOf(/cloudflare daily quota \(until its reset\)/), utc = Math.ceil((86400000 - (Date.now() % 86400000)) / 1000);
-  assert('Cloudflare daily allocation → until 00:00 UTC', cs >= utc - 2 && cs <= utc + 61, `${cs}s vs ${utc}s`);
+  assert('Gemini per-day quota → capped at 120 s (not midnight Pacific)', gs > 0 && gs <= 120, `${gs}s`);
+  const cs = secsOf(/cloudflare daily quota \(until its reset\)/);
+  assert('Cloudflare daily allocation → capped at 120 s (not 00:00 UTC)', cs > 0 && cs <= 120, `${cs}s`);
   assert('plain 429 (no retry-after) → 20–23 s', /^2[0-3]$/.test(String(secsOf(/ovhcloud rate-limited/))), String(secsOf(/ovhcloud rate-limited/)));
 
-  // ── 4c. Every entry cooling → try the one whose cooldown ends soonest ──
-  console.log('\n── 4c. All cooling → soonest-expiring entry tried ──');
+  // ── 4c. Every entry cooling → ignore cooldowns and try the whole chain IN ORDER (safety net) ──
+  console.log('\n── 4c. All cooling → chain tried in order, never a millisecond failure ──');
   const FAMILIES = ['groq', 'groq-2', 'groq-3', 'gemini', 'cloudflare', 'ovhcloud', 'llm7', 'nvidia'];
   for (const [label, body] of [['writing', { text: SHORT, mode: 'standard' }], ['chat', { text: SHORT, type: 'code_assistant' }]]) {
-    // Everything hits a daily quota (15 min) except llm7, which hits a per-minute limit (60s).
     reset(Object.fromEntries(FAMILIES.map(n => [n, n === 'llm7' ? 'quota' : 'daily'])));
     r = await call(body);
     assert(`${label}: first request cools all ${CHAIN_LEN} entries`, new Set(r.calls).size === CHAIN_LEN, r.calls.join(','));
+    // All cooling, all STILL failing → must make ≥3 real attempts (not fail in milliseconds).
+    r = await call(body);
+    assert(`${label}: all-cooling + all-failing → ≥3 real provider attempts`, r.calls.length >= 3, r.calls.join(','));
+    assert(`${label}: safety-net logged`, r.logs.some(l => /ignoring cooldowns, trying the whole chain in order/.test(l)));
+    // All cooling but providers now OK → tried in chain order (top of chain first), not just soonest-expiry llm7.
     behaviour = Object.fromEntries(FAMILIES.map(n => [n, 'ok']));
     r = await call(body);
-    assert(`${label}: only llm7 (soonest expiry) tried`, r.calls.join(',') === 'llm7', r.calls.join(','));
-    assert(`${label}: request still succeeds`, r.status === 200 && r.payload.success, String(r.status));
-    assert(`${label}: fallback logged`, r.logs.some(l => /all providers cooling down — trying llm7/.test(l)));
+    assert(`${label}: chain tried in order (not forced to llm7)`, r.calls[0] !== 'llm7' && r.status === 200 && r.payload.success, r.calls.join(','));
   }
 
   // ── 5. Timeouts ──

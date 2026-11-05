@@ -20,10 +20,14 @@
 // ═══════════════════════════════════════════════════
 'use strict';
 
-const COOL_KEY = 'pf_cool';                 // hash: entry → JSON { until, kind, probeUntil }
+const COOL_KEY = 'pf_cool_v2';              // hash: entry → JSON { until, kind, probeUntil }. _v2: bump to discard all
+                                            // long cooldowns written by older code the moment this deploys.
 const USAGE_PREFIX = 'pf_usage:';           // api/_usage.js day hash (chunk|entry, chat|entry); we add tok|entry
 const SYNC_MS = 20000, FLUSH_MS = 30000, PROBE_MS = 20000;
 const MINUTE_DEFAULT_S = 20, OVERLOAD_S = 8, TIMEOUT_S = 120;
+const MAX_COOLDOWN_MS = 120000;             // HARD CAP: no cooldown ever exceeds 120 s, whatever the 429 type.
+                                            // A daily-quota 429 cools 120 s, then the single-probe logic retries —
+                                            // never until the daily reset (Groq TPD is rolling, so that was wrong).
 
 // Free-tier limits by model (A1 of experiments/efficiency/REPORT.md, read 2026-11-04). Per key = per pool.
 function limitsFor(name) {
@@ -111,7 +115,12 @@ function createPacer({ getRedis = () => null, now = () => Date.now(), random = M
 
   function cooldownUntil(name) {
     const c = cool.get(name);
-    return c && c.until > now() ? c.until : 0;
+    if (!c) return 0;
+    const u = Number(c.until);
+    // Any invalid cooldown value (undefined/NaN/≤0, or absurdly far future from a
+    // seconds-vs-ms or stale record) = NOT cooling. Guards the negative "ends in -Ns" bug.
+    if (!Number.isFinite(u) || u <= now() || u > now() + MAX_COOLDOWN_MS + 60000) return 0;
+    return u;
   }
   const isCooling = (name) => cooldownUntil(name) > 0;
   // After a cooldown: only one probe at a time (this instance or another one — shared probeUntil)
@@ -162,6 +171,7 @@ function createPacer({ getRedis = () => null, now = () => Date.now(), random = M
     else if (kind === 'overload') until = t + OVERLOAD_S * 1000 + jitter(2000);
     else if (kind === 'timeout') until = t + TIMEOUT_S * 1000;
     else until = t + Math.max(1, retryAfterS || MINUTE_DEFAULT_S) * 1000 + jitter(3000);
+    until = Math.min(until, t + MAX_COOLDOWN_MS);   // HARD CAP every cooldown at 120 s
     const o = { until, kind, needsProbe: true };
     cool.set(name, o);
     probing.delete(name);

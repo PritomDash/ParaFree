@@ -214,12 +214,12 @@ const T12_FAIL = Object.fromEntries([...GROQS, 'gemini', 'gemini-2'].map(k => [k
   reset({ ...T12_FAIL, cloudflare: 'ok' });
   r = await call({ text: LONG, mode: 'standard' });
   const firstUltra = tm(r.rawCalls, NV_U);
-  // 4 chunks, 3 at once: chunk 1's share = 80 s / ceil(4/3) = 40 s, minus the 5 s safety-net reserve = 35 s → the
-  // slow provider's own 25 s cap applies (the share still clips it when the budget runs short)
-  assert('4 chunks: chunk 1 ultra gets its 25 s slow-provider cap (its 40 s share − 5 s reserve is larger)', firstUltra === 25000, String(firstUltra));
+  // Sequential now (1 chunk at a time): chunk 1's share = 110 s / 4 = ~27.5 s, minus the 5 s safety-net reserve
+  // = ~22.5 s, which clips the slow provider's 25 s cap → ~22.5 s.
+  assert('4 chunks: chunk 1 ultra timeout ≈ its 22.5 s share (110 s budget / 4 − 5 s reserve)', firstUltra >= 21500 && firstUltra <= 23000, String(firstUltra));
   assert('4 chunks: every chunk still reaches the safety net and succeeds', r.calls.filter(n => n === 'cloudflare').length === 4 && r.payload.success, r.calls.join(','));
-  assert('no attempt longer than the 30 s per-provider cap or the 80 s budget', r.rawCalls.every(c => c.timeoutMs <= 30000));
-  assert('chunk share logged', r.logs.some(l => /chunk seq=0: \d+ chars, (39|40)s share/.test(l)),r.logs.filter(l => l.includes('share')).slice(0, 2).join(' | '));
+  assert('no attempt longer than the 30 s per-provider cap or the 110 s budget', r.rawCalls.every(c => c.timeoutMs <= 30000));
+  assert('chunk share logged', r.logs.some(l => /chunk seq=0: \d+ chars, (27|28)s share/.test(l)),r.logs.filter(l => l.includes('share')).slice(0, 2).join(' | '));
 
   // ── 5. A model that times out sits out 2 min ──
   console.log('\n── 5. Timeout cooldown ──');
@@ -249,7 +249,7 @@ const T12_FAIL = Object.fromEntries([...GROQS, 'gemini', 'gemini-2'].map(k => [k
   const ptSecs = Math.ceil((handler._pacer.resetAt('gemini/x', Date.now()) - Date.now()) / 1000);
   const gl = r.logs.find(l => l.includes('gemini/gemini-3.5-flash-lite daily quota (until its reset) — skipping it for'));
   const gsec = gl ? Number(gl.match(/for (\d+)s/)[1]) : -1;
-  assert('Gemini per-day quota id beyond 200 chars → daily: until midnight Pacific (not its 41 s retryDelay)', gsec >= ptSecs - 2 && gsec <= ptSecs + 61, `${gsec}s vs ${ptSecs}s | ` + r.logs.filter(l => l.includes('⏸')).join(' | '));
+  assert('Gemini per-day quota id beyond 200 chars → daily capped at 120 s (not midnight Pacific)', gsec > 0 && gsec <= 120, `${gsec}s | ` + r.logs.filter(l => l.includes('⏸')).join(' | '));
   assert('Gemini per-minute → its retryDelay (41 s) + 0–3 s jitter', r.logs.some(l => /gemini-2\/gemini-3\.5-flash-lite rate-limited — skipping it for 4[1-4]s/.test(l)), r.logs.filter(l => l.includes('⏸')).join(' | '));
   reset({ groq: { status: 429, body: { error: { message: 'Rate limit reached for model on tokens per minute (TPM)' } }, headers: { 'retry-after': '30' } },
           'groq-2': { status: 429, body: { error: { message: 'Rate limit reached for model on tokens per day (TPD): Limit 200000' } }, headers: { 'retry-after': '7200' } },
@@ -261,9 +261,9 @@ const T12_FAIL = Object.fromEntries([...GROQS, 'gemini', 'gemini-2'].map(k => [k
   const secsFor = (re) => { const all = [...allLogs.matchAll(new RegExp(re.source, 'g'))]; return all.length ? Number(all[all.length - 1][1]) : -1; };
   assert('Groq per-minute 429 with Retry-After 30 → 30 s + 0–3 s jitter', /^3[0-3]$/.test(String(secsFor(new RegExp(`groq/${M120} rate-limited — skipping it for (\\d+)s`)))));
   const g2 = secsFor(new RegExp(`groq-2/${M120} daily quota \\(until its reset\\) — skipping it for (\\d+)s`));
-  assert('Groq TPD 429 with Retry-After 7200 → 7200 s (2 h, rolling window) + ≤60 s jitter', g2 >= 7200 && g2 <= 7261, String(g2));
+  assert('Groq TPD 429 with Retry-After 7200 → capped at 120 s (not 2 h)', g2 > 0 && g2 <= 120, String(g2));
   const g3 = secsFor(new RegExp(`groq-3/${M120} daily quota \\(until its reset\\) — skipping it for (\\d+)s`));
-  assert('Groq per-day 429 without Retry-After → until the next UTC midnight', g3 >= utcSecs - 120 && g3 <= utcSecs + 61, `${g3}s vs ${utcSecs}s`);
+  assert('Groq per-day 429 without Retry-After → capped at 120 s (not next UTC midnight)', g3 > 0 && g3 <= 120, `${g3}s`);
 
   // ── 7. Daily usage counter (counts only) ──
   console.log('\n── 7. Usage counter ──');

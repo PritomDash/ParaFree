@@ -21,7 +21,7 @@ const MAX_TEXT_LENGTH    = 50000;
 const FAST_TIMEOUT = 10000;  // ms per provider; was 4000 which timed out working slow providers
 const LAST_TIMEOUT = 14000;  // ms for the last-resort provider
 const SLOW_TIMEOUT = 25000;  // ms for slow providers (OVHcloud, LLM7, NVIDIA) — they need 10-20s per chunk
-const REQUEST_BUDGET = 80000; // ms — every provider timeout is clipped so the whole request ends under maxDuration=90s
+const REQUEST_BUDGET = 110000; // ms — every provider timeout is clipped so the whole request ends under maxDuration=120s
 const MIN_ATTEMPT_MS = 1500;  // don't start a provider call with less time than this left in the budget
 const SAFETY_NET_MS  = 5000;  // ms each chunk keeps back for the Cloudflare safety net (Tier 4, ~1-3 s per chunk)
 const TIMEOUT_COOLDOWN        = 2 * 60 * 1000; // a model that timed out sits out 2 min (this instance)…
@@ -506,7 +506,8 @@ function startCooldown(name, msg, ms, why) {
 function soonestIfAllCooling(candidates) {
   if (candidates.length === 0 || !candidates.every(c => isCoolingDown(c.name))) return null;
   const pick = candidates.reduce((a, b) => cooldownUntil(b.name) < cooldownUntil(a.name) ? b : a);
-  console.log(`[ParaFree] ⏸ all providers cooling down — trying ${pick.name} (cooldown ends soonest, in ${Math.ceil((cooldownUntil(pick.name) - Date.now()) / 1000)}s)`);
+  const inS = Math.max(0, Math.ceil((cooldownUntil(pick.name) - Date.now()) / 1000));  // never negative
+  console.log(`[ParaFree] ⏸ all providers cooling down — ignoring cooldowns, trying the whole chain in order (soonest free: ${pick.name}, in ${inS}s)`);
   return pick;
 }
 // Per-provider timeout ("nvidia/<model>" uses the nvidia value), clipped to `until`.
@@ -1128,7 +1129,7 @@ function getPrompt(mode, language) {
 // Up to 3 chunks run at once, each on a different key; the browser sends up to ~3,000 words per request.
 const CHUNK_TARGET_WORDS = 1000;
 const CHUNK_MAX_COUNT    = 4;    // 4 × 1,000 words; with 3 in parallel this fits the 80 s budget
-const CHUNK_CONCURRENCY  = 3;    // chunks of one request in flight at once (different keys — see bigInFlight)
+const CHUNK_CONCURRENCY  = 1;    // sequential for now: one chunk at a time, so bursts don't trip per-minute limits
 const CHUNK_INTER_DELAY  = 300;  // ms between chunk starts
 const FIRST_CHUNK_WORDS  = 250;  // streaming: a small first chunk so the first text shows in ~2 s
 const BIG_CHUNK_WORDS    = 400;  // a chunk this big never shares a key with another big chunk in flight
@@ -1297,7 +1298,9 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0,
     return best.out;
   };
   for (const c of ordered) {
-    if (c !== forced && isCoolingDown(c.name)) {
+    // Safety net: when EVERY provider is cooling (forced set), do NOT skip on cooldown —
+    // try the chain in order with normal timeouts so a request never fails in milliseconds.
+    if (!forced && isCoolingDown(c.name)) {
       console.log(`[ParaFree] ⏭ chunk seq=${seq} ${c.name} [cooldown] — skipped`);
       continue;
     }
@@ -1622,7 +1625,9 @@ async function runChain(text, prompt, type, opts = {}) {
     // Tiers 1–3 leave SAFETY_NET_MS of the budget for the Cloudflare safety net (Tier 4).
     const hasNet = candidates.some(c => tierOf(c) === 4 && (c === forced || !isCoolingDown(c.name)));
     for (const c of candidates) {
-      if (c !== forced && isCoolingDown(c.name)) {
+      // Safety net: when every provider is cooling (forced set), ignore cooldowns and
+      // try the whole chain in order rather than failing instantly.
+      if (!forced && isCoolingDown(c.name)) {
         apiStatuses[c.name] = "limit";
         console.log(`[ParaFree] ⏭ ${c.name} [cooldown] — skipped`);
         continue;
