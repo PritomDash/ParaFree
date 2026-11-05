@@ -258,6 +258,37 @@ const sentencePara = (n) => Array.from({ length: Math.ceil(n / 12) }, (_, i) => 
   assert('a new run (reset) makes the automatic tries run again for it', !P.autoRan());
   P.reset();
 
+  console.log('\n── 10. Follow-ups: list/heading markers in the input; gpt-oss-20b only for small chunks ──');
+  const item = (i) => `item ${i} explains how learners plan their revision and test themselves every week`;
+  const dashIn = 'Revision plan for the term:\n- ' + item(1) + '\n- ' + item(2) + '\n- ' + item(3);
+  const starOut = 'Revision plans for this term:\n* ' + item(1).replace(/learners/, 'students').replace(/plan/, 'organise') + '\n* ' + item(2).replace(/revision/, 'study').replace(/every/, 'each') + '\n* ' + item(3).replace(/test/, 'quiz').replace(/week/, 'weekend');
+  assert('input with "-" bullets, answer with "*" bullets → not a markdown rejection', Q.gate(dashIn, starOut, { kind: 'paraphrase', mode: 'standard' }) === null, Q.gate(dashIn, starOut, { kind: 'paraphrase', mode: 'standard' }));
+  const numIn = '<<<4>>> Steps to follow:\n1. ' + item(1) + '\n2. ' + item(2);
+  const numOut = '<<<4>>> Steps worth following:\n* ' + item(1).replace(/learners/, 'students').replace(/plan/, 'map out').replace(/every/, 'each') + '\n* ' + item(2).replace(/revision/, 'study').replace(/test/, 'quiz').replace(/week/, 'weekend');
+  assert('DOCX: "<<<4>>> … 1. 2." numbered input, answer with "*" bullets → not rejected (markers are ignored when looking for a list)', Q.gate(numIn, numOut, { kind: 'paraphrase', mode: 'standard' }) === null, Q.gate(numIn, numOut, { kind: 'paraphrase', mode: 'standard' }));
+  const headIn = '# Week one\n' + item(1) + '. ' + item(2) + '.';
+  assert('input with a "#" heading, answer keeps a "##" heading → not rejected', Q.gate(headIn, '## Week one\n' + starOut.split('\n').slice(1).join(' ').replace(/\* /g, ''), { kind: 'paraphrase', mode: 'standard' }) === null);
+  const proseIn = item(1) + '. ' + item(2) + '. ' + item(3) + '.';
+  assert('plain prose input, answer adds "*" bullets or a "##" heading → still a markdown rejection', Q.gate(proseIn, starOut, { kind: 'paraphrase', mode: 'standard' }) === 'markdown' && Q.gate(proseIn, '## Plan\n' + starOut.split('\n').slice(1).join(' '), { kind: 'paraphrase', mode: 'standard' }) === 'markdown');
+  assert('a list input still rejects **bold** the input didn\'t have', Q.gate(dashIn, starOut.replace('Revision plans', '**Revision plans**'), { kind: 'paraphrase', mode: 'standard' }) === 'markdown');
+
+  // the production shape (request 49wld…, 940 words through gpt-oss-120b): bulleted lists in the input, the model
+  // answers with its own "*" bullets → accepted from the first provider
+  const listPara = (k) => `Section ${k} has these points:\n` + Array.from({ length: 6 }, (_, i) => `- Point ${k}.${i} covers a separate idea about learning, memory and planning for exams.`).join('\n');
+  const LIST940 = Array.from({ length: 12 }, (_, k) => (k % 2 ? listPara(k) : `Paragraph ${k}: ` + sentencePara(60))).join('\n\n');
+  const toStars = (c) => fakeAnswer(c).replace(/^- /gm, '* ');
+  fresh({ '*': (c) => ({ text: toStars(c) }) });
+  r = await call({ text: LIST940, mode: 'standard' });
+  assert(`~940-word input with "-" lists (${Q.countWords(LIST940)} words), the model answers with "*" bullets → the first answer is accepted, no markdown rejection`, r.status === 200 && r.calls.length === 1 && !r.logs.some(l => /quality gate \(markdown\)/.test(l)) && !r.payload.failedParts && /^\* Point/m.test(r.payload.result), r.calls.map(c => c.name).join(','));
+
+  // gpt-oss-20b gets no chunk over 400 words, but still takes small ones
+  fresh({ 'groq/openai/gpt-oss-120b': () => ({ status: 500 }), gemini: () => ({ status: 500 }), '*': good });
+  r = await call({ text: LIST940, mode: 'standard' });
+  assert('a chunk over 400 words is never sent to gpt-oss-20b (skipped with a log line)', r.status === 200 && !r.calls.some(c => /gpt-oss-20b/.test(c.name) && c.words > 400) && r.logs.some(l => /gpt-oss-20b \[small chunks only/.test(l)), r.calls.map(c => c.name + ':' + c.words).join(','));
+  fresh({ 'groq/openai/gpt-oss-20b': good, '*': () => ({ status: 429, body: { error: { message: 'rate limit (test)' } } }) });
+  r = await call({ text: sentencePara(200), mode: 'standard' });
+  assert('… while a 200-word chunk still goes to gpt-oss-20b when the providers before it are rate-limited', r.status === 200 && r.calls.some(c => /gpt-oss-20b/.test(c.name)) && !r.payload.failedParts, r.calls.map(c => c.name).join(','));
+
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
 })().catch((e) => { loud(); console.error(e); process.exit(1); });

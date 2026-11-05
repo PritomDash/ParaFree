@@ -253,6 +253,8 @@ const MIN_CHANGE = { standard: 0.15, paraphrase: 0.15, fluency: 0.10, formal: 0.
 const PREAMBLE_RE = /^\s*(?:here(?:'s| is| are)\b|sure[,!.]|certainly[,!.]|of course[,!.]|okay[,!.]|below is\b|i(?:'ve| have) (?:paraphrased|rewritten|revised)\b|(?:the )?paraphrased (?:text|version)\b|rewritten (?:text|version)\b|output:)/i;
 const LANG_ECHO_RE = /\b(?:respond in [a-z]+|your entire response must be|do not include this instruction)\b/i;
 const MD_HEAD_RE = /^\s{0,3}#{1,6}\s/m, MD_BOLD_RE = /\*\*[^*\n]+\*\*/, MD_BULLET_RE = /^\s*[*•]\s+\S/m;
+// list / heading markers of any style at a line start: # headings, bullets (* • - – — ▪ ◦ ● ○ ■ ►), 1. 1) a. a) (i)
+const STRUCTURE_RE = /^\s{0,3}(?:#{1,6}\s|[*•\-–—▪◦●○■►]\s+\S|\(?(?:\d{1,3}|[a-zA-Z]|[ivxIVX]{1,4})[.)]\s+\S)/m;
 
 function repeats(text) {
   // a sentence of 6+ words said 3+ times, or one word 8+ times in a row
@@ -290,8 +292,13 @@ function gate(input, output, opts = {}) {
   if (LANG_ECHO_RE.test(out) && !LANG_ECHO_RE.test(input)) return 'preamble';
   // (summaries are asked for bullet points and grammar answers have their own format — markdown is only a fault
   // in a paraphrase / humanized text)
+  // An input that already has list or heading markers (any bullet, "1." / "a)" numbering, "#") may get them back in
+  // the model's own style: those are not markdown faults. Checked on the text without DOCX/PPTX markers, so a
+  // "<<<N>>> • item" paragraph counts too. Bold is still a fault unless the input had bold.
   if (kind === 'paraphrase' || kind === 'humanize') {
-    for (const re of [MD_HEAD_RE, MD_BOLD_RE, MD_BULLET_RE]) if (re.test(out) && !re.test(input)) return 'markdown';
+    const plainIn = stripMarkers(input);
+    const listy = STRUCTURE_RE.test(plainIn);
+    for (const re of listy ? [MD_BOLD_RE] : [MD_HEAD_RE, MD_BOLD_RE, MD_BULLET_RE]) if (re.test(out) && !re.test(plainIn)) return 'markdown';
   }
 
   if (repeats(out) && !repeats(input)) return 'repetition';

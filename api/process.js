@@ -1138,6 +1138,8 @@ const MAX_PROVIDERS_PER_CHUNK = Number(process.env.PF_MAX_PROVIDERS) || 3;   // 
 // the least change it must show to be better than the original text
 const GATE_FALLBACK = new Set(['unchanged', 'paragraphs']);
 const FALLBACK_MIN_CHANGE = 0.03;
+// Models that often return a long chunk unchanged — never given a chunk over BIG_CHUNK_WORDS
+const SMALL_CHUNK_ONLY = /gpt-oss-20b/;
 const SHORT_RESERVE = 0.15;          // keep the last 15 % of each provider's daily capacity for short requests
 const SHORT_REQUEST_WORDS = 300;     // requests below this are "short" (66 % of traffic, GA4 word_bucket <300)
 const QUEUE_MAX_S = 30;              // a long document waits at most this long for a provider instead of failing
@@ -1303,6 +1305,11 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0,
     if (attempts >= MAX_PROVIDERS_PER_CHUNK) {
       console.log(`[ParaFree] ⏹ chunk seq=${seq} ${attempts} providers tried — stopping here (split or Retry part)`);
       break;
+    }
+    // gpt-oss-20b often hands a long chunk back unchanged: it only gets chunks up to BIG_CHUNK_WORDS (400)
+    if (chunkWords > BIG_CHUNK_WORDS && SMALL_CHUNK_ONLY.test(c.model || c.name)) {
+      console.log(`[ParaFree] ⏭ chunk seq=${seq} ${c.name} [small chunks only — ${chunkWords} words] — skipped`);
+      continue;
     }
     // the last ~15 % of a provider's daily capacity is kept for short requests (<300 words)
     if (!how.short && tierOf(c) <= 3 && pacer.headroom(c.name) < SHORT_RESERVE) {
