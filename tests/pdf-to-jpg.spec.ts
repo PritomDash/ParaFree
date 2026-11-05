@@ -303,7 +303,7 @@ test.describe('PDF to JPG — everywhere the PDF tools are', () => {
     expect(s).toContain('<link rel="canonical" href="https://parafree.app/pdf-to-jpg.html">');
     expect(s.match(/<h1[\s>]/g)!.length).toBe(1);
     const ld = [...s.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1]));
-    expect(ld.map((x) => x['@type'])).toEqual(['WebApplication', 'FAQPage', 'BreadcrumbList']);
+    expect(ld.map((x) => x['@type'])).toEqual(['WebApplication', 'FAQPage', 'BreadcrumbList', 'HowTo']);   // seo-push: HowTo from the visible steps (checked in seo-push.spec)
     expect(ld[0].offers.price).toBe('0');
     expect(JSON.stringify(ld)).not.toMatch(/aggregateRating|ratingValue/);
     const visibleQ = [...s.matchAll(/<p class="faq-q">([\s\S]*?)<\/p>/g)].map((m) => m[1].replace(/&#x27;/g, "'").replace(/&amp;/g, '&').replace(/&quot;/g, '"'));
@@ -332,7 +332,9 @@ test.describe('PDF to JPG — everywhere the PDF tools are', () => {
       expect(group, f).toContain('href="/merge-pdf.html"');
     }
     const sm = read('sitemap.xml');
-    expect(sm).toMatch(/<url>\s*<loc>https:\/\/parafree\.app\/pdf-to-jpg\.html<\/loc>\s*<lastmod>2026-10-22<\/lastmod>/);
+    // seo-push: lastmod is the page's last git change (checked against git in seo-push.spec) — never older than the launch
+    const lm = (sm.match(/<url>\s*<loc>https:\/\/parafree\.app\/pdf-to-jpg\.html<\/loc>\s*<lastmod>(\d{4}-\d{2}-\d{2})<\/lastmod>/) || [])[1];
+    expect(lm && lm >= '2026-10-22', String(lm)).toBe(true);
     const locs = [...sm.matchAll(/<loc>https:\/\/parafree\.app\/([^<]*)<\/loc>/g)].map((m) => m[1] || 'index.html');
     expect(new Set(locs).size).toBe(locs.length);
     for (const l of locs) expect(fs.existsSync(path.join(ROOT, l)), l).toBe(true);

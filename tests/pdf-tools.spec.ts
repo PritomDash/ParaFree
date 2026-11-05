@@ -996,7 +996,7 @@ test.describe('layout + SEO', () => {
 
     const html = fs.readFileSync(path.join(ROOT, 'pdf-tools.html'), 'utf8');
     const blocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1]));
-    expect(blocks.map((b) => b['@type']).sort()).toEqual(['FAQPage', 'WebApplication']);
+    expect(blocks.map((b) => b['@type']).sort()).toEqual(['BreadcrumbList', 'FAQPage', 'WebApplication']);   // seo-push added the breadcrumb
     expect(html).not.toContain('aggregateRating');
     const app = blocks.find((b) => b['@type'] === 'WebApplication');
     expect(app.offers.price).toBe('0');
@@ -1005,7 +1005,8 @@ test.describe('layout + SEO', () => {
       [d.querySelector('.faq-q')!.textContent!.trim(), d.querySelector('.faq-a')!.textContent!.replace(/\s+/g, ' ').trim()]));
     expect(faq).toEqual(visible);
     expect(faq.length).toBeGreaterThanOrEqual(5);
-    expect(await page.locator('.pf-section h2').count()).toBe(6);                  // five tools + "Each tool has its own page"
+    expect(await page.locator('.pf-section h2').count()).toBe(7);                  // five tools + "Each tool has its own page" + seo-push's question H2
+    await expect(page.locator('.pf-section h2#free-and-private')).toHaveText('Are these PDF tools really free and private?');
 
     const copy = await page.evaluate(() => ['.pf-hero', 'main', '.pf-content'].map((s) => document.querySelector(s)!.textContent).join(' '));
     for (const re of [/\bbest\b/i, /#1/, /\bonly\b/i, /100% formatting/i, /\bexact (copy|formatting|layout|match)\b/i, /quillbot|ilovepdf|smallpdf|adobe|sejda/i]) {
