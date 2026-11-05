@@ -55,9 +55,25 @@ function send(body) {
   });
 }
 
+// --changed <base> <head>: the pages that changed between two commits (what a deploy shipped). index.html → /,
+// llms.txt / llms-full.txt too (AI crawlers read them); deleted pages and pages not in the sitemap are left out.
+function changedUrls(base, head) {
+  const { execFileSync } = require('child_process');
+  const out = execFileSync('git', ['diff', '--name-only', '--diff-filter=ACMR', base, head], { cwd: ROOT, encoding: 'utf8' });
+  const inSitemap = new Set(sitemapUrls());
+  return out.split('\n').map((f) => f.trim()).filter(Boolean)
+    .filter((f) => /^[^/]+\.html$/.test(f) || f === 'llms.txt' || f === 'llms-full.txt')
+    .map((f) => (f === 'index.html' ? `https://${HOST}/` : `https://${HOST}/${f}`))
+    .filter((u) => /\.txt$/.test(u) || inSitemap.has(u));
+}
+
 async function main(argv) {
   const dry = argv.includes('--dry-run');
-  const args = argv.filter((a) => a !== '--dry-run');
+  let args = argv.filter((a) => a !== '--dry-run');
+  if (args[0] === '--changed') {
+    args = changedUrls(args[1], args[2] || 'HEAD');
+    if (!args.length) { console.log('IndexNow: no changed pages in this deploy — nothing sent'); return 0; }
+  }
   const body = payload(args.length ? args : sitemapUrls());
   if (dry) { console.log(JSON.stringify({ endpoint: ENDPOINT, ...body }, null, 2)); return 0; }
   const res = await send(body);
@@ -67,4 +83,4 @@ async function main(argv) {
 }
 
 if (require.main === module) main(process.argv.slice(2)).then((c) => process.exit(c), (e) => { console.error(e.message); process.exit(1); });
-module.exports = { payload, sitemapUrls, keyFile };
+module.exports = { payload, sitemapUrls, keyFile, changedUrls };

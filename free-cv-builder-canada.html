@@ -32,7 +32,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <meta name="theme-color" content="#2d6a4f">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" onload="this.onload=null;this.rel='stylesheet'"><noscript><link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"></noscript>
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0QEEGS0DZQ"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-0QEEGS0DZQ');</script>
 <script type="application/ld+json">
@@ -124,6 +124,32 @@ footer a:hover{color:#fff}
 @media(max-width:768px){#hambBtn{display:flex!important;}}
 </style>
 <style>/* donate link: hide desktop nav entry where the nav gets crowded (still in mobile menu + footer) */@media (max-width:1023px){nav .donate-nav{display:none !important}}</style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://parafree.app/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "CV Builder",
+      "item": "https://parafree.app/cv-builder.html"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "Free Resume Builder for Canada",
+      "item": "https://parafree.app/free-cv-builder-canada.html"
+    }
+  ]
+}
+</script>
 </head>
 <body>
 
@@ -161,6 +187,7 @@ footer a:hover{color:#fff}
 <section class="hero">
   <span class="flag-badge">🇨🇦</span>
   <div class="section-label">Canadian Resume Builder — Free 2026</div>
+  <nav class="pf-crumbs" aria-label="Breadcrumb" style="font-size:13px;opacity:.78;margin:0 0 12px;"><a href="/" style="color:inherit;">Home</a> <span aria-hidden="true">›</span> <a href="/cv-builder.html" style="color:inherit;">CV Builder</a> <span aria-hidden="true">›</span> <span aria-current="page">Free Resume Builder for Canada</span></nav>
   <h1>Free Resume Builder for Canada</h1>
   <p class="sub">Build a professional Canadian resume in minutes. ATS-friendly templates, AI writing, JobBank links. Perfect for PGWP holders and international students. No signup, no watermark.</p>
   <div class="badges">

@@ -165,9 +165,48 @@
 <meta name="theme-color" content="#2d6a4f">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" onload="this.onload=null;this.rel='stylesheet'"><noscript><link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"></noscript>
 <link rel="stylesheet" href="/pdf-tools.css">
 <link rel="preload" as="script" href="/lib/pdf-tools/pdf-to-word.js?v=8896d013b7">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "How to use Free PDF to Word Converter",
+  "totalTime": "PT2M",
+  "estimatedCost": {
+    "@type": "MonetaryAmount",
+    "currency": "USD",
+    "value": "0"
+  },
+  "step": [
+    {
+      "@type": "HowToStep",
+      "position": 1,
+      "name": "Choose your PDF (or drag it into the box)",
+      "text": "Choose your PDF (or drag it into the box)."
+    },
+    {
+      "@type": "HowToStep",
+      "position": 2,
+      "name": "Wait while each page is read ",
+      "text": "Wait while each page is read — scanned pages go through OCR, which takes a little longer."
+    },
+    {
+      "@type": "HowToStep",
+      "position": 3,
+      "name": "Check the result in the editor and fix anything you like",
+      "text": "Check the result in the editor and fix anything you like."
+    },
+    {
+      "@type": "HowToStep",
+      "position": 4,
+      "name": "Download the Word file (",
+      "text": "Download the Word file (.docx)."
+    }
+  ]
+}
+</script>
 </head>
 <body data-pf-tool="pdf-to-word">
 
@@ -189,7 +228,7 @@
 </div>
 <nav id="mainNav">
   <a href="/" style="display:flex;align-items:center;text-decoration:none;">
-    <img src="/logo-dark.svg" alt="ParaFree" height="34" style="height:34px;width:auto;" id="navLogo">
+    <img src="/logo-dark.svg" alt="ParaFree" width="142" height="34" style="height:34px;width:auto;" id="navLogo">
   </a>
   <div id="homeNavLinks">
     <a href="/" class="nav-link">Paraphraser</a>
@@ -225,6 +264,10 @@
   <section class="pf-section pf-howto">
     <h2>How to use it</h2>
     <ol class="pf-steps"><li>Choose your PDF (or drag it into the box).</li><li>Wait while each page is read — scanned pages go through OCR, which takes a little longer.</li><li>Check the result in the editor and fix anything you like.</li><li>Download the Word file (.docx).</li></ol>
+  </section>
+  <section class="pf-section pf-qa">
+    <h2 id="pdf-to-word-free">How do I convert a PDF to Word for free without losing formatting?</h2>
+    <p class="pf-answer">Choose the PDF here and wait while each page is read — scanned pages go through OCR (English). ParaFree rebuilds headings, bold and italic, fonts, lists, tables, images and two-column reading order in an editable .docx. It runs in your browser, so the file is never uploaded, and it is free with no signup. Very complex layouts may not match exactly.</p>
   </section>
   <section class="pf-section">
     <h2>Quick facts</h2>
@@ -336,7 +379,7 @@
     <a href="/student-cv-builder.html">Student CV</a>
     <a href="/cv-maker-free-download.html">Free CV Download</a>
   </div>
-  <div class="pf-footer-brand"><img src="/favicon.svg" alt="ParaFree" height="20" style="height:20px;width:auto;"><span>ParaFree</span></div>
+  <div class="pf-footer-brand"><img src="/favicon.svg" alt="ParaFree" width="20" height="20" loading="lazy" style="height:20px;width:auto;"><span>ParaFree</span></div>
   <p>© 2026 ParaFree · Free AI Writing Suite · No limits, no signup, always free</p>
 </footer>
 

@@ -1,0 +1,23 @@
+{
+  "taken": "2026-11-04",
+  "gsc": {
+    "property": "https://parafree.app/ (URL prefix)",
+    "last14d_to_2026-11-01": { "clicks": 785, "impressions": 1281 },
+    "3m": { "clicks": 2000, "impressions": 5040, "ctr": "39.7%", "avgPosition": 8.3 },
+    "quickWinPages": {
+      "/ai-rephraser.html": { "impressions": 362, "position": 5.1, "ctr": "2.8%" },
+      "/paraphrase-powerpoint.html": { "impressions": 135, "position": 7.4, "ctr": "4.4%" },
+      "/best-free-paraphrasing-tool(.html)": { "impressions": 194, "position": "11.0 / 7.5" },
+      "/paraphrase-pdf(.html)": { "impressions": 134, "position": "6.7 / 5.9" },
+      "/paraphrasing-tool-no-word-limit(.html)": { "impressions": 90, "position": "10.9 / 1.2" },
+      "/free-cv-builder-uk.html": { "impressions": 251, "position": 29.9, "ctr": "0%" }
+    },
+    "indexing_2026-10-23": { "indexed": 73, "notIndexed": 69, "pageWithRedirect": 31, "discoveredNotIndexed": 24, "alternateCanonical": 10, "crawledNotIndexed": 3, "redirectError": 1 }
+  },
+  "ga4": {
+    "sessions_2026-10-21_to_11-03": { "total": 6344, "chatgpt.com": 3083, "google": 1256, "direct": 1195, "bing": 564, "yahoo": 100 },
+    "sessions_2026-10-06_to_10-19": { "total": 3896, "chatgpt.com": 1059, "google": 805, "direct": 1385, "bing": 489 },
+    "aiAssistantShareOfSessions": "48.6%",
+    "usersLast28d": 5544
+  }
+}

@@ -165,9 +165,48 @@
 <meta name="theme-color" content="#2d6a4f">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" onload="this.onload=null;this.rel='stylesheet'"><noscript><link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"></noscript>
 <link rel="stylesheet" href="/pdf-tools.css">
 <link rel="preload" as="script" href="/lib/pdf-tools/compress-pdf.js?v=8896d013b7">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "How to use Compress PDF to a Target Size",
+  "totalTime": "PT2M",
+  "estimatedCost": {
+    "@type": "MonetaryAmount",
+    "currency": "USD",
+    "value": "0"
+  },
+  "step": [
+    {
+      "@type": "HowToStep",
+      "position": 1,
+      "name": "Choose your PDF",
+      "text": "Choose your PDF."
+    },
+    {
+      "@type": "HowToStep",
+      "position": 2,
+      "name": "Pick a mode",
+      "text": "Pick a mode: Light, Strong, or Target size with the limit you need."
+    },
+    {
+      "@type": "HowToStep",
+      "position": 3,
+      "name": "Click “Compress PDF” and read the result",
+      "text": "Click “Compress PDF” and read the result: the new size, and whether the text is still selectable."
+    },
+    {
+      "@type": "HowToStep",
+      "position": 4,
+      "name": "Download the compressed PDF",
+      "text": "Download the compressed PDF."
+    }
+  ]
+}
+</script>
 </head>
 <body data-pf-tool="compress-pdf">
 
@@ -189,7 +228,7 @@
 </div>
 <nav id="mainNav">
   <a href="/" style="display:flex;align-items:center;text-decoration:none;">
-    <img src="/logo-dark.svg" alt="ParaFree" height="34" style="height:34px;width:auto;" id="navLogo">
+    <img src="/logo-dark.svg" alt="ParaFree" width="142" height="34" style="height:34px;width:auto;" id="navLogo">
   </a>
   <div id="homeNavLinks">
     <a href="/" class="nav-link">Paraphraser</a>
@@ -226,6 +265,10 @@
     <h2>How to use it</h2>
     <ol class="pf-steps"><li>Choose your PDF.</li><li>Pick a mode: Light, Strong, or Target size with the limit you need.</li><li>Click “Compress PDF” and read the result: the new size, and whether the text is still selectable.</li><li>Download the compressed PDF.</li></ol>
   </section>
+  <section class="pf-section pf-qa">
+    <h2 id="compress-to-size">How do I compress a PDF to a specific size for free?</h2>
+    <p class="pf-answer">Choose Target size and pick 100 KB, 200 KB, 500 KB, 1 MB, 2 MB or your own size. ParaFree tries Light compression first, which keeps the text selectable, then Strong at the highest quality that still fits. If the target can’t be reached it says so and offers the smallest file it could make. It runs in your browser — free, nothing uploaded.</p>
+  </section>
   <section class="pf-section">
     <h2>Quick facts</h2>
     <table class="pf-facts"><tr><th scope="row">Price</th><td>Free</td></tr><tr><th scope="row">Signup</th><td>None needed</td></tr><tr><th scope="row">Watermark</th><td>None</td></tr><tr><th scope="row">File limits</th><td>Light: up to 2 GB and 2,000 pages on desktop Chrome or Edge; Strong and Target size: up to 1 GB and 300 pages; 500 MB in other browsers</td></tr><tr><th scope="row">Where files are processed</th><td>On your device, in the browser — never uploaded</td></tr><tr><th scope="row">Works on phone</th><td>Yes — Android and iPhone browsers</td></tr></table>
@@ -239,7 +282,7 @@
     <h2>Government and application form size limits</h2>
     <p>Online application forms often ask for scanned documents — certificates, ID pages, letters — under a small limit such as 100 KB, 200 KB or 500 KB. Pick the matching target. A one-page scan usually fits under 200 KB; many pages may not fit under a very small limit at a readable quality.</p>
     <p>If a target cannot be reached, the tool says so plainly and offers the smallest version it could make, with its size. Then you can remove pages you don’t need, upload pages separately, or scan at a lower resolution.</p>
-    <p>There are step-by-step pages for the most common limits: <a href="/compress-pdf-to-100kb.html">getting a scanned form under 100 KB</a>, <a href="/compress-pdf-to-200kb.html">getting a CV or application PDF under 200 KB</a> and <a href="/compress-pdf-to-500kb.html">making a PDF fit a 500 KB upload limit</a>.</p>
+    <p>There are step-by-step pages for the most common limits: <a href="/compress-pdf-to-100kb.html">getting a scanned form under 100 KB</a>, <a href="/compress-pdf-to-200kb.html">getting a CV or application PDF under 200 KB</a>, <a href="/compress-pdf-to-500kb.html">making a PDF fit a 500 KB upload limit</a> and <a href="/compress-pdf-to-1mb.html">getting a PDF under 1 MB for email or a portal</a>.</p>
   </section>
   <section class="pf-section">
     <h2>Compress scanned PDFs</h2>
@@ -336,7 +379,7 @@
     <a href="/student-cv-builder.html">Student CV</a>
     <a href="/cv-maker-free-download.html">Free CV Download</a>
   </div>
-  <div class="pf-footer-brand"><img src="/favicon.svg" alt="ParaFree" height="20" style="height:20px;width:auto;"><span>ParaFree</span></div>
+  <div class="pf-footer-brand"><img src="/favicon.svg" alt="ParaFree" width="20" height="20" loading="lazy" style="height:20px;width:auto;"><span>ParaFree</span></div>
   <p>© 2026 ParaFree · Free AI Writing Suite · No limits, no signup, always free</p>
 </footer>
 

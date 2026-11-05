@@ -246,7 +246,8 @@ test.describe('structured data, titles, previews, freshness', () => {
     for (const t of [...TOOL_PAGES, ...TASK_PAGES]) {
       const s = read(t + '.html');
       const ld = [...s.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1]));
-      expect(ld.map((x) => x['@type']), t).toEqual(['WebApplication', 'FAQPage', 'BreadcrumbList']);
+      // feat/seo-push round 2: + HowTo built from the visible "How to use it" steps
+      expect(ld.map((x) => x['@type']), t).toEqual(['WebApplication', 'FAQPage', 'BreadcrumbList', 'HowTo']);
       expect(ld[0].offers.price, t).toBe('0');
       expect(JSON.stringify(ld), t).not.toMatch(/aggregateRating|ratingValue|"@type":"Review"/);
       const vq = [...s.matchAll(/<p class="faq-q">([\s\S]*?)<\/p>/g)].map((m) => decode(m[1]));
@@ -269,6 +270,12 @@ test.describe('structured data, titles, previews, freshness', () => {
       'best-free-paraphrasing-tool.html': 'Best Free Paraphrasing Tools 2026 — 7 Tools Compared | ParaFree',
       'quillbot-alternative.html': 'Free Quillbot Alternative — No Word Limit | ParaFree',
       'code.html': 'ParaFree AI — Free AI Chat &amp; Assistant, No Signup — Code, Research, Study',   // feat/seo-expansion: the terms people search for
+      // feat/seo-push phase 1: retitled for the queries Search Console shows they already rank for (5–30)
+      'ai-rephraser.html': 'AI Rephraser Free — Rephrase Sentences and Paragraphs',
+      'paraphrase-powerpoint.html': 'Paraphrase PowerPoint Free — Rewrite Slides, Keep Design',
+      'paraphrase-pdf.html': 'Paraphrase PDF Online Free — Upload a PDF, Get a Rewrite',
+      'paraphrasing-tool-no-word-limit.html': 'Paraphrasing Tool With No Word Limit — Free, No Signup',
+      'free-cv-builder-uk.html': 'Free CV Builder UK — Make a UK CV Online, Download PDF',
     };
     const titles = new Map<string, string>(), descs = new Map<string, string>();
     for (const f of htmlPages()) {
@@ -337,7 +344,11 @@ test.describe('structured data, titles, previews, freshness', () => {
     const locs = [...sm.matchAll(/<loc>https:\/\/parafree\.app\/([^<]*)<\/loc>/g)].map((m) => m[1] || 'index.html');
     expect(new Set(locs).size).toBe(locs.length);
     for (const l of locs) expect(fs.existsSync(path.join(ROOT, l)), l).toBe(true);
-    for (const t of TASK_PAGES) expect(sm).toMatch(new RegExp(`<loc>https://parafree\\.app/${t}\\.html</loc>\\s*<lastmod>2026-10-22</lastmod>`));
+    // lastmod = the page's real last change (scripts/seo-tech.js reads it from git): a date from 2026-10-22 on, never in the future
+    for (const t of TASK_PAGES) {
+      const lm = (sm.match(new RegExp(`<loc>https://parafree\\.app/${t}\\.html</loc>\\s*<lastmod>(\\d{4}-\\d{2}-\\d{2})</lastmod>`)) || [])[1];
+      expect(lm && lm >= '2026-10-22' && lm <= new Date().toISOString().slice(0, 10), `${t} lastmod ${lm}`).toBe(true);
+    }
     const llms = read('llms.txt'), full = read('llms-full.txt');
     for (const t of TASK_PAGES) { expect(llms, t).toContain(`https://parafree.app/${t}.html`); expect(full, t).toContain(`https://parafree.app/${t}.html`); }
     expect(llms).toContain('A student needs to compress a PDF under a portal\'s size limit');
