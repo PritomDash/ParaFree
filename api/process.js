@@ -1133,7 +1133,11 @@ const CHUNK_INTER_DELAY  = 300;  // ms between chunk starts
 const FIRST_CHUNK_WORDS  = 250;  // streaming: a small first chunk so the first text shows in ~2 s
 const BIG_CHUNK_WORDS    = 400;  // a chunk this big never shares a key with another big chunk in flight
 const bigInFlight = new Map();   // key ("groq-2", "gemini", …) → big chunks in flight on this instance
-const MAX_PROVIDERS_PER_CHUNK = Number(process.env.PF_MAX_PROVIDERS) || 3;   // real provider attempts per chunk (then split, then "Retry this part"); PF_MAX_PROVIDERS only in tests
+const MAX_PROVIDERS_PER_CHUNK = Number(process.env.PF_MAX_PROVIDERS) || 3;   // failed provider attempts per chunk — errors, timeouts, cut-offs (not 429s or gated answers); then split, then "Retry this part"; PF_MAX_PROVIDERS only in tests
+// Gate reasons whose answer can still stand in when every answer is gated (length and language were fine), and
+// the least change it must show to be better than the original text
+const GATE_FALLBACK = new Set(['unchanged', 'paragraphs']);
+const FALLBACK_MIN_CHANGE = 0.03;
 const SHORT_RESERVE = 0.15;          // keep the last 15 % of each provider's daily capacity for short requests
 const SHORT_REQUEST_WORDS = 300;     // requests below this are "short" (66 % of traffic, GA4 word_bucket <300)
 const QUEUE_MAX_S = 30;              // a long document waits at most this long for a provider instead of failing
@@ -1283,7 +1287,13 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0,
   console.log(`[ParaFree] chunk seq=${seq}: ${chunkText.length} chars, ${Math.round((chunkDeadline - chunkStart) / 1000)}s share, chain: ${ordered.map(c => c.name).join(' → ')}`);
   const forced = soonestIfAllCooling(ordered);
   const hasNet = ordered.some(c => tierOf(c) === 4 && (c === forced || !isCoolingDown(c.name)));
-  let attempts = 0;
+  let attempts = 0, best = null;
+  const useBest = () => {
+    console.log(`[ParaFree] ↩ chunk seq=${seq} every answer was gated — using the best one (${best.name}, ${best.bad}, ${Math.round(best.score * 100)}% changed) instead of the original`);
+    gateCount('best_of_gated');
+    usage.record(redis, 'chunk', best.name);
+    return best.out;
+  };
   for (const c of ordered) {
     if (c !== forced && isCoolingDown(c.name)) {
       console.log(`[ParaFree] ⏭ chunk seq=${seq} ${c.name} [cooldown] — skipped`);
@@ -1330,6 +1340,14 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0,
         if (bad) {
           console.warn(`[ParaFree] ⚠️ chunk seq=${seq} ${c.name} answer rejected by the quality gate (${bad}) — next`);
           gateCount(bad);
+          // an answer that arrived is not a failed provider: it does not use up one of the chunk's 3 attempts
+          attempts--;
+          // keep the best usable one (right length and language — only too little change or a collapsed paragraph
+          // structure) in case every provider's answer is gated
+          if (GATE_FALLBACK.has(bad)) {
+            const score = quality.changeShare(chunkText, out);
+            if (score >= FALLBACK_MIN_CHANGE && (!best || score > best.score)) best = { out, score, name: c.name, bad };
+          }
           continue;
         }
         console.log(`[ParaFree] ✅ chunk seq=${seq} handled by ${c.name} in ${ms}ms (${out.length} chars out)`);
@@ -1350,6 +1368,7 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0,
       if (isCutoff(msg)) gateCount('cutoff');
       if (how.stopOnTimeout && isAbort && !quota && !isNet) {
         if (expectedTimeout >= TIMEOUT_COOLDOWN_MIN_MS) startCooldown(c.name, msg, TIMEOUT_COOLDOWN, 'timed out');
+        if (best) return useBest();
         console.log(`[ParaFree] ⏱ chunk seq=${seq} (${chunkWords} words) timed out on ${c.name} — splitting it instead of trying more providers`);
         return null;
       }
@@ -1361,6 +1380,7 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0,
       else pacer.endProbe(c.name);
     }
   }
+  if (best) return useBest();
   console.error(`[ParaFree] ❌ chunk seq=${seq} failed after ${attempts} provider(s) of ${ordered.length} in ${Date.now() - chunkStart}ms`);
   usage.record(redis, 'chunk', null);
   return null;
@@ -1433,8 +1453,9 @@ async function runChain(text, prompt, type, opts = {}) {
     }
     // Units: paragraphs, with any paragraph over 350 words split by sentence (pieces rejoin with a space),
     // PPTX boxes kept whole. Chunks: consecutive units of about CHUNK_TARGET_WORDS. Each chunk's answer must pass
-    // the quality gate (cut-off, length, language, preamble/markdown, repetition, unparaphrased, paragraph count,
-    // markers) or the next provider is tried. A chunk that still fails is split in half and retried once; a part
+    // the quality gate (cut-off, length, language, preamble/markdown, repetition, unparaphrased, a collapsed paragraph
+    // structure, markers) or the next provider is tried; a different paragraph count is re-aligned, not refused. When
+    // every answer is gated the best usable one is kept. A chunk with no answer at all is split in half and retried once; a part
     // that fails again keeps its original text AND is reported in failedParts, so the page can mark it and offer
     // "Retry this part". If nothing could be paraphrased at all the request fails (never a silent copy).
     const kind = quality.kindOf(type);
@@ -1483,16 +1504,21 @@ async function runChain(text, prompt, type, opts = {}) {
       const send = quality.chunkSendText(us);
       if (!send.trim()) return { out: quality.chunkOriginal(us), failed: false, empty: true };
       const seq = seqNo++;
-      let texts = null;
+      // a different paragraph count is re-aligned onto the input's paragraphs, not refused; only a bad collapse
+      // (fewer than half the paragraphs and no way to re-align) is a rejection
       const check = (out) => {
         const bad = quality.gate(send, out, gateOpts);
         if (bad) return bad;
-        if (mapped(us)) { texts = quality.mapOutput(us, out); if (!texts) return 'paragraphs'; }
+        if (mapped(us) && quality.structure(us, out).collapsed) return 'paragraphs';
         return null;
       };
       const result = await paraphraseChunk(send, prompt + continuationNote(us), envKeys, baseOffset + seq, seq, deadline, Math.max(1, left), check,
         { stopOnTimeout: depth === 0 && countWordsApprox(send) >= BIG_CHUNK_WORDS && (us.length >= 2 || !!quality.halve(us[0])), short: sendWords < SHORT_REQUEST_WORDS });
-      if (result !== null) { okChunks++; return { out: texts ? quality.rebuild(us, texts) : result, failed: false }; }
+      if (result !== null) {
+        okChunks++;
+        const texts = mapped(us) ? quality.structure(us, result).texts : null;
+        return { out: texts ? quality.rebuild(us, texts) : result, failed: false };
+      }
       // split once and retry the halves (a single long unit is re-cut by sentence first)
       let parts = null;
       if (depth === 0 && Date.now() < deadline - 2 * MIN_ATTEMPT_MS) {

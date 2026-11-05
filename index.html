@@ -4605,8 +4605,17 @@ function renderOutput(content, isHTML) {
 function pfMark(html) { return window.PFPartial ? PFPartial.markHtml(html, escapeHtml) : html; }
 // After a tool run: announce any parts that kept their original text. onRetry(i) re-sends just that part and
 // resolves true when it was paraphrased; wholeDoc = only a full re-run is possible (PPTX, grammar, summary).
-function pfAfterRun(onRetry, wholeDoc) {
-  if (!window.PFPartial) return;
+// A part that failed is first retried silently (3 s, then 8 s — "Finishing part n…"); the button shows only if
+// those automatic tries fail too. (Whole-document re-runs — PPTX, grammar, summary — are not repeated on their own.)
+async function pfAfterRun(onRetry, wholeDoc) {
+  if (!window.PFPartial || window._pfAuto) return;   // a success during the automatic tries calls back in here
+  if (!wholeDoc && PFPartial.list().length && !PFPartial.autoRan()) {
+    window._pfAuto = true;
+    try {
+      await PFPartial.autoRetry(onRetry, { onStatus: (n, total) => showStatus('Finishing part ' + n + (total > 1 ? ' of ' + total : '') + '…', 'info') });
+    } finally { window._pfAuto = false; }
+    if (!PFPartial.list().length) { showStatus('✓ Done — every part is finished.', 'success'); return; }
+  }
   PFPartial.showNotice({ onRetry, wholeDoc: !!wholeDoc });   // removes the old notice; none when nothing is left
   if (!PFPartial.list().length) return;
   const n = PFPartial.list().length;

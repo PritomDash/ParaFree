@@ -139,7 +139,7 @@ const sentencePara = (n) => Array.from({ length: Math.ceil(n / 12) }, (_, i) => 
   assert('preamble answer rejected → next provider', r.logs.some(l => /quality gate \(preamble\)/.test(l)) && r.status === 200);
   fresh({ groq: (c) => ({ text: fakeAnswer(c).split(/\n\s*\n/).slice(0, 1).join('') + ' ' + fakeAnswer(c).split(/\n\s*\n/).slice(1).join(' ') }), gemini: good });
   r = await call({ text: LONG, mode: 'standard' });
-  assert('merged paragraphs (count mismatch) rejected → next provider', r.logs.some(l => /quality gate \((paragraphs|length_ratio)\)/.test(l)) && r.payload.result.split(/\n\s*\n/).length === 4);
+  assert('merged paragraphs (count mismatch) are re-aligned, not rejected: the first answer is used, 4 paragraphs again', r.status === 200 && r.calls.length === 1 && !r.logs.some(l => /quality gate \(paragraphs\)/.test(l)) && r.payload.result.split(/\n\s*\n/).length === 4, r.calls.map(c => c.name).join(','));
   assert('per-chunk log line has provider, finish, words, change, gate — and no text', r.logs.some(l => /chunk-log \{"seq":\d+,"provider":"[^"]+","ms":\d+,"finish":/.test(l) && /"gate":"ok"/.test(l)) && !r.logs.some(l => /chunk-log.*Sentence number/.test(l)));
 
   console.log('\n── 5. Split on failure, then a clearly reported failed part ──');
@@ -188,6 +188,75 @@ const sentencePara = (n) => Array.from({ length: Math.ceil(n / 12) }, (_, i) => 
   assert('splice replaces exactly that part', P.splice('A\n\n' + BAD + '\n\nC', BAD, 'New two') === 'A\n\nNew two\n\nC' && P.splice('A', BAD, 'x') === null);
   P.remove(0);
   assert('after a successful retry nothing is marked', P.markHtml(html, esc) === html);
+
+  console.log('\n── 8. Hotfix: a different paragraph count is re-aligned, gated answers are not failures ──');
+  // the production case: finish=STOP, length ratio ~0.9–1, ~33 % changed — but the model broke/merged paragraphs
+  const splitEach = (c) => fakeAnswer(c).split(/\n\s*\n/).map((p) => { const ss = Q.sentences(p); return ss.slice(0, 2).join(' ') + '\n\n' + ss.slice(2).join(' '); }).join('\n\n');
+  fresh({ '*': (c) => ({ text: splitEach(c) }) });
+  r = await call({ text: LONG, mode: 'standard' });
+  let paras = String(r.payload.result || '').split(/\n\s*\n/);
+  assert('production case: 4 paragraphs answered as 8 → ACCEPTED from the first provider (no "paragraphs" rejection)', r.status === 200 && r.calls.length === 1 && !r.logs.some(l => /quality gate \(paragraphs\)/.test(l)) && !r.payload.failedParts, r.calls.map(c => c.name).join(','));
+  assert('… and re-aligned onto the input: 4 paragraphs, in order', paras.length === 4 && paras.every((p, i) => new RegExp('^(\\[[^\\]]*\\]\\s*)?Paragraph\\w* ' + i + ':').test(p)), paras.map(p => p.slice(0, 24)).join(' | '));
+  const merge23 = (c) => { const ps = fakeAnswer(c).split(/\n\s*\n/); return [ps[0], ps[1] + ' ' + ps[2], ps[3]].join('\n\n'); };
+  fresh({ '*': (c) => ({ text: merge23(c) }) });
+  r = await call({ text: LONG, mode: 'standard' });
+  paras = String(r.payload.result || '').split(/\n\s*\n/);
+  assert('4 paragraphs answered as 3 (two merged) → accepted and re-aligned to 4', r.status === 200 && r.calls.length === 1 && paras.length === 4 && /^Paragraph\w* 2:/.test(paras[2]), paras.map(p => p.slice(0, 24)).join(' | '));
+
+  // gated answers don't use up the 3-provider limit: 4 unchanged answers, then a good one from the 5th provider
+  let n = 0;
+  fresh({ '*': (c) => (++n <= 4 ? { text: textPart(c) } : good(c)) });
+  r = await call({ text: LONG, mode: 'standard' });
+  assert('4 gated answers then a good one → the 5th provider\'s answer is used (gate rejections don\'t count toward the 3)', r.status === 200 && r.calls.length === 5 && !r.payload.failedParts && !r.logs.some(l => /providers tried — stopping/.test(l)), r.calls.map(c => c.name).join(','));
+  n = 0;
+  fresh({ '*': (c) => (++n <= 3 ? { status: 500 } : good(c)) });
+  r = await call({ text: LONG, mode: 'standard' });
+  assert('… while 3 real errors still stop the chunk ("3 providers tried — stopping")', r.logs.some(l => /3 providers tried — stopping/.test(l)));
+
+  // every answer gated → the best one (most change, right length and language) instead of the original
+  const light = (c, every) => { let k = 0; return textPart(c).replace(/[A-Za-z]{3,}/g, (w) => (k++ % every === 0 ? w + 'ed' : w)); };
+  n = 0;
+  fresh({ '*': (c) => ({ text: light(c, ++n === 2 ? 8 : 30) }) });
+  r = await call({ text: LONG, mode: 'standard' });
+  const ch = Q.changeShare(LONG, r.payload.result || '');
+  assert('every provider\'s answer gated (too little change) → the best one is returned, not the original', r.status === 200 && !r.payload.failedParts && r.logs.some(l => /every answer was gated — using the best one/.test(l)) && ch > 0.06 && ch < 0.15, ch.toFixed(3));
+  assert('… and it is re-aligned to the input\'s 4 paragraphs', String(r.payload.result).split(/\n\s*\n/).length === 4);
+  fresh({ '*': () => ({ text: 'Привет, это совсем другой язык и другой текст. '.repeat(30) }) });
+  r = await call({ text: LONG, mode: 'standard' });
+  assert('no usable answer at all (wrong language everywhere) → the original is kept and reported as a failed part', (r.status !== 200 || (r.payload.failedParts && r.payload.failedParts.length > 0)) && !r.logs.some(l => /using the best one/.test(l)), r.status);
+
+  // re-alignment units
+  const DOCX3 = '<<<1>>> ' + sentencePara(36) + '\n\n<<<2>>> ' + sentencePara(36) + '\n\n<<<3>>> ' + sentencePara(36);
+  const du3 = Q.segment(DOCX3);
+  const docxOut = '<<<1>>> One a. One b. One c.\n\n<<<2>>> Two a. Two b.\n\nTwo c.\n\n<<<3>>> Three a. Three b. Three c.';
+  const al = Q.alignOutput(du3, docxOut);
+  assert('DOCX: a marked paragraph answered as two paragraphs → re-aligned by marker, each text keeps its <<<N>>>', al && al.length === 3 && al.every((t, i) => t.startsWith('<<<' + (i + 1) + '>>>')) && /Two c\./.test(al[1]), JSON.stringify(al));
+  const longMarked = '<<<7>>> ' + sentencePara(800);
+  const lu = Q.segment(longMarked);
+  const lal = Q.alignOutput(lu, '<<<7>>> ' + sentencePara(800).replace(/explains/g, 'describes'));
+  assert('DOCX: a long marked paragraph (split into pieces) answered as one block → spread over its pieces; only the first has the marker', lu.length >= 3 && lal && lal.length === lu.length && lal[0].startsWith('<<<7>>>') && lal.slice(1).every(t => t && !/<<<\d+>>>/.test(t)), lu.length + ' / ' + (lal && lal.length));
+  const four = Q.segment([sentencePara(36), sentencePara(36), sentencePara(36), sentencePara(36)].join('\n\n'));
+  assert('a real collapse (4 paragraphs → one sentence, nothing to re-align) is still rejected', Q.structure(four, 'one long run on answer with no full stops at all '.repeat(12)).collapsed === true);
+  assert('2 of 4 paragraphs, one sentence each (can\'t re-align, but not a collapse) → used as it is', Q.structure(four, 'First half of it all\n\nSecond half of it all').whole === true);
+  const pptxIn = '[SLIDE1_BOX1]Title text here[/SLIDE1_BOX1]\n[SLIDE1_BOX2]Body text here[/SLIDE1_BOX2]';
+  assert('PPTX: a lost box tag is still a "markers" rejection', Q.gate(pptxIn, '[SLIDE1_BOX1]Heading words[/SLIDE1_BOX1] Body words', { kind: 'paraphrase' }) === 'markers' && Q.structure(Q.segment(pptxIn), '[SLIDE1_BOX1]x[/SLIDE1_BOX1]').collapsed === true);
+
+  console.log('\n── 9. Hotfix: the page retries a failed part silently (3 s, then 8 s) before showing the button ──');
+  const waited = [];
+  const sleep = async (ms) => { waited.push(ms); };
+  P.reset(); P.add([{ text: 'Part A text' }, { text: 'Part B text' }]);
+  let tries = [];
+  await P.autoRetry(async (i) => { tries.push(P.list()[i].text); return false; }, { sleep });
+  assert('default waits are 3 s then 8 s, every failed part tried twice, all still listed after', JSON.stringify(P.AUTO_WAITS) === '[3000,8000]' && JSON.stringify(waited) === '[3000,3000,8000,8000]' && tries.length === 4 && P.list().length === 2 && P.autoRan(), JSON.stringify(waited));
+  P.reset(); P.add([{ text: 'Part A text' }, { text: 'Part B text' }]);
+  tries = []; waited.length = 0;
+  const status = [];
+  await P.autoRetry(async (i) => { const t = P.list()[i].text; tries.push(t); if (t === 'Part B text' || tries.length > 2) { P.remove(i); return true; } return false; }, { sleep, onStatus: (k, tot) => status.push(k + '/' + tot) });
+  assert('a part that fails its 1st automatic try succeeds on the 2nd; the other on its 1st; nothing left (no button)', P.list().length === 0 && tries.join(',') === 'Part A text,Part B text,Part A text', tries.join(','));
+  assert('"Finishing part n…" status for each try', status.join(' ') === '1/2 2/2 1/1', status.join(' '));
+  P.reset(); P.add([{ text: 'x y z' }]);
+  assert('a new run (reset) makes the automatic tries run again for it', !P.autoRan());
+  P.reset();
 
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);

@@ -10,6 +10,8 @@
 //                              ("length_ratio", "unchanged", "script", "preamble", "markdown",
 //                              "repetition", "paragraphs", "markers", "format", "empty")
 //   mapOutput(units, output) → the answer split back onto the chunk's units, or null if it doesn't fit
+//   alignOutput(units, output) → the same, but a different paragraph count is re-aligned (markers, then sentences)
+//   structure(units, output) → { texts } | { whole } | { collapsed } — only a bad collapse is a rejection
 //   outputCap(words)         → max output tokens for a chunk: clamp(words × 2.2, 600, 3000)
 // Nothing here logs or stores text.
 // ═══════════════════════════════════════════════════
@@ -136,6 +138,75 @@ function mapOutput(units, output) {
   }
   let k = 0;
   return units.map((u) => (u.send ? parts[k++] : u.text));
+}
+
+// k pieces of `text` laid onto units of these word counts: its own paragraphs when there are exactly k, else its
+// sentences cut where the running word share is closest to the input's → k strings, or null (fewer sentences than k)
+function spread(text, weights) {
+  const k = weights.length, t = String(text).trim();
+  if (k === 1) return t ? [t.replace(/\s*\n\s*\n\s*/g, ' ')] : null;
+  const paras = t.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+  if (paras.length === k) return paras;
+  const ss = paras.flatMap((p) => sentences(p));
+  if (ss.length < k) return null;
+  const total = weights.reduce((a, b) => a + b, 0) || k;
+  const sw = ss.map(countWords), outTotal = sw.reduce((a, b) => a + b, 0);
+  const pieces = [];
+  let i = 0, done = 0, acc = 0;
+  for (let u = 0; u < k - 1; u++) {
+    acc += weights[u];
+    const goal = (acc / total) * outTotal;
+    const start = i;
+    // at least one sentence each, and enough left for the units after this one
+    while (i < ss.length - (k - 1 - u) && (i === start || Math.abs(done + sw[i] - goal) <= Math.abs(done - goal))) { done += sw[i]; i++; }
+    pieces.push(ss.slice(start, i).join(' '));
+  }
+  pieces.push(ss.slice(i).join(' '));
+  return pieces;
+}
+
+// Like mapOutput, but an answer with a different paragraph count is re-aligned instead of refused: split at the
+// DOCX <<<N>>> markers (a marked paragraph and its unmarked continuation pieces form one group), then each group's
+// text is laid onto its units by paragraph or by sentence. → per-unit texts, or null when it can't be re-aligned.
+function alignOutput(units, output) {
+  const direct = mapOutput(units, output);
+  if (direct || units.some((u) => u.box)) return direct;
+  const sent = units.filter((u) => u.send);
+  const out = String(output).trim();
+  const groups = [];   // [{ marker, units: [] }]
+  for (const u of sent) {
+    const m = u.text.match(/^<<<(\d+)>>>/);
+    if (m || !groups.length) groups.push({ marker: m ? m[0] : null, units: [] });
+    groups[groups.length - 1].units.push(u);
+  }
+  let segs;
+  if (groups.some((g) => g.marker)) {
+    const at = groups.map((g) => (g.marker ? out.indexOf(g.marker) : 0));
+    if (at.some((p, i) => p < 0 || (i && p < at[i - 1]))) return null;
+    segs = groups.map((g, i) => out.slice(at[i], i + 1 < groups.length ? at[i + 1] : out.length).trim());
+  } else segs = [out];
+  const texts = [];
+  for (let g = 0; g < groups.length; g++) {
+    const marker = groups[g].marker || '';
+    const body = marker ? segs[g].slice(marker.length).trim() : segs[g];
+    const pieces = spread(body, groups[g].units.map((u) => countWords(stripMarkers(u.text))));
+    if (!pieces || pieces.some((p) => !p)) return null;
+    pieces[0] = marker ? marker + ' ' + pieces[0] : pieces[0];
+    texts.push(...pieces);
+  }
+  let k = 0;
+  return units.map((u) => (u.send ? texts[k++] : u.text));
+}
+
+// Paragraph structure of an answer that passed the gate → { texts } (re-aligned per unit), { whole: true } (can't be
+// re-aligned but still has at least half the paragraphs — used as it is), or { collapsed: true } (a bad collapse: reject).
+function structure(units, output) {
+  const texts = alignOutput(units, output);
+  if (texts) return { texts };
+  if (units.some((u) => u.box)) return { collapsed: true };
+  const want = units.filter((u) => u.send && !(u.piece > 0)).length;   // the input's paragraphs (pieces of one count once)
+  const got = String(output).trim().split(/\n\s*\n/).filter((p) => p.trim()).length;
+  return got >= Math.ceil(want * 0.5) ? { whole: true } : { collapsed: true };
 }
 
 // ── quality gate ──
@@ -271,5 +342,5 @@ function finishProblem(data, shape) {
 
 module.exports = {
   MAX_PARA_WORDS, MIN_CHANGE, countWords, sentences, splitParagraph, segment, groupUnits, halve, chunkSendText, chunkOriginal,
-  rebuild, mapOutput, gate, changeShare, dominantScript, outputCap, kindOf, finishProblem, isPptx, repeats,
+  rebuild, mapOutput, alignOutput, structure, gate, changeShare, dominantScript, outputCap, kindOf, finishProblem, isPptx, repeats,
 };

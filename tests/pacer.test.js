@@ -46,6 +46,13 @@ const tick = () => new Promise((r) => setImmediate(r));
   ms = A.note('groq-4/openai/gpt-oss-120b', 'day', 0);
   const utc = nextMidnight(clock, null);
   assert('Groq per-day 429 without retry-after → next UTC midnight', ms >= utc - clock && ms <= utc - clock + 60000);
+  // hotfix: production Groq TPD/RPD 429s ("try again in 1m40s", reset-requests header ~3 min) were cooled ~100 s and
+  // came straight back — a day quota now waits for the daily reset
+  A.noteHeaders('groq-2/openai/gpt-oss-20b', { remReq: 3, remTok: 500, resetReq: '2m59.56s', resetTok: '7.66s' });
+  ms = A.note('groq-2/openai/gpt-oss-20b', 'day', 100);
+  assert('Groq TPD 429 with retry-after 100 s and a ~3 min reset-requests header → until the daily reset (UTC midnight), not ~100 s', ms >= utc - clock && ms <= utc - clock + 60000, ms);
+  ms = A.note('gemini-2/gemini-3.5-flash', 'day', 100);
+  assert('Gemini RPD 429 with retryDelay 100 s → until midnight Pacific', ms >= pt - clock && ms <= pt - clock + 60000, ms);
   ms = A.note('gemini/gemma-4-26b-it', 'overload');
   assert('Google 500/503 overload → a few seconds (8–10 s), not a quota cooldown', ms >= 8000 && ms <= 10000, ms);
   ms = A.note('nvidia/x', 'timeout');

@@ -76,11 +76,11 @@ function createPacer({ getRedis = () => null, now = () => Date.now(), random = M
   const redis = () => { try { return getRedis(); } catch (_) { return null; } };
   const jitter = (maxMs) => Math.floor(random() * maxMs);
 
+  // A provider's daily-quota reset. (Groq's x-ratelimit-reset-requests is NOT used: it is when the next request slot
+  // frees up — often ~1–3 min — not when the day quota resets, so a TPD/RPD 429 kept coming back every ~100 s.)
   function resetAt(name, t) {
     const n = String(name);
     if (/^gemini/.test(n)) return nextMidnight(t, 'America/Los_Angeles');
-    const h = heads.get(n);
-    if (/^groq/.test(n) && h && h.resetReqAt && h.resetReqAt > t) return h.resetReqAt;
     return nextMidnight(t, null);
   }
 
@@ -156,7 +156,8 @@ function createPacer({ getRedis = () => null, now = () => Date.now(), random = M
   function note(name, kind, retryAfterS = 0) {
     const t = now();
     let until;
-    // per-day: Groq's TPD is a rolling window — a long retry-after (≥ 15 min) says exactly when; otherwise the reset
+    // per-day: a long retry-after (≥ 15 min, Groq's rolling TPD window) says exactly when; a short one (the ~100 s
+    // "try again in 1m40s" for the tokens of one request) is not the reset — then until the provider's daily reset
     if (kind === 'day') until = (retryAfterS >= 900 ? t + retryAfterS * 1000 : resetAt(name, t)) + jitter(60000);
     else if (kind === 'overload') until = t + OVERLOAD_S * 1000 + jitter(2000);
     else if (kind === 'timeout') until = t + TIMEOUT_S * 1000;
