@@ -24,9 +24,9 @@ const COOL_KEY = 'pf_cool_v2';              // hash: entry → JSON { until, kin
                                             // long cooldowns written by older code the moment this deploys.
 const USAGE_PREFIX = 'pf_usage:';           // api/_usage.js day hash (chunk|entry, chat|entry); we add tok|entry
 const SYNC_MS = 20000, FLUSH_MS = 30000, PROBE_MS = 20000;
-const MINUTE_DEFAULT_S = 20, OVERLOAD_S = 8, TIMEOUT_S = 120;
-const MAX_COOLDOWN_MS = 120000;             // HARD CAP: no cooldown ever exceeds 120 s, whatever the 429 type.
-                                            // A daily-quota 429 cools 120 s, then the single-probe logic retries —
+const MINUTE_DEFAULT_S = 20, OVERLOAD_S = 8, TIMEOUT_S = 60;
+const MAX_COOLDOWN_MS = 60000;              // HARD CAP: no cooldown ever exceeds 60 s, whatever the 429 type.
+                                            // A daily-quota 429 cools 60 s, then the single-probe logic retries —
                                             // never until the daily reset (Groq TPD is rolling, so that was wrong).
 
 // Free-tier limits by model (A1 of experiments/efficiency/REPORT.md, read 2026-11-04). Per key = per pool.

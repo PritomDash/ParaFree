@@ -148,7 +148,7 @@ const T12_FAIL = Object.fromEntries([...GROQS, 'gemini', 'gemini-2'].map(k => [k
   reset({ groq: 'ok', 'groq-2': 'ok', 'groq-3': 'ok', 'groq-4': 'ok' });
   let r = await call({ text: LONG, mode: 'standard' });
   assert('model lists fetched for groq-4 and gemini-2 too', ['groq-4', 'gemini-2'].every(k => r.listCalls.includes(k)), r.listCalls.join(','));
-  assert('4 chunks → each of the four Groq keys serves one (rotation)', new Set(r.calls.map(n => n.split('/')[0])).size === 4 && r.calls.every(n => n.endsWith('/' + M120)), r.calls.join(','));
+  assert('4 chunks → all served by the first Groq key (fixed order, no rotation)', new Set(r.calls.map(n => n.split('/')[0])).size === 1 && r.calls.every(n => n.endsWith('/' + M120)), r.calls.join(','));
   reset({ ...Object.fromEntries(GROQS.map(k => [k, 'daily'])), gemini: 'ok', 'gemini-2': 'ok' });
   r = await call({ text: SHORT, mode: 'standard' });
   const t1 = r.calls.slice(0, 6);
@@ -156,7 +156,7 @@ const T12_FAIL = Object.fromEntries([...GROQS, 'gemini', 'gemini-2'].map(k => [k
   const served = [];
   for (let i = 0; i < 4; i++) served.push((await call({ text: SHORT, mode: 'standard' })).calls.slice(-1)[0]);
   // The mock names a Gemini call "gemini-2/…" only when its URL carries GEMINI_KEY_2.
-  assert('both Gemini keys serve requests (gemini and gemini-2 rotate; gemini-2 uses GEMINI_KEY_2)', served.some(n => n.startsWith('gemini/')) && served.some(n => n.startsWith('gemini-2/')), served.join(','));
+  assert('fixed order: Gemini key #1 serves every request (gemini-2 not needed while gemini is up)', served.every(n => n.startsWith('gemini/')), served.join(','));
   reset({ groq: 'ok', 'groq-2': 'ok', 'groq-3': 'ok', 'groq-4': 'ok', gemini: 'ok', 'gemini-2': 'ok', nvidia: 'ok', ovhcloud: 'ok', llm7: 'ok', cloudflare: 'ok' });
   r = await call({ type: 'testKeys', adminPassword: 'test-admin' });
   const rows = r.payload.results;
@@ -227,11 +227,11 @@ const T12_FAIL = Object.fromEntries([...GROQS, 'gemini', 'gemini-2'].map(k => [k
   r = await call({ text: LONG, mode: 'standard' });
   // the big chunk that hit the timeout is split in two ("try big, split on failure"): 2 halves + 3 other chunks
   assert('ultra timed out once, then skipped for the other chunks (the timed-out chunk is split: 5 pieces)', r.calls.filter(n => n === NV_U).length === 1 && r.calls.filter(n => n === NV_L).length === 5 && r.payload.success, r.calls.join(','));
-  assert('"timed out — skipping it for 120s" logged', r.logs.some(l => l.includes(`${NV_U} timed out — skipping it for 120s`)), r.logs.filter(l => l.includes('⏸')).join(' | '));
-  advance(121 * 1000);
+  assert('"timed out — skipping it for 60s" logged', r.logs.some(l => l.includes(`${NV_U} timed out — skipping it for 60s`)), r.logs.filter(l => l.includes('⏸')).join(' | '));
+  advance(61 * 1000);
   behaviour = { ...T12_FAIL, [NV_U]: 'ok' };
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('after 2 min ultra is tried again', r.calls.slice(-1)[0] === NV_U, r.calls.join(','));
+  assert('after the 60 s cap ultra is tried again', r.calls.slice(-1)[0] === NV_U, r.calls.join(','));
   reset({ ...T12_FAIL, cloudflare: 'timeout', ovhcloud: 'ok' });
   await call({ text: SHORT, mode: 'standard' });
   r = await call({ type: 'testKeys', adminPassword: 'test-admin' });

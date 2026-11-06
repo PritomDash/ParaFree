@@ -392,15 +392,15 @@ const firstNonNvidia = (names) => names.filter(n => !n.startsWith('nvidia/'));
   r = await call({ text: SHORT, mode: 'standard' });
   assert('baseline: Gemini is the last Tier 1 entry and handles it', r.calls[r.calls.length - 1] === G1 && r.calls.length === 4, r.calls.join(','));
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('next request: the most recently successful Tier 1 entry (Gemini) is tried first', r.calls.join(',') === G1, r.calls.join(','));
+  assert('fixed order: recency does NOT move Gemini first — still last in Tier 1', r.calls[r.calls.length - 1] === G1 && T1(r.calls).length === 4, r.calls.join(','));
   const G3 = 'gemini/gemma-3-27b-it';                                 // a Tier 2 entry (one key, so no group rotation)
   behaviour = { [G3]: 'ok' };                                         // Gemini stops working; only one Tier-2 entry works
   r = await call({ text: SHORT, mode: 'standard' });
   assert('Tier 2 succeeds only after every Tier 1 entry was tried', T1(r.calls.slice(0, 4)).length === 4 && T1(r.calls.slice(4)).length === 0 && r.calls[r.calls.length - 1] === G3, r.calls.join(','));
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('Tier 1 still fully before Tier 2 (never reordered across tiers)', T1(r.calls.slice(0, 4)).length === 4 && r.calls[4] === G3, r.calls.join(','));
-  assert('within Tier 2 the recent winner goes first', r.calls.length === 5, r.calls.join(','));
-  assert('within Tier 1 Gemini (recent) still first', r.calls[0] === G1);
+  assert('Tier 1 still fully before Tier 2 (never reordered across tiers)', T1(r.calls.slice(0, 4)).length === 4 && r.calls[r.calls.length - 1] === G3, r.calls.join(','));
+  assert('fixed order: Tier 2 tried in fixed order until Gemma handles it (no recency)', r.calls[r.calls.length - 1] === G3, r.calls.join(','));
+  assert('fixed order: Tier 1 always starts with groq/120b (no recency reorder)', r.calls[0].endsWith('/' + M120), r.calls.join(','));
   behaviour = { [CFN]: 'ok' };                                        // only the Cloudflare safety net works
   r = await call({ text: SHORT, mode: 'standard' });
   assert('Cloudflare (Tier 4) succeeds only after Tiers 1–3 (incl. NVIDIA, ovhcloud, llm7)', r.calls[r.calls.length - 1] === CFN && r.calls.includes('ovhcloud') && r.calls.includes('llm7') && r.calls.includes('nvidia/nvidia/nemotron-3-ultra-550b-a55b'), r.calls.join(','));
@@ -411,14 +411,14 @@ const firstNonNvidia = (names) => names.filter(n => !n.startsWith('nvidia/'));
   coldStart();
   behaviour = { [G3]: 'ok' };
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('a new instance uses the shared order (Gemini first in Tier 1, recent Tier 2 winner first in Tier 2)', r.calls[0] === G1 && r.calls[4] === G3, r.calls.join(','));
+  assert('a new instance uses the same fixed order (Tier 1 starts groq/120b; Gemma handled last)', r.calls[0].endsWith('/' + M120) && r.calls[r.calls.length - 1] === G3, r.calls.join(','));
   advance(61 * 60 * 1000);
   r = await call({ text: SHORT, mode: 'standard' });
   assert('successes older than 1 h no longer reorder (back to Groq rotation)', r.calls[0].endsWith('/' + M120), r.calls.join(','));
   behaviour = { groq: 'ok', 'groq-2': 'ok', 'groq-3': 'ok' };
   const usedKeys = new Set();
   for (let i = 0; i < 6; i++) usedKeys.add(keyOf((await call({ text: SHORT, mode: 'standard' })).calls[0]));
-  assert('Groq keys that all succeed keep rotating (rotation is the tiebreaker)', usedKeys.size === 3, [...usedKeys].join(','));
+  assert('fixed order: every request starts on the first Groq key (no rotation)', usedKeys.size === 1, [...usedKeys].join(','));
 
   // ── 11. Health check: only auth / retired failures go on the skip list ──
   console.log('\n── 11. Health-check skip list (401/403/404/410/retired only) ──');

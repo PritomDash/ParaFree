@@ -53,7 +53,7 @@ const tick = () => new Promise((r) => setImmediate(r));
   ms = A.note('gemini/gemma-4-26b-it', 'overload');
   assert('Google 500/503 overload → a few seconds (8–10 s), not a quota cooldown', ms >= 8000 && ms <= 10000, ms);
   ms = A.note('nvidia/x', 'timeout');
-  assert('timeout → 2 min', ms === 120000);
+  assert('timeout → 60 s (hard cap)', ms === 60000);
   rnd = 0; const j0 = A.note('llm7', 'minute', 10); rnd = 0.999; const j1 = A.note('ovhcloud', 'minute', 10);
   assert('jitter spreads retries (same retry-after → different cooldown ends)', j1 - j0 > 2500, `${j0} vs ${j1}`);
   assert('Groq reset strings parse ("2m59.56s", "7.66s", "1h2m3s")', durationMs('2m59.56s') === 179560 && durationMs('7.66s') === 7660 && durationMs('1h2m3s') === 3723000);
@@ -167,14 +167,16 @@ const tick = () => new Promise((r) => setImmediate(r));
   r = await call({ text: SHORT, mode: 'standard' });
   assert('gemini (key 1) at its daily quota → gemini-3 (key 3) answers', r.status === 200 && r.calls.includes('gemini-3/gemini-3.5-flash-lite'), r.calls.join(','));
 
-  console.log('\n── 8. Spread by headroom (Groq x-ratelimit headers) ──');
+  console.log('\n── 8. Fixed order: same first key regardless of headroom ──');
   handler._pacer._reset();
   behaviour = (n) => (n.startsWith('groq/') ? { headers: { 'x-ratelimit-remaining-requests': '20', 'x-ratelimit-remaining-tokens': '7900' } } : 'ok');
   r = await call({ text: SHORT, mode: 'standard' });
   const firstKey = r.calls[0];
   r = await call({ text: SHORT, mode: 'standard' });
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('after groq reports 20 of 1,000 requests left, the next requests start on the key with more headroom', firstKey && r.calls[0] !== 'groq/openai/gpt-oss-120b', `${firstKey} then ${r.calls.join(',')}`);
+  // One-provider-at-a-time: the chain is fixed order, so every request starts on the first key
+  // (no headroom-based reshuffling). Low headroom no longer moves another key to the front.
+  assert('fixed order: requests always start on the first key regardless of headroom', firstKey === 'groq/openai/gpt-oss-120b' && r.calls[0] === 'groq/openai/gpt-oss-120b', `${firstKey} then ${r.calls.join(',')}`);
 
   console.log('\n── 9. 15 % reserve for short requests ──');
   handler._pacer._reset();

@@ -172,14 +172,14 @@ const groqCalls = (names, model) => names.filter(n => n.startsWith('groq') && (!
     assert(`${tool}: no disabled provider called`, bad.length === 0, bad.join(','));
   }
 
-  // ── 2. Per-chunk Groq rotation spreads load over 3 keys ──
-  console.log('\n── 2. Groq rotation across chunks ──');
+  // ── 2. Fixed order: one key serves every chunk until it cools (no rotation) ──
+  console.log('\n── 2. Fixed-order chain (no key rotation) ──');
   reset({ groq: 'ok', 'groq-2': 'ok', 'groq-3': 'ok' });
   r = await call({ text: LONG, mode: 'standard' });
   assert('multi-chunk request succeeded', r.status === 200 && r.payload.success, String(r.status));
   assert('4 chunks → 4 calls, all gpt-oss-120b (Tier 1)', r.calls.length === 4 && r.calls.every(n => n.endsWith('/' + M120)), r.calls.join(','));
-  assert('all three Groq keys used', new Set(r.calls.map(keyOf)).size === 3, r.calls.join(','));
-  assert('consecutive chunks use different keys', r.calls.every((n, i) => i === 0 || keyOf(n) !== keyOf(r.calls[i - 1])), r.calls.join(','));
+  assert('all 4 chunks use the SAME (first) key — one provider at a time', new Set(r.calls.map(keyOf)).size === 1, r.calls.join(','));
+  assert('the key used is the first in the chain', keyOf(r.calls[0]) === keyOf('groq/' + M120), r.calls.join(','));
 
   // ── 3. Per-chunk logging names key+model ──
   console.log('\n── 3. Logs which key+model handled each chunk ──');
@@ -223,14 +223,14 @@ const groqCalls = (names, model) => names.filter(n => n.startsWith('groq') && (!
   r = await call({ text: SHORT, mode: 'standard' });
   const dl = r.logs.find(l => /groq.* daily quota \(until its reset\) — skipping it for \d+s/.test(l));
   const dsecs = dl ? Number(dl.match(/for (\d+)s/)[1]) : -1;
-  assert('Groq per-day 429 (no reset header) → capped at 120 s (not next UTC midnight)', dsecs > 0 && dsecs <= 120, `${dsecs}s`);
-  advance(60 * 1000);                                                       // 1:00 — still within the 120 s cap
+  assert('Groq per-day 429 (no reset header) → capped at 60 s (not next UTC midnight)', dsecs > 0 && dsecs <= 60, `${dsecs}s`);
+  advance(30 * 1000);                                                       // 0:30 — still within the 60 s cap
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('still cooling at 1:00', groqCalls(r.calls).length === 0, r.calls.join(','));
-  advance(62 * 1000);                                                       // 2:02 — just past the 120 s cap
+  assert('still cooling at 0:30', groqCalls(r.calls).length === 0, r.calls.join(','));
+  advance(32 * 1000);                                                       // 1:02 — just past the 60 s cap
   behaviour = { groq: 'ok', 'groq-2': 'ok', 'groq-3': 'ok' };
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('Groq tried again after the 120 s cap (not after a daily reset)', r.calls[r.calls.length - 1].startsWith('groq') && r.payload.success && r.calls.every(n => n === G1 || n.startsWith('groq')), r.calls.join(','));
+  assert('Groq tried again after the 60 s cap (not after a daily reset)', r.calls[r.calls.length - 1].startsWith('groq') && r.payload.success && r.calls.every(n => n === G1 || n.startsWith('groq')), r.calls.join(','));
 
   reset({
     [G1]:       { status: 429, body: { error: { status: 'RESOURCE_EXHAUSTED', message: 'Quota exceeded for metric: generate_requests_per_model_per_day (GenerateRequestsPerDayPerProjectPerModel)' } } },
@@ -287,12 +287,13 @@ const groqCalls = (names, model) => names.filter(n => n.startsWith('groq') && (!
           [`groq/${M20}`]: 'quota', [`groq-2/${M20}`]: 'quota', [`groq-3/${M20}`]: 'quota', groq: 'ok', 'groq-2': 'ok', 'groq-3': 'ok' });
   r = await call({ text: SHORT, mode: 'standard' });
   assert('all 20b limited → llama-3.3-70b on the next Tier 2 step', r.calls[r.calls.length - 1].endsWith('/' + LLAMA) && groqCalls(r.calls, M20).length === 3, r.calls.join(','));
-  // groq/120b rate-limited: over 6 rotating requests it is called once, groq-2/120b and groq-3/120b keep serving.
+  // Fixed order: groq/120b is tried first every time; once it cools, groq-2/120b (the NEXT key) serves
+  // every following request — load is NOT spread to groq-3 while groq-2 is up.
   reset({ [`groq/${M120}`]: 'quota', groq: 'ok', 'groq-2': 'ok', 'groq-3': 'ok' });
   const seen6 = [];
   for (let i = 0; i < 6; i++) seen6.push(...(await call({ text: SHORT, mode: 'standard' })).calls);
   assert('groq/120b called once, then skipped (its own cooldown)', seen6.filter(n => n === `groq/${M120}`).length === 1, seen6.join(','));
-  assert('groq-2/120b and groq-3/120b unaffected', seen6.includes(`groq-2/${M120}`) && seen6.includes(`groq-3/${M120}`), seen6.join(','));
+  assert('groq-2/120b (next key) then serves the rest; groq-3 not needed', seen6.filter(n => n === `groq-2/${M120}`).length >= 5 && !seen6.includes(`groq-3/${M120}`), seen6.join(','));
   assert('groq/20b is NOT used while Tier 1 still has working entries', !seen6.includes(`groq/${M20}`), seen6.join(','));
 
   // ── 7. reasoning_effort only for gpt-oss ──
@@ -324,17 +325,17 @@ const groqCalls = (names, model) => names.filter(n => n.startsWith('groq') && (!
 
   // ── 9. testKeys: per key+model ──
   console.log('\n── 9. testKeys per key+model ──');
-  // Three rotating requests: one of them starts on groq-2, so groq-2/120b hits its daily limit.
-  reset({ [`groq-2/${M120}`]: 'daily', groq: 'ok', 'groq-2': 'ok', 'groq-3': 'ok', gemini: 'ok' });
+  // Fixed order hits the first key every time, so groq/120b (key #1) is the one that hits its daily limit.
+  reset({ [`groq/${M120}`]: 'daily', groq: 'ok', 'groq-2': 'ok', 'groq-3': 'ok', gemini: 'ok' });
   for (let i = 0; i < 3; i++) await call({ text: SHORT, mode: 'standard' });
   r = await call({ type: 'testKeys', adminPassword: 'test-admin' });
   const res9 = r.payload.results;
   const rows = [M120, M20, LLAMA].flatMap(m => GROQS.map(k => `${k}/${m}`)).concat([G1, GLITE, GEMMA]);
   assert('one row per key+model (9 Groq + 3 Gemini-key)', rows.every(n => res9[n]), Object.keys(res9).join(', '));
   assert('working rows report ✅ and their model', res9[`groq-3/${LLAMA}`].status === '✅ working' && res9[`groq-3/${LLAMA}`].model === LLAMA);
-  assert('daily-limited row reports ⏳ daily limit', res9[`groq-2/${M120}`].status === '⏳ daily limit', JSON.stringify(res9[`groq-2/${M120}`]));
-  assert('active cooldown shown on that key+model', res9[`groq-2/${M120}`].cooldownSecondsLeft > 0, JSON.stringify(res9[`groq-2/${M120}`]));
-  assert('other keys\' 120b unaffected', !res9[`groq/${M120}`].cooldownSecondsLeft && res9[`groq/${M120}`].status === '✅ working');
+  assert('daily-limited row reports ⏳ daily limit', res9[`groq/${M120}`].status === '⏳ daily limit', JSON.stringify(res9[`groq/${M120}`]));
+  assert('active cooldown shown on that key+model', res9[`groq/${M120}`].cooldownSecondsLeft > 0, JSON.stringify(res9[`groq/${M120}`]));
+  assert('other keys\' 120b unaffected', !res9[`groq-2/${M120}`].cooldownSecondsLeft && res9[`groq-2/${M120}`].status === '✅ working');
   for (const d of ['openrouter', 'mistral', 'mistral-2', 'sambanova', 'deepseek', 'scaleway', 'huggingface', 'chutes']) {
     assert(`${d} reported disabled`, res9[d] && /disabled/.test(res9[d].status), JSON.stringify(res9[d]));
   }

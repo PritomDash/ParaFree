@@ -372,28 +372,10 @@ function tierOf(c) { const r = rankOf(c); return r < 10 ? 1 : r < 1000 ? 2 : r <
 // reordered against each other, and entries that tie (no recent success, or the same 10-minute
 // bucket) keep the rotation order.
 function orderChain(candidates, startOffset) {
-  const active = candidates.filter(c => !DISABLED_PROVIDERS.has(c.name)).sort((a, b) => rankOf(a) - rankOf(b));
-  const out = [];
-  for (let i = 0; i < active.length;) {
-    let j = i + 1;
-    if (active[i].group) while (j < active.length && active[j].group === active[i].group) j++;
-    const run = active.slice(i, j);
-    const s = active[i].group ? startOffset % run.length : 0;
-    out.push(...run.slice(s), ...run.slice(0, s));
-    i = j;
-  }
-  // A Groq / Gemini group (one model across the keys) shares the recency of its most recent
-  // member, so the keys tie with each other and the rotation keeps spreading load across them.
-  const groupRecency = {};
-  for (const c of out) if (c.group) groupRecency[c.group] = Math.max(groupRecency[c.group] ?? -1, discovery.recency(c.name));
-  const recent = (c, tier) => tier === 3 ? -1 : c.group ? groupRecency[c.group] : discovery.recency(c.name);
-  // Within a tier the entry with the MOST headroom goes first (rate-limit headers + today's shared counters, in
-  // 20 % steps so near-equal entries keep the rotation / recency order). No headroom data → all equal.
-  const room = (c) => Math.round(pacer.headroom(c.name) * 5);
-  return out
-    .map((c, idx) => { const tier = tierOf(c); return { c, idx, tier, recent: recent(c, tier), room: tier === 3 ? 0 : room(c) }; })
-    .sort((a, b) => (a.tier - b.tier) || (b.room - a.room) || (b.recent - a.recent) || (a.idx - b.idx))
-    .map(x => x.c);
+  // FIXED strict order: provider #1 serves every user until it cools down, then #2, then #3, …
+  // No key rotation and no headroom/recency reshuffling — one provider at a time, in rank order.
+  // (startOffset is kept for signature compatibility but no longer rotates the chain.)
+  return candidates.filter(c => !DISABLED_PROVIDERS.has(c.name)).sort((a, b) => rankOf(a) - rankOf(b));
 }
 
 // ── PROVIDER COOLDOWN ──
