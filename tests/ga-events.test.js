@@ -73,7 +73,7 @@ const FUNCS = [
   'summarize', 'checkGrammar', 'renderGrammarOutput', 'humanize', 'paraphrase', 'detectAI',
   'calculateAIScore', 'calculateMetrics', 'handleFileUpload', 'downloadOutput',
   'buildFrontendBatches', 'processParaphraseOutput', 'parseStructuredOutput', 'countWords', 'cleanMarkdown',
-  'escapeHtml', 'stripMarkdown', 'pfAfterRun', 'pfMark',
+  'escapeHtml', 'stripMarkdown', 'pfAfterRun', 'pfMark', 'pfIsRepeat', 'pfRunDone',
 ];
 
 // ── Mocked /api/process ──

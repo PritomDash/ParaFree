@@ -1,5 +1,4 @@
 'use strict';
-const { fakeAnswer, contentOf } = require('./_fake-answer');
 // Automatic model discovery — api/_model-discovery.js + its wiring in api/process.js.
 // Everything is mocked: provider model lists and chat endpoints (global.fetch, unknown URLs
 // throw), Upstash (fake @upstash/redis injected into the module cache) and the clock.
@@ -24,9 +23,6 @@ const KEYS = {
 };
 for (const k of Object.keys(process.env)) if (/_KEY|_KEY_\d|^CF_ACCOUNT$|^UPSTASH|^KV_|_MODEL$|_PREFS$/.test(k)) delete process.env[k];
 Object.assign(process.env, KEYS);
-// These tests check the chain ORDER, so they let a chunk walk the whole chain; the default cap of 3 providers per
-// chunk is covered in tests/pacer.test.js.
-process.env.PF_MAX_PROVIDERS = '99';
 
 // ── Clock ──
 const realNow = Date.now;
@@ -105,7 +101,7 @@ global.fetch = async (url, opts = {}) => {
   if (!name) throw new Error('UNMOCKED URL — refusing live call: ' + url);
   calls.push({ name, body, t: Date.now() });
   const b = behaviour[name] || behaviour[name.split('/')[0]] || 'fail';
-  const text = fakeAnswer(contentOf(body), name);
+  const text = `[${name}] paraphrased output text paraphrased output text`;
   if (b === 'ok') {
     if (name.startsWith('gemini/')) return respond(200, { candidates: [{ content: { parts: [{ text }] } }] });
     if (name.startsWith('cloudflare/')) return respond(200, { success: true, result: { response: text } });
@@ -136,7 +132,6 @@ async function call(body) {
   let status = 0, payload = null;
   const res = { setHeader() {}, status(s) { status = s; return this; }, json(j) { payload = j; return this; }, end() { return this; } };
   calls = []; listCalls = [];
-  handler._pacer._reset();   // this file tests model discovery, not pacing: every request starts with no cooldowns
   const logStart = logs.length;
   const t0 = Date.now();
   quiet();
@@ -153,7 +148,7 @@ const keyOf = (n) => n.split('/')[0];
 function v24Chain(firstKey, geminiT2 = 'gemini-3.1-flash-lite') {
   const ks = rot(GROQS, GROQS.indexOf(firstKey));
   return [...ks.map(k => k + '/' + M120), 'gemini/gemini-3.5-flash-lite',                                   // Tier 1
-          ...ks.map(k => k + '/' + M20), ...ks.map(k => k + '/' + LLAMA), 'gemini/' + geminiT2, 'gemini/gemma-3-27b-it',   // Tier 2
+          ...ks.map(k => k + '/' + M20), ...ks.map(k => k + '/' + LLAMA), 'gemini/' + geminiT2,   // Tier 2 (key-1 Gemma skipped since Nov 10)
           'ovhcloud', 'llm7',                                                                            // Tier 3 (NVIDIA filtered out here)
           'cloudflare/@cf/meta/llama-3.1-8b-instruct'];                                                  // Tier 4 (safety net)
 }
@@ -254,7 +249,7 @@ const firstNonNvidia = (names) => names.filter(n => !n.startsWith('nvidia/'));
   r = await call({ text: SHORT, mode: 'standard' });
   const firstCallDelay = r.rawCalls.length ? r.rawCalls[0].t - r.t0 : Infinity;
   assert('first provider call within ~1.3 s even though lists take 3 s', firstCallDelay < 1300, firstCallDelay + 'ms');
-  assert('meanwhile the chain runs on defaults', firstNonNvidia(r.calls).length === 15);
+  assert('meanwhile the chain runs on defaults', firstNonNvidia(r.calls).length === 14);
   await settle(3200);
   r = await call({ text: SHORT, mode: 'standard' });
   assert('background refresh finished → lists loaded, no new fetch', r.listCalls.length === 0 && store.has('pf_models:groq'));
@@ -313,7 +308,8 @@ const firstNonNvidia = (names) => names.filter(n => !n.startsWith('nvidia/'));
   assert('Tier 1 Groq = first resolved pref (llama-*-versatile)', s7[0] === `${K7}/${LLAMA}`, s7.join(' → '));
   assert('Tier 1 Gemini = gemini-*-flash → gemini-3.5-flash', s7.includes('gemini/gemini-3.5-flash') && s7.indexOf('gemini/gemini-3.5-flash') === 3, s7.join(' → '));
   assert('Tier 2 Groq = openai/gpt-oss-* → newest (120b)', s7.slice(4, 7).every(n => n.endsWith('/' + M120)), s7.join(' → '));
-  assert('Tier 2 Gemini = gemma-3-27b-it; no extra slots', s7.includes('gemini/gemma-3-27b-it') && !s7.includes('gemini/gemini-3.1-flash-lite'));
+  // the Gemma slot resolves to gemma-3-27b-it, but key-1 Gemma is skipped (HTTP 500 since Nov 10); no extra slots
+  assert('Tier 2 Gemini = gemma-3-27b-it (skipped on key 1); no extra slots', !s7.includes('gemini/gemma-3-27b-it') && !s7.includes('gemini/gemini-3.1-flash-lite'), s7.join(' → '));
   process.env.GROQ_MODEL_PREFS = 'llama-*';
   coldStart();
   r = await call({ text: SHORT, mode: 'standard' });
@@ -392,15 +388,15 @@ const firstNonNvidia = (names) => names.filter(n => !n.startsWith('nvidia/'));
   r = await call({ text: SHORT, mode: 'standard' });
   assert('baseline: Gemini is the last Tier 1 entry and handles it', r.calls[r.calls.length - 1] === G1 && r.calls.length === 4, r.calls.join(','));
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('fixed order: recency does NOT move Gemini first — still last in Tier 1', r.calls[r.calls.length - 1] === G1 && T1(r.calls).length === 4, r.calls.join(','));
-  const G3 = 'gemini/gemma-3-27b-it';                                 // a Tier 2 entry (one key, so no group rotation)
+  assert('next request: the most recently successful Tier 1 entry (Gemini) is tried first', r.calls.join(',') === G1, r.calls.join(','));
+  const G3 = 'gemini/gemini-3.5-flash';                               // a Tier 2 entry (one key, so no group rotation; key-1 Gemma is skipped)
   behaviour = { [G3]: 'ok' };                                         // Gemini stops working; only one Tier-2 entry works
   r = await call({ text: SHORT, mode: 'standard' });
   assert('Tier 2 succeeds only after every Tier 1 entry was tried', T1(r.calls.slice(0, 4)).length === 4 && T1(r.calls.slice(4)).length === 0 && r.calls[r.calls.length - 1] === G3, r.calls.join(','));
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('Tier 1 still fully before Tier 2 (never reordered across tiers)', T1(r.calls.slice(0, 4)).length === 4 && r.calls[r.calls.length - 1] === G3, r.calls.join(','));
-  assert('fixed order: Tier 2 tried in fixed order until Gemma handles it (no recency)', r.calls[r.calls.length - 1] === G3, r.calls.join(','));
-  assert('fixed order: Tier 1 always starts with groq/120b (no recency reorder)', r.calls[0].endsWith('/' + M120), r.calls.join(','));
+  assert('Tier 1 still fully before Tier 2 (never reordered across tiers)', T1(r.calls.slice(0, 4)).length === 4 && r.calls[4] === G3, r.calls.join(','));
+  assert('within Tier 2 the recent winner goes first', r.calls.length === 5, r.calls.join(','));
+  assert('within Tier 1 Gemini (recent) still first', r.calls[0] === G1);
   behaviour = { [CFN]: 'ok' };                                        // only the Cloudflare safety net works
   r = await call({ text: SHORT, mode: 'standard' });
   assert('Cloudflare (Tier 4) succeeds only after Tiers 1–3 (incl. NVIDIA, ovhcloud, llm7)', r.calls[r.calls.length - 1] === CFN && r.calls.includes('ovhcloud') && r.calls.includes('llm7') && r.calls.includes('nvidia/nvidia/nemotron-3-ultra-550b-a55b'), r.calls.join(','));
@@ -411,14 +407,14 @@ const firstNonNvidia = (names) => names.filter(n => !n.startsWith('nvidia/'));
   coldStart();
   behaviour = { [G3]: 'ok' };
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('a new instance uses the same fixed order (Tier 1 starts groq/120b; Gemma handled last)', r.calls[0].endsWith('/' + M120) && r.calls[r.calls.length - 1] === G3, r.calls.join(','));
+  assert('a new instance uses the shared order (Gemini first in Tier 1, recent Tier 2 winner first in Tier 2)', r.calls[0] === G1 && r.calls[4] === G3, r.calls.join(','));
   advance(61 * 60 * 1000);
   r = await call({ text: SHORT, mode: 'standard' });
   assert('successes older than 1 h no longer reorder (back to Groq rotation)', r.calls[0].endsWith('/' + M120), r.calls.join(','));
   behaviour = { groq: 'ok', 'groq-2': 'ok', 'groq-3': 'ok' };
   const usedKeys = new Set();
   for (let i = 0; i < 6; i++) usedKeys.add(keyOf((await call({ text: SHORT, mode: 'standard' })).calls[0]));
-  assert('fixed order: every request starts on the first Groq key (no rotation)', usedKeys.size === 1, [...usedKeys].join(','));
+  assert('Groq keys that all succeed keep rotating (rotation is the tiebreaker)', usedKeys.size === 3, [...usedKeys].join(','));
 
   // ── 11. Health check: only auth / retired failures go on the skip list ──
   console.log('\n── 11. Health-check skip list (401/403/404/410/retired only) ──');

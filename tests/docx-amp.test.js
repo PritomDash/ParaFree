@@ -62,7 +62,7 @@ function extractFn(name) {
 }
 const constVal = (name) => Number((HTML.match(new RegExp('const ' + name + '\\s*=\\s*(\\d+)')) || [])[1]);
 
-const FUNCS = ['paraphrase', 'runAPIChain', 'pfAfterRun', 'pfMark', 'buildFrontendBatches', 'processParaphraseOutput', 'parseStructuredOutput',
+const FUNCS = ['paraphrase', 'runAPIChain', 'pfAfterRun', 'pfMark', 'pfIsRepeat', 'pfRunDone', 'buildFrontendBatches', 'processParaphraseOutput', 'parseStructuredOutput',
   'countWords', 'stripDocxRevisionMarks', 'extractBodyParasWithPos', 'docxSkip', 'isDocxHeading', 'isSubstantialPara',
   'docxReplaceParasAbsolute', 'docxReplaceParas', 'downloadAsDOCX', 'stripMarkdown', 'pptxEncodeXml', 'pptxDecodeXml'];
 

@@ -371,11 +371,30 @@ function tierOf(c) { const r = rankOf(c); return r < 10 ? 1 : r < 1000 ? 2 : r <
 // good", shared across instances). Tier 3 keeps its fixed quality order. Tiers are never
 // reordered against each other, and entries that tie (no recent success, or the same 10-minute
 // bucket) keep the rotation order.
+// (Restored to the Nov-4 order, a65c892 — the fixed one-at-a-time order of a9bd8de is gone.)
+// Single entries that fail on one key only (testKeys, Nov 10): key-1 Gemma answers HTTP 500, gemini-2's Gemma works.
+const DISABLED_ENTRY_RE = /^gemini\/gemma-/;
+const isDisabled = (c) => DISABLED_PROVIDERS.has(c.name) || DISABLED_ENTRY_RE.test(c.name);
 function orderChain(candidates, startOffset) {
-  // FIXED strict order: provider #1 serves every user until it cools down, then #2, then #3, …
-  // No key rotation and no headroom/recency reshuffling — one provider at a time, in rank order.
-  // (startOffset is kept for signature compatibility but no longer rotates the chain.)
-  return candidates.filter(c => !DISABLED_PROVIDERS.has(c.name)).sort((a, b) => rankOf(a) - rankOf(b));
+  const active = candidates.filter(c => !isDisabled(c)).sort((a, b) => rankOf(a) - rankOf(b));
+  const out = [];
+  for (let i = 0; i < active.length;) {
+    let j = i + 1;
+    if (active[i].group) while (j < active.length && active[j].group === active[i].group) j++;
+    const run = active.slice(i, j);
+    const s = active[i].group ? startOffset % run.length : 0;
+    out.push(...run.slice(s), ...run.slice(0, s));
+    i = j;
+  }
+  // A Groq / Gemini group (one model across the keys) shares the recency of its most recent
+  // member, so the keys tie with each other and the rotation keeps spreading load across them.
+  const groupRecency = {};
+  for (const c of out) if (c.group) groupRecency[c.group] = Math.max(groupRecency[c.group] ?? -1, discovery.recency(c.name));
+  const recent = (c, tier) => tier === 3 ? -1 : c.group ? groupRecency[c.group] : discovery.recency(c.name);
+  return out
+    .map((c, idx) => { const tier = tierOf(c); return { c, idx, tier, recent: recent(c, tier) }; })
+    .sort((a, b) => (a.tier - b.tier) || (b.recent - a.recent) || (a.idx - b.idx))
+    .map(x => x.c);
 }
 
 // ── PROVIDER COOLDOWN ──
@@ -490,6 +509,27 @@ function soonestIfAllCooling(candidates) {
   const pick = candidates.reduce((a, b) => cooldownUntil(b.name) < cooldownUntil(a.name) ? b : a);
   const inS = Math.max(0, Math.ceil((cooldownUntil(pick.name) - Date.now()) / 1000));  // never negative
   console.log(`[ParaFree] ⏸ all providers cooling down — ignoring cooldowns, trying the whole chain in order (soonest free: ${pick.name}, in ${inS}s)`);
+  return pick;
+}
+// ── Writing-path cooldowns (paraphrase / humanize / grammar / summarize) — the Nov-4 rules (a65c892) ──
+// Per instance only (no shared Redis pacer): 60 s for a per-minute 429, 15 min for a daily quota (Retry-After within
+// the PROVIDER COOLDOWN limits above), 2 min for a ≥8 s timeout. Plus the shared health-check skip list, as on Nov 4.
+const writingCooldowns = new Map();   // name → epoch ms (writing path only; the chat path has the shared pacer)
+function localCooldownUntil(name) {
+  let until = writingCooldowns.get(name) || 0;
+  if (until && until <= Date.now()) { writingCooldowns.delete(name); until = 0; }
+  return Math.max(until, discovery.skipUntil(name));
+}
+const isLocallyCooling = (name) => localCooldownUntil(name) > Date.now();
+function startLocalCooldown(name, msg, ms = quotaCooldownMs(msg), why = quotaCooldown(msg) === DAILY_COOLDOWN ? 'daily quota' : 'rate-limited') {
+  writingCooldowns.set(name, Date.now() + ms);
+  usage.record(redis, 'cool', (why === 'timed out' ? 'timeout' : why === 'daily quota' ? 'day' : 'minute') + '|' + name);
+  console.log(`[ParaFree] ⏸ ${name} ${why} — skipping it for ${Math.round(ms / 1000)}s`);
+}
+function soonestIfAllLocallyCooling(candidates) {
+  if (candidates.length === 0 || !candidates.every(c => isLocallyCooling(c.name))) return null;
+  const pick = candidates.reduce((a, b) => localCooldownUntil(b.name) < localCooldownUntil(a.name) ? b : a);
+  console.log(`[ParaFree] ⏸ all providers cooling down — trying ${pick.name} (cooldown ends soonest, in ${Math.max(0, Math.ceil((localCooldownUntil(pick.name) - Date.now()) / 1000))}s)`);
   return pick;
 }
 // Per-provider timeout ("nvidia/<model>" uses the nvidia value), clipped to `until`.
@@ -1107,28 +1147,40 @@ function getPrompt(mode, language) {
 // Formula: chunkCount = clamp(ceil(wordCount / CHUNK_TARGET_WORDS), 1, CHUNK_MAX_COUNT)
 // Smaller chunks = fewer tokens per API call = less rate-limit pressure and faster responses.
 // 350 words ≈ 500 tokens input → OVHcloud/LLM7 respond in <8s (under FAST_TIMEOUT).
-// "Try big, split on failure": ~1,000-word chunks (a cut-off, gated or timed-out chunk is split in two and retried).
-// Up to 3 chunks run at once, each on a different key; the browser sends up to ~3,000 words per request.
-const CHUNK_TARGET_WORDS = 1000;
-const CHUNK_MAX_COUNT    = 4;    // 4 × 1,000 words; with 3 in parallel this fits the 80 s budget
-const CHUNK_CONCURRENCY  = 1;    // sequential for now: one chunk at a time, so bursts don't trip per-minute limits
-const CHUNK_INTER_DELAY  = 300;  // ms between chunk starts
-const FIRST_CHUNK_WORDS  = 250;  // streaming: a small first chunk so the first text shows in ~2 s
-const BIG_CHUNK_WORDS    = 400;  // a chunk this big never shares a key with another big chunk in flight
-const bigInFlight = new Map();   // key ("groq-2", "gemini", …) → big chunks in flight on this instance
-const MAX_PROVIDERS_PER_CHUNK = Number(process.env.PF_MAX_PROVIDERS) || 3;   // failed provider attempts per chunk — errors, timeouts, cut-offs (not 429s or gated answers); then split, then "Retry this part"; PF_MAX_PROVIDERS only in tests
-// Gate reasons whose answer can still stand in when every answer is gated (length and language were fine), and
-// the least change it must show to be better than the original text
-const GATE_FALLBACK = new Set(['unchanged', 'paragraphs']);
-const FALLBACK_MIN_CHANGE = 0.03;
-// Models that often return a long chunk unchanged — never given a chunk over BIG_CHUNK_WORDS
-const SMALL_CHUNK_ONLY = /gpt-oss-20b/;
-const SHORT_RESERVE = 0.15;          // keep the last 15 % of each provider's daily capacity for short requests
-const SHORT_REQUEST_WORDS = 300;     // requests below this are "short" (66 % of traffic, GA4 word_bucket <300)
-const QUEUE_MAX_S = 30;              // a long document waits at most this long for a provider instead of failing
+// Restored Nov-4 chunking (a65c892): ~350-word chunks, at most 4 per request, one at a time — the browser splits
+// documents over 1,400 words into ~1,200-word requests, so a request is ≤ 4 chunks of ~300 words.
+const CHUNK_TARGET_WORDS = 350;
+const CHUNK_MAX_COUNT    = 4;   // max 4 sequential chunks per request
+const CHUNK_CONCURRENCY  = 1;   // sequential: one chunk at a time — only 1 working provider needed per batch
+const CHUNK_INTER_DELAY  = 600; // ms pause between chunks — lets rate-limited providers recover
 
 function countWordsApprox(text) {
   return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+function buildChunks(text) {
+  const words = countWordsApprox(text);
+  const chunkCount = Math.max(1, Math.min(CHUNK_MAX_COUNT, Math.ceil(words / CHUNK_TARGET_WORDS)));
+  if (chunkCount === 1) return [text];
+
+  const targetWords = Math.ceil(words / chunkCount);
+  const paras = text.split(/\n\n+/).filter(p => p.trim());
+
+  const chunks = [];
+  let cur = [], curWords = 0;
+  for (const para of paras) {
+    const pw = countWordsApprox(para);
+    // Flush when we've hit the per-chunk target and still have quota for more chunks
+    if (curWords >= targetWords && chunks.length < chunkCount - 1) {
+      chunks.push(cur.join('\n\n'));
+      cur = [];
+      curWords = 0;
+    }
+    cur.push(para);
+    curWords += pw;
+  }
+  if (cur.length) chunks.push(cur.join('\n\n'));
+  return chunks;
 }
 
 // Runs `fns` (thunks) in parallel, at most `limit` at a time.
@@ -1169,8 +1221,9 @@ function buildWritingCandidates(text, prompt, keys) {
   const chain = [];
   const add = (name, fn, keyOk = true) => { if (keyOk) chain.push({ name, fn }); };
 
-  // Output cap sized to the chunk: clamp(words × 2.2, 600, 3000) tokens — room for the whole answer
-  // (scripts like Bengali/Hindi need more tokens per word); a cut-off answer is still caught by finishedText.
+  // Output cap sized to the chunk: clamp(words × 2.2, 600, 3000) tokens. (Nov 4 capped at 1,500 and silently kept a
+  // cut-off answer; the finish_reason=length check is kept, so the cap must leave room for the whole answer — it is
+  // only a ceiling, tokens are counted on what is actually written.)
   const chunkWords = countWordsApprox(text);
   const mt = quality.outputCap(chunkWords);
 
@@ -1230,6 +1283,8 @@ async function adminDashboard() {
   try { h = (redis && redis.hgetall ? await redis.hgetall(usage.PREFIX + day) : {}) || {}; } catch (_) {}
   const out = { date: day, timezone: 'UTC', requestsByTool: {}, chunksByProvider: {}, chatByProvider: {}, tokensByProvider: {},
     cooldownsByType: { minute: {}, day: {}, overload: {}, timeout: {} }, gateRejections: {}, cooled: pacer.status().cooled, gateway: null };
+  // writing-path cooldowns (per instance, Nov-4 rules) — on this instance only
+  out.writingCooled = [...writingCooldowns].filter(([, u]) => u > Date.now()).map(([entry, u]) => ({ entry, until: new Date(u).toISOString() }));
   const fam = (e) => usage.familyOf(e);
   const add = (o, k, n) => { o[k] = (o[k] || 0) + n; };
   for (const [field, v] of Object.entries(h)) {
@@ -1246,65 +1301,37 @@ async function adminDashboard() {
 }
 // Quality-gate rejections and cut-offs per reason, per UTC day (admin dashboard) — counts only
 function gateCount(reason) { usage.record(redis, 'gate', reason); }
-// how.stopOnTimeout: a big chunk gives up after its first timeout (the caller splits it — "try big, split on failure")
-async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0, deadline = Date.now() + REQUEST_BUDGET, chunksLeft = 1, check = null, how = {}) {
+// Nov-4 chunk loop (a65c892): every provider in chain order until one answers. No attempt limit, no quality gate, no
+// best-of, no shared pacer, no split. check(out) → null or a reason: only an empty answer or the wrong language
+// (cut-offs — finish_reason=length — are thrown by finishedText). → the answer, or null when every provider failed.
+async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0, deadline = Date.now() + REQUEST_BUDGET, chunksLeft = 1, check = null) {
   const { chain, lastResort } = buildWritingCandidates(chunkText, prompt, envKeys);
   // startOffset comes from runChain's sequential counter (baseOffset + chunkSeq), so
   // consecutive chunks start on a DIFFERENT Groq key — even load across the keys.
   const rotated = orderChain(chain, startOffset);
-  const chunkWords = countWordsApprox(chunkText);
-  // Parallel chunks: a big chunk never goes to a key that is already working on another big chunk while another key
-  // of the same tier is free (busy keys move to the back of their tier — never below a weaker tier).
-  const big = chunkWords >= BIG_CHUNK_WORDS;
-  const keyOf = (c) => c.pk || c.name;
-  const busyLast = big
-    ? rotated.map((c, i) => ({ c, i, t: tierOf(c), b: bigInFlight.get(keyOf(c)) ? 1 : 0 })).sort((a, b) => (a.t - b.t) || (a.b - b.b) || (a.i - b.i)).map(x => x.c)
-    : rotated;
-  const ordered = lastResort ? [...busyLast, lastResort] : busyLast;
+  const ordered = lastResort ? [...rotated, lastResort] : rotated;
   if (ordered.length === 0) {
     console.error('[ParaFree] ❌ paraphraseChunk: 0 providers — no valid API keys configured');
     return null;
   }
 
+  const chunkWords = countWordsApprox(chunkText);
   const chunkStart = Date.now();
   const chunkDeadline = chunkStart + (deadline - chunkStart) / Math.max(1, chunksLeft);
   const laterReserve = Math.max(0, chunksLeft - 1) * SAFETY_NET_MS;
   console.log(`[ParaFree] chunk seq=${seq}: ${chunkText.length} chars, ${Math.round((chunkDeadline - chunkStart) / 1000)}s share, chain: ${ordered.map(c => c.name).join(' → ')}`);
-  const forced = soonestIfAllCooling(ordered);
-  const hasNet = ordered.some(c => tierOf(c) === 4 && (c === forced || !isCoolingDown(c.name)));
-  let attempts = 0, best = null;
-  const useBest = () => {
-    console.log(`[ParaFree] ↩ chunk seq=${seq} every answer was gated — using the best one (${best.name}, ${best.bad}, ${Math.round(best.score * 100)}% changed) instead of the original`);
-    gateCount('best_of_gated');
-    usage.record(redis, 'chunk', best.name);
-    return best.out;
-  };
+  const forced = soonestIfAllLocallyCooling(ordered);
+  const hasNet = ordered.some(c => tierOf(c) === 4 && (c === forced || !isLocallyCooling(c.name)));
+  let calls = 0;
   for (const c of ordered) {
-    // Safety net: when EVERY provider is cooling (forced set), do NOT skip on cooldown —
-    // try the chain in order with normal timeouts so a request never fails in milliseconds.
-    if (!forced && isCoolingDown(c.name)) {
+    if (c !== forced && isLocallyCooling(c.name)) {
       console.log(`[ParaFree] ⏭ chunk seq=${seq} ${c.name} [cooldown] — skipped`);
-      continue;
-    }
-    // at most MAX_PROVIDERS_PER_CHUNK real attempts — then the caller splits the chunk or reports the part
-    if (attempts >= MAX_PROVIDERS_PER_CHUNK) {
-      console.log(`[ParaFree] ⏹ chunk seq=${seq} ${attempts} providers tried — stopping here (split or Retry part)`);
-      break;
-    }
-    // gpt-oss-20b often hands a long chunk back unchanged: it only gets chunks up to BIG_CHUNK_WORDS (400)
-    if (chunkWords > BIG_CHUNK_WORDS && SMALL_CHUNK_ONLY.test(c.model || c.name)) {
-      console.log(`[ParaFree] ⏭ chunk seq=${seq} ${c.name} [small chunks only — ${chunkWords} words] — skipped`);
-      continue;
-    }
-    // the last ~15 % of a provider's daily capacity is kept for short requests (<300 words)
-    if (!how.short && tierOf(c) <= 3 && pacer.headroom(c.name) < SHORT_RESERVE) {
-      console.log(`[ParaFree] ⏭ chunk seq=${seq} ${c.name} [reserved for short requests] — skipped`);
       continue;
     }
     const isNet = tierOf(c) === 4;
     const until = isNet ? deadline - laterReserve : chunkDeadline - (hasNet ? SAFETY_NET_MS : 0);
     const isLast = lastResort !== null && c.name === lastResort.name;
-    const expectedTimeout = isLast ? Math.min(LAST_TIMEOUT, until - Date.now()) : providerTimeout(c.name, until, chunkWords);
+    const expectedTimeout = isLast ? Math.min(LAST_TIMEOUT, until - Date.now()) : providerTimeout(c.name, until);
     if (expectedTimeout < MIN_ATTEMPT_MS) {
       if (!isNet && hasNet) {
         console.log(`[ParaFree] ⏭ chunk seq=${seq} ${c.name} [no time left in this chunk's share] — skipped`);
@@ -1315,34 +1342,20 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0,
     }
     const t0 = Date.now();
     const info = {};
-    const inW = chunkWords;
-    attempts++;
-    pacer.startProbe(c.name);            // first call after a cooldown = the one probe
-    if (big) bigInFlight.set(keyOf(c), (bigInFlight.get(keyOf(c)) || 0) + 1);
+    calls++;
     try {
-      const result = await c.fn(expectedTimeout, info).finally(() => { if (big) bigInFlight.set(keyOf(c), Math.max(0, (bigInFlight.get(keyOf(c)) || 1) - 1)); });
+      const result = await c.fn(expectedTimeout, info);
       const ms = Date.now() - t0;
       if (result && result.trim().length > 5) {
         const out = result.trim();
-        // the provider answered: count it (requests + estimated tokens) and end any cooldown/probe
-        pacer.noteSuccess(c.name, Math.round((inW + countWordsApprox(out)) * 1.3 + prompt.length / 4), info.headers);
         const bad = check ? check(out) : null;
-        logAttempt({ seq, provider: c.name, ms, finish: info.finish || null, inW, outW: countWordsApprox(out),
-          change: Math.round(quality.changeShare(chunkText, out) * 100), gate: bad || 'ok', rem: info.headers || null });
+        logAttempt({ seq, provider: c.name, ms, finish: info.finish || null, inW: chunkWords, outW: countWordsApprox(out), gate: bad || 'ok', rem: info.headers || null });
         if (bad) {
-          console.warn(`[ParaFree] ⚠️ chunk seq=${seq} ${c.name} answer rejected by the quality gate (${bad}) — next`);
+          console.warn(`[ParaFree] ⚠️ chunk seq=${seq} ${c.name} answer rejected (${bad}) — next`);
           gateCount(bad);
-          // an answer that arrived is not a failed provider: it does not use up one of the chunk's 3 attempts
-          attempts--;
-          // keep the best usable one (right length and language — only too little change or a collapsed paragraph
-          // structure) in case every provider's answer is gated
-          if (GATE_FALLBACK.has(bad)) {
-            const score = quality.changeShare(chunkText, out);
-            if (score >= FALLBACK_MIN_CHANGE && (!best || score > best.score)) best = { out, score, name: c.name, bad };
-          }
           continue;
         }
-        console.log(`[ParaFree] ✅ chunk seq=${seq} handled by ${c.name} in ${ms}ms (${out.length} chars out)`);
+        console.log(`[ParaFree] ✅ chunk seq=${seq} handled by ${c.name} in ${ms}ms (${out.length} chars out, ${calls} call(s))`);
         discovery.noteSuccess(c.name, c.pk, c.patternIndex, c.model);
         usage.record(redis, 'chunk', c.name);
         return out;
@@ -1355,25 +1368,14 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0,
       const quota = isQuotaError(msg);
       const tag = quota ? '429-rate-limit' : isCutoff(msg) ? 'cutoff' : msg.includes(':401') ? '401-auth' : msg.includes(':403') ? '403-forbidden' : msg.includes(':404') ? '404-model-not-found' : msg.includes(':503') ? '503-unavailable' : isAbort ? `TIMEOUT-${expectedTimeout}ms` : 'error';
       console.log(`[ParaFree] ❌ chunk seq=${seq} ${c.name} [${tag}] in ${ms}ms — ${msg.slice(0, 200)}`);
-      logAttempt({ seq, provider: c.name, ms, finish: info.finish || (isCutoff(msg) ? (msg.match(/finish=(\w+)/) || [, 'empty'])[1] : null), inW, outW: 0,
+      logAttempt({ seq, provider: c.name, ms, finish: info.finish || (isCutoff(msg) ? (msg.match(/finish=(\w+)/) || [, 'empty'])[1] : null), inW: chunkWords, outW: 0,
         gate: tag, q429: quota ? (quotaCooldown(msg) === DAILY_COOLDOWN ? 'day' : 'minute') : undefined, rem: info.headers || null });
       if (isCutoff(msg)) gateCount('cutoff');
-      if (how.stopOnTimeout && isAbort && !quota && !isNet) {
-        if (expectedTimeout >= TIMEOUT_COOLDOWN_MIN_MS) startCooldown(c.name, msg, TIMEOUT_COOLDOWN, 'timed out');
-        if (best) return useBest();
-        console.log(`[ParaFree] ⏱ chunk seq=${seq} (${chunkWords} words) timed out on ${c.name} — splitting it instead of trying more providers`);
-        return null;
-      }
-      pacer.noteHeaders(c.name, info.headers);
-      // an instant 429 costs nothing but teaches the pacer — it does not use up one of the chunk's 3 attempts
-      if (quota) { startCooldown(c.name, msg); attempts--; }
-      else if (isAbort && !isNet && expectedTimeout >= TIMEOUT_COOLDOWN_MIN_MS) startCooldown(c.name, msg, TIMEOUT_COOLDOWN, 'timed out');
-      else if (isOverload(msg) && !isAbort) startCooldown(c.name, msg, 0, 'overloaded');
-      else pacer.endProbe(c.name);
+      if (quota) startLocalCooldown(c.name, msg);
+      else if (isAbort && !isNet && expectedTimeout >= TIMEOUT_COOLDOWN_MIN_MS) startLocalCooldown(c.name, msg, TIMEOUT_COOLDOWN, 'timed out');
     }
   }
-  if (best) return useBest();
-  console.error(`[ParaFree] ❌ chunk seq=${seq} failed after ${attempts} provider(s) of ${ordered.length} in ${Date.now() - chunkStart}ms`);
+  console.error(`[ParaFree] ❌ chunk seq=${seq} exhausted all ${ordered.length} providers (${calls} call(s)) in ${Date.now() - chunkStart}ms`);
   usage.record(redis, 'chunk', null);
   return null;
 }
@@ -1389,7 +1391,6 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0,
 async function runChain(text, prompt, type, opts = {}) {
   const deadline       = Date.now() + REQUEST_BUDGET;
   await discovery.ensure();   // model lists: never waits more than ~1 s (cold instance only)
-  await pacer.sync();          // shared cooldowns + today's counters (at most one read per 20 s per instance)
   const GROQ_KEY       = process.env.GROQ_KEY;
   const GROQ_KEY_2     = process.env.GROQ_KEY_2;
   const GROQ_KEY_3     = process.env.GROQ_KEY_3;
@@ -1425,10 +1426,7 @@ async function runChain(text, prompt, type, opts = {}) {
   const outTokens = type === "studypack" ? 4096 : undefined;   // notes + flashcards + quiz in one answer
   const cfOk = validKey(CF_KEY) && validKey(CF_ACCOUNT);
 
-  // ── WRITING PATH: parallel chunks ──
-  // Chunks fire simultaneously via Promise.all — total time ≈ ONE chunk's time (~3s),
-  // well inside Vercel Hobby's 10s limit. Each chunk tries providers independently
-  // starting at a different offset so parallel calls spread across providers.
+  // ── WRITING PATH: sequential chunks (Nov 4) ──
   if (!isAIChat && !isCVExtract) {
     const envKeys = {
       DEEPSEEK_KEY, GEMINI_KEY, GEMINI_KEY_2, GEMINI_KEY_3, GROQ_KEY, GROQ_KEY_2, GROQ_KEY_3, GROQ_KEY_4, MISTRAL_KEY, MISTRAL_KEY_2,
@@ -1443,119 +1441,49 @@ async function runChain(text, prompt, type, opts = {}) {
       console.error("[ParaFree] ❌ No valid API keys — check Vercel environment variables");
       return { success: false, error: "no_keys", apiStatuses: {} };
     }
-    // Units: paragraphs, with any paragraph over 350 words split by sentence (pieces rejoin with a space),
-    // PPTX boxes kept whole. Chunks: consecutive units of about CHUNK_TARGET_WORDS. Each chunk's answer must pass
-    // the quality gate (cut-off, length, language, preamble/markdown, repetition, unparaphrased, a collapsed paragraph
-    // structure, markers) or the next provider is tried; a different paragraph count is re-aligned, not refused. When
-    // every answer is gated the best usable one is kept. A chunk with no answer at all is split in half and retried once; a part
-    // that fails again keeps its original text AND is reported in failedParts, so the page can mark it and offer
-    // "Retry this part". If nothing could be paraphrased at all the request fails (never a silent copy).
+    // Nov-4 writing path (a65c892): ~350-word chunks, one at a time, each through the whole chain. A chunk's answer
+    // is used as it is — headings, short questions, short lines, citations, URLs and code that come back unchanged are
+    // fine (never counted as unparaphrased, never retried). Only an empty answer, a cut-off (finish_reason=length,
+    // thrown by finishedText) or the wrong language moves on to the next provider. A chunk that no provider could do
+    // keeps its original text and is reported in failedParts (the page marks it, with one manual "Retry"). If no
+    // chunk at all could be done, the request fails (never a silent copy).
     const kind = quality.kindOf(type);
-    const gateOpts = { kind, mode: opts.mode, language: opts.language };
-    const units = quality.segment(text);
-    const sendWords = units.filter(u => u.send).reduce((n, u) => n + countWordsApprox(u.text), 0);
-    const target = Math.max(CHUNK_TARGET_WORDS, Math.ceil(sendWords / CHUNK_MAX_COUNT));
-    // streaming: a small first chunk so the first paragraphs appear quickly, then big chunks
-    let groups;
-    if (opts.onChunk && sendWords > 2 * FIRST_CHUNK_WORDS) {
-      let k = 0, w = 0;
-      while (k < units.length - 1 && w < FIRST_CHUNK_WORDS) { w += countWordsApprox(units[k].text); k++; }
-      groups = [units.slice(0, k), ...quality.groupUnits(units.slice(k), target)];
-    } else groups = quality.groupUnits(units, target);
+    const langOpts = { kind, language: opts.language };
+    const check = (send) => (out) => quality.writingProblem(send, out, langOpts);
+    const chunks = buildChunks(text);
     const baseOffset = requestCounter;
-    requestCounter = (requestCounter + Math.max(groups.length, 1)) % 100000;
+    requestCounter = (requestCounter + Math.max(chunks.length, 1)) % 100000;
     const inputWords = countWordsApprox(text);
-    const isPPTX = quality.isPptx(text);
-    // paraphrase answers are mapped back paragraph by paragraph; humanize too when a paragraph was split or the
-    // text carries DOCX/PPTX markers; grammar and summarize answers are used whole
-    const mapped = (us) => kind === 'paraphrase' || (kind === 'humanize' && us.some(u => u.piece !== undefined || u.box || /^<<<\d+>>>/.test(u.text)));
-    const continuationNote = (us) => us.some(u => u.piece > 0) && us.some(u => /^<<<\d+>>>/.test(u.text))
-      ? '\n\nNOTE: a paragraph without a <<<N>>> marker continues the marked paragraph before it. Paraphrase it as its own paragraph and keep it without a marker.'
-      : '';
-    // High demand: a long document waits briefly (the page says "starting in ~N s" and retries) instead of failing,
-    // when every Tier 1–3 entry is cooling or held back for short requests and one frees up within QUEUE_MAX_S.
-    if (sendWords >= SHORT_REQUEST_WORDS) {
-      const strong = sampleChain.filter(c => tierOf(c) <= 3);
-      const usable = strong.filter(c => !isCoolingDown(c.name) && pacer.headroom(c.name) >= SHORT_RESERVE);
-      if (strong.length && !usable.length) {
-        const soonest = Math.min(...strong.map(c => cooldownUntil(c.name) || Date.now()));
-        const waitS = Math.max(1, Math.ceil((soonest - Date.now()) / 1000));
-        if (waitS <= QUEUE_MAX_S) {
-          console.log(`[ParaFree] ⏳ writing: ${sendWords} words — every strong provider is busy; asking the page to start again in ~${waitS}s`);
-          return { success: false, error: "queued", retryAfterS: waitS + 2, apiStatuses: {} };
-        }
-      }
-    }
-    console.log(`[ParaFree] writing: ${groups.length} chunk(s) × ${sampleTotal} providers — sequential, input=${inputWords} words, units=${units.length}, target=${target}, isPPTX=${isPPTX}, kind=${kind}`);
+    const isPPTX = text.includes('[SLIDE') && text.includes('[/SLIDE');
+    console.log(`[ParaFree] writing: ${chunks.length} chunk(s) × ${sampleTotal} providers — sequential, input=${inputWords} words, isPPTX=${isPPTX}, kind=${kind}`);
     const t0 = Date.now();
-    let seqNo = 0, okChunks = 0;
+    let okChunks = 0, emitted = 0;
     const failedParts = [];
-
-    // → { out, failed } for a run of units; depth 1 = already split once
-    async function runUnits(us, depth, left) {
-      const send = quality.chunkSendText(us);
-      if (!send.trim()) return { out: quality.chunkOriginal(us), failed: false, empty: true };
-      const seq = seqNo++;
-      // a different paragraph count is re-aligned onto the input's paragraphs, not refused; only a bad collapse
-      // (fewer than half the paragraphs and no way to re-align) is a rejection
-      const check = (out) => {
-        const bad = quality.gate(send, out, gateOpts);
-        if (bad) return bad;
-        if (mapped(us) && quality.structure(us, out).collapsed) return 'paragraphs';
-        return null;
-      };
-      const result = await paraphraseChunk(send, prompt + continuationNote(us), envKeys, baseOffset + seq, seq, deadline, Math.max(1, left), check,
-        { stopOnTimeout: depth === 0 && countWordsApprox(send) >= BIG_CHUNK_WORDS && (us.length >= 2 || !!quality.halve(us[0])), short: sendWords < SHORT_REQUEST_WORDS });
-      if (result !== null) {
-        okChunks++;
-        const texts = mapped(us) ? quality.structure(us, result).texts : null;
-        return { out: texts ? quality.rebuild(us, texts) : result, failed: false };
-      }
-      // split once and retry the halves (a single long unit is re-cut by sentence first)
-      let parts = null;
-      if (depth === 0 && Date.now() < deadline - 2 * MIN_ATTEMPT_MS) {
-        if (us.length >= 2) { const mid = Math.ceil(us.length / 2); parts = [us.slice(0, mid), us.slice(mid)]; }
-        else { const h = quality.halve(us[0]); if (h) parts = [[h[0]], [h[1]]]; }
-      }
-      if (parts) {
-        console.log(`[ParaFree] ↔ chunk seq=${seq} failed — split in two and retried`);
-        const a = await runUnits(parts[0], 1, left), b = await runUnits(parts[1], 1, left);
-        const sep = parts[0][parts[0].length - 1].sep;
-        return { out: a.out + sep + b.out, failed: a.failed && b.failed, parts: [a, b] };
-      }
-      const original = quality.chunkOriginal(us);
-      failedParts.push({ text: original, words: countWordsApprox(original) });
-      return { out: original, failed: true };
-    }
-
-    // Up to CHUNK_CONCURRENCY chunks at once (staggered starts; big chunks on different keys). Results are kept in
-    // document order and streamed (opts.onChunk) in that order as soon as every earlier chunk is done.
-    const outs = new Array(groups.length);
-    let emitted = 0;
-    const emit = () => {
-      while (emitted < groups.length && outs[emitted] !== undefined) {
-        if (opts.onChunk) { try { opts.onChunk({ index: emitted, total: groups.length, text: outs[emitted].out, sep: outs[emitted].sep, failed: outs[emitted].failed }); } catch (_) {} }
-        emitted++;
-      }
-    };
-    await parallelLimit(groups.map((g, i) => async () => {
-      if (i > 0 && i < CHUNK_CONCURRENCY) await new Promise(r => setTimeout(r, CHUNK_INTER_DELAY * i));
-      const r = await runUnits(g, 0, Math.ceil((groups.length - i) / CHUNK_CONCURRENCY));
-      outs[i] = { out: r.out, failed: r.failed, sep: i < groups.length - 1 ? g[g.length - 1].sep : '' };
-      emit();
+    const outs = await parallelLimit(chunks.map((chunkText, seq) => async () => {
+      if (seq > 0) await new Promise(r => setTimeout(r, CHUNK_INTER_DELAY));
+      const result = await paraphraseChunk(chunkText, prompt, envKeys, baseOffset + seq, seq, deadline, chunks.length - seq, check(chunkText));
+      const failed = result === null;
+      if (failed) {
+        console.warn(`[ParaFree] ⚠️ Chunk seq=${seq} (${seq + 1}/${chunks.length}) failed all providers — keeping original text for this chunk`);
+        failedParts.push({ text: chunkText, words: countWordsApprox(chunkText) });
+      } else okChunks++;
+      const out = failed ? chunkText : result;
+      if (opts.onChunk) { try { opts.onChunk({ index: emitted, total: chunks.length, text: out, sep: seq < chunks.length - 1 ? '\n\n' : '', failed }); } catch (_) {} }
+      emitted++;
+      return out;
     }), CHUNK_CONCURRENCY);
     const elapsed = Date.now() - t0;
-    const assembled = outs.map(o => o.out + o.sep).join('');
-    failedParts.sort((a, b) => assembled.indexOf(a.text) - assembled.indexOf(b.text));
-    if (okChunks === 0 && failedParts.length) {
+    const assembled = outs.join('\n\n');
+    if (okChunks === 0) {
       console.error(`[ParaFree] ❌ writing: no chunk could be paraphrased (${failedParts.length} part(s) failed) in ${elapsed}ms`);
       return { success: false, error: "high_demand", apiStatuses: {} };
     }
-    console.log(`[ParaFree] ✅ All ${groups.length} chunk(s) complete in ${elapsed}ms — assembled ${assembled.length} chars, ${failedParts.length} part(s) kept original`);
+    console.log(`[ParaFree] ✅ All ${chunks.length} chunk(s) complete in ${elapsed}ms — assembled ${assembled.length} chars, ${failedParts.length} part(s) kept original`);
     return { success: true, result: assembled, usedApi: 'parallel-chunks', apiStatuses: {}, failedParts };
   }
 
   // ── AI CHAT / CV EXTRACT PATH: sequential with single retry ──
+  await pacer.sync();          // shared cooldowns + today's counters (chat / CV / Study Pack only — not the writing path)
   // Short texts only — no chunking needed. One retry with 2s wait stays inside 10s limit.
   let candidates = [];
   const addC = (name, fn, keyOk = true) => { if (keyOk) candidates.push({ name, fn }); };
@@ -1807,9 +1735,9 @@ async function handleTestKeys(body) {
     }
   }));
 
-  // Active in-memory cooldowns on this warm instance, per key+model
+  // Active in-memory cooldowns on this warm instance, per key+model (chat and writing paths)
   for (const name of Object.keys(results)) {
-    const until = providerCooldowns.get(name);
+    const until = Math.max(providerCooldowns.get(name) || 0, writingCooldowns.get(name) || 0);   // chat path + writing path
     if (until && until > Date.now()) results[name].cooldownSecondsLeft = Math.ceil((until - Date.now()) / 1000);
   }
   // Slot rows: show the preference pattern, the resolved model and the tier next to the status.
@@ -1837,6 +1765,7 @@ async function handleTestKeys(body) {
 module.exports = handler;
 // tests reset the shared pacer between cases (never used by the site)
 handler._pacer = pacer;
+handler._writingCooldowns = writingCooldowns;   // tests only: the writing path's per-instance cooldowns
 async function handler(req, res) {
   // KEYS FOUND — absolute first line so this appears in every Vercel function invocation
   // Only whether each provider has a key — never any part of the key itself.

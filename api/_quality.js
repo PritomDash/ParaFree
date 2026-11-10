@@ -318,6 +318,21 @@ function gate(input, output, opts = {}) {
   return null;
 }
 
+// The ONLY answer checks on the writing path since the Nov-4 restore: an empty answer, or the wrong language/script
+// (cut-offs are caught from finish_reason before this). Unchanged headings, questions, short lines, citations, URLs
+// or code are fine — nothing here compares the answer with the input's wording. → null | 'empty' | 'script'
+function writingProblem(input, output, opts = {}) {
+  const out = String(output || '').trim();
+  if (out.length < 2) return 'empty';
+  const inW = countWords(stripMarkers(input)), outW = countWords(stripMarkers(out));
+  const want = LANG_SCRIPT[String(opts.language || '').toLowerCase()] || null;
+  const si = dominantScript(input), so = dominantScript(out);
+  const expected = want || si.script;
+  if (expected && so.letters >= 20 && so.script !== expected && so.share > 0.5) return 'script';
+  if (!want && (!opts.language || /^english$/i.test(opts.language)) && si.script === 'latin' && inW >= 20 && enShare(input) >= 0.15 && outW >= 20 && enShare(out) < 0.06) return 'script';
+  return null;
+}
+
 // Output-token cap for a chunk (writing path)
 const outputCap = (words) => Math.max(600, Math.min(3000, Math.ceil(words * 2.2)));
 
@@ -349,5 +364,5 @@ function finishProblem(data, shape) {
 
 module.exports = {
   MAX_PARA_WORDS, MIN_CHANGE, countWords, sentences, splitParagraph, segment, groupUnits, halve, chunkSendText, chunkOriginal,
-  rebuild, mapOutput, alignOutput, structure, gate, changeShare, dominantScript, outputCap, kindOf, finishProblem, isPptx, repeats,
+  rebuild, mapOutput, alignOutput, structure, gate, writingProblem, changeShare, dominantScript, outputCap, kindOf, finishProblem, isPptx, repeats,
 };

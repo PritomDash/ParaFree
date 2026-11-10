@@ -56,7 +56,7 @@ const KEY_ENV = { 'groq': 'GROQ_KEY', 'groq-2': 'GROQ_KEY_2', 'groq-3': 'GROQ_KE
 // dead, so their slots resolve to the next matching model. Env MODEL_BLOCKLIST
 // ("provider:model, …"; "none" = empty) replaces this list.
 const KNOWN_BAD_MODELS = [
-  'gemini:gemini-3.8-flash', 'gemini:gemma-4-31b-it',
+  'gemini:gemini-3.8-flash', 'gemini:gemma-4-31b-it', 'gemini:gemini-3.7-flash',   // 3.7 Flash: aborts on both keys since Nov 7 (testKeys, Nov 10)
   'nvidia:nvidia/llama-3.1-nemotron-70b-instruct', 'nvidia:mistralai/mistral-large-2-instruct',
   'nvidia:nv-mistralai/mistral-nemo-12b-instruct', 'nvidia:deepseek-ai/deepseek-v4.1-flash', 'nvidia:z-ai/glm-5.3-flash',
 ];

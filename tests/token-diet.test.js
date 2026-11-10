@@ -66,7 +66,8 @@ const tc = (c) => c && c.body.generationConfig && c.body.generationConfig.thinki
   r = await call({ text: SHORT, mode: 'standard' });
   assert('Flash-Lite → thinkingLevel "minimal"', JSON.stringify(tc(by(r, /gemini-3\.5-flash-lite/))) === '{"thinkingLevel":"minimal"}', JSON.stringify(tc(by(r, /gemini-3\.5-flash-lite/))));
   assert('3.8 Flash → thinkingLevel "low" (it has no "minimal")', JSON.stringify(tc(by(r, /gemini-3\.8-flash$/))) === '{"thinkingLevel":"low"}', JSON.stringify(tc(by(r, /gemini-3\.8-flash$/))));
-  assert('Gemma → no thinkingConfig', by(r, /gemma/) && !tc(by(r, /gemma/)));
+  // only GEMINI_KEY here, and key-1 Gemma is skipped since Nov 10 (HTTP 500) — gemini-2 Gemma keeps no thinkingConfig
+  assert('key-1 Gemma is not called; no Gemma call ever carries a thinkingConfig', r.calls.filter((c) => /gemma/.test(c.name)).every((c) => !tc(c)) && !by(r, /gemma/));
   r = await call({ text: SHORT, type: 'code_assistant' });
   assert('ParaFree AI chat keeps the model\'s default thinking (not a writing/flashcards path)', r.calls.filter((c) => c.name.startsWith('gemini')).every((c) => !tc(c)));
 

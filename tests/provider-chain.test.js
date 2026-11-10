@@ -26,9 +26,6 @@ const KEYS = {
 };
 for (const k of Object.keys(process.env)) if (/_KEY|_KEY_\d|^CF_ACCOUNT$|^UPSTASH|^KV_|_MODEL$/.test(k)) delete process.env[k];
 Object.assign(process.env, KEYS);
-// These tests check the chain ORDER, so they let a chunk walk the whole chain; the default cap of 3 providers per
-// chunk is covered in tests/pacer.test.js.
-process.env.PF_MAX_PROVIDERS = '99';
 
 // ── Chain vocabulary ──
 const M120 = 'openai/gpt-oss-120b', M20 = 'openai/gpt-oss-20b', LLAMA = 'llama-3.3-70b-versatile';
@@ -41,11 +38,11 @@ const NV_U = 'nvidia/nvidia/nemotron-3-ultra-550b-a55b', NV_L = 'nvidia/nvidia/n
 function expectedChain(firstKey) {
   const ks = rot(GROQS, GROQS.indexOf(firstKey));
   return [...ks.map(k => k + '/' + M120), G1,                                   // Tier 1
-          ...ks.map(k => k + '/' + M20), ...ks.map(k => k + '/' + LLAMA), GLITE, GEMMA,   // Tier 2
+          ...ks.map(k => k + '/' + M20), ...ks.map(k => k + '/' + LLAMA), GLITE,   // Tier 2 (key-1 Gemma is disabled — HTTP 500 since Nov 10)
           NV_U, NV_L, 'ovhcloud', 'llm7',                                       // Tier 3 (quality order)
           'cloudflare'];                                                         // Tier 4 (safety net)
 }
-const CHAIN_LEN = 17;
+const CHAIN_LEN = 16;
 
 // ── Fetch mock ──
 // Names a request exactly like the chain entry: "<groq key>/<model>", "gemini/<model>", or the provider.
@@ -71,8 +68,8 @@ function providerOf(url, opts, body) {
 }
 const DISABLED_HOST_NAMES = ['openrouter', 'mistral', 'sambanova', 'deepseek', 'scaleway', 'huggingface', 'chutes'];
 
-function okBody(name, body) {
-  const text = fakeAnswer(contentOf(body), name);
+function okBody(name) {
+  const text = `[${name}] ${'paraphrased output text '.repeat(3)}`;
   if (name.startsWith('gemini/')) return { candidates: [{ content: { parts: [{ text }] } }] };
   if (name === 'cloudflare') return { success: true, result: { response: text } };
   return { choices: [{ message: { content: text }, finish_reason: 'stop' }] };
@@ -99,7 +96,7 @@ global.fetch = async (url, opts) => {
   if (!name) throw new Error('UNMOCKED URL — refusing live call: ' + url);
   calls.push({ name, body, timeoutMs: lastTimeoutMs });
   const b = behaviour[name] || behaviour[keyOf(name)] || 'fail';
-  if (b === 'ok') return respond(200, okBody(name, body));
+  if (b === 'ok') return respond(200, okBody(name));
   if (typeof b === 'object') return respond(b.status, b.body);
   // Real-world message shapes (Groq): per-minute TPM vs daily RPD
   if (b === 'quota') return respond(429, { error: { message: 'Rate limit reached for model on tokens per minute (TPM): Limit 8000, Used 7990' } });
@@ -122,7 +119,6 @@ function quiet() {
 }
 function loud() { console.log = realLog; console.warn = realWarn; console.error = realErr; }
 
-const { fakeAnswer, contentOf } = require('./_fake-answer');
 const handler = require('../api/process.js');
 
 let ipSeq = 0;
@@ -138,13 +134,10 @@ async function call(body) {
   try { await handler(req, res); } finally { loud(); }
   return { status, payload, calls: calls.map(c => c.name), rawCalls: calls.slice(), logs: logs.slice(), rawLogs: rawLogs.slice() };
 }
-// expires cooldowns and recent-success ordering (1 h); daily cooldowns now last until the provider's reset, so the
-// shared pacer is cleared too (each case starts with no cooldowns)
-function reset(b = {}) { behaviour = b; advance(61 * 60 * 1000); handler._pacer._reset(); }
+function reset(b = {}) { behaviour = b; advance(61 * 60 * 1000); } // expires cooldowns (daily = 15 min) and recent-success ordering (1 h)
 
 const SHORT = 'This is a short paragraph that needs paraphrasing for the test suite here.';
-// ~3,600 words → 4 chunks of ~1,000 words (CHUNK_TARGET_WORDS), up to 3 in flight at once
-const LONG = Array.from({ length: 36 }, (_, i) => `Paragraph ${i} ` + 'word '.repeat(100)).join('\n\n');
+const LONG = Array.from({ length: 12 }, (_, i) => `Paragraph ${i} ` + 'word '.repeat(100)).join('\n\n');
 const groqCalls = (names, model) => names.filter(n => n.startsWith('groq') && (!model || n.endsWith('/' + model)));
 
 (async () => {
@@ -172,14 +165,14 @@ const groqCalls = (names, model) => names.filter(n => n.startsWith('groq') && (!
     assert(`${tool}: no disabled provider called`, bad.length === 0, bad.join(','));
   }
 
-  // ── 2. Fixed order: one key serves every chunk until it cools (no rotation) ──
-  console.log('\n── 2. Fixed-order chain (no key rotation) ──');
+  // ── 2. Per-chunk Groq rotation spreads load over 3 keys ──
+  console.log('\n── 2. Groq rotation across chunks ──');
   reset({ groq: 'ok', 'groq-2': 'ok', 'groq-3': 'ok' });
   r = await call({ text: LONG, mode: 'standard' });
   assert('multi-chunk request succeeded', r.status === 200 && r.payload.success, String(r.status));
   assert('4 chunks → 4 calls, all gpt-oss-120b (Tier 1)', r.calls.length === 4 && r.calls.every(n => n.endsWith('/' + M120)), r.calls.join(','));
-  assert('all 4 chunks use the SAME (first) key — one provider at a time', new Set(r.calls.map(keyOf)).size === 1, r.calls.join(','));
-  assert('the key used is the first in the chain', keyOf(r.calls[0]) === keyOf('groq/' + M120), r.calls.join(','));
+  assert('all three Groq keys used', new Set(r.calls.map(keyOf)).size === 3, r.calls.join(','));
+  assert('consecutive chunks use different keys', r.calls.every((n, i) => i === 0 || keyOf(n) !== keyOf(r.calls[i - 1])), r.calls.join(','));
 
   // ── 3. Per-chunk logging names key+model ──
   console.log('\n── 3. Logs which key+model handled each chunk ──');
@@ -193,44 +186,44 @@ const groqCalls = (names, model) => names.filter(n => n.startsWith('groq') && (!
   r = await call({ text: SHORT, type: 'code_assistant' });
   assert('chat path logs key+model', r.logs.some(l => l.includes(`AI request handled by groq-2/${M120}`)));
 
-  // ── 4a. Per-minute rate limit → retry-after (or 20 s) + 0–3 s jitter, per key+model, shared (api/_pacer.js) ──
-  console.log('\n── 4a. Per-minute 429 → 20 s (+ jitter) cooldown (per key+model) ──');
+  // ── 4a. Per-minute rate limit → 60 s cooldown, per key+model ──
+  console.log('\n── 4a. Per-minute 429 → 60s cooldown (per key+model) ──');
   reset({ ...Object.fromEntries(GROQS.map(k => [`${k}/${M120}`, 'quota'])), gemini: 'ok' });
   let cooldownStart = Date.now();
   r = await call({ text: LONG, mode: 'standard' });
   assert('each 120b entry called once across 4 chunks', groqCalls(r.calls, M120).length === 3, r.calls.join(','));
   assert('then Tier 1 gemini handles every chunk (no Tier 2 needed)', r.calls.filter(n => n === G1).length === 4 && groqCalls(r.calls, M20).length === 0, r.calls.join(','));
-  assert('20–23 s cooldown logged per key+model (no retry-after → 20 s + jitter)', r.logs.some(l => /groq(-[23])?\/openai\/gpt-oss-120b rate-limited — skipping it for 2[0-3]s/.test(l)), r.logs.filter(l => l.includes('⏸')).slice(0, 2).join(' | '));
+  assert('60s cooldown logged per key+model', r.logs.some(l => /groq(-[23])?\/openai\/gpt-oss-120b rate-limited — skipping it for 60s/.test(l)));
   r = await call({ text: SHORT, mode: 'standard' });
   assert('next request skips the cooled 120b entries', r.calls.join(',') === G1, r.calls.join(','));
   r = await call({ text: SHORT, type: 'code_assistant' });
   assert('cooldown applies to chat path too', r.calls.join(',') === G1, r.calls.join(','));
-  advance(19 * 1000 - (Date.now() - cooldownStart));
+  advance(59 * 1000 - (Date.now() - cooldownStart));
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('still cooling at 0:19', groqCalls(r.calls).length === 0, r.calls.join(','));
-  advance(6 * 1000);
+  assert('still cooling at 0:59', groqCalls(r.calls).length === 0, r.calls.join(','));
+  advance(2 * 1000);
   behaviour = { groq: 'ok', 'groq-2': 'ok', 'groq-3': 'ok' };
   r = await call({ text: SHORT, mode: 'standard' });
   // gemini/G1 succeeded most recently in Tier 1, so it is tried first ("last known good"); it
-  // fails here and a 120b entry — out of cooldown again (its one probe) — handles the request.
-  assert('120b tried again after the cooldown', r.calls[r.calls.length - 1].endsWith('/' + M120) && r.payload.success && r.calls.every(n => n === G1 || n.endsWith('/' + M120)), r.calls.join(','));
+  // fails here and the 120b entry — out of cooldown again — handles the request.
+  assert('120b tried again after 60s', r.calls[r.calls.length - 1].endsWith('/' + M120) && r.payload.success && r.calls.every(n => n === G1 || n.endsWith('/' + M120)), r.calls.join(','));
 
-  // ── 4b. Daily quota → cooled until that provider's daily reset (not a fixed 15 min) ──
-  console.log('\n── 4b. Daily quota → until the daily reset ──');
+  // ── 4b. Daily quota → 15 min cooldown ──
+  console.log('\n── 4b. Daily quota → 15 min cooldown ──');
   reset({ groq: 'daily', 'groq-2': 'daily', 'groq-3': 'daily', gemini: 'ok' });
   cooldownStart = Date.now();
-  const toUtcMidnight = Math.ceil((86400000 - (Date.now() % 86400000)) / 1000);
   r = await call({ text: SHORT, mode: 'standard' });
-  const dl = r.logs.find(l => /groq.* daily quota \(until its reset\) — skipping it for \d+s/.test(l));
-  const dsecs = dl ? Number(dl.match(/for (\d+)s/)[1]) : -1;
-  assert('Groq per-day 429 (no reset header) → capped at 60 s (not next UTC midnight)', dsecs > 0 && dsecs <= 60, `${dsecs}s`);
-  advance(30 * 1000);                                                       // 0:30 — still within the 60 s cap
+  assert('900s (15 min) cooldown logged', r.logs.some(l => /groq.* daily quota — skipping it for 900s/.test(l)));
+  advance(121 * 1000 - (Date.now() - cooldownStart));                      // 2:01 — past the OLD 2-min cooldown
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('still cooling at 0:30', groqCalls(r.calls).length === 0, r.calls.join(','));
-  advance(32 * 1000);                                                       // 1:02 — just past the 60 s cap
+  assert('still cooling at 2:01 (the old 2-min cooldown would have expired)', groqCalls(r.calls).length === 0, r.calls.join(','));
+  advance(899 * 1000 - (Date.now() - cooldownStart));                      // 14:59
+  r = await call({ text: SHORT, mode: 'standard' });
+  assert('still cooling at 14:59', groqCalls(r.calls).length === 0, r.calls.join(','));
+  advance(2 * 1000);
   behaviour = { groq: 'ok', 'groq-2': 'ok', 'groq-3': 'ok' };
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('Groq tried again after the 60 s cap (not after a daily reset)', r.calls[r.calls.length - 1].startsWith('groq') && r.payload.success && r.calls.every(n => n === G1 || n.startsWith('groq')), r.calls.join(','));
+  assert('Groq tried again after 15 min', r.calls[r.calls.length - 1].startsWith('groq') && r.payload.success && r.calls.every(n => n === G1 || n.startsWith('groq')), r.calls.join(','));
 
   reset({
     [G1]:       { status: 429, body: { error: { status: 'RESOURCE_EXHAUSTED', message: 'Quota exceeded for metric: generate_requests_per_model_per_day (GenerateRequestsPerDayPerProjectPerModel)' } } },
@@ -238,28 +231,25 @@ const groqCalls = (names, model) => names.filter(n => n.startsWith('groq') && (!
     ovhcloud:   { status: 429, body: { error: 'Too Many Requests' } },
   });
   r = await call({ text: SHORT, mode: 'standard' });
-  const secsOf = (re) => { const l = r.logs.find(x => re.test(x)); return l ? Number(l.match(/for (\d+)s/)[1]) : -1; };
-  const gs = secsOf(new RegExp(G1.replace(/[/.]/g, '\\$&') + ' daily quota \\(until its reset\\)'));
-  assert('Gemini per-day quota → capped at 120 s (not midnight Pacific)', gs > 0 && gs <= 120, `${gs}s`);
-  const cs = secsOf(/cloudflare daily quota \(until its reset\)/);
-  assert('Cloudflare daily allocation → capped at 120 s (not 00:00 UTC)', cs > 0 && cs <= 120, `${cs}s`);
-  assert('plain 429 (no retry-after) → 20–23 s', /^2[0-3]$/.test(String(secsOf(/ovhcloud rate-limited/))), String(secsOf(/ovhcloud rate-limited/)));
+  assert('Gemini per-day quota → 900s', r.logs.some(l => l.includes(`${G1} daily quota — skipping it for 900s`)));
+  assert('Cloudflare daily allocation → 900s', r.logs.some(l => /cloudflare daily quota — skipping it for 900s/.test(l)));
+  assert('plain 429 → 60s', r.logs.some(l => /ovhcloud rate-limited — skipping it for 60s/.test(l)));
 
-  // ── 4c. Every entry cooling → ignore cooldowns and try the whole chain IN ORDER (safety net) ──
-  console.log('\n── 4c. All cooling → chain tried in order, never a millisecond failure ──');
+  // ── 4c. Every entry cooling → try the one whose cooldown ends soonest ──
+  console.log('\n── 4c. All cooling → soonest-expiring entry tried ──');
   const FAMILIES = ['groq', 'groq-2', 'groq-3', 'gemini', 'cloudflare', 'ovhcloud', 'llm7', 'nvidia'];
   for (const [label, body] of [['writing', { text: SHORT, mode: 'standard' }], ['chat', { text: SHORT, type: 'code_assistant' }]]) {
+    // Everything hits a daily quota (15 min) except llm7, which hits a per-minute limit (60s).
     reset(Object.fromEntries(FAMILIES.map(n => [n, n === 'llm7' ? 'quota' : 'daily'])));
     r = await call(body);
     assert(`${label}: first request cools all ${CHAIN_LEN} entries`, new Set(r.calls).size === CHAIN_LEN, r.calls.join(','));
-    // All cooling, all STILL failing → must make ≥3 real attempts (not fail in milliseconds).
-    r = await call(body);
-    assert(`${label}: all-cooling + all-failing → ≥3 real provider attempts`, r.calls.length >= 3, r.calls.join(','));
-    assert(`${label}: safety-net logged`, r.logs.some(l => /ignoring cooldowns, trying the whole chain in order/.test(l)));
-    // All cooling but providers now OK → tried in chain order (top of chain first), not just soonest-expiry llm7.
     behaviour = Object.fromEntries(FAMILIES.map(n => [n, 'ok']));
     r = await call(body);
-    assert(`${label}: chain tried in order (not forced to llm7)`, r.calls[0] !== 'llm7' && r.status === 200 && r.payload.success, r.calls.join(','));
+    // writing = the Nov-4 per-instance cooldowns (restored); chat/CV keep the shared pacer (all cooling → whole chain in order)
+    if (label === 'writing') assert(`${label}: only llm7 (soonest expiry) tried`, r.calls.join(',') === 'llm7', r.calls.join(','));
+    else assert(`${label}: all cooling → one answer from the chain in order`, r.calls.length === 1, r.calls.join(','));
+    assert(`${label}: request still succeeds`, r.status === 200 && r.payload.success, String(r.status));
+    assert(`${label}: fallback logged`, r.logs.some(l => label === 'writing' ? /all providers cooling down — trying llm7/.test(l) : /all providers cooling down/.test(l)));
   }
 
   // ── 5. Timeouts ──
@@ -268,7 +258,7 @@ const groqCalls = (names, model) => names.filter(n => n.startsWith('groq') && (!
   r = await call({ text: SHORT, mode: 'standard' });
   const t = Object.fromEntries(r.rawCalls.map(c => [c.name, c.timeoutMs]));
   for (const slow of ['ovhcloud', 'llm7', NV_U, NV_L]) assert(`${slow} gets ≥20s`, t[slow] >= 20000, String(t[slow]));
-  for (const fast of [`groq/${M120}`, `groq-2/${M20}`, `groq-3/${LLAMA}`, G1, GLITE, GEMMA, 'cloudflare'])
+  for (const fast of [`groq/${M120}`, `groq-2/${M20}`, `groq-3/${LLAMA}`, G1, GLITE, 'cloudflare'])
     assert(`${fast} gets 10s`, t[fast] > 9000 && t[fast] <= 10000, String(t[fast]));
   assert('no timeout exceeds the 55s request budget', r.rawCalls.every(c => c.timeoutMs <= 55000));
 
@@ -287,13 +277,12 @@ const groqCalls = (names, model) => names.filter(n => n.startsWith('groq') && (!
           [`groq/${M20}`]: 'quota', [`groq-2/${M20}`]: 'quota', [`groq-3/${M20}`]: 'quota', groq: 'ok', 'groq-2': 'ok', 'groq-3': 'ok' });
   r = await call({ text: SHORT, mode: 'standard' });
   assert('all 20b limited → llama-3.3-70b on the next Tier 2 step', r.calls[r.calls.length - 1].endsWith('/' + LLAMA) && groqCalls(r.calls, M20).length === 3, r.calls.join(','));
-  // Fixed order: groq/120b is tried first every time; once it cools, groq-2/120b (the NEXT key) serves
-  // every following request — load is NOT spread to groq-3 while groq-2 is up.
+  // groq/120b rate-limited: over 6 rotating requests it is called once, groq-2/120b and groq-3/120b keep serving.
   reset({ [`groq/${M120}`]: 'quota', groq: 'ok', 'groq-2': 'ok', 'groq-3': 'ok' });
   const seen6 = [];
   for (let i = 0; i < 6; i++) seen6.push(...(await call({ text: SHORT, mode: 'standard' })).calls);
   assert('groq/120b called once, then skipped (its own cooldown)', seen6.filter(n => n === `groq/${M120}`).length === 1, seen6.join(','));
-  assert('groq-2/120b (next key) then serves the rest; groq-3 not needed', seen6.filter(n => n === `groq-2/${M120}`).length >= 5 && !seen6.includes(`groq-3/${M120}`), seen6.join(','));
+  assert('groq-2/120b and groq-3/120b unaffected', seen6.includes(`groq-2/${M120}`) && seen6.includes(`groq-3/${M120}`), seen6.join(','));
   assert('groq/20b is NOT used while Tier 1 still has working entries', !seen6.includes(`groq/${M20}`), seen6.join(','));
 
   // ── 7. reasoning_effort only for gpt-oss ──
@@ -306,11 +295,8 @@ const groqCalls = (names, model) => names.filter(n => n.startsWith('groq') && (!
   assert('writing: llama sends no reasoning_effort', GROQS.every(k => !('reasoning_effort' in bodyOf(`${k}/${LLAMA}`))), JSON.stringify(bodyOf(`groq/${LLAMA}`)));
   reset({});
   r = await call({ text: SHORT, type: 'code_assistant' });
-  // Phase 4: hidden reasoning off on every path — chat/CV gpt-oss calls send "low" too; other models never get the field
-  const chatGroq = r.rawCalls.filter(c => c.name.startsWith('groq'));
-  assert('chat: gpt-oss calls send reasoning_effort "low"; llama/qwen never get the field',
-    chatGroq.some(c => /gpt-oss/.test(c.body.model)) && chatGroq.every(c => (/gpt-oss/.test(c.body.model) ? c.body.reasoning_effort === 'low' : !('reasoning_effort' in c.body))),
-    JSON.stringify(chatGroq.map(c => [c.body.model, c.body.reasoning_effort])));
+  // kept since Nov 4 (Phase 4): gpt-oss gets reasoning_effort "low" on every path; other models get no field
+  assert('chat: gpt-oss sends reasoning_effort "low", llama none', r.rawCalls.filter(c => c.name.startsWith('groq')).every(c => /gpt-oss/.test(c.name) ? c.body.reasoning_effort === 'low' : !('reasoning_effort' in c.body)));
   assert('chat: llama entries present', groqCalls(r.calls, LLAMA).length >= 3);
 
   // ── 8. Gemini key: three models, three quotas ──
@@ -320,22 +306,22 @@ const groqCalls = (names, model) => names.filter(n => n.startsWith('groq') && (!
   assert('gemini current model limited → Flash-Lite (Tier 2) after the Groq Tier 2 entries', r.calls[r.calls.length - 1] === GLITE && groqCalls(r.calls, LLAMA).length === 3, r.calls.join(','));
   reset({ gemini: 'daily', [GEMMA]: 'ok' });
   r = await call({ text: SHORT, mode: 'standard' });
-  assert('both Flash-Lite models limited → Gemma', r.calls[r.calls.length - 1] === GEMMA && r.logs.some(l => l.includes(`handled by ${GEMMA}`)), r.calls.join(','));
-  assert('Gemma URL uses gemma-3-27b-it with the Gemini key', r.rawCalls.some(c => c.name === GEMMA));
+  // Nov 10: key-1 Gemma answers HTTP 500 → it is skipped (gemini-2 Gemma is kept); the chain goes on to Tier 3
+  assert('both Flash-Lite models limited → key-1 Gemma is never called (the rest of the chain is tried)', !r.calls.includes(GEMMA) && r.calls.includes('cloudflare'), r.calls.join(','));
 
   // ── 9. testKeys: per key+model ──
   console.log('\n── 9. testKeys per key+model ──');
-  // Fixed order hits the first key every time, so groq/120b (key #1) is the one that hits its daily limit.
-  reset({ [`groq/${M120}`]: 'daily', groq: 'ok', 'groq-2': 'ok', 'groq-3': 'ok', gemini: 'ok' });
+  // Three rotating requests: one of them starts on groq-2, so groq-2/120b hits its daily limit.
+  reset({ [`groq-2/${M120}`]: 'daily', groq: 'ok', 'groq-2': 'ok', 'groq-3': 'ok', gemini: 'ok' });
   for (let i = 0; i < 3; i++) await call({ text: SHORT, mode: 'standard' });
   r = await call({ type: 'testKeys', adminPassword: 'test-admin' });
   const res9 = r.payload.results;
   const rows = [M120, M20, LLAMA].flatMap(m => GROQS.map(k => `${k}/${m}`)).concat([G1, GLITE, GEMMA]);
   assert('one row per key+model (9 Groq + 3 Gemini-key)', rows.every(n => res9[n]), Object.keys(res9).join(', '));
   assert('working rows report ✅ and their model', res9[`groq-3/${LLAMA}`].status === '✅ working' && res9[`groq-3/${LLAMA}`].model === LLAMA);
-  assert('daily-limited row reports ⏳ daily limit', res9[`groq/${M120}`].status === '⏳ daily limit', JSON.stringify(res9[`groq/${M120}`]));
-  assert('active cooldown shown on that key+model', res9[`groq/${M120}`].cooldownSecondsLeft > 0, JSON.stringify(res9[`groq/${M120}`]));
-  assert('other keys\' 120b unaffected', !res9[`groq-2/${M120}`].cooldownSecondsLeft && res9[`groq-2/${M120}`].status === '✅ working');
+  assert('daily-limited row reports ⏳ daily limit', res9[`groq-2/${M120}`].status === '⏳ daily limit', JSON.stringify(res9[`groq-2/${M120}`]));
+  assert('active cooldown shown on that key+model', res9[`groq-2/${M120}`].cooldownSecondsLeft > 0, JSON.stringify(res9[`groq-2/${M120}`]));
+  assert('other keys\' 120b unaffected', !res9[`groq/${M120}`].cooldownSecondsLeft && res9[`groq/${M120}`].status === '✅ working');
   for (const d of ['openrouter', 'mistral', 'mistral-2', 'sambanova', 'deepseek', 'scaleway', 'huggingface', 'chutes']) {
     assert(`${d} reported disabled`, res9[d] && /disabled/.test(res9[d].status), JSON.stringify(res9[d]));
   }

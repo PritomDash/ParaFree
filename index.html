@@ -3803,8 +3803,8 @@ function renderDetectorResult(aiScore, humanScore, metrics) {
 // batches processed sequentially; the frontend merges results in order.
 // DOCX batches use globally-numbered <<<N>>> markers so the combined result
 // parses correctly in one pass (batch 1 = <<<1..K>>>, batch 2 = <<<K+1..M>>>).
-const BATCH_SPLIT_THRESHOLD = 3200; // split docs > 3,200 words into batches
-const BATCH_TARGET_WORDS    = 3000; // each batch ≈ 3,000 words (~20 KB, far below the 4.5 MB body limit) → ≤3–4 server chunks of ~1,000 words
+const BATCH_SPLIT_THRESHOLD = 1400; // split docs > 1400 words into batches (Nov 4)
+const BATCH_TARGET_WORDS    = 1200; // each batch ≈ 1200 words → 3-4 chunks of ~350 words, no rate-limit pressure
 
 function buildFrontendBatches(apiText, bps) {
   if (bps && bps.length > 0) {
@@ -3925,15 +3925,6 @@ async function runAPIChain(text, prompt, mode, language, toolType, protectCtx, o
     }
     // Always apply dot statuses so failures are shown in red/yellow even on error
     if (data.apiStatuses) applyApiStatuses(data.apiStatuses);
-    // High demand on a long document: the server asks us to start again shortly — wait, say so, retry (twice at most)
-    if (data && data.error === 'queued' && (window._pfQueueTries || 0) < 2) {
-      window._pfQueueTries = (window._pfQueueTries || 0) + 1;
-      const waitS = Math.max(1, Math.min(30, Number(data.retryAfterS) || 10));
-      showStatus(`High demand — starting in ~${waitS} s`, 'info');
-      await new Promise(r => setTimeout(r, waitS * 1000));
-      try { return await runAPIChain(text, prompt, mode, language, toolType, protectCtx, onPartial); }
-      finally { window._pfQueueTries = 0; }
-    }
     if (!res.ok || !data.success) {
       _pfLastApiError = (data.error === 'high_demand' || data.error === 'queued' || res.status === 503) ? 'all_busy'
         : res.status === 504 ? 'timeout' : res.status >= 500 ? 'server_error' : 'other';
@@ -4012,6 +4003,7 @@ let docxOriginalTexts = [];
 
 function switchTool(tool) {
   currentTool = tool;
+  if (typeof pfRunDone === 'function') pfRunDone.last = null;   // the last result is no longer on screen: the same text may run again
   pptxMode = false;
   pptxData = null;
   originalDocxFile = null;
@@ -4148,6 +4140,7 @@ async function humanize() {
   const text = inputEl.value.trim();
   if (!text) { showStatus("Please paste your AI-generated text first.", "error"); return; }
   if (text.length < 10) { showStatus("Please enter at least a sentence to humanize.", "error"); return; }
+  if (pfIsRepeat("humanize|" + currentHMode + "|" + getLang() + "|" + text)) return;
 
   isLoading = true;
   resetApiDots();
@@ -4216,7 +4209,7 @@ async function humanize() {
     showDownloadBtn();
     showHumanScore(out);
     showScorePanel(before, after);
-    if (!isRetry) gaToolUsed('humanize', countWords(text));
+    if (!isRetry) { gaToolUsed('humanize', countWords(text)); pfRunDone(); }
   }
 }
 
@@ -4624,21 +4617,27 @@ function renderOutput(content, isHTML) {
   step();
 }
 
+// Duplicate submissions: the same text, tool and mode that just finished successfully (< 10 s ago) is not sent again —
+// the result is already on screen. A failed run can be re-run at once; any change to the text or mode runs normally.
+// (state lives on the functions themselves, so the helpers stand alone)
+function pfIsRepeat(key) {
+  const last = pfRunDone.last;
+  if (last && last.key === key && Date.now() - last.at < 10000) {
+    showStatus("Already done — the result for this text is shown below. Change the text or mode to run it again.", "info");
+    return true;
+  }
+  pfRunDone.pending = key;
+  return false;
+}
+function pfRunDone() { if (pfRunDone.pending) pfRunDone.last = { key: pfRunDone.pending, at: Date.now() }; pfRunDone.pending = null; }
+
 // Unchanged (not paraphrased) parts get a visible mark in the output (lib/partial.js)
 function pfMark(html) { return window.PFPartial ? PFPartial.markHtml(html, escapeHtml) : html; }
 // After a tool run: announce any parts that kept their original text. onRetry(i) re-sends just that part and
 // resolves true when it was paraphrased; wholeDoc = only a full re-run is possible (PPTX, grammar, summary).
-// A part that failed is first retried silently (3 s, then 8 s — "Finishing part n…"); the button shows only if
-// those automatic tries fail too. (Whole-document re-runs — PPTX, grammar, summary — are not repeated on their own.)
-async function pfAfterRun(onRetry, wholeDoc) {
-  if (!window.PFPartial || window._pfAuto) return;   // a success during the automatic tries calls back in here
-  if (!wholeDoc && PFPartial.list().length && !PFPartial.autoRan()) {
-    window._pfAuto = true;
-    try {
-      await PFPartial.autoRetry(onRetry, { onStatus: (n, total) => showStatus('Finishing part ' + n + (total > 1 ? ' of ' + total : '') + '…', 'info') });
-    } finally { window._pfAuto = false; }
-    if (!PFPartial.list().length) { showStatus('✓ Done — every part is finished.', 'success'); return; }
-  }
+// Nothing is ever re-sent on its own: a failed part shows its original text and ONE manual "Retry" button.
+function pfAfterRun(onRetry, wholeDoc) {
+  if (!window.PFPartial) return;
   PFPartial.showNotice({ onRetry, wholeDoc: !!wholeDoc });   // removes the old notice; none when nothing is left
   if (!PFPartial.list().length) return;
   const n = PFPartial.list().length;
@@ -4885,6 +4884,7 @@ async function paraphrase() {
   const text = inputEl.value.trim();
   if (!text) { showStatus("Please enter some text to paraphrase.", "error"); return; }
   if (text.length < 10) { showStatus("Please enter at least a sentence to paraphrase.", "error"); return; }
+  if (pfIsRepeat("paraphrase|" + currentMode + "|" + getLang() + "|" + (docxOriginalXml ? "docx|" : "") + text)) return;
 
   setLoading(true);
   resetApiDots();
@@ -5090,7 +5090,7 @@ async function paraphrase() {
     showStatus("✓ Paraphrased successfully!", "success");
     showDownloadBtn();
     showHumanScore(displayText);
-    if (!isRetry) { showDonateNote(); gaToolUsed('paraphrase', countWords(text)); }
+    if (!isRetry) { showDonateNote(); gaToolUsed('paraphrase', countWords(text)); pfRunDone(); }
   }
 }
 
@@ -5115,10 +5115,13 @@ document.getElementById('pageOverlay').addEventListener('click', function(e) {
   if (e.target === this) hidePage();
 });
 
+// Ctrl/Cmd+Enter runs the open tool ONCE: a held key (auto-repeat) used to start a new request each time the last one
+// finished — the same text sent again and again. Ignored while a request runs and outside the paraphrase/humanize tools.
 document.addEventListener("keydown", (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+    if (e.repeat || isLoading) return;
     if (currentTool === "humanize") humanize();
-    else paraphrase();
+    else if (currentTool === "paraphrase") paraphrase();
   }
 });
 

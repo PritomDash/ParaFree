@@ -68,7 +68,9 @@ function fakeRedis() {
   assert('REQUEST_BUDGET raised to 110000', /REQUEST_BUDGET\s*=\s*110000\b/.test(proc));
   // all-cooling safety net: cooldown-skip is gated by !forced in BOTH loops (so all-cooling tries the chain in order)
   const skipGuards = (proc.match(/if \(!forced && isCoolingDown\(c\.name\)\)/g) || []).length;
-  assert('both chain loops skip-on-cooldown only when NOT all-cooling (≥3 attempts safety net)', skipGuards === 2, skipGuards);
+  // chat / CV loop keeps this guard; the writing loop is back on the Nov-4 rule (all cooling → the soonest one is tried)
+  assert('chat loop skips on cooldown only when NOT all-cooling (≥3 attempts safety net)', skipGuards === 1, skipGuards);
+  assert('writing loop: Nov-4 rule — skips a cooling entry unless it is the soonest-free one', /if \(c !== forced && isLocallyCooling\(c\.name\)\)/.test(proc));
   const vj = JSON.parse(fs.readFileSync(path.join(__dirname, '../vercel.json'), 'utf8'));
   assert('vercel maxDuration = 120', vj.functions['api/process.js'].maxDuration === 120, vj.functions['api/process.js'].maxDuration);
 

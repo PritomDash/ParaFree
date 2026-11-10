@@ -154,11 +154,13 @@ const tick = () => new Promise((r) => setImmediate(r));
   const SHORT = 'Short paragraph for the pacer test that a student wrote about their weekly study plan.';
   const LONGD = Array.from({ length: 4 }, (_, i) => `Section ${i}. ` + 'Learners revise each topic with patience and care every single day. '.repeat(10)).join('\n\n');
 
-  console.log('\n── 6. Max 3 providers per chunk, then split / Retry part ──');
+  // The writing path (paraphrase/humanize/grammar/summarize) went back to the Nov-4 engine (a65c892): no max-N limit,
+  // no split, no shared pacer. The pacer still serves the chat / CV / Study Pack path (sections 1–5, 11).
+  console.log('\n── 6. Writing: a failing chunk tries the whole chain once — no "max N providers", no split ──');
   handler._pacer._reset();
   behaviour = () => 'fail';
   let r = await call({ text: SHORT, mode: 'standard' });
-  assert('a failing short chunk tries at most 3 providers (no splitting a single sentence)', r.calls.length <= 3 * 2 && r.logs.some((l) => /3 providers tried — stopping here/.test(l)), r.calls.join(','));
+  assert('a failing short chunk goes through every provider once (no limit, no split)', r.calls.length > 3 && new Set(r.calls).size === r.calls.length && !r.logs.some((l) => /providers tried — stopping here|split in two/.test(l)), r.calls.join(','));
   assert('… and fails cleanly (503, never a silent copy)', r.status === 503);
 
   console.log('\n── 7. GEMINI_KEY_3 is its own quota pool ──');
@@ -167,36 +169,36 @@ const tick = () => new Promise((r) => setImmediate(r));
   r = await call({ text: SHORT, mode: 'standard' });
   assert('gemini (key 1) at its daily quota → gemini-3 (key 3) answers', r.status === 200 && r.calls.includes('gemini-3/gemini-3.5-flash-lite'), r.calls.join(','));
 
-  console.log('\n── 8. Fixed order: same first key regardless of headroom ──');
+  console.log('\n── 8. Writing: the Nov-4 key rotation is back (the shared headroom does not reorder it) ──');
   handler._pacer._reset();
+  handler._writingCooldowns.clear();   // section 7 left the Groq keys on a 15-min daily cooldown (this instance)
   behaviour = (n) => (n.startsWith('groq/') ? { headers: { 'x-ratelimit-remaining-requests': '20', 'x-ratelimit-remaining-tokens': '7900' } } : 'ok');
   r = await call({ text: SHORT, mode: 'standard' });
   const firstKey = r.calls[0];
   r = await call({ text: SHORT, mode: 'standard' });
-  r = await call({ text: SHORT, mode: 'standard' });
-  // One-provider-at-a-time: the chain is fixed order, so every request starts on the first key
-  // (no headroom-based reshuffling). Low headroom no longer moves another key to the front.
-  assert('fixed order: requests always start on the first key regardless of headroom', firstKey === 'groq/openai/gpt-oss-120b' && r.calls[0] === 'groq/openai/gpt-oss-120b', `${firstKey} then ${r.calls.join(',')}`);
+  // the first entry's model group rotates its keys per request (Nov 4); last-known-good may put Gemini's group first
+  const keyOfName = (n) => n.split('/')[0], modelOf = (n) => n.slice(n.indexOf('/') + 1);
+  assert('consecutive requests start on a different key of the same model (rotation, as on Nov 4)', modelOf(firstKey) === modelOf(r.calls[0]) && keyOfName(firstKey) !== keyOfName(r.calls[0]), `${firstKey} then ${r.calls.join(',')}`);
 
-  console.log('\n── 9. 15 % reserve for short requests ──');
+  console.log('\n── 9. Writing: no reserve / headroom routing (removed with the shared pacer) ──');
   handler._pacer._reset();
   for (const n of ['groq/openai/gpt-oss-120b', 'groq-2/openai/gpt-oss-120b', 'gemini/gemini-3.5-flash-lite', 'gemini-3/gemini-3.5-flash-lite'])
     handler._pacer.noteHeaders(n, { remReq: 100 });                       // 10 % left on every Tier 1 key
   for (let i = 0; i < 460; i++) { handler._pacer.noteSuccess('gemini/gemini-3.5-flash-lite', 0); handler._pacer.noteSuccess('gemini-3/gemini-3.5-flash-lite', 0); }
   behaviour = () => 'ok';
   r = await call({ text: LONGD, mode: 'standard' });
-  assert('a long document skips Tier 1 entries below 15 % headroom', r.status === 200 && !r.calls.some((n) => /gpt-oss-120b|flash-lite/.test(n)), r.calls.join(','));
+  assert('a long document still uses Tier 1 whatever the shared headroom says', r.status === 200 && r.calls.length && r.calls.every((n) => /gpt-oss-120b|flash-lite/.test(n)), r.calls.join(','));
   for (const n of ['groq/openai/gpt-oss-120b', 'groq-2/openai/gpt-oss-120b']) handler._pacer.noteHeaders(n, { remReq: 100 });
   r = await call({ text: SHORT, mode: 'standard' });
   assert('a short request (<300 words) still uses them', r.status === 200 && /gpt-oss-120b|flash-lite/.test(r.calls[0] || ''), r.calls.join(','));
 
-  console.log('\n── 10. Long documents wait briefly instead of failing ──');
+  console.log('\n── 10. Writing: never "queued" — shared pacer cooldowns do not apply to the writing path ──');
   handler._pacer._reset();
   for (const n of ['groq/openai/gpt-oss-120b', 'groq-2/openai/gpt-oss-120b', 'groq/openai/gpt-oss-20b', 'groq-2/openai/gpt-oss-20b', 'groq/llama-3.3-70b-versatile', 'groq-2/llama-3.3-70b-versatile',
     'gemini/gemini-3.5-flash-lite', 'gemini-3/gemini-3.5-flash-lite', 'gemini/gemini-3.1-flash-lite', 'gemini-3/gemini-3.1-flash-lite', 'gemini/gemma-3-27b-it', 'gemini-3/gemma-3-27b-it', 'ovhcloud', 'llm7'])
     handler._pacer.note(n, 'minute', 12);
   r = await call({ text: LONGD, mode: 'standard' });
-  assert('every strong provider cooling for ~12 s → 503 "queued" with retryAfterS (the page waits and retries)', r.status === 503 && r.payload.error === 'queued' && r.payload.retryAfterS >= 12 && r.payload.retryAfterS <= 20 && /High demand — starting in ~\d+ s/.test(r.payload.message), JSON.stringify(r.payload));
+  assert('every strong provider cooling in the shared pacer → the long document is still processed (no 503 "queued", no page re-send)', r.status === 200 && r.payload.success && r.payload.error !== 'queued', JSON.stringify(r.payload).slice(0, 200));
   r = await call({ text: SHORT, mode: 'standard' });
   assert('a short request is not queued', r.payload.error !== 'queued');
 
