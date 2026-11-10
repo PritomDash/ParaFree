@@ -107,7 +107,8 @@ test.describe('new landing pages', () => {
         expect(fs.existsSync(path.join(ROOT, p)), `${slug} → ${m[1]}`).toBe(true);
       }
       const from = all.filter((f) => !PAGES.some(([x]) => x + '.html' === f) && fs.readFileSync(path.join(ROOT, f), 'utf8').includes(`href="/${slug}.html"`));
-      expect(from.length + (fs.readFileSync(path.join(ROOT, 'sitemap.xml'), 'utf8').includes(`/${slug}.html`) ? 0 : -99), `${slug}: linked from an existing page or the sitemap`).toBeGreaterThanOrEqual(0);
+      // (seo-indexing: ilovepdf-alternative is noindex and out of the sitemap on purpose — a near-duplicate of smallpdf-alternative)
+      if (slug !== 'ilovepdf-alternative') expect(from.length + (fs.readFileSync(path.join(ROOT, 'sitemap.xml'), 'utf8').includes(`/${slug}.html`) ? 0 : -99), `${slug}: linked from an existing page or the sitemap`).toBeGreaterThanOrEqual(0);
     }
   });
 });

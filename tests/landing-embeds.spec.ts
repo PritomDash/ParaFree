@@ -39,7 +39,10 @@ const LANDING_EMBEDS = '0a0daee';                                   // the last 
 const atBase = (f: string, rev = BASE) => lf(execSync(`git show ${rev}:${f}`, { cwd: ROOT, maxBuffer: 64 << 20 }).toString('utf8'));
 const read = (f: string) => fs.readFileSync(path.join(ROOT, f), 'utf8');
 // every page with a "try it here" block, and what it embeds
-const TOUCHED = fs.readdirSync(ROOT).filter((f) => f.endsWith('.html') && read(f).includes('<!-- TRY THE TOOL HERE'));
+// every page the landing-embeds round gave a block (later rounds add their own: seo-indexing put the tool in three guides —
+// those are checked in tests/seo-indexing.test.js)
+const SEO_INDEXING_EMBEDS = ['blog-how-to-rephrase-a-sentence.html', 'blog-summarize-a-research-article.html', 'blog-proofread-before-submitting.html'];
+const TOUCHED = fs.readdirSync(ROOT).filter((f) => f.endsWith('.html') && read(f).includes('<!-- TRY THE TOOL HERE') && !SEO_INDEXING_EMBEDS.includes(f));
 const embedSrc = (f: string) => [...read(f).matchAll(/data-pf-embed="([^"]+)"/g)].map((m) => m[1].replace(/&amp;/g, '&'));
 const dataLayer = (f: Page | Frame) => f.evaluate(() => ((window as any).dataLayer || []).map((a: any) => JSON.parse(JSON.stringify(Array.from(a)))));
 const RESULT = 'A freshly reworded version of the paragraph, long enough to count as a real answer from the tool.';

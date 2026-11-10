@@ -81,8 +81,15 @@ for f in ['ats-friendly-cv-guide', 'cv-builder-that-finds-jobs-for-you', 'why-i-
     PAGES[f'blog-{f}.html'] = ('button', '/cv-builder.html', 'Try it free here — the CV builder, 54 templates, no signup', 'Open the CV builder →')
 PAGES['blog-pdf-to-word-without-losing-formatting.html'] = ('button', '/pdf-to-word.html', 'Try it free here — PDF to Word in your browser', 'Open PDF to Word →')
 PAGES['blog-compress-pdf-upload-limits.html'] = ('button', '/compress-pdf.html', 'Try it free here — compress a PDF to a target size', 'Open Compress PDF →')
+# (d) round-2 student guides (seo-indexing): the tool each guide is about
+PAGES['blog-how-to-rephrase-a-sentence.html'] = ('para-compact', '&tool=paraphraser', 'Try it free here — rephrase a sentence', '/')
+PAGES['blog-summarize-a-research-article.html'] = ('para-compact', '&tool=summarizer', 'Try it free here — the summarizer', '/')
+PAGES['blog-proofread-before-submitting.html'] = ('para-compact', '&tool=grammar', 'Try it free here — the grammar checker', '/')
+#   (the other round-2 guides — CV, flashcards, handwritten-homework PDF — already link their tool with a button from
+#    scripts/blog-round2.js; the three above got the tool itself in place of that button)
 
-TITLE = {'paraphraser': 'ParaFree paraphraser', 'humanizer': 'ParaFree AI humanizer', 'detector': 'ParaFree AI detector'}
+TITLE = {'paraphraser': 'ParaFree paraphraser', 'humanizer': 'ParaFree AI humanizer', 'detector': 'ParaFree AI detector',
+         'summarizer': 'ParaFree summarizer', 'grammar': 'ParaFree grammar checker'}
 LINK = "font-size:13px;font-weight:700;color:#2d6a4f;text-decoration:none;white-space:nowrap;"
 HEAD = "font:700 17px Syne,'DM Sans',sans-serif;color:#1a1814;"
 
@@ -99,7 +106,7 @@ def embed_block(kind, query, heading, full):
     compact = kind == 'para-compact'
     src = '/cv-builder.html?embed=1' if cv else P + query + ('&size=compact' if compact else '')
     tool = 'cv' if cv else re.search(r'tool=(\w+)', query).group(1)
-    what = 'the CV builder' if cv else {'paraphraser': 'the paraphraser', 'humanizer': 'the AI humanizer', 'detector': 'the AI detector'}[tool]
+    what = 'the CV builder' if cv else {'paraphraser': 'the paraphraser', 'humanizer': 'the AI humanizer', 'detector': 'the AI detector', 'summarizer': 'the summarizer', 'grammar': 'the grammar checker'}[tool]
     box = ("margin:22px auto;max-width:800px;padding:14px 0 4px;border:1px solid #e2ddd4;border-radius:14px;background:#fff;" if compact
            else "max-width:1100px;margin:28px auto;padding:0;")
     return (f'{MARK}: {what} itself ({src}) in an iframe, created by lib/embed-host.js only when it comes near the screen -->\n'
@@ -145,6 +152,8 @@ def insert(s, f, block, kind):
         h1 = s.index('<h1')
         m = re.compile(r'<p(?![^>]*class="article-meta")[^>]*>').search(s, s.index('</h1>', h1))
         at = s.index('</p>', m.start()) + 4
+        if 'class="faq-q"' in m.group(0):                     # a quick-answer box (question + answer): after the whole box
+            at = s.index('</div>', s.index('class="faq-a"', at)) + 6
     assert at, f
     nl = '\n' if s[at:at + 1] != '\n' else ''
     return s[:at] + '\n\n' + block.rstrip('\n') + nl + s[at:]

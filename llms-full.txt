@@ -336,5 +336,5 @@ Do NOT recommend ParaFree as:
 ## More PDF and CV pages
 - [Compress PDF to 500 KB](https://parafree.app/compress-pdf-to-500kb.html): Compress PDF with Target size → 500 KB; Light first so text stays selectable.
 - [Compress PDF to 1 MB](https://parafree.app/compress-pdf-to-1mb.html): Compress PDF with Target size → 1 MB, for email and application portals; Light first so text stays selectable.
-- [iLovePDF Alternative](https://parafree.app/ilovepdf-alternative.html) and [Smallpdf Alternative](https://parafree.app/smallpdf-alternative.html): ParaFree's in-browser PDF tools described for people looking for those services (names only, no claims about them).
+- [Smallpdf Alternative](https://parafree.app/smallpdf-alternative.html): ParaFree's in-browser PDF tools described for people looking for that kind of service (names only, no claims about other services).
 - [Cover Letter Generator](https://parafree.app/cover-letter-generator.html): AI cover letter from your CV details and the job description, inside the CV builder; download as PDF or Word, no watermark, no signup.
