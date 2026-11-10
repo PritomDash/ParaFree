@@ -100,8 +100,9 @@ for (const p of NEW) {
     faq && JSON.stringify(faq.mainEntity.map((q) => [q.name, flat(q.acceptedAnswer.text)])) === JSON.stringify(vq),
     !how || how.step.length === steps.length,
     s.includes(`<link rel="canonical" href="${url}">`),
-    sitemap.includes(`<loc>${url}</loc>`),
-    llms.includes(url),
+    // seo-indexing: ilovepdf-alternative (58 % the same text as smallpdf-alternative) is noindex, out of the sitemap and llms.txt
+    f === 'ilovepdf-alternative.html' ? !sitemap.includes(`<loc>${url}</loc>`) && /noindex, follow/.test(s) : sitemap.includes(`<loc>${url}</loc>`),
+    f === 'ilovepdf-alternative.html' ? !llms.includes(url) : llms.includes(url),
     /href="\/(flashcard-quiz-maker|code|pdf-tools|compress-pdf|cv-builder)?\.html"|href="\/"/.test(s),
     items.some((x) => x['@type'] === 'BreadcrumbList'),
   ];

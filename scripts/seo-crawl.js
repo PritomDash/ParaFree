@@ -10,7 +10,7 @@
 const fs = require('fs'), path = require('path');
 const ROOT = path.join(__dirname, '..');
 const HOST = 'https://parafree.app';
-const SKIP_FILES = new Set(['404.html', 'admin.html']);   // never indexable
+const SKIP_FILES = new Set(['404.html', 'admin.html', ...fs.readdirSync(path.join(__dirname, '..')).filter((f) => /^google[0-9a-f]+\.html$/.test(f))]);   // never indexable (404, admin, Search Console verification file)
 
 // ── URL → how Vercel answers it ──
 // Domain: http:// and www. → 308 to https://parafree.app (Vercel domain settings). Routes: /studypack(.html)(/) → 301
@@ -24,7 +24,8 @@ function resolve(raw) {
   if (u.protocol !== 'https:' || u.hostname !== 'parafree.app') { hops.push('domain'); u.protocol = 'https:'; u.hostname = 'parafree.app'; }
   let p = decodeURIComponent(u.pathname);
   if (p.length > 1 && p.endsWith('/')) { hops.push('trailing-slash'); p = p.replace(/\/+$/, ''); }
-  if (/^\/studypack(?:\.html)?$/.test(p)) { hops.push('studypack'); p = '/flashcard-quiz-maker.html'; }
+  if (/^\/index(?:\.html)?$/.test(p)) { hops.push('index'); p = '/'; }
+  else if (/^\/studypack(?:\.html)?$/.test(p)) { hops.push('studypack'); p = '/flashcard-quiz-maker.html'; }
   else if (/^\/[a-z0-9][a-z0-9-]*$/.test(p)) { hops.push('clean-url'); p = p + '.html'; }
   const file = p === '/' ? 'index.html' : p.slice(1);
   const exists = fs.existsSync(path.join(ROOT, file)) && fs.statSync(path.join(ROOT, file)).isFile();
