@@ -68,6 +68,12 @@
     const cooled = {};
     for (const c of d.cooled || []) cooled[c.entry + ' (' + c.kind + ')'] = c.cooling ? 'until ' + new Date(c.until).toLocaleTimeString() : 'awaiting probe';
     out.appendChild(table('Cooling now', cooled, (v) => v));
+    // models discovery took out of the chain: health (5 failures in a row → 6 h, then one probe) or retired (404/410 → 24 h)
+    const dead = {};
+    for (const m of d.deadModels || []) dead[m.provider + '/' + m.model + (m.key ? ' (key ' + m.key + ' only)' : '')] =
+      (m.kind === 'health' ? 'unhealthy' : m.kind || 'dead') + (m.since ? ' since ' + new Date(m.since).toLocaleString() : '') + ' — until ' + new Date(m.until).toLocaleString() + (m.reason ? ' — ' + m.reason : '');
+    for (const k of d.probingModels || []) dead[k] = 'probing: the next call decides';
+    out.appendChild(table('Dead models (automatic)', dead, (v) => v));
     out.appendChild(table('Quality-gate rejections', d.gateRejections));
     const g = d.gateway || {};
     out.appendChild(table('AI Gateway (transcription)', d.gateway ? {

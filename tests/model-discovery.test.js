@@ -22,6 +22,7 @@ const KEYS = {
   KV_REST_API_URL: 'https://fake-upstash.example', KV_REST_API_TOKEN: 'fake-token-xxxxxxxx',
 };
 for (const k of Object.keys(process.env)) if (/_KEY|_KEY_\d|^CF_ACCOUNT$|^UPSTASH|^KV_|_MODEL$|_PREFS$/.test(k)) delete process.env[k];
+process.env.PF_HEALTH_FAILS = '100000';   // health dead-marking is tested in tests/model-health.test.js; here failures are deliberate
 Object.assign(process.env, KEYS);
 
 // ── Clock ──
@@ -148,7 +149,7 @@ const keyOf = (n) => n.split('/')[0];
 function v24Chain(firstKey, geminiT2 = 'gemini-3.1-flash-lite') {
   const ks = rot(GROQS, GROQS.indexOf(firstKey));
   return [...ks.map(k => k + '/' + M120), 'gemini/gemini-3.5-flash-lite',                                   // Tier 1
-          ...ks.map(k => k + '/' + M20), ...ks.map(k => k + '/' + LLAMA), 'gemini/' + geminiT2,   // Tier 2 (key-1 Gemma skipped since Nov 10)
+          ...ks.map(k => k + '/' + M20), ...ks.map(k => k + '/' + LLAMA), 'gemini/' + geminiT2, 'gemini/gemma-3-27b-it',   // Tier 2
           'ovhcloud', 'llm7',                                                                            // Tier 3 (NVIDIA filtered out here)
           'cloudflare/@cf/meta/llama-3.1-8b-instruct'];                                                  // Tier 4 (safety net)
 }
@@ -238,7 +239,7 @@ const firstNonNvidia = (names) => names.filter(n => !n.startsWith('nvidia/'));
   r = await call({ text: SHORT, mode: 'standard' });
   const seqDef = firstNonNvidia(r.calls);
   assert('live fails + no cache → defaults (v2.4 chain)', JSON.stringify(seqDef) === JSON.stringify(v24Chain(keyOf(seqDef[0]))), seqDef.join(' → '));
-  assert('NVIDIA defaults start at the first default preference (no list to skip retired ones)', r.calls.find(n => n.startsWith('nvidia/')) === 'nvidia/' + MD.defaultPrefs({}).nvidia[0], r.calls.filter(n => n.startsWith('nvidia/')).join(','));
+  assert('NVIDIA defaults start at the first default preference (no list to skip retired ones)', r.calls.find(n => n.startsWith('nvidia/')) === 'nvidia/' + MD.defaultModels({}).nvidia[0], r.calls.filter(n => n.startsWith('nvidia/')).join(','));
   r = await call({ text: SHORT, mode: 'standard' });
   assert('failed refresh is not retried on every request (5-min backoff)', r.listCalls.length === 0);
 
@@ -249,7 +250,7 @@ const firstNonNvidia = (names) => names.filter(n => !n.startsWith('nvidia/'));
   r = await call({ text: SHORT, mode: 'standard' });
   const firstCallDelay = r.rawCalls.length ? r.rawCalls[0].t - r.t0 : Infinity;
   assert('first provider call within ~1.3 s even though lists take 3 s', firstCallDelay < 1300, firstCallDelay + 'ms');
-  assert('meanwhile the chain runs on defaults', firstNonNvidia(r.calls).length === 14);
+  assert('meanwhile the chain runs on defaults', firstNonNvidia(r.calls).length === 15);
   await settle(3200);
   r = await call({ text: SHORT, mode: 'standard' });
   assert('background refresh finished → lists loaded, no new fetch', r.listCalls.length === 0 && store.has('pf_models:groq'));
@@ -270,7 +271,7 @@ const firstNonNvidia = (names) => names.filter(n => !n.startsWith('nvidia/'));
   assert(`swap logged: "model swap: ${K} tier1 ${M120} → ${LLAMA}"`, r.logs.some(l => l.includes(`model swap: ${K} tier1 ${M120} → ${LLAMA}`)), r.logs.filter(l => l.includes('swap')).join(' | '));
   assert('handled-by log names the replacement', r.logs.some(l => l.includes(`handled by ${K}/${LLAMA}`)));
   const deadRec = store.get('pf_dead_models');
-  assert('dead mark stored in Upstash for 24 h', deadRec && JSON.parse(deadRec.value)[`groq:${M120}`] > Date.now() && setLog.some(s => s.key === 'pf_dead_models' && s.ex === 24 * 3600));
+  assert('dead mark stored in Upstash for 24 h', deadRec && JSON.parse(deadRec.value)[`groq:${M120}`].until > Date.now() && JSON.parse(deadRec.value)[`groq:${M120}`].kind === 'retired' && setLog.some(s => s.key === 'pf_dead_models' && s.ex === 24 * 3600));
   r = await call({ text: SHORT, mode: 'standard' });
   assert('dead for every Groq key: 120b not tried again', !r.calls.some(n => n.endsWith('/' + M120)), r.calls.join(','));
   coldStart();
@@ -308,8 +309,7 @@ const firstNonNvidia = (names) => names.filter(n => !n.startsWith('nvidia/'));
   assert('Tier 1 Groq = first resolved pref (llama-*-versatile)', s7[0] === `${K7}/${LLAMA}`, s7.join(' → '));
   assert('Tier 1 Gemini = gemini-*-flash → gemini-3.5-flash', s7.includes('gemini/gemini-3.5-flash') && s7.indexOf('gemini/gemini-3.5-flash') === 3, s7.join(' → '));
   assert('Tier 2 Groq = openai/gpt-oss-* → newest (120b)', s7.slice(4, 7).every(n => n.endsWith('/' + M120)), s7.join(' → '));
-  // the Gemma slot resolves to gemma-3-27b-it, but key-1 Gemma is skipped (HTTP 500 since Nov 10); no extra slots
-  assert('Tier 2 Gemini = gemma-3-27b-it (skipped on key 1); no extra slots', !s7.includes('gemini/gemma-3-27b-it') && !s7.includes('gemini/gemini-3.1-flash-lite'), s7.join(' → '));
+  assert('Tier 2 Gemini = gemma-3-27b-it; no extra slots', s7.includes('gemini/gemma-3-27b-it') && !s7.includes('gemini/gemini-3.1-flash-lite'));
   process.env.GROQ_MODEL_PREFS = 'llama-*';
   coldStart();
   r = await call({ text: SHORT, mode: 'standard' });

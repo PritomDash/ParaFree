@@ -372,9 +372,16 @@ function tierOf(c) { const r = rankOf(c); return r < 10 ? 1 : r < 1000 ? 2 : r <
 // reordered against each other, and entries that tie (no recent success, or the same 10-minute
 // bucket) keep the rotation order.
 // (Restored to the Nov-4 order, a65c892 — the fixed one-at-a-time order of a9bd8de is gone.)
-// Single entries that fail on one key only (testKeys, Nov 10): key-1 Gemma answers HTTP 500, gemini-2's Gemma works.
-const DISABLED_ENTRY_RE = /^gemini\/gemma-/;
-const isDisabled = (c) => DISABLED_PROVIDERS.has(c.name) || DISABLED_ENTRY_RE.test(c.name);
+// (A model that fails on one key only — key-1 Gemma answering HTTP 500 — is handled by discovery's health marking:
+// 5 failures in a row on that key → dead for that key for 6 h. See api/_model-discovery.js.)
+const isDisabled = (c) => DISABLED_PROVIDERS.has(c.name);
+// Health marking: a failed call of a discovered model (Groq / Gemini / NVIDIA / Cloudflare slot) is reported to
+// discovery. A timeout only counts when the call had ≥ 8 s (not when the request budget clipped it); 429s never count.
+function noteModelFailure(c, msg, isAbort, ms) {
+  if (!c || !c.pk || !c.model) return;
+  if (isAbort && ms < TIMEOUT_COOLDOWN_MIN_MS) return;
+  discovery.noteFailure(c.pk, c.model, msg, isAbort);
+}
 function orderChain(candidates, startOffset) {
   const active = candidates.filter(c => !isDisabled(c)).sort((a, b) => rankOf(a) - rankOf(b));
   const out = [];
@@ -1284,6 +1291,10 @@ async function adminDashboard() {
   const out = { date: day, timezone: 'UTC', requestsByTool: {}, chunksByProvider: {}, chatByProvider: {}, tokensByProvider: {},
     cooldownsByType: { minute: {}, day: {}, overload: {}, timeout: {} }, gateRejections: {}, cooled: pacer.status().cooled, gateway: null };
   // writing-path cooldowns (per instance, Nov-4 rules) — on this instance only
+  // models discovery has marked dead (health: 5 failures in a row → 6 h; retired: 404/410 → 24 h), with reason and time
+  const ds = discovery.status();
+  out.deadModels = ds.deadModels;
+  out.probingModels = ds.probingModels;
   out.writingCooled = [...writingCooldowns].filter(([, u]) => u > Date.now()).map(([entry, u]) => ({ entry, until: new Date(u).toISOString() }));
   const fam = (e) => usage.familyOf(e);
   const add = (o, k, n) => { o[k] = (o[k] || 0) + n; };
@@ -1353,6 +1364,7 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0,
         if (bad) {
           console.warn(`[ParaFree] ⚠️ chunk seq=${seq} ${c.name} answer rejected (${bad}) — next`);
           gateCount(bad);
+          if (bad === 'empty') noteModelFailure(c, c.name + ':empty no text', false, expectedTimeout);
           continue;
         }
         console.log(`[ParaFree] ✅ chunk seq=${seq} handled by ${c.name} in ${ms}ms (${out.length} chars out, ${calls} call(s))`);
@@ -1361,6 +1373,7 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0,
         return out;
       }
       console.warn(`[ParaFree] ⚠️ chunk seq=${seq} ${c.name} empty/short (${result?.length || 0} chars, ${ms}ms) — next`);
+      noteModelFailure(c, c.name + ':empty no text', false, expectedTimeout);
     } catch (e) {
       const ms = Date.now() - t0;
       const msg = e.message || 'unknown';
@@ -1370,6 +1383,7 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0,
       console.log(`[ParaFree] ❌ chunk seq=${seq} ${c.name} [${tag}] in ${ms}ms — ${msg.slice(0, 200)}`);
       logAttempt({ seq, provider: c.name, ms, finish: info.finish || (isCutoff(msg) ? (msg.match(/finish=(\w+)/) || [, 'empty'])[1] : null), inW: chunkWords, outW: 0,
         gate: tag, q429: quota ? (quotaCooldown(msg) === DAILY_COOLDOWN ? 'day' : 'minute') : undefined, rem: info.headers || null });
+      if (!quota) noteModelFailure(c, msg, isAbort, expectedTimeout);
       if (isCutoff(msg)) gateCount('cutoff');
       if (quota) startLocalCooldown(c.name, msg);
       else if (isAbort && !isNet && expectedTimeout >= TIMEOUT_COOLDOWN_MIN_MS) startLocalCooldown(c.name, msg, TIMEOUT_COOLDOWN, 'timed out');
@@ -1573,12 +1587,14 @@ async function runChain(text, prompt, type, opts = {}) {
         }
         console.warn(`[ParaFree] ⚠️ ${c.name} empty/short — next`);
         apiStatuses[c.name] = "failed";
+        noteModelFailure(c, c.name + ':empty no text', false, ms);
       } catch (e) {
         const msg = e.message || "";
         const quota = isQuotaError(msg);
         apiStatuses[c.name] = quota ? "limit" : (msg.includes(":401") || msg.includes(":403")) ? "expired" : msg.includes(":404") ? "model_not_found" : "failed";
         console.log(`[ParaFree] ❌ ${c.name} — ${msg}`);
         const isAbort = /abort/i.test(msg) || Date.now() - t0 >= ms - 100;
+        if (!quota) noteModelFailure(c, msg, isAbort, ms);
         if (quota) startCooldown(c.name, msg);
         else if (isAbort && !isNet && ms >= TIMEOUT_COOLDOWN_MIN_MS) startCooldown(c.name, msg, TIMEOUT_COOLDOWN, 'timed out');
         else if (isOverload(msg) && !isAbort) startCooldown(c.name, msg, 0, 'overloaded');

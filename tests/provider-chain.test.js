@@ -25,6 +25,7 @@ const KEYS = {
   ADMIN_PASSWORD: 'test-admin',
 };
 for (const k of Object.keys(process.env)) if (/_KEY|_KEY_\d|^CF_ACCOUNT$|^UPSTASH|^KV_|_MODEL$/.test(k)) delete process.env[k];
+process.env.PF_HEALTH_FAILS = '100000';   // health dead-marking is tested in tests/model-health.test.js; here failures are deliberate
 Object.assign(process.env, KEYS);
 
 // ── Chain vocabulary ──
@@ -38,11 +39,11 @@ const NV_U = 'nvidia/nvidia/nemotron-3-ultra-550b-a55b', NV_L = 'nvidia/nvidia/n
 function expectedChain(firstKey) {
   const ks = rot(GROQS, GROQS.indexOf(firstKey));
   return [...ks.map(k => k + '/' + M120), G1,                                   // Tier 1
-          ...ks.map(k => k + '/' + M20), ...ks.map(k => k + '/' + LLAMA), GLITE,   // Tier 2 (key-1 Gemma is disabled — HTTP 500 since Nov 10)
+          ...ks.map(k => k + '/' + M20), ...ks.map(k => k + '/' + LLAMA), GLITE, GEMMA,   // Tier 2
           NV_U, NV_L, 'ovhcloud', 'llm7',                                       // Tier 3 (quality order)
           'cloudflare'];                                                         // Tier 4 (safety net)
 }
-const CHAIN_LEN = 16;
+const CHAIN_LEN = 17;
 
 // ── Fetch mock ──
 // Names a request exactly like the chain entry: "<groq key>/<model>", "gemini/<model>", or the provider.
@@ -258,7 +259,7 @@ const groqCalls = (names, model) => names.filter(n => n.startsWith('groq') && (!
   r = await call({ text: SHORT, mode: 'standard' });
   const t = Object.fromEntries(r.rawCalls.map(c => [c.name, c.timeoutMs]));
   for (const slow of ['ovhcloud', 'llm7', NV_U, NV_L]) assert(`${slow} gets ≥20s`, t[slow] >= 20000, String(t[slow]));
-  for (const fast of [`groq/${M120}`, `groq-2/${M20}`, `groq-3/${LLAMA}`, G1, GLITE, 'cloudflare'])
+  for (const fast of [`groq/${M120}`, `groq-2/${M20}`, `groq-3/${LLAMA}`, G1, GLITE, GEMMA, 'cloudflare'])
     assert(`${fast} gets 10s`, t[fast] > 9000 && t[fast] <= 10000, String(t[fast]));
   assert('no timeout exceeds the 55s request budget', r.rawCalls.every(c => c.timeoutMs <= 55000));
 
@@ -306,8 +307,8 @@ const groqCalls = (names, model) => names.filter(n => n.startsWith('groq') && (!
   assert('gemini current model limited → Flash-Lite (Tier 2) after the Groq Tier 2 entries', r.calls[r.calls.length - 1] === GLITE && groqCalls(r.calls, LLAMA).length === 3, r.calls.join(','));
   reset({ gemini: 'daily', [GEMMA]: 'ok' });
   r = await call({ text: SHORT, mode: 'standard' });
-  // Nov 10: key-1 Gemma answers HTTP 500 → it is skipped (gemini-2 Gemma is kept); the chain goes on to Tier 3
-  assert('both Flash-Lite models limited → key-1 Gemma is never called (the rest of the chain is tried)', !r.calls.includes(GEMMA) && r.calls.includes('cloudflare'), r.calls.join(','));
+  assert('both Flash-Lite models limited → Gemma', r.calls[r.calls.length - 1] === GEMMA && r.logs.some(l => l.includes(`handled by ${GEMMA}`)), r.calls.join(','));
+  assert('Gemma URL uses gemma-3-27b-it with the Gemini key', r.rawCalls.some(c => c.name === GEMMA));
 
   // ── 9. testKeys: per key+model ──
   console.log('\n── 9. testKeys per key+model ──');

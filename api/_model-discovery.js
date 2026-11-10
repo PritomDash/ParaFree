@@ -21,6 +21,14 @@
 //
 // KNOWN_BAD_MODELS (env MODEL_BLOCKLIST overrides) are models that list as available but fail
 // every call; they are treated like dead models, so a wildcard slot moves on to the next match.
+//
+// Health-based dead marking (all providers): a model that fails 5 times in a row with a timeout / abort / 5xx / 404 /
+// empty answer (429s never count) is marked dead for 6 h — for every key, or only for the one key when all the
+// failures came from that key and the provider has other keys (key-1 Gemma answering 500 while gemini-2 Gemma works).
+// Its slot then resolves to the next model matching the same pattern. After the 6 h one call goes through as a probe:
+// a success restores the model, a failure marks it dead for another 6 h. Dead marks are shared through Upstash
+// (pf_dead_models, with reason and time); the failure streaks are counted per instance.
+// A pattern may list ordered choices with ">": "exact-current-model > family-*" tries the left side first.
 // ═══════════════════════════════════════════════════
 'use strict';
 
@@ -30,6 +38,8 @@ const RETRY_MS         = 5 * 60 * 1000;        // after a failed/partial refresh
 const WAIT_MS          = 1000;                 // max time a user request waits for discovery
 const FETCH_MS         = 4000;                 // per list-fetch timeout (background)
 const DEAD_MS          = 24 * 60 * 60 * 1000;  // dead model kept out for 24 h
+const HEALTH_FAILS     = 5;                    // failures in a row (timeout / 5xx / 404 / empty) before a model is dead
+const HEALTH_DEAD_MS   = 6 * 60 * 60 * 1000;   // health-dead for 6 h, then one probe call
 const SKIP_MS          = 15 * 60 * 1000;       // health-check non-quota failure: entry skipped 15 min
 const STATS_TTL_MS     = 60 * 1000;            // re-read shared success/skip stats at most every 60 s
 const STATS_WRITE_MS   = 60 * 1000;            // write an entry's success time at most every 60 s
@@ -46,7 +56,7 @@ const EXCLUDE_WORDS = ['embed', 'vision', 'whisper', 'tts', 'guard', 'moderation
                        'exp', 'experimental', 'learnlm', 'reward', 'reranker', 'classifier'];
 
 const GROQ_KEY_NAMES = ['groq', 'groq-2', 'groq-3', 'groq-4'];
-const GEMINI_KEY_NAMES = ['gemini', 'gemini-2'];
+const GEMINI_KEY_NAMES = ['gemini', 'gemini-2', 'gemini-3'];
 const KEY_NAMES = [...GROQ_KEY_NAMES, ...GEMINI_KEY_NAMES, 'cloudflare', 'nvidia'];
 // Env var holding each provider key's API key (groq-4 / gemini-2 are used only when set).
 const KEY_ENV = { 'groq': 'GROQ_KEY', 'groq-2': 'GROQ_KEY_2', 'groq-3': 'GROQ_KEY_3', 'groq-4': 'GROQ_KEY_4',
@@ -87,9 +97,11 @@ function defaultPrefs(env) {
                  'llama-*|qwen*|meta-llama/*|moonshotai/*|*-instruct'],
     gemini:     ['gemini-*-flash-lite', env.GEMINI_LITE_MODEL || 'gemini-*-flash', env.GEMMA_MODEL || 'gemma-*-it'],
     cloudflare: ['@cf/*instruct*'],
-    // Quality order: the 550B model first, the fast 30B one second (see TIER3_ORDER in process.js).
+    // Quality order: the 550B model first, the fast 30B one second (see TIER3_ORDER in process.js). Each slot prefers
+    // today's model and falls back to the next Nemotron of the same kind, then any Nemotron, when it is dead or gone.
     nvidia:     [...(env.NVIDIA_MODEL ? [env.NVIDIA_MODEL] : []),
-                 'nvidia/nemotron-3-ultra-550b-a55b', 'nvidia/nemotron-3.5-lightning-30b-a3b'],
+                 'nvidia/nemotron-3-ultra-550b-a55b > nvidia/nemotron-*ultra*|nvidia/nemotron-*super* > nvidia/nemotron-*',
+                 'nvidia/nemotron-3.5-lightning-30b-a3b > nvidia/nemotron-*lightning*|nvidia/nemotron-*nano* > nvidia/nemotron-*'],
   };
 }
 // The old hard-coded models — used when there is no list and a pattern has a wildcard, and as
@@ -99,7 +111,7 @@ function defaultModels(env) {
     groq:       [env.GROQ_MODEL || 'openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'llama-3.3-70b-versatile'],
     gemini:     ['gemini-3.5-flash-lite', env.GEMINI_LITE_MODEL || 'gemini-3.1-flash-lite', env.GEMMA_MODEL || 'gemma-3-27b-it'],
     cloudflare: ['@cf/meta/llama-3.1-8b-instruct'],
-    nvidia:     defaultPrefs(env).nvidia,
+    nvidia:     [...(env.NVIDIA_MODEL ? [env.NVIDIA_MODEL] : []), 'nvidia/nemotron-3-ultra-550b-a55b', 'nvidia/nemotron-3.5-lightning-30b-a3b'],
   };
 }
 function prefsFor(provider, env) {
@@ -111,7 +123,7 @@ function prefsFor(provider, env) {
 // ── Matching ──
 // "a*|b*" → matches either alternative; "*" = any characters; anchored, case-insensitive.
 function patternRe(pattern) {
-  const alt = String(pattern).split('|').map(p => p.trim()).filter(Boolean)
+  const alt = String(pattern).split(/[|>]/).map(p => p.trim()).filter(Boolean)
     .map(p => p.split('*').map(s => s.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('.*'));
   return new RegExp('^(?:' + alt.join('|') + ')$', 'i');
 }
@@ -183,11 +195,17 @@ function resolveSlots(prefs, list, isDead, defaults, lastGood = [], opts = {}) {
         if (!model && usable(c) && re.test(c)) { model = c; from = f; }
       }
     }
+    // "a > b > c": ordered choices — the first one that matches a usable model wins
+    const choices = String(pattern).split('>').map(s => s.trim()).filter(Boolean);
     if (!model && list) {
-      const cands = list.filter(m => re.test(m.id) && isTextModel(m.id, pattern) && usable(m.id) && bigEnough(m.id, pattern)).sort(sorter);
-      if (cands.length) { model = cands[0].id; from = 'match'; }
-    } else if (!model && !pattern.includes('*') && !pattern.includes('|') && usable(pattern)) {
-      model = pattern; from = 'literal';
+      for (const ch of choices) {
+        const cre = patternRe(ch);
+        const cands = list.filter(m => cre.test(m.id) && isTextModel(m.id, ch) && usable(m.id) && bigEnough(m.id, ch)).sort(sorter);
+        if (cands.length) { model = cands[0].id; from = 'match'; break; }
+      }
+    } else if (!model) {
+      const lit = choices.find(ch => !ch.includes('*') && !ch.includes('|') && usable(ch));
+      if (lit) { model = lit; from = 'literal'; }
     }
     if (!model && usable(lastGood[i])) { model = lastGood[i]; from = 'last-good'; }
     if (!model && usable(defaults[i])) { model = defaults[i]; from = 'default'; }
@@ -211,7 +229,10 @@ function isDeadModelError(msg) {
 function createModelDiscovery({ fetchWithTimeout, getRedis, env = process.env, log = console }) {
   const LISTS = {};          // providerKey → { models:[{id,created}], fetchedAt, source, error? }
   const STATUS = {};         // providerKey → { source, error } for keys without a list
-  const DEAD = new Map();    // "provider:model" → until (epoch ms)
+  const DEAD = new Map();    // "provider:model" (every key) or "<key>>provider:model" (one key) → { until, at, reason, kind }
+  const PROBE = new Set();   // dead marks that expired: the next call is the probe (success restores, failure = dead again)
+  const MSTREAK = new Map(); // "provider:model" → { n, keys: Set } — failures in a row on any key
+  const KSTREAK = new Map(); // "<key>>provider:model" → failures in a row on that key
   const LAST = {};           // providerKey → last resolved models by position (for swap logs)
   const SUCCESS = new Map(); // entry name → last success (epoch ms)
   const SKIP = new Map();    // entry name → until (epoch ms)
@@ -221,14 +242,24 @@ function createModelDiscovery({ fetchWithTimeout, getRedis, env = process.env, l
   let lastAttempt = 0, lastRefresh = 0, statsLoadedAt = 0;
 
   const validKey = (k) => !!(k && k.length > 10);
+  const FAILS = Number(env.PF_HEALTH_FAILS) || HEALTH_FAILS;   // PF_HEALTH_FAILS only in tests
   const providerOf = (pk) => pk.startsWith('groq') ? 'groq' : pk.startsWith('gemini') ? 'gemini' : pk;
   const BLOCKED = blocklist(env);
-  const isDead = (provider, model) => {
+  const deadUntil = (k) => {
+    const d = DEAD.get(k);
+    if (!d) return 0;
+    if (d.until <= Date.now()) {
+      DEAD.delete(k);
+      if (d.kind === 'health') { PROBE.add(k); log.log(`[ParaFree] model probe: ${k} — 6 h are over, the next call decides`); }
+      return 0;
+    }
+    return d.until;
+  };
+  // pk (optional): also dead when marked for that key only
+  const isDead = (provider, model, pk) => {
     if (BLOCKED.has(provider + ':' + model)) return true;
-    const until = DEAD.get(provider + ':' + model);
-    if (!until) return false;
-    if (until <= Date.now()) { DEAD.delete(provider + ':' + model); return false; }
-    return true;
+    if (deadUntil(provider + ':' + model)) return true;
+    return !!(pk && deadUntil(pk + '>' + provider + ':' + model));
   };
 
   const R = () => getRedis();
@@ -300,7 +331,7 @@ function createModelDiscovery({ fetchWithTimeout, getRedis, env = process.env, l
     const list = LISTS[pk] ? LISTS[pk].models : null;
     const prefs = prefsFor(provider, env);
     const lastGood = prefs.map((_, i) => (LAST_GOOD[pk + ':' + i] || {}).model);
-    return resolveSlots(prefs, list, (m) => isDead(provider, m), defaultModels(env)[provider], lastGood,
+    return resolveSlots(prefs, list, (m) => isDead(provider, m, pk), defaultModels(env)[provider], lastGood,
       { sort: PROVIDER_SORT[provider], preferPrevious: !!PREFER_PREVIOUS[provider], minSizeB: MIN_SIZE_B[provider] || 0 });
   }
   const models = (pk) => slots(pk).map(s => s.model).filter(Boolean);
@@ -334,16 +365,38 @@ function createModelDiscovery({ fetchWithTimeout, getRedis, env = process.env, l
   // First snapshot = what the defaults resolve to, so the first discovery logs real swaps.
   for (const pk of KEY_NAMES) LAST[pk] = models(pk);
 
+  // Upstash pf_dead_models: { key: { until, at, reason, kind } } (an older plain "until" number still reads)
   async function loadDead() {
-    const stored = await redisGet(DEAD_REDIS_KEY);
+    let stored = await redisGet(DEAD_REDIS_KEY);
+    if (typeof stored === 'string') { try { stored = JSON.parse(stored); } catch (_) { stored = null; } }
     if (stored && typeof stored === 'object') {
-      for (const [k, until] of Object.entries(stored)) if (until > Date.now()) DEAD.set(k, until);
+      for (const [k, v] of Object.entries(stored)) {
+        const d = typeof v === 'number' ? { until: v, at: 0, reason: 'retired', kind: 'retired' } : v;
+        if (d && d.until > Date.now() && d.until > ((DEAD.get(k) || {}).until || 0)) { DEAD.set(k, d); PROBE.delete(k); }
+      }
     }
   }
+  async function saveDead() {
+    const stored = (await redisGet(DEAD_REDIS_KEY)) || {};
+    const merged = {};
+    for (const [k, v] of Object.entries(typeof stored === 'object' ? stored : {})) {
+      const d = typeof v === 'number' ? { until: v, at: 0, reason: 'retired', kind: 'retired' } : v;
+      if (d && d.until > Date.now()) merged[k] = d;
+    }
+    for (const [k, d] of DEAD) if (d.until > Date.now()) merged[k] = d;
+    await redisSet(DEAD_REDIS_KEY, merged, Math.ceil(DEAD_MS / 1000));
+  }
+  function setDead(k, ms, reason, kind) {
+    DEAD.set(k, { until: Date.now() + ms, at: Date.now(), reason: String(reason).slice(0, 160), kind });
+    PROBE.delete(k);
+  }
+  const keysOf = (provider) => provider === 'groq' ? GROQ_KEY_NAMES : provider === 'gemini' ? GEMINI_KEY_NAMES : [provider];
+  const configuredKeys = (provider) => keysOf(provider).filter(pk => provider === 'cloudflare' ? validKey(env.CF_KEY) : provider === 'nvidia' ? validKey(env.NVIDIA_KEY) : validKey(env[KEY_ENV[pk]]));
 
   // Shared success times, last-good models and skips (merged: newest wins).
   async function loadStats() {
-    const [succ, good, skip] = await Promise.all([hgetall(SUCCESS_KEY), hgetall(LAST_GOOD_KEY), hgetall(SKIP_KEY)]);
+    // (dead marks too, so a model marked dead on another instance is skipped here within a minute)
+    const [succ, good, skip] = await Promise.all([hgetall(SUCCESS_KEY), hgetall(LAST_GOOD_KEY), hgetall(SKIP_KEY), loadDead().catch(() => {})]);
     for (const [k, v] of Object.entries(succ || {})) { const t = Number(v); if (t > (SUCCESS.get(k) || 0)) SUCCESS.set(k, t); }
     for (const [k, v] of Object.entries(good || {})) {
       const val = typeof v === 'string' ? (() => { try { return JSON.parse(v); } catch (_) { return null; } })() : v;
@@ -409,15 +462,65 @@ function createModelDiscovery({ fetchWithTimeout, getRedis, env = process.env, l
   // position among the key's resolved models (null if none), logging the swap.
   // `slot` = position among RESOLVED models (Tier 1 = position 0), as used by the chain.
   async function markDead(provider, model, reason, pk, slot) {
-    DEAD.set(provider + ':' + model, Date.now() + DEAD_MS);
-    const stored = (await redisGet(DEAD_REDIS_KEY)) || {};
-    const merged = { ...(typeof stored === 'object' ? stored : {}) };
-    for (const [k, until] of DEAD) merged[k] = until;
-    await redisSet(DEAD_REDIS_KEY, merged, Math.ceil(DEAD_MS / 1000));
+    setDead(provider + ':' + model, DEAD_MS, reason, 'retired');
+    await saveDead();
     log.warn(`[ParaFree] model dead: ${provider}/${model} (${String(reason).slice(0, 80)}) — skipped for 24h`);
-    const keysToLog = provider === 'groq' ? GROQ_KEY_NAMES : provider === 'gemini' ? GEMINI_KEY_NAMES : [provider];
-    for (const k of keysToLog) logSwaps('retired: ' + String(reason).slice(0, 40), k);
+    for (const k of keysOf(provider)) logSwaps('retired: ' + String(reason).slice(0, 40), k);
     return pk !== undefined && slot !== undefined ? models(pk)[slot] || null : null;
+  }
+
+  // ── Health: failures in a row → dead for 6 h (whole model, or one key) ──
+  // msg = the call's error ("Gemini/x:500 …", "…:empty no text", "…: null content …"); abort = it timed out.
+  // → the kind counted ('timeout' | '5xx' | '404' | 'empty'), or null when it doesn't count (429s, auth, 400s).
+  function healthKind(msg, abort) {
+    const m = String(msg || '');
+    if (/:429\b|quota|rate.?limit|RESOURCE_EXHAUSTED|too many requests/i.test(m)) return null;
+    if (abort || /abort|timed? ?out/i.test(m)) return 'timeout';
+    if (/:5\d\d\b/.test(m)) return '5xx';
+    if (/:404\b/.test(m)) return '404';
+    if (/:empty\b|null content|no response|no text|empty\/short/i.test(m)) return 'empty';
+    return null;
+  }
+  // A failed call of `model` on key `pk`. → 'model' | 'key' when it was just marked dead, else null.
+  function noteFailure(pk, model, msg, abort = false) {
+    if (!pk || !model) return null;
+    const kind = healthKind(msg, abort);
+    if (!kind) return null;
+    const provider = providerOf(pk), mk = provider + ':' + model, kk = pk + '>' + mk;
+    const why = `${FAILS}× in a row (${kind}): ${String(msg).slice(0, 100)}`;
+    // a probe that fails → dead again at once
+    for (const k of [kk, mk]) {
+      if (PROBE.has(k)) {
+        setDead(k, HEALTH_DEAD_MS, 'probe failed (' + kind + '): ' + String(msg).slice(0, 100), 'health');
+        saveDead().catch(() => {});
+        log.warn(`[ParaFree] model dead again: ${k} — probe failed (${kind}), skipped for 6h`);
+        for (const p of keysOf(provider)) logSwaps('probe failed', p);
+        return k === kk ? 'key' : 'model';
+      }
+    }
+    const ms = MSTREAK.get(mk) || { n: 0, keys: new Set() };
+    ms.n++; ms.keys.add(pk); MSTREAK.set(mk, ms);
+    const kn = (KSTREAK.get(kk) || 0) + 1; KSTREAK.set(kk, kn);
+    let scope = null;
+    const others = configuredKeys(provider).filter(k => k !== pk);
+    if (kn >= FAILS && others.length && ms.keys.size === 1) scope = 'key';
+    else if (ms.n >= FAILS) scope = 'model';
+    if (!scope) return null;
+    setDead(scope === 'key' ? kk : mk, HEALTH_DEAD_MS, why, 'health');
+    if (scope === 'key') { KSTREAK.delete(kk); MSTREAK.delete(mk); } else { MSTREAK.delete(mk); for (const k of keysOf(provider)) KSTREAK.delete(k + '>' + mk); }
+    saveDead().catch(() => {});
+    log.warn(`[ParaFree] model dead: ${scope === 'key' ? pk + ' ' : ''}${provider}/${model} — ${why} — skipped for 6h${scope === 'key' ? ' on this key only' : ''}`);
+    for (const p of scope === 'key' ? [pk] : keysOf(provider)) logSwaps('unhealthy: ' + kind, p);
+    return scope;
+  }
+  // A good answer from `model` on `pk`: the streaks start again, and a probe restores the model.
+  function noteHealthy(pk, model) {
+    if (!pk || !model) return;
+    const provider = providerOf(pk), mk = provider + ':' + model, kk = pk + '>' + mk;
+    MSTREAK.delete(mk); KSTREAK.delete(kk);
+    let restored = false;
+    for (const k of [kk, mk]) if (PROBE.has(k)) { PROBE.delete(k); restored = true; log.log(`[ParaFree] model restored: ${k} — the probe call worked`); }
+    if (restored) saveDead().catch(() => {});
   }
 
   // ── Last known good / success ordering ──
@@ -425,6 +528,7 @@ function createModelDiscovery({ fetchWithTimeout, getRedis, env = process.env, l
   // last-good model. Upstash writes are throttled and never awaited by the request.
   function noteSuccess(name, pk, slot, model) {
     const now = Date.now();
+    noteHealthy(pk, model);
     SUCCESS.set(name, now);
     if (SKIP.has(name)) { SKIP.delete(name); hdel(SKIP_KEY, name); }
     if (now - (lastWrite.get(name) || 0) > STATS_WRITE_MS) {
@@ -470,7 +574,13 @@ function createModelDiscovery({ fetchWithTimeout, getRedis, env = process.env, l
         : { source: 'defaults', refreshedAt: null, ...(STATUS[pk] && STATUS[pk].error ? { error: STATUS[pk].error } : {}) };
     }
     const dead = [];
-    for (const [k, until] of DEAD) if (until > Date.now()) { const i = k.indexOf(':'); dead.push({ provider: k.slice(0, i), model: k.slice(i + 1), until: new Date(until).toISOString() }); }
+    // { provider, model, key (null = every key), kind: 'health' | 'retired', reason, since, until } — names and error codes only
+    for (const [k, d] of DEAD) if (d.until > Date.now()) {
+      const gt = k.indexOf('>'), rest = gt >= 0 ? k.slice(gt + 1) : k, i = rest.indexOf(':');
+      dead.push({ provider: rest.slice(0, i), model: rest.slice(i + 1), key: gt >= 0 ? k.slice(0, gt) : null, kind: d.kind, reason: d.reason,
+        since: d.at ? new Date(d.at).toISOString() : null, until: new Date(d.until).toISOString() });
+    }
+    const probing = [...PROBE];
     const skipped = [];
     for (const [name, until] of SKIP) if (until > Date.now()) skipped.push({ entry: name, until: new Date(until).toISOString() });
     const lastGood = {};
@@ -483,6 +593,7 @@ function createModelDiscovery({ fetchWithTimeout, getRedis, env = process.env, l
       lastFullRefresh: lastRefresh ? new Date(lastRefresh).toISOString() : null,
       freshForHours: FRESH_MS / 3600000,
       deadModels: dead,
+      probingModels: probing,
       blockedModels: [...BLOCKED],
       skippedEntries: skipped,
       lastGood,
@@ -492,7 +603,7 @@ function createModelDiscovery({ fetchWithTimeout, getRedis, env = process.env, l
   }
 
   return {
-    ensure, refresh, slots, models, markDead, isDead, status, tierLabel, isDeadModelError,
+    ensure, refresh, slots, models, markDead, isDead, status, tierLabel, isDeadModelError, noteFailure, healthKind,
     noteSuccess, recency, lastSuccess, skip, skipUntil, isSkipped,
   };
 }
@@ -501,5 +612,5 @@ module.exports = {
   createModelDiscovery, resolveSlots, patternRe, isTextModel, newestFirst, sizeOf, isDeadModelError, MIN_SIZE_B,
   KNOWN_BAD_MODELS, blocklist,
   defaultPrefs, defaultModels, prefsFor, parsePrefs, EXCLUDE_WORDS, PROVIDER_SORT,
-  FRESH_MS, WAIT_MS, DEAD_MS, SKIP_MS, RECENT_WINDOW_MS, RECENT_BUCKET_MS,
+  FRESH_MS, WAIT_MS, DEAD_MS, SKIP_MS, HEALTH_FAILS, HEALTH_DEAD_MS, RECENT_WINDOW_MS, RECENT_BUCKET_MS,
 };

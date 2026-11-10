@@ -11,7 +11,7 @@ function assert(label, cond, detail = '') {
 
 const fs = require('fs'), path = require('path');
 for (const k of Object.keys(process.env)) if (/_KEY|_KEY_\d|^CF_ACCOUNT$|^UPSTASH|^KV_|_MODEL$|^PF_MAX|^PROMPT_DIET|MODEL_BLOCKLIST|_PREFS$/.test(k)) delete process.env[k];
-Object.assign(process.env, { GROQ_KEY: 'groq-key-1-xxxxxxxx', GROQ_KEY_2: 'groq-key-2-xxxxxxxx', GEMINI_KEY: 'gemini-key-1-xxxxxxxx',
+Object.assign(process.env, { PF_HEALTH_FAILS: '100000', GROQ_KEY: 'groq-key-1-xxxxxxxx', GROQ_KEY_2: 'groq-key-2-xxxxxxxx', GEMINI_KEY: 'gemini-key-1-xxxxxxxx',
   GEMINI_KEY_2: 'gemini-key-2-xxxxxxxx', GEMINI_KEY_3: 'gemini-key-3-xxxxxxxx', CF_KEY: 'cf-key-xxxxxxxxxxxx', CF_ACCOUNT: 'cf-account-xxxxxxx' });
 
 const { fakeAnswer, contentOf, textPart } = require('./_fake-answer');
@@ -149,7 +149,9 @@ const blk = (i, n) => Array.from({ length: n }, (_, j) => para(i * 100 + j)).joi
   behaviour['gemini-2/gemma-3-27b-it'] = good;
   r = await call({ text: ONE, mode: 'standard' });
   const names = r.calls.map((c) => c.name);
-  assert('key-1 Gemma is never called', !names.includes('gemini/gemma-3-27b-it'), names.join(','));
+  // key-1 Gemma is no longer pinned off: health marking takes a model out only after 5 failures in a row on that key
+  // (tests/model-health.test.js). Here key 1 answers 429 — rate limits never count — so it is still tried.
+  assert('key-1 Gemma is still tried (no hard-coded skip; a 429 is not a health failure)', names.includes('gemini/gemma-3-27b-it'), names.join(','));
   assert('gemini-2 Gemma is kept and answers', r.status === 200 && names[names.length - 1] === 'gemini-2/gemma-3-27b-it', names.join(','));
   assert('GEMINI_KEY_3 is its own entry in the chain', names.some((x) => x.startsWith('gemini-3/')), names.join(','));
 

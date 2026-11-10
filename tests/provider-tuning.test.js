@@ -29,6 +29,7 @@ const KEYS = {
   KV_REST_API_URL: 'https://fake-upstash.example', KV_REST_API_TOKEN: 'fake-token-xxxxxxxx',
 };
 for (const k of Object.keys(process.env)) if (/_KEY|_KEY_\d|^CF_ACCOUNT$|^UPSTASH|^KV_|_MODEL$|_PREFS$|^MODEL_BLOCKLIST$|^FALLBACK_ORDER$|_PIN$/.test(k)) delete process.env[k];
+process.env.PF_HEALTH_FAILS = '100000';   // health dead-marking is tested in tests/model-health.test.js; here failures are deliberate
 Object.assign(process.env, KEYS);
 
 // ── Clock ──
@@ -167,8 +168,8 @@ const T12_FAIL = Object.fromEntries([...GROQS, 'gemini', 'gemini-2'].map(k => [k
   const BLOCKED = ['gemini-3.8-flash', 'gemma-4-31b-it', 'nvidia/llama-3.1-nemotron-70b-instruct', 'mistralai/mistral-large-2-instruct',
                    'nv-mistralai/mistral-nemo-12b-instruct', 'deepseek-ai/deepseek-v4.1-flash', 'z-ai/glm-5.3-flash'];
   assert('none of the 7 failing models is ever called', !r.calls.some(n => BLOCKED.some(b => n.endsWith('/' + b))), r.calls.join(','));
-  // Nov 10: gemini-3.7-flash is blocked too, and key-1 Gemma (HTTP 500) is skipped — gemini-2 Gemma stays
-  assert('Gemini Flash slot → gemini-3.5-flash (next newest); key-1 Gemma skipped, gemini-2 Gemma kept', r.calls.includes('gemini/gemini-3.5-flash') && !r.calls.includes('gemini/gemma-3-27b-it') && r.calls.includes('gemini-2/gemma-3-27b-it'), r.calls.join(','));
+  // Nov 10: gemini-3.7-flash is blocked too (key-1 Gemma's 500s are now handled by health marking, not a pin)
+  assert('Gemini Flash slot → gemini-3.5-flash (next newest), Gemma slot → gemma-3-27b-it', r.calls.includes('gemini/gemini-3.5-flash') && r.calls.includes('gemini/gemma-3-27b-it'), r.calls.join(','));
   assert('NVIDIA: exactly ultra then lightning', r.calls.filter(n => n.startsWith('nvidia/')).join(',') === `${NV_U},${NV_L}`, r.calls.filter(n => n.startsWith('nvidia/')).join(','));
   r = await call({ type: 'testKeys', adminPassword: 'test-admin' });
   assert('testKeys lists the blocked models', BLOCKED.every(b => r.payload.discovery.blockedModels.some(x => x.endsWith(':' + b))), JSON.stringify(r.payload.discovery.blockedModels));

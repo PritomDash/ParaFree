@@ -9,7 +9,7 @@ function assert(label, cond, detail = '') {
 }
 const fs = require('fs'), path = require('path');
 for (const k of Object.keys(process.env)) if (/_KEY|_KEY_\d|^CF_ACCOUNT$|^UPSTASH|^KV_|_MODEL$|^PF_MAX|^PROMPT_DIET/.test(k)) delete process.env[k];
-Object.assign(process.env, { GROQ_KEY: 'groq-key-1-xxxxxxxx', GEMINI_KEY: 'gemini-key-xxxxxxxx', GEMINI_LITE_MODEL: 'gemini-3.8-flash', MODEL_BLOCKLIST: 'none', PF_MAX_PROVIDERS: '99' });   // blocklist off: 3.8 Flash is on the built-in known-bad list
+Object.assign(process.env, { PF_HEALTH_FAILS: '100000', GROQ_KEY: 'groq-key-1-xxxxxxxx', GEMINI_KEY: 'gemini-key-xxxxxxxx', GEMINI_LITE_MODEL: 'gemini-3.8-flash', MODEL_BLOCKLIST: 'none', PF_MAX_PROVIDERS: '99' });   // blocklist off: 3.8 Flash is on the built-in known-bad list
 const { fakeAnswer, contentOf } = require('./_fake-answer');
 const V2 = require('../lib/prompts-v2.js');
 
@@ -66,8 +66,7 @@ const tc = (c) => c && c.body.generationConfig && c.body.generationConfig.thinki
   r = await call({ text: SHORT, mode: 'standard' });
   assert('Flash-Lite → thinkingLevel "minimal"', JSON.stringify(tc(by(r, /gemini-3\.5-flash-lite/))) === '{"thinkingLevel":"minimal"}', JSON.stringify(tc(by(r, /gemini-3\.5-flash-lite/))));
   assert('3.8 Flash → thinkingLevel "low" (it has no "minimal")', JSON.stringify(tc(by(r, /gemini-3\.8-flash$/))) === '{"thinkingLevel":"low"}', JSON.stringify(tc(by(r, /gemini-3\.8-flash$/))));
-  // only GEMINI_KEY here, and key-1 Gemma is skipped since Nov 10 (HTTP 500) — gemini-2 Gemma keeps no thinkingConfig
-  assert('key-1 Gemma is not called; no Gemma call ever carries a thinkingConfig', r.calls.filter((c) => /gemma/.test(c.name)).every((c) => !tc(c)) && !by(r, /gemma/));
+  assert('Gemma → no thinkingConfig', by(r, /gemma/) && !tc(by(r, /gemma/)));
   r = await call({ text: SHORT, type: 'code_assistant' });
   assert('ParaFree AI chat keeps the model\'s default thinking (not a writing/flashcards path)', r.calls.filter((c) => c.name.startsWith('gemini')).every((c) => !tc(c)));
 
