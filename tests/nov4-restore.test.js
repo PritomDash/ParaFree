@@ -166,12 +166,29 @@ const blk = (i, n) => Array.from({ length: n }, (_, j) => para(i * 100 + j)).joi
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   const partial = fs.readFileSync(path.join(__dirname, '..', 'lib', 'partial.js'), 'utf8');
   assert('Nov-4 browser batches: split above 1,400 words into ~1,200-word requests', /BATCH_SPLIT_THRESHOLD = 1400;/.test(html) && /BATCH_TARGET_WORDS\s+= 1200;/.test(html));
-  assert('no automatic re-submission: the "queued" auto re-send and the silent part retries are gone', !/_pfQueueTries/.test(html) && !/autoRetry\(/.test(html) && !/autoRetry|AUTO_WAITS|PF_AUTO_RETRY_WAITS/.test(partial));
-  assert('one manual "Retry" button (not one per part), disabled while a retry runs', /b\.textContent = 'Retry';/.test(partial) && /if \(busy\) return;/.test(partial) && !/'Retry part '/.test(partial));
+  // Nov 10 UX fix: a part the SERVER reported failed is re-sent once automatically (~3 s); never the whole document
+  assert('no whole-document re-send: the "queued" auto re-send is gone, and parts get ONE automatic retry (autoRetryOnce)', !/_pfQueueTries/.test(html) && /PFPartial\.autoRetryOnce\(/.test(html) && !/autoRetry\(/.test(html) && /if \(autoRanFor === run \|\| !run\.length\) return;/.test(partial) && !/waits|AUTO_WAITS/.test(partial));
+  assert('no Retry button at all — a short note instead', !/pf-retry-part|createElement\('button'\)|'Retry'/.test(partial) && !/pf-retry-part/.test(html) && /run Paraphrase again to retry/.test(partial));
+  assert('a part counts as failed only from the server\'s failedParts — the page never compares output with input', /PFPartial\.add\(data\.failedParts/.test(html) && (html.match(/PFPartial\.add\(/g) || []).length === 1);
   assert('Ctrl+Enter ignores key auto-repeat and runs nothing while a request runs', /if \(e\.repeat \|\| isLoading\) return;/.test(html));
   assert('the same text that just finished is not sent again (paraphrase and humanize)', (html.match(/if \(pfIsRepeat\(/g) || []).length === 2 && /function pfRunDone\(\)/.test(html));
   assert('no concurrent requests from the page: no Promise.all anywhere in index.html', !/Promise\.all/.test(html));
   assert('the server chunks one at a time', /CHUNK_CONCURRENCY\s*=\s*1;/.test(fs.readFileSync(path.join(__dirname, '..', 'api', 'process.js'), 'utf8')));
+
+  console.log('\n── 7. lib/partial.js: one automatic retry, skipped lines never marked ──');
+  const P = require('../lib/partial.js');
+  P.reset(); P.add([{ text: 'A failed paragraph that the server could not paraphrase with any provider at all today.' }]);
+  let tries = 0;
+  const failAlways = async () => { tries++; return false; };
+  await P.autoRetryOnce(failAlways, { wait: 0 });
+  await P.autoRetryOnce(failAlways, { wait: 0 });
+  assert('a failed part is retried exactly once automatically (a second call does nothing)', tries === 1 && P.autoRan() && P.list().length === 1, String(tries));
+  assert('skipped-on-purpose lines are never treated as unparaphrased', ['Week 1: Planning', 'Why plan at all?', 'https://example.org/a', 'Smith, J. (2020). Learning how to learn. OUP.', 'const plan = weeks.map(w => w.topics);', '2026 — 14 — 28', '# Summary', 'Key terms'].every((l) => P.skipLike(l)) && !P.skipLike('A failed paragraph that the server could not paraphrase with any provider at all today.'));
+  const esc = (x) => x.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  P.reset(); P.add([{ text: 'Why plan at all?\n\nA failed paragraph that the server could not paraphrase with any provider at all today.' }]);
+  const marked = P.markHtml(esc('Why plan at all?\n\nGood paraphrased text here.\n\nWhy plan at all?\n\nA failed paragraph that the server could not paraphrase with any provider at all today.'), esc);
+  assert('markHtml marks only the prose line of the failed part, never the repeated heading', (marked.match(/<mark/g) || []).length === 1 && /<mark[^>]*>A failed paragraph/.test(marked) && !/<mark[^>]*>Why plan/.test(marked), marked);
+  P.reset();
 
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);

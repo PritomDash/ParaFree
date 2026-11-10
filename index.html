@@ -874,12 +874,10 @@ const PHOTOS = {
     font-style: italic;
     font-weight: 300;
   }
-  /* a part the AI could not paraphrase: kept original, marked, with "Retry this part" (lib/partial.js) */
+  /* a part the server could not paraphrase: kept original, marked, with a short note — no button (lib/partial.js) */
   mark.pf-unchanged { background: rgba(245, 158, 11, 0.22); color: inherit; border-bottom: 2px dashed #d97706; padding: 0 1px; }
   .pf-partial { margin: 0 0 10px; padding: 10px 12px; border: 1px solid #d97706; border-radius: 10px; background: rgba(245, 158, 11, 0.08); font-size: 0.9em; }
   .pf-partial p { margin: 0 0 8px; }
-  .pf-retry-part { margin: 0 8px 0 0; padding: 5px 14px; border-radius: 20px; border: 1px solid #d97706; background: transparent; color: inherit; cursor: pointer; font: inherit; }
-  .pf-retry-part:disabled { opacity: 0.6; cursor: default; }
   .pf-streaming { opacity: 0.6; font-style: italic; }
   .see-more-btn {
     display: inline-block;
@@ -4209,7 +4207,7 @@ async function humanize() {
     showDownloadBtn();
     showHumanScore(out);
     showScorePanel(before, after);
-    if (!isRetry) { gaToolUsed('humanize', countWords(text)); pfRunDone(); }
+    if (!isRetry) { gaToolUsed('humanize', countWords(text)); if (!(window.PFPartial && PFPartial.list().length)) pfRunDone(); }   // a partial result may be run again at once
   }
 }
 
@@ -4635,13 +4633,21 @@ function pfRunDone() { if (pfRunDone.pending) pfRunDone.last = { key: pfRunDone.
 function pfMark(html) { return window.PFPartial ? PFPartial.markHtml(html, escapeHtml) : html; }
 // After a tool run: announce any parts that kept their original text. onRetry(i) re-sends just that part and
 // resolves true when it was paraphrased; wholeDoc = only a full re-run is possible (PPTX, grammar, summary).
-// Nothing is ever re-sent on its own: a failed part shows its original text and ONE manual "Retry" button.
-function pfAfterRun(onRetry, wholeDoc) {
-  if (!window.PFPartial) return;
-  PFPartial.showNotice({ onRetry, wholeDoc: !!wholeDoc });   // removes the old notice; none when nothing is left
+// A part fails ONLY when the server says so (failedParts: no provider answered) — never by comparing output with
+// input. Such a part is re-sent ONCE automatically (~3 s, silently: "Finishing…"); whatever still failed keeps its
+// original text with a small note and no button. Whole-document runs (PPTX, grammar, summary) are never re-sent.
+async function pfAfterRun(onRetry, wholeDoc) {
+  if (!window.PFPartial || window._pfAuto) return;   // a success during the automatic retry calls back in here
+  if (!wholeDoc && PFPartial.list().length && !PFPartial.autoRan()) {
+    window._pfAuto = true;
+    try {
+      await PFPartial.autoRetryOnce(onRetry, { onStatus: (n, total) => showStatus('Finishing' + (total > 1 ? ' part ' + n + ' of ' + total : '') + '…', 'info') });
+    } finally { window._pfAuto = false; }
+    if (!PFPartial.list().length) { showStatus('✓ Done.', 'success'); if (typeof pfRunDone === 'function') pfRunDone(); return; }
+  }
+  PFPartial.showNote();   // removes the old note; none when nothing is left
   if (!PFPartial.list().length) return;
-  const n = PFPartial.list().length;
-  showStatus('⚠ Done, but ' + (n === 1 ? '1 part' : n + ' parts') + ' couldn’t be paraphrased — marked below.', 'error');
+  showStatus(PFPartial.noteText(PFPartial.list().length), 'info');
 }
 
 function toggleSeeMore(btn) {
@@ -5090,7 +5096,7 @@ async function paraphrase() {
     showStatus("✓ Paraphrased successfully!", "success");
     showDownloadBtn();
     showHumanScore(displayText);
-    if (!isRetry) { showDonateNote(); gaToolUsed('paraphrase', countWords(text)); pfRunDone(); }
+    if (!isRetry) { showDonateNote(); gaToolUsed('paraphrase', countWords(text)); if (!(window.PFPartial && PFPartial.list().length)) pfRunDone(); }   // a partial result may be run again at once
   }
 }
 
