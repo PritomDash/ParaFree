@@ -20,7 +20,8 @@ const MAX_TEXT_LENGTH    = 50000;
 // With 4 max chunks × 10s = 40s per backend call — safely under the 60s Vercel limit.
 const FAST_TIMEOUT = 10000;  // ms per provider; was 4000 which timed out working slow providers
 const LAST_TIMEOUT = 14000;  // ms for the last-resort provider
-const SLOW_TIMEOUT = 25000;  // ms for slow providers (OVHcloud, LLM7, NVIDIA) — they need 10-20s per chunk
+const SLOW_TIMEOUT = 25000;  // ms for slow providers (LLM7, NVIDIA) — they need 10-20s per chunk
+const OVH_TIMEOUT  = 10000;  // OVHcloud: hard 10 s — overnight it took 17–25 s and then failed anyway (Nov 11)
 const REQUEST_BUDGET = 110000; // ms — every provider timeout is clipped so the whole request ends under maxDuration=120s
 const MIN_ATTEMPT_MS = 1500;  // don't start a provider call with less time than this left in the budget
 const SAFETY_NET_MS  = 5000;  // ms each chunk keeps back for the Cloudflare safety net (Tier 4, ~1-3 s per chunk)
@@ -301,7 +302,10 @@ const DISABLED_PROVIDERS = new Set([
   "extra1", "extra2", "extra3", "extra4", "extra5", "extra6",
 ]);
 
-const PROVIDER_TIMEOUTS = { ovhcloud: SLOW_TIMEOUT, llm7: SLOW_TIMEOUT, nvidia: SLOW_TIMEOUT };
+const CEREBRAS_RANK = 50;   // Tier 2 (10–999): after groq slots 1–2 (11, 12), before gemini Flash (101+)
+const PROVIDER_TIMEOUTS = { ovhcloud: OVH_TIMEOUT, llm7: SLOW_TIMEOUT, nvidia: SLOW_TIMEOUT, cerebras: FAST_TIMEOUT };
+// Ceilings below the chunk-size scaling (a big chunk is not given more time on these)
+const PROVIDER_TIMEOUT_MAX = { ovhcloud: OVH_TIMEOUT };
 
 // One chain entry for a resolved slot (`slot` = position among the key's resolved models,
 // `patternIndex` = which preference slot it came from — used for "last good" tracking).
@@ -460,7 +464,7 @@ function rateHeaders(res) {
 // The text of a finished answer. A cut-off (OpenAI "length", Gemini MAX_TOKENS / SAFETY / RECITATION …),
 // a blocked answer or an empty one throws "<label>:cutoff …" / ":empty", so the chain treats it as a failure.
 function finishedText(data, shape, label, info, res) {
-  if (info) { info.headers = rateHeaders(res); }
+  if (info) { info.headers = rateHeaders(res); info.tokens = tokensOf(data, shape); }
   const problem = quality.finishProblem(data, shape);
   let text;
   if (shape === 'gemini') {
@@ -481,6 +485,13 @@ function finishedText(data, shape, label, info, res) {
   if (problem && problem !== 'empty' && shape !== 'cloudflare') throw new Error(label + ":cutoff finish=" + problem);
   if (text === undefined || text === null || !String(text).trim()) throw new Error(label + ":empty no text");
   return text;
+}
+// Total tokens of one answer as the provider reports them (prompt + answer + hidden reasoning), or undefined
+function tokensOf(data, shape) {
+  const u = shape === 'gemini' ? data && data.usageMetadata : shape === 'cloudflare' ? data && data.result && data.result.usage : data && data.usage;
+  if (!u) return undefined;
+  const n = Number(shape === 'gemini' ? u.totalTokenCount : u.total_tokens);
+  return n > 0 ? n : undefined;
 }
 const isCutoff = (msg) => /:cutoff\b|:empty\b/.test(msg || "");
 
@@ -544,8 +555,10 @@ function soonestIfAllLocallyCooling(candidates) {
 // off just for being big, and nothing can hang.
 const PROVIDER_TIMEOUT_CAP = 30000;
 function providerTimeout(name, until, words = 0) {
-  const base = PROVIDER_TIMEOUTS[name] || PROVIDER_TIMEOUTS[name.split("/")[0]] || FAST_TIMEOUT;
-  return Math.min(Math.min(PROVIDER_TIMEOUT_CAP, Math.max(base, words * 15)), until - Date.now());
+  const fam = name.split("/")[0];
+  const base = PROVIDER_TIMEOUTS[name] || PROVIDER_TIMEOUTS[fam] || FAST_TIMEOUT;
+  const cap = PROVIDER_TIMEOUT_MAX[name] || PROVIDER_TIMEOUT_MAX[fam] || PROVIDER_TIMEOUT_CAP;
+  return Math.min(Math.min(cap, Math.max(base, words * 15)), until - Date.now());
 }
 
 async function callGroq(text, prompt, key, maxTokens = 2048, ms, model = GROQ_MODEL, info) {
@@ -612,27 +625,31 @@ async function callGemini(text, prompt, key, maxTokens = 2048, ms, model = GEMIN
   return finishedText(data, 'gemini', "Gemini/" + model, info, res);
 }
 
-async function callCerebras(text, prompt, key) {
-  console.log("[ParaFree] Trying: cerebras");
+// Cerebras free tier (gpt-oss-120b, same model as Groq Tier 1 — a second, separate daily token pool). Tier 2 of the
+// writing chain when CEREBRAS_KEY is set and is not the key that leaked in commit 38b0db4 (see cerebrasUsable).
+const CEREBRAS_MODEL = process.env.CEREBRAS_MODEL || "gpt-oss-120b";
+async function callCerebras(text, prompt, key, maxTokens = 2048, ms, info, model = CEREBRAS_MODEL) {
+  console.log("[ParaFree] Trying: cerebras/" + model);
   const res = await fetchWithTimeout("https://api.cerebras.ai/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
     body: JSON.stringify({
-      model: "gpt-oss-120b",
+      model,
       messages: [{ role: "user", content: prompt + "\n\n" + text }],
       temperature: 0.7,
-      max_tokens: 2048
+      max_tokens: maxTokens,
+      ...(isGptOss(model) ? { reasoning_effort: "low" } : {})
     })
-  });
-  if (!res.ok) {
-    let errBody = "";
-    try { errBody = await res.text(); } catch(_) {}
-    throw new Error("Cerebras:" + res.status + " " + errBody.slice(0, 100));
-  }
+  }, ms);
+  if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("Cerebras:" + res.status + " " + errDetail(res, b)); }
   const data = await res.json();
   if (!data.choices || !data.choices[0]) throw new Error("Cerebras: no response");
-  return data.choices[0].message.content;
+  return finishedText(data, 'openai', "Cerebras", info, res);
 }
+// sha256 prefixes of keys that were published in git history (commit 38b0db4). Only the fingerprint is kept here.
+const LEAKED_KEY_FPS = new Set(["05fbd10b"]);
+const keyFingerprint = (k) => require("crypto").createHash("sha256").update(String(k || "")).digest("hex").slice(0, 8);
+const cerebrasUsable = (k) => validKey(k) && !LEAKED_KEY_FPS.has(keyFingerprint(k));
 
 async function callOpenRouter(text, prompt, key, maxTokens = 2048) {
   console.log("[ParaFree] Trying: openrouter");
@@ -794,13 +811,32 @@ async function callSambaNova(text, prompt, key) {
 // One NVIDIA model per call: each resolved NVIDIA model (NVIDIA_MODEL_PREFS) is its own chain
 // entry ("nvidia/<model>"). A 404/410 is marked dead by the entry, which retries at once with the
 // model its slot now resolves to.
+// Nemotron models reason before answering; with the chunk-sized cap the reasoning used every token and the answer came
+// back null with finish_reason=length (Nov 10–11, overnight). So reasoning is switched off (chat_template_kwargs
+// enable_thinking=false), and the cap gets NVIDIA_HEADROOM extra tokens in case a model reasons anyway (tokens are
+// only counted on what is written). A model that rejects the field (400) is retried at once without it and remembered.
+const NVIDIA_HEADROOM = 1024;
+const isNemotron = (model) => /nemotron/i.test(model || "");
+const nvidiaThinkRejected = new Set();
 async function callNvidiaModel(text, prompt, key, maxTokens = 1500, ms = FAST_TIMEOUT, model, info) {
   console.log("[ParaFree] Trying: nvidia/" + model);
-  const res = await fetchWithTimeout("https://integrate.api.nvidia.com/v1/chat/completions", {
+  const t0 = Date.now();
+  const thinkOff = isNemotron(model) && !nvidiaThinkRejected.has(model);
+  const send = (off) => fetchWithTimeout("https://integrate.api.nvidia.com/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
-    body: JSON.stringify({ model, messages: [{ role: "user", content: prompt + "\n\n" + text }], temperature: 0.7, max_tokens: maxTokens, stream: false })
-  }, ms);
+    body: JSON.stringify({ model, messages: [{ role: "user", content: prompt + "\n\n" + text }], temperature: 0.7,
+      max_tokens: maxTokens + (isNemotron(model) ? NVIDIA_HEADROOM : 0), stream: false,
+      ...(off ? { chat_template_kwargs: { enable_thinking: false } } : {}) })
+  }, Math.max(MIN_ATTEMPT_MS, ms - (Date.now() - t0)));
+  let res = await send(thinkOff);
+  if (!res.ok && res.status === 400 && thinkOff) {
+    let b = ""; try { b = await res.text(); } catch (_) {}
+    if (!/chat_template_kwargs|enable_thinking|extra/i.test(b)) throw new Error("NVIDIA/" + model + ":" + res.status + " " + errDetail(res, b));
+    nvidiaThinkRejected.add(model);
+    console.log(`[ParaFree] nvidia/${model} rejected enable_thinking — retrying without it`);
+    res = await send(false);
+  }
   if (!res.ok) { let b=""; try{b=await res.text();}catch(_){} throw new Error("NVIDIA/" + model + ":" + res.status + " " + errDetail(res, b)); }
   const data = await res.json();
   if (!data.choices?.[0]) throw new Error("NVIDIA/" + model + ": no response");
@@ -1242,6 +1278,9 @@ function buildWritingCandidates(text, prompt, keys) {
     nvidia:     (m, ms, info) => callNvidiaModel(text, prompt, NVIDIA_KEY, mt, ms, m, info),
     cloudflare: (m, ms, info) => callCloudflare(text, prompt, CF_KEY, CF_ACCOUNT, mt, ms, m, info),
   }));
+  // Cerebras (gpt-oss-120b, its own free daily pool): Tier 2, after the Groq Tier-2 slots and before Gemini Flash.
+  // Left out while CEREBRAS_KEY is the key that leaked in commit 38b0db4 (it must be rotated first).
+  if (cerebrasUsable(keys.CEREBRAS_KEY)) chain.push({ name: "cerebras", rank: CEREBRAS_RANK, fn: (ms, info) => callCerebras(text, prompt, keys.CEREBRAS_KEY, mt, ms, info) });
   add("ovhcloud",   (ms, info) => callOVHcloud(text, prompt, mt, ms, info),           true);
   add("llm7",       (ms, info) => callLLM7(text, prompt, mt, ms, info),               true);
 
@@ -1279,6 +1318,8 @@ function buildWritingCandidates(text, prompt, keys) {
 // One structured log line per attempt (no text): provider, finish reason, words in/out, change %, gate, 429 type,
 // remaining-quota headers.
 function logAttempt(o) { try { console.log('[ParaFree] chunk-log ' + JSON.stringify(o)); } catch (_) {} }
+// Every provider's quota is used up (one full pass over the chain found no answer) — not a bug. GA: error_type=capacity.
+const CAPACITY_MESSAGE = "ParaFree is very busy right now — please try again in a few minutes.";
 const queuedMessage = (s) => `High demand — starting in ~${s} s`;
 const TOOL_NAMES = new Set(['paraphrase', 'humanize', 'grammar', 'summarize', 'detect', 'code_assistant', 'code_project', 'cv_extract', 'cv_build', 'cover_letter']);
 
@@ -1315,7 +1356,10 @@ function gateCount(reason) { usage.record(redis, 'gate', reason); }
 // Nov-4 chunk loop (a65c892): every provider in chain order until one answers. No attempt limit, no quality gate, no
 // best-of, no shared pacer, no split. check(out) → null or a reason: only an empty answer or the wrong language
 // (cut-offs — finish_reason=length — are thrown by finishedText). → the answer, or null when every provider failed.
-async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0, deadline = Date.now() + REQUEST_BUDGET, chunksLeft = 1, check = null) {
+// stats (optional) → stats.capacity = true when the chunk failed only for capacity: every provider was cooling down,
+// rate-limited (429 / quota), timed out, answered 5xx or there was no time left — never for a bad answer, a cut-off,
+// a refused key or a missing model.
+async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0, deadline = Date.now() + REQUEST_BUDGET, chunksLeft = 1, check = null, stats = {}) {
   const { chain, lastResort } = buildWritingCandidates(chunkText, prompt, envKeys);
   // startOffset comes from runChain's sequential counter (baseOffset + chunkSeq), so
   // consecutive chunks start on a DIFFERENT Groq key — even load across the keys.
@@ -1333,7 +1377,7 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0,
   console.log(`[ParaFree] chunk seq=${seq}: ${chunkText.length} chars, ${Math.round((chunkDeadline - chunkStart) / 1000)}s share, chain: ${ordered.map(c => c.name).join(' → ')}`);
   const forced = soonestIfAllLocallyCooling(ordered);
   const hasNet = ordered.some(c => tierOf(c) === 4 && (c === forced || !isLocallyCooling(c.name)));
-  let calls = 0;
+  let calls = 0, otherFailure = false;
   for (const c of ordered) {
     if (c !== forced && isLocallyCooling(c.name)) {
       console.log(`[ParaFree] ⏭ chunk seq=${seq} ${c.name} [cooldown] — skipped`);
@@ -1362,6 +1406,7 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0,
         const bad = check ? check(out) : null;
         logAttempt({ seq, provider: c.name, ms, finish: info.finish || null, inW: chunkWords, outW: countWordsApprox(out), gate: bad || 'ok', rem: info.headers || null });
         if (bad) {
+          otherFailure = true;
           console.warn(`[ParaFree] ⚠️ chunk seq=${seq} ${c.name} answer rejected (${bad}) — next`);
           gateCount(bad);
           if (bad === 'empty') noteModelFailure(c, c.name + ':empty no text', false, expectedTimeout);
@@ -1370,8 +1415,10 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0,
         console.log(`[ParaFree] ✅ chunk seq=${seq} handled by ${c.name} in ${ms}ms (${out.length} chars out, ${calls} call(s))`);
         discovery.noteSuccess(c.name, c.pk, c.patternIndex, c.model);
         usage.record(redis, 'chunk', c.name);
+        if (info.tokens) usage.record(redis, 'tok', c.name, info.tokens);   // tokens per chunk on the admin dashboard
         return out;
       }
+      otherFailure = true;
       console.warn(`[ParaFree] ⚠️ chunk seq=${seq} ${c.name} empty/short (${result?.length || 0} chars, ${ms}ms) — next`);
       noteModelFailure(c, c.name + ':empty no text', false, expectedTimeout);
     } catch (e) {
@@ -1381,15 +1428,19 @@ async function paraphraseChunk(chunkText, prompt, envKeys, startOffset, seq = 0,
       const quota = isQuotaError(msg);
       const tag = quota ? '429-rate-limit' : isCutoff(msg) ? 'cutoff' : msg.includes(':401') ? '401-auth' : msg.includes(':403') ? '403-forbidden' : msg.includes(':404') ? '404-model-not-found' : msg.includes(':503') ? '503-unavailable' : isAbort ? `TIMEOUT-${expectedTimeout}ms` : 'error';
       console.log(`[ParaFree] ❌ chunk seq=${seq} ${c.name} [${tag}] in ${ms}ms — ${msg.slice(0, 200)}`);
+      if (!quota && !isAbort && !/:5\d\d\b/.test(msg)) otherFailure = true;
       logAttempt({ seq, provider: c.name, ms, finish: info.finish || (isCutoff(msg) ? (msg.match(/finish=(\w+)/) || [, 'empty'])[1] : null), inW: chunkWords, outW: 0,
         gate: tag, q429: quota ? (quotaCooldown(msg) === DAILY_COOLDOWN ? 'day' : 'minute') : undefined, rem: info.headers || null });
       if (!quota) noteModelFailure(c, msg, isAbort, expectedTimeout);
+      // a provider without a discovered model list (cerebras) that refuses the key or wants payment sits out 6 h here
+      if (!quota && !c.pk && /:(401|402|403)\b/.test(msg)) { startLocalCooldown(c.name, msg, MAX_COOLDOWN, 'refused the key'); continue; }
       if (isCutoff(msg)) gateCount('cutoff');
       if (quota) startLocalCooldown(c.name, msg);
       else if (isAbort && !isNet && expectedTimeout >= TIMEOUT_COOLDOWN_MIN_MS) startLocalCooldown(c.name, msg, TIMEOUT_COOLDOWN, 'timed out');
     }
   }
-  console.error(`[ParaFree] ❌ chunk seq=${seq} exhausted all ${ordered.length} providers (${calls} call(s)) in ${Date.now() - chunkStart}ms`);
+  stats.capacity = !otherFailure;
+  console.error(`[ParaFree] ❌ chunk seq=${seq} exhausted all ${ordered.length} providers (${calls} call(s)) in ${Date.now() - chunkStart}ms${stats.capacity ? ' — capacity (quotas / cooldowns / timeouts)' : ''}`);
   usage.record(redis, 'chunk', null);
   return null;
 }
@@ -1444,7 +1495,7 @@ async function runChain(text, prompt, type, opts = {}) {
   if (!isAIChat && !isCVExtract) {
     const envKeys = {
       DEEPSEEK_KEY, GEMINI_KEY, GEMINI_KEY_2, GEMINI_KEY_3, GROQ_KEY, GROQ_KEY_2, GROQ_KEY_3, GROQ_KEY_4, MISTRAL_KEY, MISTRAL_KEY_2,
-      CF_KEY, CF_ACCOUNT, OPENROUTER_KEY, GLM_KEY, SAMBANOVA_KEY, NVIDIA_KEY,
+      CF_KEY, CF_ACCOUNT, OPENROUTER_KEY, GLM_KEY, SAMBANOVA_KEY, NVIDIA_KEY, CEREBRAS_KEY: process.env.CEREBRAS_KEY,
       SCW_KEY, HF_KEY, CHUTES_KEY, HETZNER_KEY,
       EXTRA1_KEY, EXTRA2_KEY, EXTRA3_KEY, EXTRA4_KEY, EXTRA5_KEY, EXTRA6_KEY
     };
@@ -1471,11 +1522,19 @@ async function runChain(text, prompt, type, opts = {}) {
     const isPPTX = text.includes('[SLIDE') && text.includes('[/SLIDE');
     console.log(`[ParaFree] writing: ${chunks.length} chunk(s) × ${sampleTotal} providers — sequential, input=${inputWords} words, isPPTX=${isPPTX}, kind=${kind}`);
     const t0 = Date.now();
-    let okChunks = 0, emitted = 0;
+    let okChunks = 0, emitted = 0, exhausted = false;
     const failedParts = [];
     const outs = await parallelLimit(chunks.map((chunkText, seq) => async () => {
-      if (seq > 0) await new Promise(r => setTimeout(r, CHUNK_INTER_DELAY));
-      const result = await paraphraseChunk(chunkText, prompt, envKeys, baseOffset + seq, seq, deadline, chunks.length - seq, check(chunkText));
+      // Fail fast: once one chunk has been through EVERY provider and failed for capacity only (quotas, cooldowns,
+      // timeouts, 5xx), the rest of this request would only wait on the same exhausted quotas — the later chunks keep
+      // their original text without another pass. (A chunk that failed for its own reasons — a cut-off, the wrong
+      // language — does not stop the others.)
+      const stats = {};
+      const result = exhausted ? null : await (async () => {
+        if (seq > 0) await new Promise(r => setTimeout(r, CHUNK_INTER_DELAY));
+        return paraphraseChunk(chunkText, prompt, envKeys, baseOffset + seq, seq, deadline, chunks.length - seq, check(chunkText), stats);
+      })();
+      if (result === null && stats.capacity) { exhausted = true; if (seq < chunks.length - 1) console.warn(`[ParaFree] ⏹ writing: chunk seq=${seq} found no capacity anywhere — not trying the ${chunks.length - seq - 1} later chunk(s)`); }
       const failed = result === null;
       if (failed) {
         console.warn(`[ParaFree] ⚠️ Chunk seq=${seq} (${seq + 1}/${chunks.length}) failed all providers — keeping original text for this chunk`);
@@ -1489,8 +1548,8 @@ async function runChain(text, prompt, type, opts = {}) {
     const elapsed = Date.now() - t0;
     const assembled = outs.join('\n\n');
     if (okChunks === 0) {
-      console.error(`[ParaFree] ❌ writing: no chunk could be paraphrased (${failedParts.length} part(s) failed) in ${elapsed}ms`);
-      return { success: false, error: "high_demand", apiStatuses: {} };
+      console.error(`[ParaFree] ❌ writing: no chunk could be paraphrased (${failedParts.length} part(s) failed) in ${elapsed}ms${exhausted ? ' — capacity' : ''}`);
+      return { success: false, error: exhausted ? "capacity" : "high_demand", apiStatuses: {} };
     }
     console.log(`[ParaFree] ✅ All ${chunks.length} chunk(s) complete in ${elapsed}ms — assembled ${assembled.length} chars, ${failedParts.length} part(s) kept original`);
     return { success: true, result: assembled, usedApi: 'parallel-chunks', apiStatuses: {}, failedParts };
@@ -1648,6 +1707,36 @@ async function handleNvidiaModels(body) {
   }
 }
 
+// ── FALLBACK PROBE (admin health check, body.probe = "fallback") ──
+// One real writing call per fallback provider — each NVIDIA slot, ovhcloud, llm7, cerebras and the Cloudflare
+// safety net — with a ~350-word chunk, the standard paraphrase prompt and the writing path's own cap and timeout.
+// Reports per provider: answered or not, ms, finish reason, words out, tokens. Never the text itself.
+const PROBE_TEXT = Array.from({ length: 11 }, (_, i) => `Paragraph ${i + 1} explains how students plan their weekly revision, test themselves with flashcards, take short breaks between sessions and review their mistakes before the final exam begins next month.`).join(" ");
+async function fallbackProbe() {
+  const prompt = getPrompt("standard"), words = countWordsApprox(PROBE_TEXT), mt = quality.outputCap(words);
+  const until = () => Date.now() + 60000;
+  const rows = [];
+  for (const s of discovery.slots("nvidia")) if (s.model && validKey(process.env.NVIDIA_KEY))
+    rows.push({ name: "nvidia/" + s.model, fn: (ms, info) => callNvidiaModel(PROBE_TEXT, prompt, process.env.NVIDIA_KEY, mt, ms, s.model, info) });
+  rows.push({ name: "ovhcloud", fn: (ms, info) => callOVHcloud(PROBE_TEXT, prompt, mt, ms, info) });
+  rows.push({ name: "llm7", fn: (ms, info) => callLLM7(PROBE_TEXT, prompt, mt, ms, info) });
+  if (validKey(process.env.CEREBRAS_KEY)) rows.push({ name: "cerebras", fn: (ms, info) => callCerebras(PROBE_TEXT, prompt, process.env.CEREBRAS_KEY, mt, ms, info) });
+  if (validKey(process.env.CF_KEY) && validKey(process.env.CF_ACCOUNT))
+    rows.push({ name: "cloudflare", fn: (ms, info) => callCloudflare(PROBE_TEXT, prompt, process.env.CF_KEY, process.env.CF_ACCOUNT, mt, ms, undefined, info) });
+  const out = {};
+  await Promise.all(rows.map(async (r) => {
+    const ms = providerTimeout(r.name, until(), words), info = {}, t0 = Date.now();
+    try {
+      const text = await r.fn(ms, info);
+      const bad = quality.writingProblem(PROBE_TEXT, String(text || "").trim(), { kind: "paraphrase" });
+      out[r.name] = { answered: !bad, ms: Date.now() - t0, timeoutMs: ms, finish: info.finish || null, wordsIn: words, wordsOut: countWordsApprox(String(text || "")), tokens: info.tokens || null, gate: bad || "ok" };
+    } catch (e) {
+      out[r.name] = { answered: false, ms: Date.now() - t0, timeoutMs: ms, finish: info.finish || null, tokens: info.tokens || null, error: String(e.message || e).slice(0, 200) };
+    }
+  }));
+  return { words, maxTokens: mt, results: out };
+}
+
 // ── TEST KEYS HANDLER ──
 async function handleTestKeys(body) {
   const adminPw = getAdminPassword();
@@ -1690,7 +1779,8 @@ async function handleTestKeys(body) {
     { name: "sambanova",  model: "Meta-Llama-3.3-70B-Instruct",       key: process.env.SAMBANOVA_KEY,  fn: (k) => callSambaNova(testText, testPrompt, k) },
     { name: "mistral",    model: "mistral-small-latest",              key: process.env.MISTRAL_KEY,    fn: (k) => callMistral(testText, testPrompt, k) },
     { name: "mistral-2",  model: "mistral-small-latest",              key: process.env.MISTRAL_KEY_2,  fn: async (k) => { await new Promise(r => setTimeout(r, 3500)); return callMistral(testText, testPrompt, k); } },
-    { name: "ovhcloud",   model: "Meta-Llama-3_3-70B-Instruct",      key: "no-key-needed",            fn: () => callOVHcloud(testText, testPrompt) },
+    { name: "ovhcloud",   model: "Meta-Llama-3_3-70B-Instruct",      key: "no-key-needed",            fn: () => callOVHcloud(testText, testPrompt, undefined, OVH_TIMEOUT) },
+    { name: "cerebras",   model: CEREBRAS_MODEL,                      key: process.env.CEREBRAS_KEY,   fn: (k) => callCerebras(testText, testPrompt, k, undefined, FAST_TIMEOUT) },
     { name: "deepseek",   model: "deepseek-chat",                     key: process.env.DEEPSEEK_KEY,   fn: (k) => callDeepSeek(testText, testPrompt, k) },
     { name: "openrouter", model: "qwen/qwen3.8-27b:free",               key: process.env.OPENROUTER_KEY, fn: (k) => callOpenRouter(testText, testPrompt, k) },
     { name: "llm7",       model: "mistral-Nemo-Instruct-2407",    key: "no-key-needed",            fn: () => callLLM7(testText, testPrompt) },
@@ -1751,6 +1841,14 @@ async function handleTestKeys(body) {
     }
   }));
 
+  // The Cerebras key that leaked in commit 38b0db4 is never used by the chain — say so next to its row.
+  if (results.cerebras && validKey(process.env.CEREBRAS_KEY)) {
+    results.cerebras.keyLeaked = !cerebrasUsable(process.env.CEREBRAS_KEY);
+    results.cerebras.inWritingChain = cerebrasUsable(process.env.CEREBRAS_KEY);
+  }
+  // body.probe === "fallback": one REAL writing call per fallback provider (see fallbackProbe)
+  const probe = body.probe === "fallback" ? await fallbackProbe() : undefined;
+
   // Active in-memory cooldowns on this warm instance, per key+model (chat and writing paths)
   for (const name of Object.keys(results)) {
     const until = Math.max(providerCooldowns.get(name) || 0, writingCooldowns.get(name) || 0);   // chat path + writing path
@@ -1769,7 +1867,7 @@ async function handleTestKeys(body) {
   try { usageDays = await usage.getUsage(redis, body.usageDays || 7); } catch (e) { usageDays = { ok: false, error: e.message }; }
 
   return {
-    success: true, results,
+    success: true, results, probe,
     discovery: discovery.status(),   // when each model list was last refreshed, its source, dead + blocked models, preference lists
     chainOrder: { tier3: TIER3_ORDER, safetyNet: "cloudflare (Tier 4)" },
     usage: usageDays,
@@ -1782,6 +1880,8 @@ module.exports = handler;
 // tests reset the shared pacer between cases (never used by the site)
 handler._pacer = pacer;
 handler._writingCooldowns = writingCooldowns;   // tests only: the writing path's per-instance cooldowns
+handler._leakedKeyFps = LEAKED_KEY_FPS;           // tests only: add a test key's fingerprint to act as a leaked key
+handler._keyFingerprint = keyFingerprint;
 async function handler(req, res) {
   // KEYS FOUND — absolute first line so this appears in every Vercel function invocation
   // Only whether each provider has a key — never any part of the key itself.
@@ -2001,6 +2101,8 @@ async function handler(req, res) {
       const r = await runChain(text.trim(), prompt, type, { mode, language, onChunk: (c) => line({ type: "chunk", index: c.index, total: c.total, text: c.text, sep: c.sep, failed: !!c.failed }) });
       line(r.error === "queued"
         ? { type: "done", success: false, error: "queued", status: 503, retryAfterS: r.retryAfterS, message: queuedMessage(r.retryAfterS) }
+        : r.error === "capacity"
+        ? { type: "done", success: false, error: "capacity", status: 503, message: CAPACITY_MESSAGE }
         : r.success
         ? { type: "done", success: true, result: r.result, usedApi: r.usedApi, apiStatuses: r.apiStatuses, failedParts: r.failedParts && r.failedParts.length ? r.failedParts : undefined, remaining: rate.remaining }
         : { type: "done", success: false, error: "high_demand", status: 503, message: "Our AI is at high demand right now. Please wait 20 seconds and try again — your full document will process.", apiStatuses: r.apiStatuses });
@@ -2009,6 +2111,7 @@ async function handler(req, res) {
 
     const { success, result, usedApi, error, apiStatuses, failedParts, retryAfterS } = await runChain(text.trim(), prompt, type, { mode, language });
     if (error === "queued") return res.status(503).json({ success: false, error: "queued", retryAfterS, message: queuedMessage(retryAfterS) });
+    if (error === "capacity") return res.status(503).json({ success: false, error: "capacity", message: CAPACITY_MESSAGE });
 
     if (success) {
       return res.status(200).json({

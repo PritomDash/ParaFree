@@ -133,7 +133,9 @@ const blk = (i, n) => Array.from({ length: n }, (_, j) => para(i * 100 + j)).joi
   r = await call({ text: ONE, mode: 'standard' });
   assert('six providers fail → the 7th answers the SAME chunk (no limit, no split)', r.status === 200 && r.calls.length === 7 && new Set(r.calls.map((c) => c.words)).size === 1 && !r.logs.some((l) => /split|stopping here|best one/.test(l)), r.calls.map((c) => c.name + ':' + c.words).join(','));
   const THREE = [blk(1, 12), blk(2, 12) + ' MARKER-FAIL', blk(3, 12), blk(4, 12)].join('\n\n');   // 4 chunks of ~384 words
-  behaviour = { '*': (c) => (/MARKER-FAIL/.test(c) ? { status: 500 } : good(c)) };
+  // (a failure of that chunk only — every provider cuts it off — so the other chunks still run; a capacity failure
+  // stops the request instead: tests/fallback-capacity.test.js)
+  behaviour = { '*': (c) => (/MARKER-FAIL/.test(c) ? { text: 'Cut', finish: 'length' } : good(c)) };
   r = await call({ text: THREE, mode: 'standard' });
   const fp = (r.payload && r.payload.failedParts) || [];
   assert('a chunk no provider could do keeps its ORIGINAL text and is reported in failedParts (once, not split)', r.status === 200 && fp.length === 1 && /MARKER-FAIL/.test(fp[0].text) && r.payload.result.includes(fp[0].text), JSON.stringify(fp).slice(0, 200));

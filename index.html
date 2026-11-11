@@ -3924,9 +3924,13 @@ async function runAPIChain(text, prompt, mode, language, toolType, protectCtx, o
     // Always apply dot statuses so failures are shown in red/yellow even on error
     if (data.apiStatuses) applyApiStatuses(data.apiStatuses);
     if (!res.ok || !data.success) {
-      _pfLastApiError = (data.error === 'high_demand' || data.error === 'queued' || res.status === 503) ? 'all_busy'
+      // capacity = every provider's quota is used up (one full pass found no answer) — counted apart from bugs in GA
+      _pfLastApiError = data.error === 'capacity' ? 'capacity'
+        : (data.error === 'high_demand' || data.error === 'queued' || res.status === 503) ? 'all_busy'
         : res.status === 504 ? 'timeout' : res.status >= 500 ? 'server_error' : 'other';
-      if (data.error === 'high_demand') {
+      if (data.error === 'capacity') {
+        showStatus("⏳ ParaFree is very busy right now — please try again in a few minutes.", "error");
+      } else if (data.error === 'high_demand') {
         showStatus("⏳ Our AI is at high demand right now. Please wait 20 seconds and try again — your full document will process.", "error");
       } else {
         showStatus(data.message || "All AI engines busy. Try again later!", "error");
@@ -3956,7 +3960,7 @@ async function runAPIChain(text, prompt, mode, language, toolType, protectCtx, o
 // ════════════════════════════════════════════
 // GA4 EVENTS (lib/tool-events.js — only fixed enum values are ever sent)
 // ════════════════════════════════════════════
-let _pfLastApiError = 'other';  // why the last runAPIChain call failed: all_busy | timeout | other
+let _pfLastApiError = 'other';  // why the last runAPIChain call failed: capacity | all_busy | timeout | other
 let _pfInputType = 'text';      // where the input text came from: text | txt | pdf | docx | doc | pptx
 
 function gaInputType() {

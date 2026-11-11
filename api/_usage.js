@@ -6,6 +6,7 @@
 //   "chunk|<entry>"  — a writing chunk (paraphrase, humanize, summarize, grammar, …)
 //   "chunk|(none)"   — a writing chunk every provider failed (the original text was kept)
 //   "chat|<entry>"   — an AI chat / CV request
+//   "tok|<entry>"    — tokens (prompt + answer + reasoning, as the provider reports them) of writing chunks
 // Read back by the admin health check (testKeys) and the PIN-gated "providerUsage" endpoint.
 // ═══════════════════════════════════════════════════
 'use strict';
@@ -18,11 +19,11 @@ const expired = new Set();               // day keys this instance already set a
 const dayOf = (t = Date.now()) => new Date(t).toISOString().slice(0, 10);   // UTC date
 
 // Fire-and-forget: never awaited by the request, never throws.
-function record(redis, kind, entry) {
-  if (!redis || !redis.hincrby) return;
+function record(redis, kind, entry, n = 1) {
+  if (!redis || !redis.hincrby || !(n > 0)) return;
   const key = PREFIX + dayOf();
   try {
-    Promise.resolve(redis.hincrby(key, kind + '|' + (entry || NONE), 1)).catch(() => {});
+    Promise.resolve(redis.hincrby(key, kind + '|' + (entry || NONE), Math.round(n))).catch(() => {});
     if (!expired.has(key) && redis.expire) {
       expired.add(key);
       Promise.resolve(redis.expire(key, KEEP_S)).catch(() => {});

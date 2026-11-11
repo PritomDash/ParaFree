@@ -258,7 +258,8 @@ const groqCalls = (names, model) => names.filter(n => n.startsWith('groq') && (!
   reset({});
   r = await call({ text: SHORT, mode: 'standard' });
   const t = Object.fromEntries(r.rawCalls.map(c => [c.name, c.timeoutMs]));
-  for (const slow of ['ovhcloud', 'llm7', NV_U, NV_L]) assert(`${slow} gets ≥20s`, t[slow] >= 20000, String(t[slow]));
+  for (const slow of ['llm7', NV_U, NV_L]) assert(`${slow} gets ≥20s`, t[slow] >= 20000, String(t[slow]));
+  assert('ovhcloud gets 10s (Nov 11: it took 17–25 s overnight and failed anyway)', t.ovhcloud > 9000 && t.ovhcloud <= 10000, String(t.ovhcloud));
   for (const fast of [`groq/${M120}`, `groq-2/${M20}`, `groq-3/${LLAMA}`, G1, GLITE, GEMMA, 'cloudflare'])
     assert(`${fast} gets 10s`, t[fast] > 9000 && t[fast] <= 10000, String(t[fast]));
   assert('no timeout exceeds the 55s request budget', r.rawCalls.every(c => c.timeoutMs <= 55000));
