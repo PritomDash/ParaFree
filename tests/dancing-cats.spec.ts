@@ -95,9 +95,10 @@ test.describe('Dancing Cats', () => {
   test('appears after load + idle, sound off, nothing fetched for audio, no console errors, no layout shift', async ({ page }) => {
     const { errors, requests } = await setup(page);
     await page.setViewportSize({ width: 1366, height: 768 });
+    await page.addInitScript(() => { window.addEventListener('load', () => { (window as any).__catsAtLoad = !!document.getElementById('pfc'); }); });
     await page.goto('/');
     await page.waitForLoadState('load');
-    const atLoad = await page.evaluate(() => !!document.getElementById('pfc'));
+    const atLoad = await page.evaluate(() => (window as any).__catsAtLoad);
     expect(atLoad, 'the widget is not there at the load event (it waits for idle)').toBe(false);
     await catsReady(page);
     await visibleCats(page);
@@ -215,20 +216,20 @@ test.describe('Dancing Cats', () => {
     expect((await st(page)).busy).toBe(false);
   });
 
-  test('hidden while flashcards or a PDF tool are working', async ({ page }) => {
-    await setup(page);
-    await page.goto('/flashcard-quiz-maker.html');
-    await catsReady(page); await visibleCats(page);
-    await page.evaluate(() => { (document.getElementById('spGo') as HTMLButtonElement).disabled = true; });   // what busy(true) does
-    await page.waitForFunction(() => document.getElementById('pfc')!.classList.contains('pfc-off'), null, { timeout: 3000 });
-    await page.evaluate(() => { (document.getElementById('spGo') as HTMLButtonElement).disabled = false; });
-    await page.waitForFunction(() => !document.getElementById('pfc')!.classList.contains('pfc-off'), null, { timeout: 5000 });
-    await page.goto('/compress-pdf.html');
-    await catsReady(page); await visibleCats(page);
-    await page.evaluate(() => { const p = document.createElement('div'); p.setAttribute('data-role', 'progress'); p.id = 'fakeProgress'; document.body.appendChild(p); });
-    await page.waitForFunction(() => document.getElementById('pfc')!.classList.contains('pfc-off'), null, { timeout: 3000 });
-    await page.evaluate(() => { document.getElementById('fakeProgress')!.hidden = true; });
-    await page.waitForFunction(() => !document.getElementById('pfc')!.classList.contains('pfc-off'), null, { timeout: 5000 });
+  test('home page only: no other page loads the cats (even if the loader tag were added there)', async ({ page }) => {
+    const { requests } = await setup(page);
+    const withTag = fs.readdirSync(ROOT).filter((f) => f.endsWith('.html') && fs.readFileSync(path.join(ROOT, f), 'utf8').includes('lib/cats/loader.js'));
+    expect(withTag).toEqual(['index.html']);
+    expect(fs.readFileSync(path.join(ROOT, 'scripts', 'build-pdf-pages.py'), 'utf8')).not.toContain('lib/cats/');
+    for (const url of ['/flashcard-quiz-maker.html', '/cv-builder.html', '/pdf-tools.html', '/compress-pdf.html']) {
+      requests.length = 0;
+      await page.goto(url);
+      await page.waitForLoadState('load');
+      await page.evaluate(() => { const s = document.createElement('script'); s.src = '/lib/cats/loader.js'; document.body.appendChild(s); });   // a stray tag
+      await page.waitForTimeout(6000);
+      expect(await page.evaluate(() => !!document.getElementById('pfc') || !!(window as any).PFCats), url).toBe(false);
+      expect(requests.some((u) => /\/lib\/cats\/cats\.js/.test(u)), url).toBe(false);
+    }
   });
 
   test('prefers-reduced-motion: still cats, no hops', async ({ page }) => {
@@ -250,7 +251,7 @@ test.describe('Dancing Cats', () => {
     expect(await page.evaluate(() => !!document.getElementById('pfc') || !!(window as any).PFCats)).toBe(false);
     expect(fs.readFileSync(path.join(ROOT, 'admin.html'), 'utf8')).not.toContain('lib/cats/');
     await page.goto('/blank-test.html').catch(() => {});
-    await page.setContent('<iframe src="https://parafree.app/flashcard-quiz-maker.html" style="width:800px;height:600px"></iframe>');
+    await page.setContent('<iframe src="https://parafree.app/" style="width:800px;height:600px"></iframe>');
     await page.waitForTimeout(7000);
     const inFrame = await page.frames()[1]?.evaluate(() => !!document.getElementById('pfc')).catch(() => false);
     expect(inFrame).toBe(false);
@@ -308,7 +309,7 @@ test.describe('Dancing Cats', () => {
   }
 
   const VIEWPORTS: [number, number][] = [[1920, 1080], [1440, 900], [1366, 768], [1024, 768], [768, 1024], [390, 844], [375, 667], [360, 640]];
-  const PAGES = ['/', '/flashcard-quiz-maker.html', '/cv-builder.html', '/pdf-tools.html', '/compress-pdf.html'];
+  const PAGES = ['/'];   // the cats live on the home page only
   for (const url of PAGES) {
     test(`layout, no overlap with anything clickable, no horizontal scroll — ${url}`, async ({ page }) => {
       const { errors, requests } = await setup(page);
