@@ -601,6 +601,7 @@ def page(slug):
 <script src="/lib/pdf-tools/loader.js?v=0"></script>
 <script src="/lib/pdf-tools/common.js?v=0"></script>
 <script src="/lib/pdf-tools/app.js?v=0"></script>
+<script src="/lib/cats/loader.js" defer></script>
 </body>
 </html>
 '''
