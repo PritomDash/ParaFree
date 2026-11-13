@@ -256,6 +256,57 @@ test.describe('Dancing Cats', () => {
     expect(inFrame).toBe(false);
   });
 
+  for (const [w, h] of [[1366, 768], [1440, 900]] as [number, number][]) {
+    test(`hero ${w}×${h}: shadows, bigger moves, the grey cat never under "Open Tool" / floating buttons, music pauses off-screen`, async ({ page }) => {
+      const { errors } = await setup(page);
+      await page.setViewportSize({ width: w, height: h });
+      await page.goto('/');
+      await catsReady(page); await visibleCats(page);
+      expect((await st(page)).mode).toBe('hero');
+      expect(await page.locator('#pfc .pfc-side .pfc-shadow').count()).toBe(2);                     // one ground shadow per cat
+      const css = await page.evaluate(() => document.getElementById('pfc-style')!.textContent!);
+      expect(css).toContain('translateY(-24px)');                                                     // higher hops
+      expect(css).toContain('rotate(12deg)');                                                         // wider sway
+      const right = await page.evaluate(() => document.querySelector('#pfc .pfc-right')!.getBoundingClientRect().right);
+      expect(right, 'an 84 px lane stays clear at the right edge').toBeLessThanOrEqual(w - 84 + 1);
+      // scroll through the hero: a visible cat never touches the fixed header or anything clickable outside the cats
+      const heroH = await page.evaluate(() => document.getElementById('mainHero')!.getBoundingClientRect().height);
+      const bad: string[] = [];
+      for (let y = 0; y <= heroH; y += 25) {
+        await page.evaluate((yy) => window.scrollTo({ top: yy, behavior: 'instant' as ScrollBehavior }), y);
+        await page.waitForTimeout(260);
+        const r = await page.evaluate(() => {
+          const nav = document.getElementById('mainNav')!.getBoundingClientRect();
+          const clickables = [...document.querySelectorAll('#mainNav a, #mainNav button, #pf-scroll-top.visible')].map((e) => e.getBoundingClientRect()).filter((x) => x.width > 0);
+          return [...document.querySelectorAll('#pfc .pfc-side')].map((side) => {
+            const b = side.getBoundingClientRect(), shown = getComputedStyle(side).visibility !== 'hidden';
+            const underNav = b.top < nav.bottom, hit = clickables.some((c) => b.left < c.right && b.right > c.left && b.top < c.bottom && b.bottom > c.top);
+            return { cls: side.className, shown, underNav, hit };
+          });
+        });
+        for (const x of r) if (x.shown && (x.underNav || x.hit)) bad.push(`${y}px: ${x.cls} shown under the header / a button`);
+      }
+      expect(bad).toEqual([]);
+      // music: on with the hero in view, paused once the hero is scrolled away, back when it returns
+      await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior }));
+      await page.waitForTimeout(400);
+      await page.click('#pfc .pfc-sound');
+      await page.waitForFunction(() => (window as any).PFCats.state().playing, null, { timeout: 10000 });
+      await page.evaluate(() => window.scrollTo({ top: 2000, behavior: 'instant' as ScrollBehavior }));
+      await page.waitForFunction(() => !(window as any).PFCats.state().playing, null, { timeout: 5000 });
+      expect((await st(page)).sound, 'sound stays switched on — only paused').toBe(true);
+      await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior }));
+      await page.waitForFunction(() => (window as any).PFCats.state().playing, null, { timeout: 5000 });
+      expect(await page.evaluate(() => Object.keys((window as any).PFCatsMusic.TUNES))).toEqual(['entertainer', 'turca', 'cancan', 'gladiators', 'williamtell']);
+      await page.click('#pfc .pfc-sound');
+      if (w === 1366) {
+        await page.waitForTimeout(500);
+        await page.screenshot({ path: path.join(SHOTS, 'hero-1366-v2.png'), clip: { x: 0, y: 0, width: w, height: 420 } });
+      }
+      expect(errors).toEqual([]);
+    });
+  }
+
   const VIEWPORTS: [number, number][] = [[1920, 1080], [1440, 900], [1366, 768], [1024, 768], [768, 1024], [390, 844], [375, 667], [360, 640]];
   const PAGES = ['/', '/flashcard-quiz-maker.html', '/cv-builder.html', '/pdf-tools.html', '/compress-pdf.html'];
   for (const url of PAGES) {
